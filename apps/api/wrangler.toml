@@ -1,0 +1,10 @@
+name = "c-verse-api"
+main = "src/index.ts"
+compatibility_date = "2024-12-01"
+compatibility_flags = ["nodejs_compat"]
+
+[vars]
+ENV = "development"
+
+# For local dev without Cloudflare bindings, all data is in-memory.
+# For production: add D1/R2/KV bindings here.

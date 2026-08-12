@@ -1,0 +1,21 @@
+{
+  "name": "c-verse-platform",
+  "private": true,
+  "version": "0.1.0",
+  "description": "C.Verse — Creator Verse platform (C.Card MVP)",
+  "workspaces": ["apps/*", "packages/*"],
+  "scripts": {
+    "dev:web": "pnpm --filter @c-verse/web dev",
+    "dev:api": "pnpm --filter @c-verse/api dev",
+    "dev": "pnpm -r --parallel dev",
+    "build": "pnpm -r build",
+    "build:web": "pnpm --filter @c-verse/web build",
+    "build:api": "pnpm --filter @c-verse/api build",
+    "lint": "pnpm -r lint",
+    "typecheck": "pnpm -r typecheck"
+  },
+  "packageManager": "pnpm@9.12.3",
+  "engines": {
+    "node": ">=20"
+  }
+}
