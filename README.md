@@ -18,8 +18,8 @@ Lihat `../../00_Dream_Project/` untuk dokumen brainstorm (pondasi, MVP flow, tec
 pnpm install
 
 # dev: jalankan keduanya (api :8787, web :5173)
-pnpm --filter @c-verse/api dev:node   # Hono via @hono/node-server :8787
-pnpm --filter @c-verse/web dev        # Vite :5173 (proxy /api → :8787)
+pnpm --filter @c-verse/api dev:node # Hono via @hono/node-server :8787
+pnpm --filter @c-verse/web dev # Vite :5173 (proxy /api → :8787)
 # atau buka 2 terminal, satu per app
 ```
 
@@ -32,7 +32,7 @@ pnpm --filter @c-verse/web dev        # Vite :5173 (proxy /api → :8787)
 1. **Primary Drop** — siapa cepat dia dapat, potong C-Coin, limit 2/drop, stok atomik
 2. **Fulfillment** — card allocation + trackingNumber
 3. **Payment & Settlement** — wallet C-Coin ledger, revenue share 70/30 ke kreator
-4. **NFC Tap & Verify** — `/api/nfc/verify-nfc` (Web NFC Chrome Android) + CMAC sim
+4. **NFC Tap & Verify** — `/api/nfc/verify-nfc` (tap di Android) + QR fallback
 5. **QR Fallback** — `/api/nfc/verify/:shortId` (iOS / non-Chrome)
 6. **Ownership Transfer** — via secondary settlement (fixed buy-now + auction accept)
 7. **Secondary Auction P2P** — fixed & english auction, min 5% increment, anti-sniping +5m, fee 15%
@@ -41,7 +41,7 @@ pnpm --filter @c-verse/web dev        # Vite :5173 (proxy /api → :8787)
 
 ## Build
 ```bash
-pnpm --filter @c-verse/web build   # → apps/web/dist
+pnpm --filter @c-verse/web build # → apps/web/dist
 ```
 
 ## Deploy (full-edge)

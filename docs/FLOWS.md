@@ -8,14 +8,14 @@
 
 ```
 Kreator submit (artwork, narasi, totalUnits, harga C-Coin, dropAt ≥ H+14)
-  → Review 1–2 hari → Rejected/Approved
-  → Produksi 5–7d sample + 10–14d full
-  → NFC provisioning + QC (Flow 2)
-  → Listing publish H-7 + countdown (notif H-3/H-1/H-1jam)
-  → Drop LIVE: checkout race, max 2 kartu/user, counter Realtime
-  → Payment: potong saldo C-Coin (medium tunggal; KEPUTUSAN 2026-08-11)
-    saldo kurang → tolak + arahkan top-up (Flow 9)
-  → Sold out atau timer habis → fulfillment (Flow 2 & 3)
+ → Review 1–2 hari → Rejected/Approved
+ → Produksi 5–7d sample + 10–14d full
+ → NFC provisioning + QC (Flow 2)
+ → Listing publish H-7 + countdown (notif H-3/H-1/H-1jam)
+ → Drop LIVE: checkout race, max 2 kartu/user, counter Realtime
+ → Payment: potong saldo C-Coin (medium tunggal; KEPUTUSAN 2026-08-11)
+ saldo kurang → tolak + arahkan top-up (Flow 9)
+ → Sold out atau timer habis → fulfillment (Flow 2 & 3)
 ```
 
 - **Signed**: `ceil(total/10)` (1 per 10). 15 → 1 signed + 14 unsigned.
@@ -29,15 +29,15 @@ Kreator submit (artwork, narasi, totalUnits, harga C-Coin, dropAt ≥ H+14)
 
 ```
 Produksi selesai
-  → Provisioning 1× per tag: assign UUID↔UID, AppMasterKey, NDEF URL + SDM (UID+ctr+CMAC+Tamper)
-  → Embed stiker belakang kartu (cover acrylic)
-  → QC: tap test + defect fisik (target <2%)
-  → Packing: dus premium + QR printed (short_id, fallback iOS)
-  → Handover 3PL (Biteship/RajaOngkir, max 3 hari)
-  → Tracking → delivery confirm (manual/auto)
+ → Provisioning 1× per tag: aktivasi tag NFC & binding ke sertifikat digital (satu kali, read-only)
+ → Embed stiker belakang kartu (cover acrylic)
+ → QC: tap test + defect fisik (target <2%)
+ → Packing: dus premium + QR printed (short_id, fallback iOS)
+ → Handover 3PL (Biteship/RajaOngkir, max 3 hari)
+ → Tracking → delivery confirm (manual/auto)
 ```
 
-- Provisioning **1× read-only** (SUN/SDM, N5), bukan write per kartu.
+- Provisioning **1× read-only** (dinamis/sistem, N5), bukan write per kartu.
 - COGS unsigned **Rp 104k** / signed **Rp 120k**; 3PL **Rp 15k terpisah**; tanpa payment fee per sale sejak C-Coin.
 - Chip **Rp 5–7k**, lead time ~2 minggu, buffer 20%.
 
@@ -47,12 +47,12 @@ Produksi selesai
 
 ```
 Checkout (Flow 1): potong C-Coin buyer (WalletTx checkout)
-  → Hold escrow C-Coin  [BLOCKED — butuh lawyer, JANGAN lock desain]
-  → Auto-release setelah delivery confirm
-  → Split revenue share (C-Coin):
-      platform-produced 70/30 · kreator-produced 30/70
-  → Payout batch Selasa: C-Coin → IDR (kurs Rp10k/C, via disbursement)
-  → Withholding: PPh 23 atas nilai IDR + bukti potong; PPN 11% atas penjualan
+ → Hold escrow C-Coin [BLOCKED — butuh lawyer, JANGAN lock desain]
+ → Auto-release setelah delivery confirm
+ → Split revenue share (C-Coin):
+ platform-produced 70/30 · kreator-produced 30/70
+ → Payout batch Selasa: C-Coin → IDR (kurs Rp10k/C, via disbursement)
+ → Withholding: PPh 23 atas nilai IDR + bukti potong; PPN 11% atas penjualan
 ```
 
 - Payment data tidak disimpan (tokenization Midtrans saat top-up, PCI-DSS via gateway).
@@ -63,19 +63,19 @@ Checkout (Flow 1): potong C-Coin buyer (WalletTx checkout)
 ## Flow 4 — NFC Tap & Verifikasi (Chrome Android 89+ ONLY)
 
 ```
-Tap HP → Web NFC baca NDEF SUN (?uid=…&ctr=…&c=…)
-  → GET Workers → lookup kartu by short_id/uid
-  → Derive CMAC (AppKey diversified by UID + ctr, AES-128 via Web Crypto, key di KMS)
-  → Compare + ctr > last_ctr (anti-replay)
-  → Parse TagTamper
-  → Return sertifikat + badge:
-      ✅ "Kartu terverifikasi"  (match & utuh)
-      ⚠️ "Tamper detected"      (once-opened)
-      + 3D viewer (three.js) + ownership popup
+Tap HP → scan NFC → verifikasi tap (data dinamis anti-clone)
+ → GET Workers → lookup kartu by short_id/uid
+ → Verifikasi kriptografi di server (validasi keaslian tag)
+ → Validasi anti-replay + cek keutuhan tag
+ → Cek deteksi tamper
+ → Return sertifikat + badge:
+ ✅ "Kartu terverifikasi" (match & utuh)
+ ⚠️ "Tamper detected" (once-opened)
+ + 3D viewer (three.js) + ownership popup
 ```
 
 - Web NFC **Chrome Android 89+ ONLY** (iOS/Firefox/desktop ❌ — research 2026-08-03).
-- PII tidak di tag (hanya UID/ctr/CMAC).
+- Tidak ada data pribadi di tag.
 
 ---
 
@@ -83,8 +83,8 @@ Tap HP → Web NFC baca NDEF SUN (?uid=…&ctr=…&c=…)
 
 ```
 Scan QR di dus (short_id) ATAU input short_id manual
-  → Lookup by short_id (DB match, TANPA CMAC)
-  → 3D viewer + ownership popup, badge = ❓ "Registered" (weaker)
+ → Lookup by short_id (cocok database, tanpa verifikasi kriptografi)
+ → 3D viewer + ownership popup, badge = ❓ "Registered" (weaker)
 ```
 
 - Public verify tanpa login boleh (detail penuh butuh login — UU PDP minimization).
@@ -94,7 +94,7 @@ Scan QR di dus (short_id) ATAU input short_id manual
 
 ## Flow 6 — Ownership Transfer
 
-> Koreksi gap G3: **tidak ada NFC re-write**. SUN/SDM read-only. Transfer = record di DB.
+> Koreksi gap G3: **tidak ada NFC re-write**. dinamis/sistem read-only. Transfer = record di DB.
 
 ```
 (A) Activation (primary buyer): Barang datang → "Activate" → tap (Flow 4) → bind current_owner_id → "Owned" di profil
@@ -109,12 +109,12 @@ Scan QR di dus (short_id) ATAU input short_id manual
 
 ```
 Listing (WAJIB verify Flow 4 dulu, 1 kartu=1 listing, max 20 active/user, 1–14 hari)
-  → Pilih Fixed (buy-now) ATAU English (+ reserve hidden)
-  → Live → bid Realtime (increment ≥5% atau Rp25k, mana lebih tinggi), harga/bid dalam C-Coin
-  → Anti-sniping: bid di 5m terakhir → +5m (max 3×)
-  → Timer habis → tertinggi menang (≥ reserve)
-  → Settlement: hold C-Coin escrow [BLOCKED] → seller ship ≤5 hari → confirm/7d auto-release
-  → Split: 7,5% platform + 7,5% royalti LIFETIME + 85% owner → payout C→IDR (fee 1%) → ownership (Flow 6)
+ → Pilih Fixed (buy-now) ATAU English (+ reserve hidden)
+ → Live → bid Realtime (increment ≥5% atau Rp25k, mana lebih tinggi), harga/bid dalam C-Coin
+ → Anti-sniping: bid di 5m terakhir → +5m (max 3×)
+ → Timer habis → tertinggi menang (≥ reserve)
+ → Settlement: hold C-Coin escrow [BLOCKED] → seller ship ≤5 hari → confirm/7d auto-release
+ → Split: 7,5% platform + 7,5% royalti LIFETIME + 85% owner → payout C→IDR (fee 1%) → ownership (Flow 6)
 ```
 
 - Mediasi `×` — midtrans dialek.
@@ -129,15 +129,15 @@ C-Coin = **medium tunggal** semua transaksi (TIDAK ADA IDR langsung). Rate **Rp1
 
 ```
 Top-up: pilih jumlah C-Coin (≥1, cap [DRAFT])
-  → T&C "saldo tidak dapat diuangkan"
-  → Pay Midtrans Snap (Xendit backup)
-  → Webhook → Workers (idempoten, retry via Queues)
-  → WalletTx type=topup + update balance_ccoin → notifikasi
+ → T&C "saldo tidak dapat diuangkan"
+ → Pay Midtrans Snap (Xendit backup)
+ → Webhook → Workers (idempoten, retry via Queues)
+ → WalletTx type=topup + update balance_ccoin → notifikasi
 
 Payout: escrow release (Flow 3/7) → hitung porsi C-Coin
-  → Seller secondary: default disburse IDR ATAU tahan C-Coin (tanpa fee)
-  → WalletTx settlement (+ payout kalau IDR) → fee 1% × nominal IDR → disburse ke rekening KYC via Midtrans/Xendit → notifikasi
-  (kreator: siklus Selasa; seller secondary: otomatis saat settlement, SLA [DRAFT])
+ → Seller secondary: default disburse IDR ATAU tahan C-Coin (tanpa fee)
+ → WalletTx settlement (+ payout kalau IDR) → fee 1% × nominal IDR → disburse ke rekening KYC via Midtrans/Xendit → notifikasi
+ (kreator: siklus Selasa; seller secondary: otomatis saat settlement, SLA [DRAFT])
 ```
 
 - Satu `payment_id` tidak boleh double-process; ledger immutable (`balance_after`), Cron recon harian.

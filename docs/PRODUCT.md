@@ -2,15 +2,15 @@
 
 ## Satu Paragraf
 
-**C.Verse** (Creator Verse) — **C.Card** adalah MVP-nya — adalah platform yang mempertemukan **kreator Indonesia** dengan **kolektor/fans** untuk merilis **kartu kolaborasi edisi terbatas** (acrylic hardcase 63×88 mm ala graded Pokemon card + dus custom premium). Tiap kartu = **1 NTAG 424 DNA TagTamper** (AES-128 SUN, CMAC + tamper loop irreversibel, NDEF 256 B) di belakang kartu ter-cover acrylic = **1 sertifikat digital immutable**. Primary **siapa cepat dia dapat** (fixed, time-boxed), secondary **lelang P2P bid-offer bebas**, gamifikasi **level/badge/leaderboard** mengikat ekosistem.
+**C.Verse** (Creator Verse) — **C.Card** adalah MVP-nya — adalah platform yang mempertemukan **kreator Indonesia** dengan **kolektor/fans** untuk merilis **kartu kolaborasi edisi terbatas** (acrylic hardcase 63×88 mm ala graded Pokemon card + dus custom premium). Tiap kartu = **1 NFC terverifikasi** (teknologi NFC dengan proteksi anti-tamper) di belakang kartu ter-cover acrylic = **1 sertifikat digital immutable**. Primary **siapa cepat dia dapat** (fixed, time-boxed), secondary **lelang P2P bid-offer bebas**, gamifikasi **level/badge/leaderboard** mengikat ekosistem.
 
 > MVP = kartu. Platform = **limited-edition physical collectibles** (Y1 kartu, Y2 fashion/tiket event, Y3+ art/vinyl/figure). Lihat `90_research/multi-tier-strategy.md` di arsip untuk tier expansion.
 
 ## Pilar (5)
 
 1. **Physical-first** — bisa dipegang, dipajang, NFC cuma menambah.
-2. **Verifiable scarcity** — CMAC + sertifikat on-platform, tidak bisa di-clone.
-3. **Anti-tamper** — TagTamper *once-opened* irreversibel + mirror ke NDEF.
+2. **Verifiable scarcity** — verifikasi keaslian + sertifikat on-platform, tidak bisa di-clone.
+3. **Anti-tamper** — deteksi tamper irreversibel, sekali dibuka status berubah permanen.
 4. **Fair primary, free secondary** — fair launch; pasar bebas di secondary.
 5. **Gamified ownership** — level 1–50, badge (First Drop, Whale, Curator…), leaderboard.
 

@@ -26,7 +26,7 @@
 | COGS kartu unsigned (total) | **Rp 104k** (signed Rp 120k = +Rp16k insert) — sudah dus/QC/shipping/payment fee | unit economics |
 | COGS production average (acrylic+print+NFC) panduan kasar | Rp 50–80k | form-factor |
 | 3PL | **Rp 15k terpisah** (variable cost) | — |
-| NTAG 424 DNA TagTamper | Rp 5–7k/satuan (target 1k–10k vol; Y2+ 100k → Rp3,5–5k) | N2 |
+| NFC terverifikasi | Rp 5–7k/satuan (target 1k–10k vol) | |
 | Dus premium + QR fallback | termasuk COGS total di atas | Flow 2 |
 
 Harga harus **bulat C-Coin** agar tanpa pembulatan konversi (Rp300k→30 C, Rp500k→50 C).
@@ -71,10 +71,10 @@ Contoh: primary Rp300k → kreator Rp90k; resale Rp1jt → platform Rp75k + roya
 
 | Parameter | Nilai |
 |-----------|-------|
-| Chip MVP | **NXP NTAG 424 DNA TagTamper** (AES-128 SUN CMAC + tamper loop irreversibel, NDEF 256 B, Type 4, ~10 cm) |
+| Chip | **NFC terverifikasi** (anti-tamper & verifikasi keaslian) |
 | Embedding | stiker belakang kartu (cover acrylic), provisioning **1× read-only** |
 | Web NFC | **Chrome Android 89+ ONLY**; iOS/Firefox/desktop ❌ → fallback QR `short_id` (printed di dus) |
-| Badge | ✅ Kartu terverifikasi (CMAC) · ⚠️ Tamper detected · ❓ Registered (QR, weaker) |
+| Badge | ✅ Kartu terverifikasi · ⚠️ Tamper terdeteksi · ❓ Registered (QR, weaker) |
 | 3D viewer | **three.js + OrbitControls + UnrealBloomPass**, `card.obj` MVP (`.glb` Y2+), drag rotate, bloom, idle auto-rotate, lazy load, fallback 2D |
 
 ## Other Thresholds

@@ -62,7 +62,7 @@ export default function Verify(){
 
   return <div style={{display:"flex",flexDirection:"column",gap:18}}>
     <div>
-      <span className="eyebrow">NTAG 424 DNA TagTamper — Verify</span>
+      <span className="eyebrow">Verify — Kartu Terverifikasi</span>
       <h1 className="h2">Verify Kartu</h1>
       <p className="muted">Web NFC: Chrome Android 89+ ONLY. iOS / desktop pakai QR fallback (short_id di dus).</p>
     </div>
@@ -99,7 +99,7 @@ export default function Verify(){
             <div><b>Series:</b> {result.drop?.series ?? result.drop?.title ?? "-"}</div>
             <div><b>Card:</b> {result.drop?.title ?? "-"} · Unit #{result.card?.unitNumber ?? "-"} · Variant: {result.card?.variant ?? "-"}</div>
             <div><b>Owner:</b> {result.owner?.displayName ?? "— (belum terikat)"}</div>
-            <div><b>Method:</b> {result.verifyMethod ?? result._method ?? "-"} {result.verifyStatus==="registered" && <span style={{color:"var(--gold)"}}>— weaker (DB match, tanpa CMAC)</span>}</div>
+            <div><b>Method:</b> {result.verifyMethod ?? result._method ?? "-"} {result.verifyStatus==="registered" && <span style={{color:"var(--gold)"}}>— verifikasi dasar</span>}</div>
             {result.message && <div style={{fontSize:12,color:"var(--muted)",background:"var(--bg-elevated)",padding:8,borderRadius:8}}>{result.message}</div>}
             <div style={{fontSize:11,color:"var(--dim)"}}>Card ID: {result.card?.id ?? "-"} · Short ID: {result.card?.nfcShortId ?? shortId} {result.card?.nfcUid ? `· UID: ${result.card.nfcUid}`:""}</div>
           </div>
@@ -117,11 +117,11 @@ export default function Verify(){
         <div className="muted" style={{fontSize:11}}>3D viewer: three.js · drag/swipe untuk orbit · bukan AR (AR = Y2+). Fallback 2D jika WebGL tidak tersedia.</div>
         {result?.verifyStatus==="verified" && <div className="card card-pad" style={{background:"rgba(46,204,113,0.08)",borderColor:"rgba(46,204,113,0.25)"}}>
           <div style={{fontWeight:700,fontSize:13}}>✅ Tamper Check: Aman</div>
-          <div style={{fontSize:12,color:"var(--muted)",marginTop:4}}>Loop TagTamper intact · CMAC match (NTAG 424 DNA SUN) · Sertifikat on-platform valid.</div>
+          <div style={{fontSize:12,color:"var(--muted)",marginTop:4}}>Tag utuh · Keaslian terverifikasi · Sertifikat valid.</div>
         </div>}
         {result?.verifyStatus==="tamper_detected" && <div className="card card-pad" style={{background:"rgba(255,71,87,0.08)",borderColor:"rgba(255,71,87,0.25)"}}>
           <div style={{fontWeight:700,color:"var(--error)"}}>⚠️ Tamper Detected</div>
-          <div style={{fontSize:12,color:"var(--muted)",marginTop:4}}>TagTamper loop putus — status once-opened irreversibel. Hubungi support dengan foto dus & kartu.</div>
+          <div style={{fontSize:12,color:"var(--muted)",marginTop:4}}>Tamper terdeteksi — kartu pernah dibuka. Hubungi support.</div>
         </div>}
       </div>
     </div>

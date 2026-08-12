@@ -53,8 +53,8 @@ Enums: `user_role`, `drop_status` (draft/review/approved/production/scheduled/li
 ### Local Supabase (Docker)
 
 ```bash
-npx supabase start    # :54321 API, :54322 DB (17), :54323 Studio
-npx supabase status   # anon/service_role keys → copy ke .env.local
+npx supabase start # :54321 API, :54322 DB (17), :54323 Studio
+npx supabase status # anon/service_role keys → copy ke .env.local
 npx supabase db reset # re-run migrations + seed
 npx supabase stop
 ```

@@ -18,11 +18,11 @@
 
 ```
 00_Dream_Project (arsip pondasi)
-        ↓ diringkas
-Platform/docs/*  ← kamu di sini (compact, code-oriented)
-        ↓ diimplementasi
-apps/web  (React/Vite SPA → Cloudflare Pages)
-apps/api  (Hono → Cloudflare Workers / Node tsx)
+ ↓ diringkas
+Platform/docs/* ← kamu di sini (compact, code-oriented)
+ ↓ diimplementasi
+apps/web (React/Vite SPA → Cloudflare Pages)
+apps/api (Hono → Cloudflare Workers / Node tsx)
 packages/shared (Zod schemas + constants)
 supabase/migrations + seed.sql (branching auto-apply)
 ```
@@ -31,15 +31,15 @@ supabase/migrations + seed.sql (branching auto-apply)
 
 ```bash
 pnpm install
-pnpm dev              # node scripts-dev.mjs → :8787 API + :5173 web (proxy /api)
-# demo: demo@cverse.id / demo123  → tombol "Demo Login" di /login
+pnpm dev # node scripts-dev.mjs → :8787 API + :5173 web (proxy /api)
+# demo: demo@cverse.id / demo123 → tombol "Demo Login" di /login
 ```
 
 ## Quick Start (dengan Supabase)
 
 ```bash
-npx supabase start    # :54321 API, :54322 DB, :54323 Studio
-# copy .env.example → .env.local  (isi VITE_SUPABASE_* / SUPABASE_*)
+npx supabase start # :54321 API, :54322 DB, :54323 Studio
+# copy .env.example → .env.local (isi VITE_SUPABASE_* / SUPABASE_*)
 npx supabase db reset # re-run migrations + seed.sql
 pnpm dev
 ```

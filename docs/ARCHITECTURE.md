@@ -8,28 +8,28 @@
 
 ```
 Browser / Mobile
-    │
-    ▼
-┌──────────────────────────────┐  Cloudflare Pages (Vite SPA, unlimited, free)
-│ React 19 + Vite + Router     │  TanStack Query (cache/retry/optimistic)
-│ shadcn/Radix · three.js      │  SEO di-defer (traffic dari sosmed kreator)
+ │
+ ▼
+┌──────────────────────────────┐ Cloudflare Pages (Vite SPA, unlimited, free)
+│ React 19 + Vite + Router │ TanStack Query (cache/retry/optimistic)
+│ shadcn/Radix · three.js │ SEO di-defer (traffic dari sosmed kreator)
 └──────────────┬───────────────┘
-               │ fetch /api/*
-               ▼
-┌──────────────────────────────┐  Cloudflare Workers (Hono, 100k req/day free)
-│ Auth middleware (JWT via JWKS)│  Business logic · CMAC verify (Web Crypto)
-│ Webhook handler (Midtrans)    │  CF Queues · Cron (open/close, recon, email)
+ │ fetch /api/*
+ ▼
+┌──────────────────────────────┐ Cloudflare Workers (Hono, 100k req/day free)
+│ Auth middleware (JWT via JWKS)│ Business logic · verifikasi NFC (server-side)
+│ Webhook handler (Midtrans) │ CF Queues · Cron (open/close, recon, email)
 └───┬──────┬──────┬──────┬──────┘
-    │      │      │      │
-    ▼      ▼      ▼      ▼
- Supabase Supabase  R2   Queues
- Postgres  Auth  (images Cron
- (SG)      (JWT)  +3D)  (bg jobs)
-    │
-    ▼
+ │ │ │ │
+ ▼ ▼ ▼ ▼
+ Supabase Supabase R2 Queues
+ Postgres Auth (images Cron
+ (SG) (JWT) +3D) (bg jobs)
+ │
+ ▼
  Supabase Realtime (broadcast: bid + counter)
-    · <50 concurrent/listing cukup (MVP)
-    · Durable Objects tidak dipakai (overkill)
+ · <50 concurrent/listing cukup (MVP)
+ · Durable Objects tidak dipakai (overkill)
 ```
 
 **Yang tidak dipakai di MVP**: Next.js/SSR, Better Auth/Lucia, BullMQ/Redis, VPS.
@@ -38,11 +38,11 @@ Browser / Mobile
 
 ```
 Platform/
-  apps/web/        → Vite SPA, deploy ke CF Pages (dist/)
-  apps/api/        → Hono, src/index.ts = Worker entry (export default app)
-                     src/server.ts = Node entry (serve, dipakai lokal & scripts-dev.mjs)
-  packages/shared/ → Zod schemas, types, constants (dipakai web+api)
-  supabase/        → migrations/ + seed.sql + config.toml
+ apps/web/ → Vite SPA, deploy ke CF Pages (dist/)
+ apps/api/ → Hono, src/index.ts = Worker entry (export default app)
+ src/server.ts = Node entry (serve, dipakai lokal & scripts-dev.mjs)
+ packages/shared/ → Zod schemas, types, constants (dipakai web+api)
+ supabase/ → migrations/ + seed.sql + config.toml
 ```
 
 Tooling: **pnpm workspace**. Shared: `packages/shared/src/index.ts` di-import web+api → type safety tanpa codegen.
@@ -60,16 +60,16 @@ Tooling: **pnpm workspace**. Shared: `packages/shared/src/index.ts` di-import we
 | Payment | **Midtrans** (primary) + Xendit backup | **Hanya** top-up C-Coin + disbursement (checkout internal C-Coin, tanpa fee gateway) |
 | Shipping | Biteship / RajaOngkir | Tracking → notifikasi |
 | Email | **Resend** (default, abstraction layer, vendor-agnostic) | Custom SMTP bisa plug |
-| NFC | NTAG 424 DNA TagTamper — SUN AES-128 CMAC via Web Crypto | `nodejs_compat` fallback jika perlu |
+| NFC | NFC terverifikasi — verifikasi kriptografi sisi-server | `nodejs_compat` fallback jika perlu |
 
 ## Dev & Build (Hermes-aware)
 
 ```bash
 pnpm install
-pnpm dev              # node scripts-dev.mjs → tsx watch src/server.ts :8787 + vite :5173
-pnpm --filter @c-verse/web dev   # vite :5173 (proxy /api → :8787)
+pnpm dev # node scripts-dev.mjs → tsx watch src/server.ts :8787 + vite :5173
+pnpm --filter @c-verse/web dev # vite :5173 (proxy /api → :8787)
 pnpm --filter @c-verse/api dev:node # tsx watch src/server.ts :8787
-pnpm -r build         # shared tsc --noEmit + api tsc + web vite build
+pnpm -r build # shared tsc --noEmit + api tsc + web vite build
 pnpm -r typecheck
 ```
 
@@ -91,7 +91,7 @@ Supabase DB 500 MB (est 50–100), Auth 50k MAU, Realtime 200 concurrent; Worker
 
 ## Open Items (Jangan Asumsi)
 
-- CMAC pure Web Crypto vs `nodejs_compat` (Sprint 6–8).
+- detail verifikasi NFC server-side (Sprint 6–8).
 - R2 public vs presigned.
 - Supabase SG vs Jakarta region (cek saat setup).
 - Domain/SSL sebelum pilot.
