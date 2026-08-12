@@ -6,12 +6,12 @@
   "workspaces": ["apps/*", "packages/*"],
   "scripts": {
     "dev:web": "pnpm --filter @c-verse/web dev",
-    "dev:api": "pnpm --filter @c-verse/api dev",
-    "dev": "pnpm -r --parallel dev",
+    "dev:api": "pnpm --filter @c-verse/api dev:node",
+    "dev": "pnpm --filter @c-verse/api dev:node -- --host 127.0.0.1 & pnpm --filter @c-verse/web dev",
     "build": "pnpm -r build",
     "build:web": "pnpm --filter @c-verse/web build",
     "build:api": "pnpm --filter @c-verse/api build",
-    "lint": "pnpm -r lint",
+    "lint": "echo \"no lint configured\"",
     "typecheck": "pnpm -r typecheck"
   },
   "packageManager": "pnpm@9.12.3",

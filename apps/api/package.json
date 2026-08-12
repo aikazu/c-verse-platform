@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "wrangler dev --port 8787",
-    "dev:node": "tsx watch src/index.ts",
+    "dev:node": "tsx watch src/server.ts",
     "build": "tsc --noEmit",
     "typecheck": "tsc --noEmit",
     "deploy": "wrangler deploy"

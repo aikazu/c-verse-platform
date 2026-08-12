@@ -49,14 +49,3 @@ app.onError((err, c) => {
 });
 
 export default app;
-
-// For `tsx watch` local node dev (without wrangler)
-if (import.meta.url.endsWith("index.ts") || process.argv[1]?.endsWith("index.ts")) {
-  const { serve } = await import("@hono/node-server").catch(() => ({ serve: null as unknown as typeof import("@hono/node-server").serve }));
-  if (serve) {
-    const port = Number(process.env.PORT || 8787);
-    serve({ fetch: app.fetch, port }, (info) => {
-      console.log(`C.Verse API listening on http://localhost:${info.port}`);
-    });
-  }
-}
