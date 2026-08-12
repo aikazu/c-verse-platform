@@ -9,6 +9,7 @@
     "allowImportingTsExtensions": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
+    "types": ["vite/client"],
     "baseUrl": ".",
     "paths": {
       "@c-verse/shared": ["../../packages/shared/src/index.ts"]
