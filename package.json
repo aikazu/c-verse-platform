@@ -2,12 +2,15 @@
   "name": "c-verse-platform",
   "private": true,
   "version": "0.1.0",
-  "description": "C.Verse — Creator Verse platform (C.Card MVP)",
-  "workspaces": ["apps/*", "packages/*"],
+  "description": "C.Verse \u2014 Creator Verse platform (C.Card MVP)",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "scripts": {
     "dev:web": "pnpm --filter @c-verse/web dev",
     "dev:api": "pnpm --filter @c-verse/api dev:node",
-    "dev": "pnpm --filter @c-verse/api dev:node -- --host 127.0.0.1 & pnpm --filter @c-verse/web dev",
+    "dev": "node scripts-dev.mjs",
     "build": "pnpm -r build",
     "build:web": "pnpm --filter @c-verse/web build",
     "build:api": "pnpm --filter @c-verse/api build",
