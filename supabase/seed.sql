@@ -52,6 +52,7 @@ insert into public.sessions (token, user_id) values
 on conflict (token) do nothing;
 
 -- Cards + ownership + extras (location = with_owner vs platform_stock; one listed buyout)
+-- Fix: nfc_short_id harus unik per kartu — pakai drop.id prefix truncated + unit, bukan left(4) yang duplikat ("drop" untuk semua drop)
 do $$
 declare
  d record;
@@ -63,11 +64,14 @@ declare
  _loc text;
  _card_id text;
  _buyout int;
+ _prefix text;
 begin
  for d in select * from public.drops loop
+ -- unique short_id per card: 4-char hash of drop.id + unit (avoids collision e.g. drop-aespa-2025 vs drop-aespa-signed)
+ _prefix := substring(md5(d.id) from 1 for 4) || '-';
  for i in 1..d.total_units loop
- _short := left(d.id, 4) || '-' || lpad(i::text, 3, '0');
- _uid := '04A1' || upper(substring(md5(random()::text) from 1 for 8)) || lpad(i::text, 2, '0');
+ _short := _prefix || lpad(i::text, 3, '0');
+ _uid := '04A1' || upper(substring(md5(random()::text || d.id || i::text) from 1 for 8)) || lpad(i::text, 2, '0');
  _buyout := null;
  if i <= d.sold_count then
    if i % 3 = 0 then _owner := 'u_demo';
