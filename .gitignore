@@ -16,4 +16,5 @@ apps/api/.wrangler/
 supabase/.branches
 supabase/.temp
 supabase/.env.keys
+.hermes/
 

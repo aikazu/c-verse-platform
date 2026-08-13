@@ -26,7 +26,7 @@ Dokumen perencanaan **canonical = `docs/`** (`00-README` → `08-deployment`, se
 - Typecheck: `pnpm run typecheck` (`pnpm -r typecheck` → `tsc --noEmit` per package; 4 workspaces: shared, api, web, admin)
 - Build: `pnpm run build` (`pnpm -r build`); `pnpm --filter @c-verse/web build` → `apps/web/dist`, `pnpm --filter @c-verse/admin build` → `apps/admin/dist`, `pnpm --filter @c-verse/api build` = `tsc --noEmit` only. Workers deploy: `pnpm --filter @c-verse/api deploy` (`wrangler deploy`).
 - Lint: `pnpm run lint` = no-op (`echo "no lint configured"`).
-- CI: `.github/workflows/supabase-branch-check.yml` on PR touching `supabase/**` → `pnpm install`, `typecheck`, `build`, `supabase db lint`.
+- CI: *(disabled di dev — lihat `.github/workflows.disabled/`)* — aktif lagi saat siap prod: `supabase-branch-check.yml` on PR `supabase/**` → `pnpm install`, `typecheck`, `build`, `supabase db lint`.
 
 ## Project layout
 
