@@ -20,7 +20,7 @@ export default function Kyc(){
     <div className="card card-pad">
       <span className="eyebrow">KYC — Trigger</span>
       <h1 className="h2" style={{marginTop:6}}>Verifikasi KYC</h1>
-      <p className="muted" style={{fontSize:13, marginTop:8}}>Wajib sebelum: top-up kumulatif &gt; 99 C-Coin, pasang buyout price, atau accept bid (dok 07 C-05b). Verifikasi manual Y1.</p>
+      <p className="muted" style={{fontSize:13, marginTop:8}}>Wajib sebelum: payout/disbursement hasil seller/kreator ke IDR + akumulasi top-up besar (threshold 99 C-Coin). Tidak ada KYC untuk pasang buyout atau terima bid (dok 07 C-05b validasi lawyer). Verifikasi manual Y1.</p>
       {kyc ? <div style={{marginTop:12, padding:"12px 14px", borderRadius:10, background: kyc.status==="approved" ? "rgba(34,197,94,0.12)" : kyc.status==="rejected" ? "rgba(239,68,68,0.12)" : "rgba(234,179,8,0.12)"}}>
         <div style={{fontWeight:700, fontSize:13}}>Status: {kyc.status.toUpperCase()} — {kyc.fullName} · {kyc.nik}</div>
         {kyc.status==="approved" && <div className="muted" style={{fontSize:12, marginTop:4}}>KYC approved — badge Verified + XP. Kamu bisa pasang buyout / accept bid.</div>}

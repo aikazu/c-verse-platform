@@ -21,7 +21,7 @@ export default function ManageCards(){
     if(v!=null && (isNaN(v) || v < 1)){ push("Buyout minimal 1 C-Coin","info"); return; }
     try{
       if(v==null || v===0){ await api.patchBuyout(card.id, null); push("Buyout dicabut","success"); }
-      else { await api.setBuyout(card.id, v); push(`Buyout ${v} C-Coin dipasang — tampil di Marketplace (KYC wajib)`, "success"); }
+      else { await api.setBuyout(card.id, v); push(`Buyout ${v} C-Coin dipasang — tampil di Marketplace`, "success"); }
       refetch();
     }catch(e:any){ push(e.message,"error"); }
   }
@@ -52,7 +52,7 @@ export default function ManageCards(){
           <input className="input" type="number" min={1} placeholder="Buyout C-Coin (kosongkan untuk cabut)" value={buyout[card.id] ?? (card.buyoutPriceCcoin ?? "")} onChange={e=> setBuyout(s=> ({...s,[card.id]: e.target.value===""? 0 as any : Number(e.target.value)}))} style={{flex:1, fontSize:12}} />
           <button className="btn-gold" onClick={()=> onSetBuyout(card)} style={{fontSize:12, padding:"6px 10px"}}>Set</button>
         </div>
-        {card.activeBid && <button className="btn-ghost" onClick={()=> onAccept(card)} style={{fontSize:12}}>Accept bid {card.activeBid.amountCCoin} C dari {card.activeBid.bidderName} (KYC wajib)</button>}
+        {card.activeBid && <button className="btn-ghost" onClick={()=> onAccept(card)} style={{fontSize:12}}>Accept bid {card.activeBid.amountCCoin} C dari {card.activeBid.bidderName}</button>}
         {card.location==="platform_vault" && <div style={{borderTop:"1px solid var(--border)", paddingTop:10, display:"flex", flexDirection:"column", gap:6}}>
           <div style={{fontSize:12, fontWeight:700}}>Kirim dari vault ke alamat</div>
           <input className="input" placeholder="Alamat lengkap" value={vaultAddr[card.id] ?? ""} onChange={e=> setVaultAddr(s=> ({...s,[card.id]: e.target.value}))} style={{fontSize:12}} />

@@ -10,7 +10,7 @@ export default function Checkout(){
   const { user } = useAuth();
   const { push } = useToast();
   const nav = useNavigate();
-  const [delivery, setDelivery] = useState<"shipping"|"vault">("shipping");
+  const [delivery, setDelivery] = useState<"shipping"|"vault">("vault");
   const [addr, setAddr] = useState("Jl. Contoh No. 123, Jakarta Selatan 12345");
   const [fee, setFee] = useState(2);
   const [buying, setBuying] = useState(false);

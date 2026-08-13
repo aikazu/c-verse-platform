@@ -49,7 +49,7 @@ export default function DropDetail(){
         : <Link to={"/drops/"+drop.id+"/checkout"} className="btn-gold" style={{padding:"14px",fontSize:15, width:"100%", textAlign:"center", textDecoration:"none"}}>Checkout — pilih kirim fisik / vault →</Link>}
         <div style={{fontSize:11,color:"var(--dim)",lineHeight:"1.5"}}>
           Saldo kurang? <Link to="/wallet" style={{color:"var(--gold)",fontWeight:700}}>Top-up C-Coin di Wallet →</Link>
-          <span style={{marginLeft:8}}>Top-up kumulatif &gt;99 C-Coin / pasang buyout / accept bid = Wajib KYC.</span>
+          <span style={{marginLeft:8}}>KYC: payout/disbursement ke IDR + akumulasi top-up besar (99 C-Coin). Tidak ada KYC untuk buyout/accept bid.</span>
         </div>
       </div>
     </div>

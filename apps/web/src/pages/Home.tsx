@@ -15,7 +15,7 @@ export default function Home(){
     <div className="card card-pad" style={{background:"linear-gradient(135deg,#1a1a2e 0%, #2a2040 100%)"}}>
       <div style={{fontSize:12, color:"var(--gold)", fontWeight:700, letterSpacing:"0.06em"}}>HOME - Selamat datang, {user.displayName}</div>
       <h1 className="h2" style={{marginTop:6}}>Saldo {w ? w.balanceCCoin+" C-Coin" : "..."} <Link to="/wallet" style={{color:"var(--gold)", fontSize:14}}>Wallet</Link> <Link to="/orders" style={{color:"var(--gold)", fontSize:14}}>Orders</Link> <Link to="/me/manage" style={{color:"var(--gold)", fontSize:14}}>Kelola Kartu</Link></h1>
-      <div className="muted" style={{fontSize:12, marginTop:6}}>Top-up di Wallet (area user - bukan publik) - KYC trigger jika kumulatif lebih dari 99 C-Coin / pasang buyout / accept bid.</div>
+      <div className="muted" style={{fontSize:12, marginTop:6}}>Top-up di Wallet (area user - bukan publik) - KYC: payout/disbursement ke IDR + akumulasi top-up besar (99 C-Coin). Tidak ada KYC untuk buyout/accept bid.</div>
     </div>
     <div>
       <div style={{display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10}}>

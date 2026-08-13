@@ -22,7 +22,7 @@ export default function Marketplace(){
         <button className="btn-ghost" onClick={()=> refetch()}>Refresh</button>
       </div>
     </div>
-    {isLoading ? <div className="muted">Memuat...</div> : cards.length===0 ? <div className="card card-pad muted">Belum ada kartu buyout. Pasang harga dari <Link to="/me/manage" style={{color:"var(--gold)"}}>Kelola Kartu →</Link> (KYC wajib).</div> :
+    {isLoading ? <div className="muted">Memuat...</div> : cards.length===0 ? <div className="card card-pad muted">Belum ada kartu buyout. Pasang harga dari <Link to="/me/manage" style={{color:"var(--gold)"}}>Kelola Kartu →</Link>.</div> :
     <div className="grid-3">
       {cards.map((r:any)=> {
         const card = r.card ?? r;

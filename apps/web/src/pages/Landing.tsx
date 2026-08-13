@@ -44,7 +44,7 @@ export default function Landing(){
           <div><div style={{fontSize:12,fontWeight:700}}>{t}</div><div style={{fontSize:11,color:"var(--dim)"}}>{d}</div></div>
         </div>)}
         <div style={{display:"flex",gap:8,marginTop:12}}>
-          <Link to="/verify" style={{fontSize:12,fontWeight:700,color:"var(--gold)"}}>Coba Verify →</Link>
+          <Link to="/browse" style={{fontSize:12,fontWeight:700,color:"var(--gold)"}}>Browse kartu →</Link>
           <span style={{color:"var(--dim)"}}>·</span>
           <Link to="/wallet" style={{fontSize:12,fontWeight:700,color:"var(--gold)"}}>Wallet →</Link>
         </div>

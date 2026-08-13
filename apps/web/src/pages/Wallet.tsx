@@ -42,7 +42,7 @@ export default function Wallet(){
         <div style={{fontSize:11,fontWeight:700,letterSpacing:"0.08em",color:"var(--gold)",textTransform:"uppercase"}}>Saldo C-Coin</div>
         <div style={{fontSize:42,fontWeight:800,marginTop:6}}>{w.balanceCCoin} <span style={{fontSize:16,color:"var(--muted)",fontWeight:600}}>C-Coin</span></div>
         <div style={{fontSize:13,color:"var(--muted)"}}>≈ {formatIdr(w.balanceIdrEquiv ?? w.balanceCCoin*rate)} · Top-up total {w.totalTopupCCoin} C · Spent {w.totalSpentCCoin} C</div>
-        <div style={{fontSize:11,color:"var(--dim)",marginTop:8}}>Closed-loop — saldo tidak dapat diuangkan (buyer). Payout hanya untuk seller/creator hasil jual (disburst IDR). KYC trigger: kumulatif &gt;99 C-Coin / pasang buyout / accept bid.</div>
+        <div style={{fontSize:11,color:"var(--dim)",marginTop:8}}>Closed-loop — saldo tidak dapat diuangkan (buyer). Payout hanya untuk seller/creator hasil jual (disburst IDR). KYC: payout/disbursement ke IDR + akumulasi top-up besar (threshold 99 C-Coin). Tidak ada KYC untuk pasang buyout/accept bid.</div>
         <div style={{fontSize:11,color:"var(--warn, #eab308)",marginTop:8}}>Level XP: top-up TIDAK menambah XP — hanya spending C-Coin (1 C = 1 XP) + reward badge yang menambah.</div>
       </div>
 
@@ -57,6 +57,9 @@ export default function Wallet(){
             {[10,20,30,50,100,200,500].map(v=> <option key={v} value={v}>{v} C-Coin ({formatIdr(v*10000)})</option>)}
           </select>
         </div>
+        <div style={{background:"rgba(255,215,0,0.06)", border:"1px solid rgba(255,215,0,0.2)", borderRadius:8, padding:"10px 12px", fontSize:11, lineHeight:"1.5"}}>
+          <b>Disclosure (Opsi A — Gamified Point Redemption):</b> Saldo C-Coin tidak dapat diuangkan langsung (closed-loop buyer). Refund hanya reversal ke metode top-up asal. Cap saldo 1000 C-Coin (Rp 10jt) — top-up melebihi cap ditolak. Top-up wajib T&C + cap sebelum live (docs/07 C-01/C-08).
+        </div>
         <button className="btn-gold" onClick={onTopup} style={{padding:"10px"}}>Top-up {amount} C-Coin</button>
         <div style={{borderTop:"1px solid var(--border)",marginTop:4,paddingTop:12,display:"flex",flexDirection:"column",gap:8}}>
           <div style={{fontWeight:700,fontSize:13}}>Payout ke IDR (seller/creator only) — KYC wajib</div>
@@ -64,7 +67,7 @@ export default function Wallet(){
             <input className="input" type="number" min={1} value={payoutAmt} onChange={e=> setPayoutAmt(Number(e.target.value))} style={{flex:1}}/>
             <button className="btn-ghost" onClick={onPayout}>Payout</button>
           </div>
-          <div style={{fontSize:11,color:"var(--dim)"}}>Fee 1% fixed. Contoh: 85 C → fee 1 C → net 84 C = {formatIdr(840000)}. Buyer tidak bisa payout (closed-loop).</div>
+          <div style={{fontSize:11,color:"var(--dim)"}}>Fee 1% fixed (min 1 C). Min payout 10 C-Coin (Rp 100rb) — saldo menumpuk sampai threshold. Contoh: 85 C → fee 1 C → net 84 C = {formatIdr(840000)}. Buyer closed-loop tidak bisa payout.</div>
         </div>
       </div>
     </div>

@@ -104,3 +104,18 @@ tr:last-child td { border-bottom: none; }
 .toast-success { background: #14532d; color: #d1fae5; border: 1px solid #1a7a3a; }
 .toast-error { background: #58151c; color: #fecdd3; border: 1px solid #991b2e; }
 .toast-info { background: #1e293b; color: #dbeafe; border: 1px solid #334155; }
+
+
+/* Navbar dropdown (user menu) — sits above blur */
+.nav-actions { position: relative; }
+
+/* Responsive: on small screens collapse center nav to horizontal scroll */
+@media (max-width: 900px){
+  .navbar { gap: 12px; flex-wrap: wrap; }
+  .nav-links { gap: 14px; font-size: 12px; flex: 1; justify-content: center; }
+  .nav-actions { width: 100%; justify-content: flex-end; }
+}
+@media (max-width: 560px){
+  .nav-links { gap: 12px; }
+}
+
