@@ -38,12 +38,10 @@ export default function Collection(){
   return <div style={{display:"flex",flexDirection:"column",gap:18}}>
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-end",flexWrap:"wrap",gap:12}}>
       <div style={{flex:"1 1 320px"}}>
-        <span className="eyebrow">My Collection</span>
-        <h1 className="h2">Koleksi — {p.user.displayName}</h1>
-        <p className="muted" style={{fontSize:12, marginTop:6}}>{p.stats.totalCards} kartu · vault {p.stats.vaultCards} · buyout {p.stats.buyoutListed} · {p.wallet.balanceCCoin} C-Coin</p>
+        <h1 className="h2">Koleksi</h1>
+        <p className="muted" style={{fontSize:12, marginTop:6}}>{p.stats.totalCards} kartu</p>
         <div className="card card-pad" style={{marginTop:12, background:"var(--bg-elevated)", border:"1px solid var(--border)"}}>
           <LevelBar level={level} tier={tier} progressPct={progressPct} hint={progressLabel} />
-          <div className="muted" style={{fontSize:11, marginTop:8}}>10 XP = 1 Level · progress ditampilkan sebagai bar (bukan angka satuan). XP didapat dari spending & badge; top-up tidak menambah XP.</div>
         </div>
       </div>
       <div style={{display:"flex", gap:8}}>
@@ -58,7 +56,7 @@ export default function Collection(){
       </div>
     </div>}
     <div className="card">
-      <div style={{padding:"12px 14px",fontWeight:700,borderBottom:"1px solid var(--border)"}}>Kartu Milikmu ({cards.length}) <Link to="/me/manage" style={{fontSize:12, color:"var(--gold)", marginLeft:8}}>Kelola → set buyout / bid / vault ship</Link></div>
+      <div style={{padding:"12px 14px",fontWeight:700,borderBottom:"1px solid var(--border)"}}>Kartu ({cards.length}) <Link to="/me/manage" style={{fontSize:12, color:"var(--gold)", marginLeft:8}}>Kelola</Link></div>
       {cards.length===0 ? <div style={{padding:20,textAlign:"center",color:"var(--muted)"}}>Belum punya kartu. <Link to="/drops" style={{color:"var(--gold)"}}>Beli di Drops →</Link></div> :
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(220px,1fr))",gap:12,padding:14}}>
         {cards.map((ca:any)=> <Link key={ca.id} to={"/cards/"+ca.id} className="card" style={{overflow:"hidden", textDecoration:"none", color:"inherit"}}>
@@ -72,7 +70,7 @@ export default function Collection(){
               {ca.activeBid ? <span className="pill pill-success">Bid {ca.activeBid.amountCCoin} C</span> : null}
               <span className={"pill "+(ca.verifyStatus==="verified"?"pill-success": ca.verifyStatus==="tamper_detected"?"pill-danger":"pill-warn")}>{ca.verifyStatus}</span>
             </div>
-            <div style={{fontSize:11,color:"var(--dim)"}}>ShortID: {ca.nfcShortId} · <span style={{color:"var(--gold)"}}>Info →</span></div>
+            <div style={{fontSize:11,color:"var(--dim)"}}><Link to={"/cards/"+ca.id} style={{color:"var(--gold)"}}>Detail →</Link></div>
           </div>
         </Link>)}
       </div>}

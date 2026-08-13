@@ -26,7 +26,7 @@ export default function ListingDetail(){
       <Link to="/marketplace" style={{fontSize:13, color:"var(--muted)"}}>← Marketplace</Link>
       <div className="card card-pad">
         <div style={{fontWeight:700}}>Marketplace — Buyout</div>
-        <p className="muted" style={{fontSize:13, marginTop:8}}>Listing detail (legacy) — untuk buyout buka halaman kartu: tersedia via Marketplace → Info Kartu.</p>
+        <p className="muted" style={{fontSize:13, marginTop:8}}>Untuk membeli, buka halaman kartu.</p>
         {card && <Link to={"/cards/"+card.id} className="btn-gold" style={{textDecoration:"none", display:"inline-block", marginTop:12}}>Buka Info Kartu →</Link>}
       </div>
     </div>;
@@ -54,11 +54,11 @@ export default function ListingDetail(){
   }
   return <div style={{display:"flex",flexDirection:"column",gap:16}}>
     <Link to="/marketplace" style={{fontSize:13,color:"var(--muted)"}}>← Marketplace</Link>
-    <div className="muted" style={{fontSize:11, background:"rgba(234,179,8,0.1)", border:"1px solid rgba(234,179,8,0.25)", borderRadius:8, padding:"8px 12px"}}>Halaman kompatibilitas — model terbaru: <b>Marketplace = buyout price di kartu</b> + <b>Browse = bid langsung di kartu</b> (tanpa auction timer/anti-sniping di MVP — see docs/07 C-07).</div>
+
     <div className="grid-2" style={{alignItems:"start"}}>
       <div className="card card-pad" style={{display:"flex",flexDirection:"column",gap:12}}>
         <div style={{display:"flex",gap:8,alignItems:"center"}}>
-          <span className={"pill "+(isAuction?"pill-info":"pill-success")}>{listing.type.toUpperCase()} (legacy compat)</span>
+          <span className={"pill "+(isAuction?"pill-info":"pill-success")}>{listing.type.toUpperCase()}</span>
           <span className={"pill "+(listing.status==="bidding"?"pill-info":listing.status==="settled"?"pill-success":"pill-warn")}>{listing.status}</span>
           {listing.reserveCCoin && <span className="pill pill-warn">Reserve {listing.reserveCCoin} C</span>}
         </div>

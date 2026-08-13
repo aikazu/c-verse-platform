@@ -66,7 +66,7 @@ function UserMenu(){
             <MenuLink to="/orders" label="Pesanan" hint="Order & shipping" onClick={()=> setOpen(false)} />
             <MenuLink to="/collection" label="Koleksi" hint="/me & ownership" onClick={()=> setOpen(false)} />
             <MenuLink to="/me/manage" label="Kelola kartu" hint="Sell / buyout / bid" onClick={()=> setOpen(false)} />
-            <MenuLink to="/wallet" label="Wallet" hint="C-Coin & top-up" onClick={()=> setOpen(false)} />
+            <MenuLink to="/wallet" label="Dompet" hint="C-Coin" onClick={()=> setOpen(false)} />
             <MenuLink to="/notifications" label="Notifikasi" onClick={()=> setOpen(false)} />
             <MenuLink to="/me/kyc" label="KYC" onClick={()=> setOpen(false)} />
             <MenuLink to="/me/privacy" label="Privacy" onClick={()=> setOpen(false)} />
@@ -152,7 +152,7 @@ function AppRoutes(){
       </Routes>
     </main>
     <footer style={{textAlign:"center",padding:"18px 24px",fontSize:12,color:"var(--dim)",borderTop:"1px solid var(--border)", marginTop:40}}>
-      C.Verse — Revolusi Ekonomi Kreator · C.Card MVP · 1 C-Coin = Rp 10.000 · NFC Terverifikasi
+      C.Verse — Koleksi Kreator Edisi Terbatas
     </footer>
   </div>;
 }
