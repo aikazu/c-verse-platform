@@ -50,42 +50,43 @@ function UserMenu(){
   const isAdmin = user.role === "admin";
   return (
     <div ref={ref} style={{position:"relative"}}>
-      <button onClick={()=> setOpen(v=>!v)} aria-expanded={open} aria-haspopup="menu" style={{display:"flex", alignItems:"center", gap:10, background:"transparent", border:"1px solid var(--border)", borderRadius:99, padding:"6px 10px 6px 6px", color:"var(--text)"}}>
-        <span style={{width:28, height:28, borderRadius:99, background:"var(--gold)", color:"#111", display:"inline-flex", alignItems:"center", justifyContent:"center", fontWeight:800, fontSize:13}}>{initial}</span>
-        <span style={{fontSize:13, fontWeight:600, maxWidth:140, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap"}}>{(user as any).displayName ?? (user as any).username ?? user.email}</span>
-        <span style={{fontSize:11, color:"var(--muted)"}}>{open ? "▲" : "▼"}</span>
+      <button onClick={()=> setOpen(v=>!v)} aria-expanded={open} aria-haspopup="menu" style={{display:"flex", alignItems:"center", gap:10, background:"var(--surface-2)", border:"1px solid var(--border)", borderRadius:99, padding:"5px 10px 5px 5px", color:"var(--text)", transition:"border-color var(--motion-fast)"}}>
+        <span style={{width:28, height:28, borderRadius:99, background:"var(--gold)", color:"#0A0A0A", display:"inline-flex", alignItems:"center", justifyContent:"center", fontWeight:800, fontSize:12, fontFamily:"var(--font-mono)"}}>{initial}</span>
+        <span style={{fontSize:13, fontWeight:500, maxWidth:130, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap"}}>{(user as any).displayName ?? (user as any).username ?? user.email}</span>
+        <span style={{fontSize:10, color:"var(--text-dim)"}}>{open ? "▲" : "▼"}</span>
       </button>
       {open && (
-        <div role="menu" style={{position:"absolute", right:0, top:"calc(100% + 10px)", minWidth:220, background:"var(--bg-card)", border:"1px solid var(--border)", borderRadius:14, overflow:"hidden", boxShadow:"0 16px 40px rgba(0,0,0,0.5)", zIndex:50}}>
-          <div style={{padding:"12px 14px", borderBottom:"1px solid var(--border)"}}>
-            <div style={{fontWeight:700, fontSize:13}}>{(user as any).displayName ?? user.email}</div>
-            <div style={{fontSize:11, color:"var(--muted)"}}>{user.email} · {user.role === "user" ? "kolektor" : user.role}</div>
+        <div role="menu" style={{position:"absolute", right:0, top:"calc(100% + 10px)", minWidth:228, background:"var(--surface-1)", border:"1px solid var(--border)", borderRadius:12, overflow:"hidden", boxShadow:"0 16px 40px rgba(0,0,0,0.6)", zIndex:50}}>
+          <div style={{padding:"14px 16px", borderBottom:"1px solid var(--border)", background:"var(--surface-2)"}}>
+            <div style={{fontWeight:700, fontSize:13, fontFamily:"var(--font-display)"}}>{(user as any).displayName ?? user.email}</div>
+            <div style={{fontSize:11, color:"var(--text-muted)", fontFamily:"var(--font-mono)"}}>{user.email}</div>
+            <span className="pill" style={{marginTop:8, background:"rgba(201,163,82,0.12)", color:"var(--gold)", border:"1px solid rgba(201,163,82,0.2)", fontSize:10}}>{user.role === "user" ? "kolektor" : user.role}</span>
           </div>
-          <div style={{padding:6, display:"flex", flexDirection:"column", gap:2}}>
-            <MenuLink to="/home" label="Home" hint="Drop trending & saldo" onClick={()=> setOpen(false)} />
-            <MenuLink to="/orders" label="Pesanan" hint="Order & shipping" onClick={()=> setOpen(false)} />
-            <MenuLink to="/collection" label="Koleksi" hint="/me & ownership" onClick={()=> setOpen(false)} />
-            <MenuLink to="/me/manage" label="Kelola kartu" hint="Sell / buyout / bid" onClick={()=> setOpen(false)} />
-            <MenuLink to="/wallet" label="Dompet" hint="C-Coin" onClick={()=> setOpen(false)} />
+          <div style={{padding:"6px", display:"flex", flexDirection:"column", gap:1}}>
+            <MenuLink to="/home" label="Home" onClick={()=> setOpen(false)} />
+            <MenuLink to="/orders" label="Pesanan" onClick={()=> setOpen(false)} />
+            <MenuLink to="/collection" label="Koleksi" onClick={()=> setOpen(false)} />
+            <MenuLink to="/me/manage" label="Kelola kartu" onClick={()=> setOpen(false)} />
+            <MenuLink to="/wallet" label="Dompet" onClick={()=> setOpen(false)} />
             <MenuLink to="/notifications" label="Notifikasi" onClick={()=> setOpen(false)} />
-            <MenuLink to="/me/kyc" label="KYC" onClick={()=> setOpen(false)} />
-            <MenuLink to="/me/privacy" label="Privacy" onClick={()=> setOpen(false)} />
-            {isCreator && <MenuLink to="/creator" label="Creator" hint="Traffic & pendapatan" onClick={()=> setOpen(false)} />}
-            {isAdmin && <MenuLink to="/admin" label="Admin (placeholder)" hint="→ apps/admin terpisah" onClick={()=> setOpen(false)} />}
+            <div style={{height:1, background:"var(--border)", margin:"4px 8px"}} />
+            <MenuLink to="/me/kyc" label="Verifikasi" onClick={()=> setOpen(false)} />
+            <MenuLink to="/me/privacy" label="Privasi" onClick={()=> setOpen(false)} />
+            {isCreator && <MenuLink to="/creator" label="Dashboard Kreator" onClick={()=> setOpen(false)} />}
+            {isAdmin && <MenuLink to="/admin" label="Admin" onClick={()=> setOpen(false)} />}
           </div>
-          <div style={{padding:8, borderTop:"1px solid var(--border)"}}>
-            <button onClick={async()=>{ await logout(); setOpen(false); nav("/"); }} style={{width:"100%", background:"transparent", border:"1px solid var(--border)", borderRadius:10, padding:"9px 12px", color:"var(--text)", fontWeight:600, fontSize:13}}>Keluar</button>
+          <div style={{padding:"8px", borderTop:"1px solid var(--border)"}}>
+            <button onClick={async()=>{ await logout(); setOpen(false); nav("/"); }} style={{width:"100%", background:"transparent", border:"1px solid var(--border)", borderRadius:8, padding:"9px 12px", color:"var(--text)", fontWeight:600, fontSize:13, transition:"border-color var(--motion-fast)"}}>Keluar</button>
           </div>
         </div>
       )}
     </div>
   );
 }
-function MenuLink({to,label,hint,onClick}:{to:string;label:string;hint?:string;onClick?:()=>void}){
+function MenuLink({to,label,onClick}:{to:string;label:string;onClick?:()=>void}){
   return (
-    <NavLink to={to} onClick={onClick} style={({isActive})=> ({display:"block", padding:"9px 10px", borderRadius:10, background: isActive? "var(--bg-elevated)" : "transparent", border:"1px solid transparent"})}>
-      <div style={{fontSize:13, fontWeight:600}}>{label}</div>
-      {hint && <div style={{fontSize:11, color:"var(--muted)"}}>{hint}</div>}
+    <NavLink to={to} onClick={onClick} style={({isActive})=> ({display:"block", padding:"8px 12px", borderRadius:8, background: isActive? "var(--surface-2)" : "transparent", color: isActive ? "var(--gold)" : "var(--text)", fontSize:13, fontWeight: isActive ? 600 : 400})}>
+      {label}
     </NavLink>
   );
 }
@@ -100,7 +101,7 @@ function Navbar(){
         <NavLink to="/drops" className={({isActive})=> isActive?"active":""}>Drops</NavLink>
         <NavLink to="/marketplace" className={({isActive})=> isActive?"active":""}>Marketplace</NavLink>
         <NavLink to="/browse" className={({isActive})=> isActive?"active":""}>Browse</NavLink>
-        <NavLink to="/leaderboard" className={({isActive})=> isActive?"active":""}>Leaderboard</NavLink>
+        <NavLink to="/leaderboard" className={({isActive})=> isActive?"active":""}>Peringkat</NavLink>
       </div>
       <div className="nav-actions">
         {!user ? (
@@ -146,12 +147,11 @@ function AppRoutes(){
         <Route path="/creator" element={<CreatorDashboard/>}/>
         <Route path="/creator/drops" element={<CreatorDashboard/>}/>
         <Route path="/admin" element={<Admin/>}/>
-        {/* legacy /verify deep-links: redirect to browse (no standalone verify page per docs 02 §4) */}
         <Route path="/verify" element={<Browse/>}/>
         <Route path="/verify/:shortId" element={<CardInfo/>}/>
       </Routes>
     </main>
-    <footer style={{textAlign:"center",padding:"18px 24px",fontSize:12,color:"var(--dim)",borderTop:"1px solid var(--border)", marginTop:40}}>
+    <footer style={{textAlign:"center",padding:"22px 24px",fontSize:11, color:"var(--text-dim)", borderTop:"1px solid var(--border)", marginTop:48, fontFamily:"var(--font-mono)", letterSpacing:"0.06em", textTransform:"uppercase"}}>
       C.Verse — Koleksi Kreator Edisi Terbatas
     </footer>
   </div>;
