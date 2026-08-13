@@ -16,6 +16,8 @@ app.get("/u/:username", async (c) => {
   const totalXp = (user as unknown as { totalXp?: number }).totalXp ?? (user as unknown as { xp?: number }).xp ?? 0;
   const { calcLevel } = await import("@c-verse/shared");
   const { level, tier } = calcLevel(totalXp);
+  const progressInLevel = totalXp % 10;
+  const levelProgressPct = Math.round((progressInLevel / 10) * 100);
   const cards = [...store.cards.values()].filter((ca) => ca.ownerId === user.id).map((ca) => {
     const drop = store.drops.get(ca.dropId);
     return { ...ca, drop: drop ? { id: drop.id, title: drop.title, series: drop.series } : null };
@@ -27,7 +29,7 @@ app.get("/u/:username", async (c) => {
   const rank =
     [...store.users.values()].sort((a, b) => ((b as unknown as { totalXp?: number }).totalXp ?? (b as unknown as { xp: number }).xp) - ((a as unknown as { totalXp?: number }).totalXp ?? (a as unknown as { xp: number }).xp)).findIndex((u) => u.id === user.id) + 1;
   return c.json({
-    user: { id: user.id, displayName: user.displayName, username: (user as unknown as { username?: string }).username ?? null, level, tier, xp: totalXp, rank },
+    user: { id: user.id, displayName: user.displayName, username: (user as unknown as { username?: string }).username ?? null, level, tier, levelProgressPct, rank },
     cards,
     badges,
     stats: { totalCards: cards.length },

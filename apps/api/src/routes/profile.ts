@@ -31,6 +31,10 @@ app.get("/", async (c) => {
   const totalXp = (user as unknown as { totalXp?: number }).totalXp ?? (user as unknown as { xp?: number }).xp ?? 0;
   const { calcLevel } = await import("@c-verse/shared");
   const { level, tier } = calcLevel(totalXp);
+  // For profile bar per doc: per 10 XP = 1 level. Progress within current level as 0..9 -> bar 0..90%.
+  const progressInLevel = totalXp % 10; // 0..9
+  const levelProgressPct = Math.round((progressInLevel / 10) * 100); // 0,10..90
+  const levelProgressLabel = `Level ${level} — ${progressInLevel}/10 menuju level ${level + 1}`;
   const myListingsCompat = [...store.listings.values()].filter((l) => l.sellerId === user.id);
   return c.json({
     user: {
@@ -39,10 +43,10 @@ app.get("/", async (c) => {
       displayName: user.displayName,
       username: (user as unknown as { username?: string }).username ?? null,
       role: user.role,
-      xp: totalXp,
-      totalXp,
       level,
       tier,
+      levelProgressPct,
+      levelProgressLabel,
       isAnonymous: (user as unknown as { isAnonymous?: boolean }).isAnonymous ?? false,
     },
     wallet: { ...wallet, balanceIdrEquiv: wallet.balanceCCoin * C_COIN_RATE_IDR },

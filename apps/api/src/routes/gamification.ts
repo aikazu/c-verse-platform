@@ -17,7 +17,7 @@ app.get("/leaderboard", async (c) => {
     const { level, tier } = calcLevel(xp);
     const cards = [...store.cards.values()].filter(ca => ca.ownerId === u.id).length;
     const w = store.wallets.get(u.id);
-    return { rank: idx+1, userId: u.id, displayName: u.displayName, username: (u as unknown as { username?: string }).username ?? null, level, tier, xp, totalCards: cards, totalSpentCCoin: w?.totalSpentCCoin ?? 0 };
+    return { rank: idx+1, userId: u.id, displayName: u.displayName, username: (u as unknown as { username?: string }).username ?? null, level, tier, totalCards: cards };
   });
   return c.json({ leaderboard: board });
 });

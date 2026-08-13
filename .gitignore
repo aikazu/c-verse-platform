@@ -6,7 +6,11 @@ dist/
 .env.local
 .env.*.local
 .env.keys
+.dev.vars
+**/.dev.vars
 *.pem
+migrate.js
+migrate*.js
 .wrangler/
 apps/api/.wrangler/
 supabase/.branches
