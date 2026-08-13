@@ -3,8 +3,44 @@ main = "src/index.ts"
 compatibility_date = "2024-12-01"
 compatibility_flags = ["nodejs_compat"]
 
+# ── Bindings (docs/08 §3.3 — runbook full-edge)
+# ENV distinguishes local vs preview vs prod; real secrets via `wrangler secret put` (never in repo).
 [vars]
 ENV = "development"
 
-# For local dev without Cloudflare bindings, all data is in-memory.
-# For production: add D1/R2/KV bindings here.
+# Secrets (set via `wrangler secret put` — see docs/08 §3.3 + §7):
+# SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY,
+# SMTP_HOST (smtp.sumopod.com), SMTP_PORT (465), SMTP_USER, SMTP_PASS,
+# MIDTRANS_SERVER_KEY, NFC_MASTER_KEY, PAYOUT_WEBHOOK_SIGNING_KEY,
+# FCM_SERVICE_ACCOUNT (JSON), JWT_SECRET.
+
+# R2 buckets (§3.4) — uncomment when R2 created in Cloudflare dashboard:
+# [[r2_buckets]]
+# binding = "ASSETS"
+# bucket_name = "cverse-assets"
+# [[r2_buckets]]
+# binding = "KYC"
+# bucket_name = "cverse-kyc"
+# preview_bucket_name = "cverse-kyc-preview"
+
+# Queues (§3.3) — uncomment when created:
+# [[queues.producers]]
+# binding = "EMAIL_QUEUE"
+# queue = "email-queue"
+# [[queues.consumers]]
+# queue = "email-queue"
+# max_batch_size = 10
+
+# Cron Triggers (§3.3):
+# - every 5 min: escrow auto-release (DELIVERED + H+7)
+# - Tue 06:00 WIB: payout batch (Selasa H+1, fee 1%, withholding)
+# - daily 03:00 WIB: badge evaluation
+# - daily 04:00 WIB: housekeeping (no bid expire — bid ends via accept/cancel/outbid)
+# Add via Dashboard → Workers → c-verse-api → Triggers → Cron, or wrangler.toml [[triggers.crons]]:
+# [triggers]
+# crons = ["*/5 * * * *", "0 23 * * 1", "0 20 * * *", "0 21 * * *"]
+# Note: WIB = UTC+7, so Tue 06:00 WIB = Mon 23:00 UTC, etc.
+
+# Route (§3.1): api.c-verse.co/*
+# Set in Dashboard → Workers → Routes, or via `wrangler.toml` route (when domain zone is in this account):
+# route = { pattern = "api.c-verse.co/*", zone_name = "c-verse.co" }

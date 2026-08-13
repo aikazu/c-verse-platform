@@ -4,8 +4,8 @@ import { Link } from "react-router-dom";
 import { api, formatIdr } from "../lib/api";
 
 function Badge({status}:{status:string}){
-  const map:Record<string,string> = { live:"badge-live", scheduled:"badge-scheduled", ended:"badge-ended", draft:"badge-ended" };
-  const label:Record<string,string> = { live:"LIVE", scheduled:"SCHEDULED", ended:"ENDED", draft:"DRAFT" };
+  const map:Record<string,string> = { live:"badge-live", scheduled:"badge-scheduled", ended:"badge-ended", draft:"badge-ended", published:"badge-live", sold_out:"badge-ended", closed:"badge-ended" };
+  const label:Record<string,string> = { live:"LIVE", scheduled:"SCHEDULED", ended:"ENDED", draft:"DRAFT", published:"PUBLISHED", sold_out:"SOLD OUT", closed:"CLOSED" };
   return <span className={`drop-badge ${map[status]||"badge-ended"}`}>{label[status]||status.toUpperCase()}</span>;
 }
 
@@ -19,14 +19,14 @@ export default function Drops(){
   return <div style={{display:"flex",flexDirection:"column",gap:18}}>
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-end",flexWrap:"wrap",gap:12}}>
       <div>
-        <span className="eyebrow">C.Card — Collectible Drops</span>
+        <span className="eyebrow">C.Card — Collectible Drops (Primary)</span>
         <h1 className="h2">Drops</h1>
-        <p className="muted" style={{marginTop:6}}>Harga dalam C-Coin (1 C-Coin = Rp 10.000). Checkout potong saldo C-Coin.</p>
+        <p className="muted" style={{marginTop:6}}>Harga dalam C-Coin (1 C-Coin = Rp 10.000) — canonical <code>priceCcoin</code> per drop (MVP platform-produced 70/30). Checkout potong saldo C-Coin.</p>
       </div>
       <div style={{display:"flex",gap:8,alignItems:"center"}}>
         <input className="input" placeholder="Cari series / judul..." value={search} onChange={e=> setSearch(e.target.value)} style={{width:200}}/>
         <select className="select" value={filter} onChange={e=> setFilter(e.target.value)} style={{width:150}}>
-          <option value="all">Semua</option><option value="live">Live</option><option value="scheduled">Scheduled</option><option value="ended">Ended</option>
+          <option value="all">Semua</option><option value="live">Live</option><option value="published">Published</option><option value="scheduled">Scheduled</option><option value="ended">Ended</option><option value="sold_out">Sold out</option>
         </select>
         <button className="btn-ghost" onClick={()=> refetch()}>Refresh</button>
       </div>
@@ -46,8 +46,7 @@ export default function Drops(){
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:12}}>
             <div>
               <div style={{fontSize:11,color:"var(--dim)",fontWeight:700,letterSpacing:"0.04em"}}>HARGA</div>
-              <div style={{fontWeight:800}}>{d.priceUnsignedCCoin} C-Coin <span style={{fontSize:11,color:"var(--muted)",fontWeight:400}}>({formatIdr(d.idrUnsigned)})</span></div>
-              <div style={{fontSize:11,color:"var(--muted)"}}>Signed {d.priceSignedCCoin} C-Coin</div>
+              <div style={{fontWeight:800}}>{d.priceCcoin ?? d.priceUnsignedCCoin} C-Coin <span style={{fontSize:11,color:"var(--muted)",fontWeight:400}}>({formatIdr(d.idrPrice ?? d.idrUnsigned)})</span></div>
             </div>
             <div style={{textAlign:"right"}}>
               <div style={{fontSize:11,color:"var(--dim)",fontWeight:700}}>TERJUAL</div>
@@ -55,7 +54,7 @@ export default function Drops(){
               <div className="progress" style={{width:70,marginTop:4}}><div className="progress-fill" style={{width:`${Math.round(d.soldCount/d.totalUnits*100)}%`}}/></div>
             </div>
           </div>
-          <div style={{fontSize:11,color:"var(--dim)",marginTop:10}}>by {d.creatorName} · {d.signedCount} signed · {d.unsignedCount} unsigned</div>
+          <div style={{fontSize:11,color:"var(--dim)",marginTop:10}}>by {d.creatorName} · {d.signedCount} signed (ceil/10) · {d.unsignedCount} unsigned</div>
         </div>
       </Link>)}
     </div>}

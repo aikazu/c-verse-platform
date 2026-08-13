@@ -1,49 +1,71 @@
 # C.Verse Platform — C.Card MVP
 
-Monorepo: React/Vite SPA (Cloudflare Pages) + Hono API (Cloudflare Workers) + shared Zod schemas.
-Lihat `../../00_Dream_Project/` untuk dokumen brainstorm (pondasi, MVP flow, tech stack decision).
+Monorepo: `apps/web` (Cloudflare Pages) + `apps/api` (Cloudflare Workers / Hono) + `apps/admin` (VPS + Cloudflare Access, terpisah — TIDAK di Pages) + `packages/shared` (Zod + constants canonical).
 
-## Stack
-- Frontend: React 19 + Vite + React Router + TanStack Query + three.js (3D viewer)
-- Backend: Hono 4 + Zod
-- Shared: Zod schemas + constants (C-Coin rate, AOV, fee, dll)
+Dokumen perencanaan canonical: `docs/` (`00-README` → `08-deployment`) — **single source of truth** untuk AI agent / developer baru (self-contained, tidak perlu baca `00_Dream_Project/` lagi).
+
+## Stack (per `docs/06-tech-decisions.md`)
+
+- Frontend publik: React 19 + Vite + React Router + TanStack Query + three.js (3D viewer) → **Cloudflare Pages**
+- Backend: Hono 4 + Zod → **Cloudflare Workers** (lokal via `@hono/node-server`)
+- Admin: React 19 + Vite → **VPS + Cloudflare Tunnel + Access** (Zero Trust), 2FA TOTP wajib (`aal2`), audit log append-only
+- DB/Auth/Realtime: Supabase Postgres (SG) + Storage (R2 parity lokal: `artwork` 10 MiB, `card-assets` 20 MiB, `kyc` private 5 MiB)
+- Shared: `packages/shared` — constants (rate, fee, threshold) + Zod schemas (canonical — jangan hard-code di app)
 
 ## Prasyarat
-- Node 20+ (`node -v`), pnpm (`npm i -g pnpm`)
+
+- Node 20+ (`node -v`), `pnpm@9.12.3` (`npm i -g pnpm@9.12.3`)
+- Env: `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` (untuk `apps/web` + `apps/admin`) dan `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` (untuk Supabase ops, tidak pernah di-bundle publik)
 
 ## Menjalankan Lokal
 
 ```bash
-# install
 pnpm install
 
-# dev: jalankan keduanya (api :8787, web :5173)
-pnpm --filter @c-verse/api dev:node # Hono via @hono/node-server :8787
-pnpm --filter @c-verse/web dev # Vite :5173 (proxy /api → :8787)
-# atau buka 2 terminal, satu per app
+# Semua (api :8787 + web :5173) — admin terpisah :3000 jika dijalankan
+pnpm dev
+# Atau per app:
+pnpm --filter @c-verse/api dev:node   # Hono node :8787
+pnpm --filter @c-verse/web dev        # Vite :5173 (proxy /api → :8787)
+pnpm --filter @c-verse/admin dev      # Vite :3000 (admin — Cloudflare Access di prod)
+
+# Build & typecheck
+pnpm run typecheck
+pnpm run build         # → apps/web/dist + apps/admin/dist (api = tsc --noEmit)
 ```
 
 ## Akun Demo
-- Kolektor: `demo@cverse.id` / `demo123` (wallet 120 C-Coin, ada order + listing demo)
+
+- Kolektor: `demo@cverse.id` / `demo123` (wallet 120 C-Coin, order + card demo, vault card)
 - Admin: `admin@cverse.id` / `admin123`
-- Tombol "Demo Login" 1-klik ada di /login
+- Tombol *Demo Login* 1-klik di `/login`
 
-## Flow yang Diimplementasi (9 Flow MVP)
-1. **Primary Drop** — siapa cepat dia dapat, potong C-Coin, limit 2/drop, stok atomik
-2. **Fulfillment** — card allocation + trackingNumber
-3. **Payment & Settlement** — wallet C-Coin ledger, revenue share 70/30 ke kreator
-4. **NFC Tap & Verify** — `/api/nfc/verify-nfc` (tap di Android) + QR fallback
-5. **QR Fallback** — `/api/nfc/verify/:shortId` (iOS / non-Chrome)
-6. **Ownership Transfer** — via secondary settlement (fixed buy-now + auction accept)
-7. **Secondary Auction P2P** — fixed & english auction, min 5% increment, anti-sniping +5m, fee 15%
-8. **Onboarding, KYC, Notifikasi** — kreator onboarding via /creator, KYC gate >100 C
-9. **Top-up & Payout C-Coin** — rate 1 C = Rp 10.000, Opsi A: buyer closed-loop, seller payout fee 1%
+## Halaman & Route (per `docs/02-pages.md`)
 
-## Build
-```bash
-pnpm --filter @c-verse/web build # → apps/web/dist
-```
+- Publik: `/`, `/drops`, `/drops/:id`, `/drops/:id/checkout` (shipping vs vault), `/marketplace` (buyout), `/browse` (bid langsung), `/cards/:cardId` (info + ownership history), `/cards/:cardId/3d` (simple 3D + Verified Card badge), `/leaderboard`, `/c/:username` (kreator public), `/u/:username` (kolektor public — hidden jika `privacy anonymous`), `/verify` (QR/UID input → redirect ke card pages)
+- User (login): `/home`, `/orders`, `/orders/:id` (timeline hanya untuk shipping; vault tanpa tracking), `/wallet` (top-up area user + ledger; payout fee 1%), `/me` (= `/collection`), `/me/manage` (sell: set/cabut buyout, bid accept, ship-from-vault), `/me/kyc`, `/me/privacy`, `/notifications`
+- Kreator: `/creator` (traffic + pendapatan only; primary 70/30 platform-produced — creator-produced defer)
+- Admin: **app terpisah** `admin.c-verse.co` (Tunnel + Access) — `/` (ADM-01..06), `/creators` (ADM-01), `/drops` (ADM-02), `/orders` (ADM-03), `/nfc` (ADM-04), `/payouts` (ADM-05), `/disputes` (ADM-06), `/badges` (ADM-07: criteria + ikon + XP reward), `/audit` (ADM-08 append-only), 2FA (ADM-09: aal2 guard)
 
-## Deploy (full-edge)
-- Web: Cloudflare Pages (output `apps/web/dist`)
-- API: Cloudflare Workers (`wrangler deploy` di `apps/api`) — untuk MVP lokal cukup node-server
+## Flow MVP (9 flow, per `docs/03-flows.md`)
+
+1. **Primary drop** — 1 kartu/user/drop, atomik, escrow `held` → `released` (vault langsung settled; shipping via DELIVERED + H+7)
+2. **Fulfillment** — `paid → qc → shipped → delivered → settled` (shipping) vs `paid → qc → settled` (vault)
+3. **Payment & Settlement** — `wallet_transactions` append-only + C-Coin integer ≥1 (ceiling dari IDR) + fee secondary 15% (7.5 platform + 7.5 royalti lifetime)
+4. **NFC Tap → halaman 3D** — SUN URL `c-verse.co/cards/:id/3d?uid=..&ctr=..&c=CMAC`; iOS background reading tanpa Web NFC (validasi Sprint 0, gap C-03)
+5. **Fallback QR** — scan QR di dus → `/cards/:id` status `Registered` (tanpa CMAC, lebih lemah)
+6. **Ownership transfer** — DB record (`current_owner_id` + `ownership_history`); `location` enum (`platform_stock` / `with_owner` / `platform_vault`)
+7. **Secondary Marketplace + Browse** — Marketplace = buyout price; Browse = bid langsung (1 active tertinggi; outbid/cancel release; owner accept only; tanpa expire; history 90 hari, accepted selamanya)
+8. **Ship-from-vault** — kartu `platform_vault` bisa dikirim kapan saja (ongkir C-Coin integer ≥1)
+9. **Gamifikasi** — Level `floor(total_xp/10)`; `spend 1 C = 1 XP` (+ badge XP reward); top-up **tidak** menambah XP
+
+## Deploy (per `docs/08-deployment.md`)
+
+- Supabase: `npx supabase db reset` → `migrations/*.sql` + `seed.sql`; buckets `artwork`/`card-assets`/`kyc`
+- Web: Cloudflare Pages (`apps/web/dist`); domain `c-verse.co` (primary) + `c-verse.id` redirect — **LOCK sebelum provisioning NFC** (NDEF URL)
+- API: `wrangler deploy` (`apps/api`); cron (`escrow 5m`, `payout Selasa 06:00 WIB`, `badge 03:00 WIB`)
+- Admin: VPS + `cloudflared tunnel` → `admin.c-verse.co` + Access policy *Allow founders*; build `apps/admin` serve statik di belakang tunnel
+
+## Angka Kunci (per docs `00-README` §4)
+
+1 C-Coin = Rp 10.000 · threshold kreator 100rb+ followers *combined* · primary 70/30 (platform-produced) · secondary 15% (7.5/7.5/85) · payout fee 1% · produk 63×88mm holo + acrylic hardcase

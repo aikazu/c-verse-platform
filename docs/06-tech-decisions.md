@@ -1,0 +1,168 @@
+# 06 — Tech Decisions (Keputusan Arsitektur)
+
+> Status: [DRAFT]
+> Last updated: 2026-08-12
+> Sumber utama: `40_operations/01_tech_stack.md` +
+> `90_research/tech-stack-decision-full-edge.md` (full-edge,
+> konsolidasi 2026-08-11). Keputusan baru 2026-08-12:
+> admin app terpisah, koreksi NFC iOS.
+
+## 1. Stack Ringkas (Full-Edge, Zero Server Management)
+
+| Layer | Pilihan |
+|-------|---------|
+| Frontend | React 19 + Vite SPA (apps/web) di Cloudflare Pages |
+| Admin app | React 19 + Vite SPA (apps/admin) — **LOKAL/VPS, bukan Pages** |
+| Styling | Tailwind CSS 4 + shadcn/ui + Radix |
+| Data fetching | TanStack Query |
+| Backend | Hono di Cloudflare Workers (apps/api) |
+| Database | Supabase Postgres (region SG) + Supavisor |
+| ORM | Drizzle ORM + Drizzle Kit |
+| Auth | Supabase Auth (Google OAuth + email OTP, **email OTP wajib captcha anti-spam** — Cloudflare Turnstile), JWKS di Hono |
+| Storage | Cloudflare R2 (artwork, model 3D) — zero egress fee |
+| Queue/async | CF Queues + Cron Triggers |
+| Realtime | Supabase Realtime broadcast (< 50 concurrent bidder) |
+| Payment | Midtrans (primary) + Xendit (backup) — HANYA top-up & disbursement |
+| Shipping | Biteship / RajaOngkir |
+| Email | Abstraction layer (default **SumoPod SMTP** — smtp.sumopod.com:465 SSL; vendor-agnostic) |
+| Push | Firebase Cloud Messaging (FCM) |
+| Analytics | PostHog (product) + Plausible (web) |
+| Monitoring | Sentry + BetterStack |
+| CI/CD | GitHub Actions → wrangler deploy |
+| Monorepo | pnpm workspace + Turborepo: apps/web, apps/admin, apps/api, packages/shared (Zod) |
+
+## 2. Keputusan Arsitektur Kunci
+
+### D1 — Admin App TERPISAH, TIDAK di Edge [baru 2026-08-12]
+
+- `apps/admin` dijalankan **lokal** (mesin founder) atau VPS
+  kecil + **Cloudflare Access** (Zero Trust). TIDAK di-upload
+  ke Cloudflare Pages publik.
+- Admin app akses **Supabase langsung via service-role key**
+  (env var, tidak pernah di bundle publik).
+- **TIDAK ADA route admin di Workers API publik.** Public API
+  hanya untuk user/kreator.
+- Public app = anon key + RLS. Service-role = admin only.
+- Konsekuensi: operasi berhenti jika mesin admin mati →
+  rekomendasi VPS kecil + Cloudflare Access (Rp 100-200rb/bln)
+  untuk always-on.
+- NFC provisioning (tulis key ke tag) = **tool desktop
+  terpisah**, bukan bagian dari admin web app.
+
+Rasional keamanan (jujur):
+- "Lokal" menghilangkan endpoint admin dari internet (tidak
+  bisa brute-force/crawl).
+- TAPI crown jewel = database + service-role key + payment
+  credential + NFC master key. Proteksi utama = key management
+  + RLS + Cloudflare Access, bukan sekadar lokasi app.
+
+#### Keamanan admin: 2FA + audit log (ADM-08/09)
+
+**2FA (ADM-09)** — Supabase Auth MFA (TOTP) wajib untuk semua
+akun admin, dua lapis:
+- **Lapis 1 (jaringan)**: Cloudflare Access — gate jaringan
+  (email OTP/push ke device founder) sebelum app admin terbuka.
+- **Lapis 2 (aplikasi)**: Supabase MFA TOTP — enrollment scan
+  QR authenticator (Google Auth/dll) + simpan **recovery codes**
+  saat pertama login; tiap login berikutnya: login biasa = sesi
+  aal1 (menu non-sensitive tetap bisa diakses, mis. dashboard
+  ringkas), UI privileged (semua CRUD ADM-01..09) terkunci
+  sampai `supabase.auth.mfa.challenge()` + `verify()` upgrade
+  sesi ke **aal2**.
+- **Break-glass**: admin lain (sudah aal2) bisa reset enrollment
+  yang hilang — semua langkah tercatat di audit log.
+- Catatan D1: admin app akses Supabase via service-role
+  (lewati RLS), jadi penegakan aal2 dilakukan DI APP (guard
+  route/UI) + Cloudflare Access di jaringan. Deklarasikan
+  ekspektasi ini di runbook.
+
+**Audit log (ADM-08)** — setiap mutasi admin di-log
+append-only (tidak bisa edit/hapus): siapa (user_id), aksi
+(create/update/delete/view-sensitive), target (tabel+id),
+payload ringkas (bukan PII penuh), IP + session, created_at.
+View + filter di PG-ADM-09; kebocoran service-role terdeteksi
+dari anomali di log ini (mis. aksi di jam aneh / IP asing).
+Retensi: minimum 1 tahun (UU PDP + forensik fraud).
+
+### D2 — NFC iOS: Koreksi Asumsi [baru 2026-08-12]
+
+- **Fakta**: CMAC dihitung oleh CHIP (AES-128, key di secure
+  memory tag), bukan HP. Saat tap, chip menempel
+  `?uid=..&ctr=..&c=CMAC` ke URL NDEF (SUN/SDM).
+- **iOS**: background tag reading membuka URL NDEF di Safari
+  → URL membawa data kriptografik → server verify → **halaman
+  3D kartu tampil verified**. **Tap-to-verify JALAN di iOS
+  TANPA Web NFC API.**
+- **Web NFC API** (`navigator.nfc`) = Chrome Android 89+ only;
+  hanya dibutuhkan untuk scan terprogram dari dalam halaman.
+- Implikasi: fallback QR BUKAN keharusan untuk iOS; QR di dus
+  untuk HP tanpa NFC. **Validasi device nyata di Sprint 0
+  (C-03)** sebelum mematikan fallback.
+
+### D3 — C-Coin: Build Boleh, Top-Up Gated
+
+- Wallet + ledger + payout = fitur teknis biasa, **boleh
+  dibangun**.
+- **Top-up uang riil TIDAK BOLEH live** sebelum Q026
+  (klasifikasi e-money vs closed-loop voucher) clear dari
+  lawyer fintech. Tombol top-up disabled di UI.
+- Desain fallback jika jawaban = "tetap e-money": Opsi B
+  (wallet-as-a-service issuer berizin) — tidak di-build dulu.
+
+### D4 — Verifikasi NFC (Server-Side CMAC)
+
+- NDEF: `https://c-verse.co/cards/{short_id}/3d` + SUN dynamic
+  mirror (UID + counter + CMAC).
+  > **PENTING**: domain/path NDEF final sebelum provisioning
+  > tag — mengubah URL di NDEF = re-provision/pemrograman ulang
+  > chip (bukan bisa diubah remote). Primary "kemungkinan"
+  > `c-verse.co` (keputusan awal 2026-08-12, pending final);
+  > `c-verse.id` redirect. LOCK domain SEBELUM produksi inlay.
+- Backend (Workers): derive expected CMAC dari AppKey
+  (diversified master key + UID) + counter → compare → parse
+  TagTamper → lookup `cards` by short_id/UID.
+- Master key di KMS (Cloudflare Workers Secrets / external
+  KMS), tidak pernah di client.
+- Library: AES/CMAC open source (Node crypto) — NXP TapLinx
+  SDK opsional.
+- Web Crypto tersedia di Workers; verifikasi < 1ms.
+
+### D5 — Checkout "Siapa Cepat" (Race)
+
+- Transaksi atomik via RPC/SQL transaction dengan row lock
+  pada `cards` atau `drops` (unit tersisa).
+- Counter real-time via Supabase Realtime broadcast.
+- Idempotency: checkout key per user+drop.
+
+### D6 — Realtime
+
+- Supabase Realtime broadcast cukup untuk < 50 concurrent
+  bid (secondary). Durable Objects TIDAK dipakai Y1.
+
+### D7 — Shared Schema
+
+- `packages/shared`: schema Zod (Zod 4) untuk semua DTO yang
+  dipakai web + admin + api. Satu sumber kebenaran validasi.
+
+## 3. Yang BELUM Diputuskan (Open Items)
+
+| Kode | Item | Status |
+|------|------|--------|
+| O-1 | Detail implementasi CMAC & key derivation di KMS Workers | Sprint 0 |
+| O-2 | Region final Supabase (SG vs lain) | Sprint 0 |
+| O-3 | Struktur bucket R2 (artwork, model 3D, KYC) | Sprint 0 |
+| O-4 | Cache strategy TanStack Query | Sprint 0 |
+| O-5 | CI/CD pipeline detail | **Dijawab `08-deployment.md` section 7** |
+| O-6 | Monitoring stack final | Sprint 0 |
+| O-7 | Domain & SSL | **Dijawab `08-deployment.md` section 3 & 9** |
+| C-03 | Validasi iOS tap-to-verify SUN URL di device nyata | Sprint 0 (blocking D2) |
+
+## Sumber
+
+- `40_operations/01_tech_stack.md` (full-edge, 2026-08-11).
+- `90_research/tech-stack-decision-full-edge.md`.
+- `90_research/nfc-decision-ntag-424-dna.md` (N5 arsitektur
+  verifikasi, SUN URL).
+- `40_operations/05_mvp_flow.md` (Flow 1-9).
+- `90_research/legal-consultation-brief.md` (Sesi A → Q026).
+- Diskusi founder 2026-08-12 (D1, D2).

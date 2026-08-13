@@ -2,7 +2,7 @@
   "name": "c-verse-platform",
   "private": true,
   "version": "0.1.0",
-  "description": "C.Verse \u2014 Creator Verse platform (C.Card MVP)",
+  "description": "C.Verse — Creator Verse platform (C.Card MVP)",
   "workspaces": [
     "apps/*",
     "packages/*"
@@ -15,7 +15,10 @@
     "build:web": "pnpm --filter @c-verse/web build",
     "build:api": "pnpm --filter @c-verse/api build",
     "lint": "echo \"no lint configured\"",
-    "typecheck": "pnpm -r typecheck"
+    "typecheck": "pnpm -r typecheck",
+    "dev:admin": "pnpm --filter @c-verse/admin dev",
+    "build:admin": "pnpm --filter @c-verse/admin build",
+    "dev:all": "pnpm dev"
   },
   "packageManager": "pnpm@9.12.3",
   "engines": {

@@ -5,47 +5,111 @@ import { C_COIN_RATE_IDR } from "@c-verse/shared";
 const app = new Hono();
 app.use("*", async (c, next) => { ensureSeed(); await next(); });
 
-function requireAuth(c: any) { return getUserByToken(authHeaderToToken(c.req.header("authorization"))); }
+function requireAuth(c: { req: { header: (k: string) => string | undefined } }): ReturnType<typeof getUserByToken> {
+  return getUserByToken(authHeaderToToken(c.req.header("authorization")));
+}
 
+// GET / — my profile, cards, orders, shipments, badges, kyc, level
 app.get("/", async (c) => {
-  const user = requireAuth(c);
+  const user = requireAuth(c as unknown as { req: { header: (k: string) => string | undefined } });
   if (!user) return c.json({ error: "Unauthorized" }, 401);
-  const myCards = [...store.cards.values()].filter(ca => ca.ownerId === user.id);
-  const myOrders = [...store.orders.values()].filter(o => o.userId === user.id);
-  const myListings = [...store.listings.values()].filter(l => l.sellerId === user.id);
-  const enrichedCards = myCards.map(ca => {
+  const myCards = [...store.cards.values()].filter((ca) => ca.ownerId === user.id);
+  const myOrders = [...store.orders.values()].filter((o) => o.userId === user.id).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  const myShipments = [...store.shipments.values()].filter((s) => s.requesterId === user.id).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  const myBids = store.bids.filter((b) => b.bidderId === user.id).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  const enrichedCards = myCards.map((ca) => {
     const drop = store.drops.get(ca.dropId);
-    return { ...ca, drop: drop ? { id: drop.id, title: drop.title, series: drop.series, artworkUrl: drop.artworkUrl } : null };
+    const activeBid = store.bids.find((b) => b.cardId === ca.id && b.status === "active") ?? null;
+    return { ...ca, drop: drop ? { id: drop.id, title: drop.title, series: drop.series, artworkUrl: drop.artworkUrl } : null, activeBid };
   });
   const wallet = ensureWallet(user.id);
-  const badges = store.userBadges.filter(ub => ub.userId === user.id).map(ub => {
-    const def = store.badges.find(b => b.id === ub.badgeId);
+  const badges = store.userBadges.filter((ub) => ub.userId === user.id).map((ub) => {
+    const def = store.badges.find((b) => b.id === ub.badgeId);
     return { ...ub, badge: def };
   });
-  const kyc = [...store.kyc.values()].find(k => k.userId === user.id);
-  // level
+  const kyc = [...store.kyc.values()].find((k) => k.userId === user.id) ?? null;
+  const totalXp = (user as unknown as { totalXp?: number }).totalXp ?? (user as unknown as { xp?: number }).xp ?? 0;
   const { calcLevel } = await import("@c-verse/shared");
-  const { level, tier } = calcLevel(user.xp);
+  const { level, tier } = calcLevel(totalXp);
+  const myListingsCompat = [...store.listings.values()].filter((l) => l.sellerId === user.id);
   return c.json({
-    user: { id: user.id, email: user.email, displayName: user.displayName, role: user.role, xp: user.xp, level, tier },
+    user: {
+      id: user.id,
+      email: user.email,
+      displayName: user.displayName,
+      username: (user as unknown as { username?: string }).username ?? null,
+      role: user.role,
+      xp: totalXp,
+      totalXp,
+      level,
+      tier,
+      isAnonymous: (user as unknown as { isAnonymous?: boolean }).isAnonymous ?? false,
+    },
     wallet: { ...wallet, balanceIdrEquiv: wallet.balanceCCoin * C_COIN_RATE_IDR },
     cards: enrichedCards,
     orders: myOrders,
-    listings: myListings,
+    shipments: myShipments,
+    bids: myBids,
+    listings: myListingsCompat,
     badges,
-    kyc: kyc || null,
-    stats: { totalCards: myCards.length, totalOrders: myOrders.length, activeListings: myListings.filter(l=> ["listed","bidding"].includes(l.status)).length },
+    kyc,
+    stats: {
+      totalCards: myCards.length,
+      vaultCards: myCards.filter((ca) => ca.location === "platform_vault").length,
+      withOwnerCards: myCards.filter((ca) => ca.location === "with_owner").length,
+      buyoutListed: myCards.filter((ca) => ca.buyoutPriceCcoin != null).length,
+      totalOrders: myOrders.length,
+      activeListingsCompat: myListingsCompat.filter((l) => ["listed", "bidding"].includes(l.status as string)).length,
+    },
   });
 });
 
 app.get("/cards", async (c) => {
-  const user = requireAuth(c);
+  const user = requireAuth(c as unknown as { req: { header: (k: string) => string | undefined } });
   if (!user) return c.json({ error: "Unauthorized" }, 401);
-  const myCards = [...store.cards.values()].filter(ca => ca.ownerId === user.id).map(ca => {
-    const drop = store.drops.get(ca.dropId);
-    return { ...ca, drop: drop ? { id: drop.id, title: drop.title, series: drop.series, artworkUrl: drop.artworkUrl } : null };
-  });
+  const myCards = [...store.cards.values()]
+    .filter((ca) => ca.ownerId === user.id)
+    .map((ca) => {
+      const drop = store.drops.get(ca.dropId);
+      return { ...ca, drop: drop ? { id: drop.id, title: drop.title, series: drop.series, artworkUrl: drop.artworkUrl } : null };
+    });
   return c.json({ cards: myCards });
+});
+
+// PATCH /privacy — toggle isAnonymous (02-pages PG-USR-10 / PG-PROF-01)
+app.patch("/privacy", async (c) => {
+  const user = requireAuth(c as unknown as { req: { header: (k: string) => string | undefined } });
+  if (!user) return c.json({ error: "Unauthorized" }, 401);
+  let body: { isAnonymous?: boolean } = {};
+  try {
+    body = (await c.req.json()) as typeof body;
+  } catch {
+    // no body
+  }
+  const isAnonymous = Boolean(body.isAnonymous);
+  (user as unknown as Record<string, unknown>).isAnonymous = isAnonymous;
+  return c.json({ ok: true, isAnonymous });
+});
+
+// PATCH / — update displayName / avatar / username
+app.patch("/", async (c) => {
+  const user = requireAuth(c as unknown as { req: { header: (k: string) => string | undefined } });
+  if (!user) return c.json({ error: "Unauthorized" }, 401);
+  let body: { displayName?: string; avatarUrl?: string; username?: string } = {};
+  try {
+    body = (await c.req.json()) as typeof body;
+  } catch {}
+  if (body.displayName != null) {
+    const s = String(body.displayName).trim();
+    if (s.length >= 2 && s.length <= 40) (user as unknown as Record<string, unknown>).displayName = s;
+  }
+  if (body.username != null) {
+    const s = String(body.username).trim().toLowerCase();
+    if (/^[a-z0-9_]{3,20}$/.test(s) && ![...store.users.values()].some((u) => (u as unknown as { username?: string }).username === s && u.id !== user.id)) {
+      (user as unknown as Record<string, unknown>).username = s;
+    }
+  }
+  return c.json({ user: { id: user.id, displayName: user.displayName, username: (user as unknown as { username?: string }).username ?? null } });
 });
 
 export default app;

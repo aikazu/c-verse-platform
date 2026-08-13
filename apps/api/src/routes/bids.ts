@@ -1,91 +1,239 @@
 import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
-import { store, ensureSeed, getUserByToken, authHeaderToToken, ensureWallet, addTx, uid, nowIso } from "../lib/store.js";
+import { store, ensureSeed, getUserByToken, authHeaderToToken, ensureWallet, addTx, uid, nowIso, awardBadgeIfNeeded } from "../lib/store.js";
 
 const app = new Hono();
 app.use("*", async (c, next) => { ensureSeed(); await next(); });
 
-function requireAuth(c: any) { return getUserByToken(authHeaderToToken(c.req.header("authorization"))); }
+function requireAuth(c: { req: { header: (k: string) => string | undefined } }): ReturnType<typeof getUserByToken> {
+  return getUserByToken(authHeaderToToken(c.req.header("authorization")));
+}
 
-app.get("/:listingId", async (c) => {
-  const bids = store.bids.filter(b => b.listingId === c.req.param("listingId")).sort((a,b)=> new Date(b.createdAt).getTime()-new Date(a.createdAt).getTime());
+// GET bids for a card (new) or listing (legacy)
+app.get("/:id", async (c) => {
+  const id = c.req.param("id");
+  // try card first
+  const byCard = store.bids.filter((b) => b.cardId === id);
+  const byListing = store.bids.filter((b) => b.listingId === id);
+  const bids = byCard.length ? byCard : byListing;
+  bids.sort((a, b) => b.amountCCoin - a.amountCCoin || new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   return c.json({ bids });
 });
 
-app.post("/", zValidator("json", z.object({
-  listingId: z.string().min(1),
-  amountCCoin: z.number().int().min(1),
-})), async (c) => {
-  const user = requireAuth(c);
-  if (!user) return c.json({ error: "Unauthorized" }, 401);
-  const { listingId, amountCCoin } = c.req.valid("json");
-  const listing = store.listings.get(listingId);
-  if (!listing) return c.json({ error: "Listing tidak ditemukan" }, 404);
-  if (listing.type !== "auction") return c.json({ error: "Hanya auction yang bisa di-bid" }, 400);
-  if (!["bidding","listed"].includes(listing.status)) return c.json({ error: `Listing status: ${listing.status}` }, 400);
-  if (listing.sellerId === user.id) return c.json({ error: "Seller tidak bisa bid listing sendiri" }, 400);
-  if (new Date(listing.endsAt).getTime() < Date.now()) { listing.status = "expired" as any; return c.json({ error: "Lelang sudah berakhir" }, 400); }
-  const minBid = listing.currentBidCCoin ? Math.ceil(listing.currentBidCCoin * 1.05) : listing.priceCCoin;
-  if (amountCCoin < minBid) return c.json({ error: `Bid minimal ${minBid} C-Coin (5% increment)`, minBidCCoin: minBid }, 400);
-  const w = ensureWallet(user.id);
-  if (w.balanceCCoin < amountCCoin) return c.json({ error: "Saldo C-Coin tidak cukup untuk bid ini", needCCoin: amountCCoin, haveCCoin: w.balanceCCoin }, 402);
-  // KYC gate >100 C-Coin
-  if (amountCCoin > 100) {
-    const kyc = [...store.kyc.values()].find(k => k.userId === user.id && k.status === "approved");
-    if (!kyc) return c.json({ error: "KYC diperlukan untuk bid > 100 C-Coin", needKyc: true }, 400);
-  }
-  // Anti-sniping: bid di 5 menit terakhir extend 5 menit (max 3x)
-  const msLeft = new Date(listing.endsAt).getTime() - Date.now();
-  if (msLeft < 5*60_000) {
-    const currentEnds = new Date(listing.endsAt).getTime();
-    listing.endsAt = new Date(currentEnds + 5*60_000).toISOString();
-  }
-  // Hold saldo bidder (simulate escrow hold — untuk MVP langsung hold di ledger sebagai fee hold)
-  // Sederhana: tidak hold dulu, hold saat settlement. Bid hanya record.
-  const bid = { id: uid("bid-"), listingId, bidderId: user.id, bidderName: user.displayName, amountCCoin, createdAt: nowIso() };
-  store.bids.push(bid);
-  listing.currentBidCCoin = amountCCoin;
-  listing.currentBidderId = user.id;
-  listing.status = "bidding" as any;
-  user.xp += 10;
-  // Badge first_bid
-  if (!store.userBadges.find(ub => ub.userId === user.id && ub.badgeId === "b2")) {
-    store.userBadges.push({ userId: user.id, badgeId: "b2", earnedAt: nowIso() });
-    user.xp += 50;
-  }
-  // Whale badge if single bid >100 C-Coin
-  if (amountCCoin > 100 && !store.userBadges.find(ub => ub.userId === user.id && ub.badgeId === "b5")) {
-    store.userBadges.push({ userId: user.id, badgeId: "b5", earnedAt: nowIso() });
-    user.xp += 500;
-  }
-  return c.json({ bid, listing }, 201);
+app.get("/card/:cardId", async (c) => {
+  const cardId = c.req.param("cardId");
+  const windowDays = Number(c.req.query("days") ?? 90);
+  const cutoff = Date.now() - windowDays * 86400000;
+  const bids = store.bids
+    .filter((b) => b.cardId === cardId)
+    .filter((b) => b.status === "accepted" || new Date(b.createdAt).getTime() >= cutoff)
+    .sort((a, b) => b.amountCCoin - a.amountCCoin || new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  return c.json({ bids });
 });
 
-// Accept winning bid (seller or admin) — settle auction
+// POST / — place bid directly on card (docs 03 Flow 7: outbid + hold)
+app.post(
+  "/",
+  zValidator(
+    "json",
+    z.object({
+      cardId: z.string().min(1).optional(),
+      listingId: z.string().min(1).optional(),
+      amountCCoin: z.number().int().min(1).optional(),
+      amountCcoin: z.number().int().min(1).optional(),
+      amount_ccoin: z.number().int().min(1).optional(),
+    }),
+  ),
+  async (c) => {
+    const user = requireAuth(c as unknown as { req: { header: (k: string) => string | undefined } });
+    if (!user) return c.json({ error: "Unauthorized" }, 401);
+
+    const raw = c.req.valid("json") as { cardId?: string; listingId?: string; amountCCoin?: number; amountCcoin?: number; amount_ccoin?: number };
+    // resolve cardId (new) or via listingId (legacy)
+    let cardId = raw.cardId ?? null;
+    let listingId: string | null = raw.listingId ?? null;
+    if (!cardId && listingId) {
+      const listing = store.listings.get(listingId);
+      if (!listing) return c.json({ error: "Listing tidak ditemukan" }, 404);
+      cardId = listing.cardId;
+    }
+    if (!cardId) return c.json({ error: "cardId wajib (bid langsung di kartu)" }, 400);
+    const amount = raw.amountCcoin ?? raw.amountCCoin ?? raw.amount_ccoin;
+    if (amount == null || amount < 1) return c.json({ error: "amount wajib integer ≥ 1" }, 400);
+
+    const card = store.cards.get(cardId);
+    if (!card) return c.json({ error: "Kartu tidak ditemukan" }, 404);
+    if (card.ownerId === user.id) return c.json({ error: "Tidak bisa bid kartu sendiri" }, 400);
+    if (card.verifyStatus === "tamper_detected") return c.json({ error: "Kartu tamper — tidak bisa di-bid" }, 400);
+
+    // legacy compat: if card still has an auction listing compat, treat that too
+    const legacyListing = listingId ? store.listings.get(listingId) : null;
+    if (legacyListing) {
+      if (legacyListing.type !== "auction") return c.json({ error: "Hanya auction yang bisa di-bid (legacy path)" }, 400);
+      if (!["bidding", "listed"].includes(legacyListing.status as string)) return c.json({ error: `Listing status: ${legacyListing.status}` }, 400);
+      const minLegacy = legacyListing.currentBidCCoin ? Math.ceil(legacyListing.currentBidCCoin * 1.05) : legacyListing.priceCCoin;
+      if (amount < minLegacy) return c.json({ error: `Bid minimal ${minLegacy} C-Coin (5% increment, legacy auction)`, minBidCCoin: minLegacy }, 400);
+    }
+
+    // Docs 03 Flow 7: 1 active tertinggi/kartu; bid lebih tinggi outbid; C-Coin di-hold
+    const active = store.bids.find((b) => b.cardId === cardId && b.status === "active");
+    if (active && amount <= active.amountCCoin) {
+      return c.json({ error: `Bid harus lebih tinggi dari active tertinggi (${active.amountCCoin} C-Coin)`, minBidCCoin: active.amountCCoin + 1, activeBid: active }, 400);
+    }
+
+    const w = ensureWallet(user.id);
+    if (w.balanceCCoin < amount) return c.json({ error: "Saldo C-Coin tidak cukup untuk hold bid ini", needCCoin: amount, haveCCoin: w.balanceCCoin }, 402);
+
+    // Hold: deduct from bidder (escrow_hold)
+    addTx(user.id, "hold", -amount, "bid", `hold-${Date.now()}`, `Hold bid ${amount} C-Coin untuk ${card.nfcShortId}`, { cardId, amount });
+
+    // Outbid previous active: status outbid + release its holder
+    if (active) {
+      active.status = "outbid";
+      (active as unknown as Record<string, unknown>).outbidAt = nowIso();
+      addTx(active.bidderId, "release", active.amountCCoin, "bid", active.id, `Outbid release — kembali ke saldo (${active.amountCCoin} C-Coin)`);
+    }
+
+    const bid = {
+      id: uid("bid-"),
+      cardId,
+      listingId: listingId ?? null,
+      bidderId: user.id,
+      bidderName: user.displayName,
+      amountCCoin: amount,
+      status: "active" as const,
+      createdAt: nowIso(),
+      outbidAt: null,
+      cancelledAt: null,
+      acceptedAt: null,
+    };
+    store.bids.push(bid);
+
+    // Update legacy listing currentBid for compat
+    if (legacyListing) {
+      legacyListing.currentBidCCoin = amount;
+      legacyListing.currentBidderId = user.id;
+      legacyListing.status = "bidding" as never;
+    }
+
+    // XP
+    (user as unknown as Record<string, unknown>).xp = ((user as unknown as { xp: number }).xp ?? 0) + 5;
+    // also mirror to totalXp
+    const u = store.users.get(user.id);
+    if (u) {
+      u.totalXp = (u.totalXp ?? u.xp ?? 0) + 0; // hold does not add spend XP; keep level consistent
+    }
+    if (!store.userBadges.find((ub) => ub.userId === user.id && ub.badgeId === "b2")) {
+      awardBadgeIfNeeded(user.id, "b2");
+    }
+    if (amount > 100 && !store.userBadges.find((ub) => ub.userId === user.id && ub.badgeId === "b5")) {
+      awardBadgeIfNeeded(user.id, "b5");
+    }
+
+    return c.json({ bid, activeBid: bid, listing: legacyListing ?? null }, 201);
+  },
+);
+
+// POST /:id/cancel — bidder cancel own active/outbid bid (C-Coin release)
+app.post("/:id/cancel", async (c) => {
+  const user = requireAuth(c as unknown as { req: { header: (k: string) => string | undefined } });
+  if (!user) return c.json({ error: "Unauthorized" }, 401);
+  const bid = store.bids.find((b) => b.id === c.req.param("id"));
+  if (!bid) return c.json({ error: "Bid tidak ditemukan" }, 404);
+  if (bid.bidderId !== user.id) return c.json({ error: "Hanya bidder pemilik yang bisa cancel" }, 403);
+  if (bid.status === "accepted") return c.json({ error: "Bid sudah accepted — tidak bisa cancel" }, 400);
+  if (bid.status === "cancelled") return c.json({ error: "Bid sudah cancelled" }, 400);
+  const wasActive = bid.status === "active";
+  bid.status = "cancelled";
+  (bid as unknown as Record<string, unknown>).cancelledAt = nowIso();
+  // release: if was active or outbid, funds were held; return them
+  addTx(user.id, "release", bid.amountCCoin, "bid", bid.id, `Cancel bid release — ${bid.amountCCoin} C-Coin kembali`);
+  // if was active, next highest outbid bid (if any) stays outbid — no auto-promote (per docs owner accept only)
+  return c.json({ ok: true, bid });
+});
+
+// Legacy accept via listing id: POST /:listingId/accept  (keep for old UI)
 app.post("/:listingId/accept", async (c) => {
-  const user = requireAuth(c);
+  const user = requireAuth(c as unknown as { req: { header: (k: string) => string | undefined } });
   if (!user) return c.json({ error: "Unauthorized" }, 401);
   const listing = store.listings.get(c.req.param("listingId"));
   if (!listing) return c.json({ error: "Not found" }, 404);
-  if (listing.sellerId !== user.id && user.role !== "admin") return c.json({ error: "Hanya seller/admin yang bisa accept" }, 403);
+  if (listing.sellerId !== user.id && (user.role as string) !== "admin") return c.json({ error: "Hanya seller/admin yang bisa accept" }, 403);
   if (!listing.currentBidCCoin || !listing.currentBidderId) return c.json({ error: "Belum ada bid" }, 400);
-  if (listing.reserveCCoin && listing.currentBidCCoin < listing.reserveCCoin) return c.json({ error: `Reserve belum tercapai (${listing.reserveCCoin} C-Coin)` }, 400);
-  const winnerId = listing.currentBidderId;
-  const price = listing.currentBidCCoin;
-  const winnerWallet = ensureWallet(winnerId);
-  if (winnerWallet.balanceCCoin < price) return c.json({ error: "Saldo winner tidak cukup" }, 400);
-  // Deduct winner, settle
-  addTx(winnerId, "checkout", -price, "listing", listing.id, `Menang lelang ${listing.id} — ${price} C-Coin`);
+  // In new model this is effectively accept current active bid on the card
+  const card = store.cards.get(listing.cardId);
+  if (!card || card.ownerId !== listing.sellerId) return c.json({ error: "Kartu tidak lagi dimiliki seller" }, 400);
+  const active = store.bids.find((b) => b.cardId === listing.cardId && b.status === "active");
+  if (!active) return c.json({ error: "Tidak ada bid active" }, 400);
+  // KYC gate for owner before accept (docs/07 C-05b)
+  const ownerKyc = [...store.kyc.values()].find((k) => k.userId === user.id && k.status === "approved");
+  if (!ownerKyc) return c.json({ error: "KYC diperlukan sebelum menerima bid", needKyc: true }, 400);
+  const price = active.amountCCoin;
+  // Settlement: hold was already deducted; now convert holds to final transfers.
+  // For MVP: release not needed for accepted — just credit seller/royalty (bidder's hold already debited)
   const sellerNet = Math.floor(price * 0.85);
   const royalty = Math.floor(price * 0.075);
-  const card = store.cards.get(listing.cardId)!;
   const drop = store.drops.get(card.dropId)!;
-  addTx(listing.sellerId, "payout", sellerNet, "listing", listing.id, `Hasil lelang 85% — ${price} C-Coin`);
-  addTx(drop.creatorId, "royalty", royalty, "listing", listing.id, `Royalty lelang 7.5% — ${drop.title}`);
-  card.ownerId = winnerId; card.status = "sold";
-  listing.status = "settled" as any;
-  return c.json({ ok: true, listing, card });
+  addTx(listing.sellerId, "payout", sellerNet, "bid", active.id, `Hasil bid accept 85% — ${price} C-Coin`);
+  addTx(drop.creatorId, "royalty", royalty, "bid", active.id, `Royalty bid 7.5% — ${drop.title}`);
+  active.status = "accepted";
+  (active as unknown as Record<string, unknown>).acceptedAt = nowIso();
+  // outbid remaining actives (should be none, but safety)
+  for (const other of store.bids.filter((b) => b.cardId === listing.cardId && b.status === "active" && b.id !== active.id)) {
+    other.status = "outbid";
+    (other as unknown as Record<string, unknown>).outbidAt = nowIso();
+    addTx(other.bidderId, "release", other.amountCCoin, "bid", other.id, `Outbid release — bid lain accepted`);
+  }
+  // Transfer ownership
+  const prevOwner = card.ownerId!;
+  card.ownerId = active.bidderId;
+  card.status = "sold";
+  (card as unknown as Record<string, unknown>).buyoutPriceCcoin = null;
+  listing.status = "settled" as never;
+  store.ownershipHistory.push({ id: uid("oh-"), cardId: card.id, ownerId: active.bidderId, acquiredVia: "secondary_bid", orderId: null, bidId: active.id, transferredAt: nowIso() });
+  return c.json({ ok: true, listing, card, bid: active, needShipmentChoice: true });
 });
+
+// New: POST /cards/:cardId/accept — accept current active bid on card
+app.post(
+  "/cards/:cardId/accept",
+  zValidator("json", z.object({ bidId: z.string().optional(), destination: z.enum(["buyer_address", "platform_vault"]).optional().default("buyer_address"), shippingAddress: z.string().optional(), shippingFeeCcoin: z.number().int().min(1).optional().nullable() })),
+  async (c) => {
+    const user = requireAuth(c as unknown as { req: { header: (k: string) => string | undefined } });
+    if (!user) return c.json({ error: "Unauthorized" }, 401);
+    const cardId = c.req.param("cardId");
+    const card = store.cards.get(cardId);
+    if (!card) return c.json({ error: "Kartu tidak ditemukan" }, 404);
+    if (card.ownerId !== user.id) return c.json({ error: "Hanya owner yang bisa accept" }, 403);
+    const kyc = [...store.kyc.values()].find((k) => k.userId === user.id && k.status === "approved");
+    if (!kyc) return c.json({ error: "KYC diperlukan sebelum menerima bid", needKyc: true }, 400);
+    const body = c.req.valid("json") as { bidId?: string; destination?: string; shippingAddress?: string; shippingFeeCcoin?: number | null };
+    let bid: typeof store.bids[number] | undefined;
+    if (body.bidId) bid = store.bids.find((b) => b.id === body.bidId && b.cardId === cardId);
+    else bid = store.bids.find((b) => b.cardId === cardId && b.status === "active");
+    if (!bid) return c.json({ error: "Tidak ada bid active untuk card ini" }, 404);
+    if (bid.status !== "active") return c.json({ error: `Bid status: ${bid.status}` }, 400);
+    const price = bid.amountCCoin;
+    const drop = store.drops.get(card.dropId)!;
+    const sellerNet = Math.floor(price * 0.85);
+    const royalty = Math.floor(price * 0.075);
+    addTx(card.ownerId!, "payout", sellerNet, "bid", bid.id, `Hasil bid accept 85% — ${price} C-Coin`);
+    addTx(drop.creatorId, "royalty", royalty, "bid", bid.id, `Royalty bid 7.5% — ${drop.title}`);
+    bid.status = "accepted";
+    (bid as unknown as Record<string, unknown>).acceptedAt = nowIso();
+    for (const other of store.bids.filter((b) => b.cardId === cardId && b.status === "active" && b.id !== bid.id)) {
+      other.status = "outbid";
+      (other as unknown as Record<string, unknown>).outbidAt = nowIso();
+      addTx(other.bidderId, "release", other.amountCCoin, "bid", other.id, `Outbid release`);
+    }
+    card.ownerId = bid.bidderId;
+    card.status = "sold";
+    (card as unknown as Record<string, unknown>).buyoutPriceCcoin = null;
+    store.ownershipHistory.push({ id: uid("oh-"), cardId, ownerId: bid.bidderId, acquiredVia: "secondary_bid", orderId: null, bidId: bid.id, transferredAt: nowIso() });
+    // Shipment choice per Flow 7 secondary (MVP records intent only)
+    return c.json({ ok: true, bid, card, needShipmentChoice: true, hint: "Pilih tujuan kirim pembeli (alamat vs vault) di langkah berikutnya." });
+  },
+);
 
 export default app;
