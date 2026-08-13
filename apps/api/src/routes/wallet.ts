@@ -11,14 +11,14 @@ function requireAuth(c: { req: { header: (k: string) => string | undefined } }):
   return getUserByToken(authHeaderToToken(c.req.header("authorization")));
 }
 
-const KYC_THRESHOLD = 99; // top-up kumulatif >99 C-Coin triggers KYC (07 C-05b)
+const KYC_THRESHOLD = 99; // FINAL 2026-08-13: KYC HANYA payout/disbursement + akumulasi top-up besar (07 C-05b). 99 = threshold topup; payout selalu KYC.
 
 app.get("/", async (c) => {
   const user = requireAuth(c as unknown as { req: { header: (k: string) => string | undefined } });
   if (!user) return c.json({ error: "Unauthorized" }, 401);
   const w = ensureWallet(user.id);
   const txs = store.walletTx.filter((t) => t.userId === user.id).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-  return c.json({ wallet: { ...w, balanceIdrEquiv: w.balanceCCoin * C_COIN_RATE_IDR }, transactions: txs.slice(0, 100), rate: C_COIN_RATE_IDR, thresholdKyc: KYC_THRESHOLD });
+  return c.json({ wallet: { ...w, balanceIdrEquiv: w.balanceCCoin * C_COIN_RATE_IDR }, transactions: txs.slice(0, 100), rate: C_COIN_RATE_IDR, thresholdKyc: KYC_THRESHOLD, balanceCap: 1000, minPayout: 10 });
 });
 
 app.post(
@@ -45,6 +45,11 @@ app.post(
       const kyc = [...store.kyc.values()].find((k) => k.userId === user!.id && k.status === "approved");
       if (!kyc) return c.json({ error: `KYC diperlukan untuk top-up kumulatif > ${KYC_THRESHOLD} C-Coin`, needKyc: true, cumulativeWouldBe: cumBefore + amountCCoin, threshold: KYC_THRESHOLD }, 400);
     }
+
+    // Balance cap (docs/07 C-08): tolak top-up yang melampaui cap saldo (default 1000 C)
+    const BALANCE_CAP = 1000;
+    const wouldBe = ensureWallet(user.id).balanceCCoin + amountCCoin;
+    if (wouldBe > BALANCE_CAP) return c.json({ error: 'Cap saldo terlampaui (' + BALANCE_CAP + ' C-Coin) — top-up ditolak', cap: BALANCE_CAP, wouldBe }, 400);
 
     // Opsi A: buyer closed-loop — top-up menambah saldo; withdrawal buyer tidak ada (refund-to-source only di ops manual)
     // Gateway mocked (Midtrans/Xendit) — langsung credit; metadata holds method for reconciliation
@@ -76,6 +81,7 @@ app.post(
     const raw = c.req.valid("json") as { amountCCoin?: number; amountCcoin?: number; bankAccount?: string };
     const amountCCoin = raw.amountCcoin ?? raw.amountCCoin;
     if (amountCCoin == null) return c.json({ error: "amountCCoin wajib" }, 400);
+    if (amountCCoin < 10) return c.json({ error: "Minimum payout 10 C-Coin (Rp 100.000)", minPayout: 10 }, 400);
     const w = ensureWallet(user.id);
     if (w.balanceCCoin < amountCCoin) return c.json({ error: "Saldo tidak cukup untuk payout" }, 400);
     // KYC + bank gate for payouts (prevents arbitrary withdraw)

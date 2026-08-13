@@ -166,9 +166,7 @@ app.post("/:listingId/accept", async (c) => {
   if (!card || card.ownerId !== listing.sellerId) return c.json({ error: "Kartu tidak lagi dimiliki seller" }, 400);
   const active = store.bids.find((b) => b.cardId === listing.cardId && b.status === "active");
   if (!active) return c.json({ error: "Tidak ada bid active" }, 400);
-  // KYC gate for owner before accept (docs/07 C-05b)
-  const ownerKyc = [...store.kyc.values()].find((k) => k.userId === user.id && k.status === "approved");
-  if (!ownerKyc) return c.json({ error: "KYC diperlukan sebelum menerima bid", needKyc: true }, 400);
+  // FINAL: tidak ada KYC untuk accept bid (docs/07 C-05b — hanya payout/disbursement)
   const price = active.amountCCoin;
   // Settlement: hold was already deducted; now convert holds to final transfers.
   // For MVP: release not needed for accepted — just credit seller/royalty (bidder's hold already debited)
@@ -206,8 +204,7 @@ app.post(
     const card = store.cards.get(cardId);
     if (!card) return c.json({ error: "Kartu tidak ditemukan" }, 404);
     if (card.ownerId !== user.id) return c.json({ error: "Hanya owner yang bisa accept" }, 403);
-    const kyc = [...store.kyc.values()].find((k) => k.userId === user.id && k.status === "approved");
-    if (!kyc) return c.json({ error: "KYC diperlukan sebelum menerima bid", needKyc: true }, 400);
+    // FINAL: tidak ada KYC untuk accept bid
     const body = c.req.valid("json") as { bidId?: string; destination?: string; shippingAddress?: string; shippingFeeCcoin?: number | null };
     let bid: typeof store.bids[number] | undefined;
     if (body.bidId) bid = store.bids.find((b) => b.id === body.bidId && b.cardId === cardId);

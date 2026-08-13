@@ -133,9 +133,7 @@ app.post(
     const price = raw.buyoutPriceCcoin ?? raw.priceCCoin;
     if (price == null) return c.json({ error: "buyoutPriceCcoin wajib (integer ≥ 1)" }, 400);
 
-    // KYC gate (docs/07 C-05b: pasang buyout wajib KYC approved)
-    const kyc = [...store.kyc.values()].find((k) => k.userId === user.id && k.status === "approved");
-    if (!kyc) return c.json({ error: "KYC diperlukan untuk pasang harga buyout", needKyc: true }, 400);
+    // FINAL 2026-08-13 — TIDAK ada KYC untuk pasang buyout (docs/07 C-05b validasi lawyer: hanya payout + topup besar).
 
     // Guard max 20 buyout aktif per user (05-data-model I10)
     const activeBuyouts = [...store.cards.values()].filter((ca) => ca.ownerId === user.id && ca.buyoutPriceCcoin != null).length;
@@ -243,8 +241,7 @@ app.patch("/cards/:id/buyout", zValidator("json", z.object({ buyoutPriceCcoin: z
     if ((card.status as string) === "listed_buyout" || (card.status as string) === "listed") card.status = "sold";
     return c.json({ card });
   }
-  const kyc = [...store.kyc.values()].find((k) => k.userId === user.id && k.status === "approved");
-  if (!kyc) return c.json({ error: "KYC diperlukan", needKyc: true }, 400);
+  // FINAL: tidak ada KYC untuk update buyout
   card.buyoutPriceCcoin = buyoutPriceCcoin;
   if ((card.status as string) === "sold") card.status = "listed_buyout" as never;
   return c.json({ card });

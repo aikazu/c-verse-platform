@@ -319,7 +319,7 @@ export function ensureSeed() {
   for (const d of drops) {
     for (let i = 1; i <= d.totalUnits; i++) {
       const variant = i <= d.signedCount ? "signed" as const : "unsigned" as const;
-      const shortId = `${d.id.slice(0, 4)}-${String(i).padStart(3, "0")}`;
+      const prefix = d.id.replace(/[^a-z0-9]/gi,"").slice(-4).toLowerCase() || d.id.slice(0,4); const shortId = `${prefix}-${String(i).padStart(3, "0")}`;
       const uidHex = `04A1${Math.random().toString(16).slice(2, 10).padEnd(8, "0").toUpperCase()}${String(i).padStart(2, "0")}`;
       const isSold = i <= d.soldCount;
       const ownerId = isSold ? (i % 3 === 0 ? "u_demo" : i % 2 === 0 ? "u_admin" : "cr_hype") : null;

@@ -19,7 +19,7 @@ app.post(
     "json",
     z.object({
       dropId: z.string().min(1),
-      deliveryOption: z.enum(["shipping", "vault"]).default("shipping"),
+      deliveryOption: z.enum(["shipping", "vault"]).default("vault"),
       shippingFeeCcoin: z.number().int().min(1).nullable().optional(),
       shippingAddress: z.string().min(10).max(500).nullable().optional(),
       // legacy compat
@@ -66,12 +66,21 @@ app.post(
       );
     }
 
-    // Allocate one available card (pick smallest unitNumber available for determinism)
+    // Signed allocation random 1:10 per docs 03 Flow 1 + 09 2.5: sistem random assign signed/unsigned saat debit
+    // Pool remaining signed vs unsigned separately; pick random within available pool proportional to remaining
     const available = [...store.cards.values()]
       .filter((ca) => ca.dropId === dropId && ca.status === "available" && ca.location === "platform_stock")
       .sort((a, b) => a.unitNumber - b.unitNumber);
     if (available.length === 0) return c.json({ error: "Stok tidak tersedia — unit habis atau terkunci" }, 400);
-    const card = available[0];
+    // Random pick: if both variant pools remain, ~10% chance prefer signed pool else unsigned; fallthrough to available
+    const signedAvail = available.filter((c) => c.variant === "signed");
+    const unsignedAvail = available.filter((c) => c.variant === "unsigned");
+    let card: typeof available[number];
+    if (signedAvail.length > 0 && unsignedAvail.length > 0) {
+      card = Math.random() < 0.1 ? signedAvail[Math.floor(Math.random() * signedAvail.length)] : unsignedAvail[Math.floor(Math.random() * unsignedAvail.length)];
+    } else {
+      card = available[Math.floor(Math.random() * available.length)];
+    }
 
     // Atomik: allocate + wallet
     card.status = "sold";
