@@ -1,34 +1,38 @@
 # 07 — Constraints, Gates & Open Items
 
-> Status: [DRAFT]
-> Last updated: 2026-08-12
+> Status: [VALIDATED] (C-01/C-02 resolved 2026-08-13)
+> Last updated: 2026-08-13
 > Dok ini menjawab: **apa yang TIDAK boleh dibangun / di-live**
 > dulu, dan apa yang masih menunggu keputusan.
 
-## 1. Legal — C-Coin (BLOCKER UTAMA)
+## 1. Legal — C-Coin (RESOLVED 2026-08-13)
 
-### C-01 [GO-LIVE GATE] Status hukum C-Coin Opsi A (Q026)
-- Struktur: saldo buyer closed-loop TANPA withdraw; hasil
-  seller/kreator auto-disburse IDR (payout fee 1%); refund
-  hanya ke metode pembayaran asal untuk pembatalan spesifik.
-- Pertanyaan inti ke lawyer fintech (Sesi A di
-  `legal-consultation-brief.md`):
-  1. Apakah closed-loop tanpa redemption = uang elektronik
-     (PBI 20/2018, PBI 24/2023) atau pengecualian voucher/poin?
-  2. Apakah refund-to-source = reversal aman atau redemption
-     yang merusak status closed-loop?
-  3. Apakah escrow sebagai hold state ledger cukup dengan T&C,
-     atau wajib pemisahan dana?
-- **BUKAN bloker build**: semua fitur (wallet, ledger, top-up,
-  payout) DI-BANGUN penuh. Q026 hanya **gate GO-LIVE** —
-  tidak menerima top-up uang riil sebelum A1-A3 terjawab.
-- Fallback: Opsi B (wallet-as-a-service issuer berizin) — tidak
-  di-build dulu.
+### C-01 [RESOLVED 2026-08-13] Status hukum C-Coin Opsi A (Q026)
+- **Respon lawyer (2026-08-13)**: Struktur Opsi A VALID.
+  1. C-Coin **bukan e-money** — one-way di primary (tidak bisa
+     dicashout). C-Coin primary bersifat **non-refundable**
+     (pembayaran B2C biasa). Pencairan seller/kreator di secondary
+     dicatat sebagai "Pembayaran Hasil Titip Jual/Konsinyasi".
+  2. Refund ke metode asal = reversal aman. Penutupan akun
+     bersaldo boleh dikembalikan ke metode top-up terakhir.
+  3. Escrow hold state di ledger internal cukup dengan T&C +
+     pencatatan terpisah (segregated di ledger); tidak wajib
+     rekening escrow bank di skala Y1.
+- **Label legal yang direkomendasikan**: "Gamified Point
+  Redemption" (lebih kuat secara hukum daripada "Trading
+  Collectibles" — menekankan aspek poin/platform, bukan jual-beli
+  barang). Karakterisasi ini harus konsisten di semua komunikasi
+  publik dan T&C.
+- **Vault-first recommendation**: Barang fisik sebaiknya tetap
+  di vault platform selama secondary market. Kepemilikan fisik
+  baru dikirim saat pemilik akhir meminta pengiriman. Desain
+  sudah sesuai (lihat `cards.location` + `shipments` di
+  `05-data-model.md`).
 
-### C-02 [GO-LIVE GATE] Escrow design (gap G9)
-- Flow 1/3/7 menahan dana di escrow → mekanisme teknis TIDAK
-  di-lock sampai C-01 clear. Build status `escrow_status` di
-  ledger penuh; jangan live sampai Q026 clear.
+### C-02 [RESOLVED 2026-08-13] Escrow design (gap G9)
+- Mekanisme escrow ledger internal sudah divalidasi lawyer.
+  Status `escrow_status` di ledger bisa di-live tanpa segregasi
+  bank. T&C + rekonsiliasi harian cukup.
 
 ## 2. NFC — Validasi Device
 
@@ -55,9 +59,17 @@
 - Onboarding TANPA aplikasi/approval in-platform — direct
   contact. Admin hanya mengelola data (ADM-01).
 
-### C-05b KYC trigger (bukan transaksi > Rp 1 juta)
-- KYC aktif saat: (1) top-up kumulatif > 99 C-Coin, (2) pasang
-  buyout price, (3) menerima (accept) bid.
+### C-05b KYC trigger (diupdate 2026-08-13, validasi lawyer)
+- **Prinsip**: KYC hanya diwajibkan untuk seller yang ingin
+  withdrawal/cash-out hasil penjualan ke rekening bank. Tidak
+  perlu KYC di top-up rutin, bid/buyout, atau menerima bid.
+- Threshold KYC aktif saat: (1) payout/disbursement hasil seller
+  & kreator ke IDR — WAJIB KYC + verifikasi rekening tujuan.
+  (2) Akumulasi top-up besar (threshold finalisasi sebelum
+  launch).
+- **Tidak ada KYC untuk**: pasang buyout price, menerima bid,
+  atau top-up rutin di bawah threshold. Cukup verifikasi akun
+  standar (email OTP).
 
 ### C-05e Flow bid (keputusan 2026-08-12)
 - TANPA reject — owner hanya accept (current active) atau diam.
@@ -66,6 +78,9 @@
   ke bidder lama.
 - History bid per kartu: 90 hari terakhir; bid `accepted` (complete)
   permanen selamanya.
+   > **Cancel vs outbid**: keduanya melepas C-Coin ke saldo bidder.
+   > Cancel = inisiatif bidder. Outbid = otomatis saat bid lebih
+   > tinggi masuk. Efek ke saldo sama (release).
 
 ### C-05c Level & badge (XP, bukan masa berlaku)
 - Level = floor(total_xp / 10). Sumber XP: spend C-Coin
@@ -79,10 +94,10 @@
   tampil; user bisa mengaktifkan **privacy anonymous** untuk
   menyembunyikan.
 
-### C-06 [DRAFT] Deposit 5% untuk secondary high-value (R6)
-- Mekanisme hold deposit untuk bid/buyout berisiko tinggi
-  (mis. > Rp 5 juta) belum ada desainnya. Kandidat: hold
-  C-Coin. Defer sampai secondary live & ada data volume.
+### C-06 [DEFERRED] Deposit secondary high-value (R6)
+- Hold deposit untuk bid/buyout high-value di-defer sampai
+  secondary live & ada data volume. Tidak di-build di MVP.
+  Keputusan: hold C-Coin jika diimplementasi nanti.
 
 ### C-07 [DRAFT] Secondary = Marketplace + Browse (tanpa auction)
 - Marketplace: owner pasang buyout price. Browse: bid langsung
@@ -90,34 +105,41 @@
   reject**; bidder bisa cancel; bid TIDAK ada expire). TIDAK ada
   auction timer/anti-sniping/deposit timebox di MVP.
 
-### C-08 [DRAFT] Cap saldo maksimum
-- Usulan awal Rp 5-10 juta — JANGAN di-lock sebelum jawaban
-  lawyer (C-01) + validasi demand.
+### C-08 [VALIDATED 2026-08-13] Cap saldo maksimum
+- Lawyer mengonfirmasi cap saldo sebagai faktor mitigasi yang
+  valid. Usulan awal Rp 5-10 juta (setara 500-1.000 C-Coin)
+  wajar untuk skala Y1.
+- **Action**: finalisasi threshold sebelum launch. Implementasi
+  di wallet engine: batasi saldo maksimum per user, tolak top-up
+  yang melampaui cap.
 
 ### C-09 [DRAFT] Detail payout
 - Minimum payout, verifikasi rekening, SLA, mekanisme
   disbursement final, perlakuan pajak — belum di-lock.
   Payout teknis tetap dibangun dengan default yang wajar.
 
-### C-10 [FINAL] Pengiriman = PILIHAN (bukan keharusan)
-- Checkout punya 2 opsi (keputusan user 2026-08-12):
-  - **Kirim fisik** (shipping): isi alamat, bayar **biaya
-    pengiriman dalam C-Coin**, tracking/no resi aktif.
-    Status: `paid → qc → shipped → delivered → settled`.
-  - **Simpan di inventory** (vault): TANPA alamat/ongkir/
-    tracking; kartu ter-bind virtual ke koleksi, fisik dipegang
-    platform. Status: `paid → qc → settled`.
-- **Berlaku juga di secondary** (keputusan user 2026-08-12):
-  buyer hasil buyout/bid accept memilih tujuannya — kirim ke
-  alamat OR **kirim/rawat di platform** (platform vault +
-  verifikasi ulang NFC/QC ringan, tanpa ongkir).
-- **Ship-from-vault**: kartu lokasi `platform_vault` bisa
-  dikirim ke alamat owner kapan saja (`shipments` type
-  `vault_shipout`, ongkir C-Coin).
-- `orders.delivery_option enum('shipping','vault')`,
-  `cards.location enum('platform_stock','with_owner',
+### C-09b [FINAL] Minimum payout
+- Minimum payout: **10 C-Coin (Rp 100.000)**. Saldo seller/kreator
+  menumpuk sampai threshold terpenuhi. Payout fee 1% tetap
+  dipotong dari total.
+
+### C-10 [FINAL] Vault = DEFAULT, kirim fisik = OPSIONAL
+- **Primary**: checkout DEFAULT simpan di inventory (vault) —
+  kartu ter-bind virtual, fisik dipegang platform, tanpa ongkir/
+  tracking. OPSIONAL kirim fisik sekarang (isi alamat + ongkir
+  C-Coin). Ship-from-vault: owner bisa minta kirim kapan saja
+  setelah order settled (bayar ongkir saat itu).
+- **Secondary**: kartu tetap di vault, ownership pindah di ledger.
+  Buyer bisa minta seller kirim fisik (ongkir C-Coin + tracking)
+  ATAU biarkan tetap di vault — ship-out kapan saja.
+- `orders.delivery_option enum('shipping','vault')` — vault default.
+- `cards.location enum('platform_stock','with_owner',
   'platform_vault')`, `shipments` table (type: primary/
   secondary/vault_shipout).
+- **Rekomendasi lawyer (2026-08-13)**: vault-first memperkuat
+  posisi "Gamified Point Redemption" — barang tidak berpindah
+  fisik, hanya ledger. Juga menghindari fraud pengiriman antar-
+  user.
 
 ### C-11 [FINAL] Nominal C-Coin integer ≥ 1
 - Semua nominal C-Coin (harga, buyout, bid, ongkir, top-up,
@@ -141,7 +163,7 @@
 |------|------|----------|
 | C-03 | Validasi iOS SUN URL | Ya (mempengaruhi D2) |
 | O-1..O-7 | Tech open items (lihat `06-tech-decisions.md` section 3) | Tidak |
-| Q026 | Status hukum C-Coin | Ya (gate top-up) |
+| ~~Q026~~ | ~~Status hukum C-Coin~~ | **RESOLVED 2026-08-13** — bukan blocker |
 | R6 | Desain deposit secondary | Tidak (post-launch secondary) |
 | F2 | Acrylic case: magnet vs screw | Tidak (ops, tunggu RFQ vendor) |
 | Q016 | PWA vs native | Tidak (PWA untuk MVP, sudah final) |
@@ -151,7 +173,8 @@
 | Keputusan | Status |
 |-----------|--------|
 | C-Coin medium tunggal, rate Rp 10.000 | FINAL (2026-08-11) |
-| Opsi A closed-loop tanpa withdraw buyer | FINAL (2026-08-11) |
+| Opsi A closed-loop tanpa withdraw buyer | FINAL (2026-08-11) — **DIVALIDASI lawyer 2026-08-13** |
+| C-Coin bukan e-money; "Gamified Point Redemption" (bukan lelang); KYC cash-only | FINAL (2026-08-13, validasi lawyer) |
 | Threshold kreator 100rb+ combined | FINAL (2026-08-12) |
 | Onboarding off-platform tanpa approval in-platform | FINAL (2026-08-12) |
 | Admin app terpisah, tidak di edge | FINAL (2026-08-12) |
@@ -159,13 +182,13 @@
 | Tidak ada halaman verifikasi terpisah (melekat di halaman kartu) | FINAL (2026-08-12) |
 | Primary = platform-produced SAJA (70/30), kreator-produced defer | FINAL (2026-08-12) |
 | Leaderboard punya halaman sendiri (PG-LB-01) | FINAL (2026-08-12) |
-| Top-up di area user; TANPA bloker build (Q026 = gate go-live) | FINAL (2026-08-12) |
-| KYC trigger: top-up kumulatif > 99 C-Coin / pasang buyout / terima bid | FINAL (2026-08-12) |
+| Top-up di area user; **bisa diterima setelah T&C final + cap saldo** (Q026 resolved 2026-08-13) | FINAL (2026-08-13) |
+| KYC trigger: payout/disbursement ke IDR + akumulasi top-up besar (TIDAK untuk pasang buyout/accept bid) | FINAL (2026-08-13, validasi lawyer) |
 | Profil publik + privacy anonymous | FINAL (2026-08-12) |
 | Level = via XP (spend 1 C-Coin = 1 XP; 10 XP = 1 level; badge +XP) | FINAL (2026-08-12) |
 | Badge admin-configurable (kriteria + ikon + XP reward), ADM-07 | FINAL (2026-08-12) |
 | Bid flow: tanpa reject; bidder cancel; outbid release C-Coin; history 90 hari (complete selamanya) | FINAL (2026-08-12) |
-| Domain: primary **kemungkinan** `c-verse.co`; `c-verse.id` redirect — LOCK sebelum provisioning NFC | DRAFT (2026-08-12) |
+| Domain: `c-verse.co` primary, `c-verse.id` redirect — LOCK sebelum provisioning NFC | FINAL (2026-08-13) |
 | Halaman kreator PUBLIK `/c/:username` (list drop); profil kolektor `/u/:username` + privacy anonymous | FINAL (2026-08-12) |
 | Revenue split 70/30 primary + 7,5/7,5/85 secondary | FINAL (2026-08-04) |
 | Tech stack full-edge | FINAL (2026-08-11) |
@@ -178,10 +201,11 @@
 ## Sumber
 
 - `90_research/legal-consultation-brief.md` (Sesi A-D).
-- `40_operations/02_legal_compliance.md` (2,2 C-Coin; gap G9).
+- `40_operations/02_legal_compliance.md` (2,2 C-Coin — status [VALIDATED]).
 - `90_research/nfc-decision-ntag-424-dna.md` (N5, N5b).
-- `90_research/open_questions_tracker.csv` (Q026, Q027-Q030,
+- `90_research/open_questions_tracker.csv` (Q027-Q030,
   R6, O1-O7).
 - `00_foundation/05_assumptions.md` (A015 status hukum
-  C-Coin — confidence LOW).
+  C-Coin — confidence HIGH, tervalidasi lawyer).
 - Diskusi founder 2026-08-12.
+- Validasi lawyer fintech 2026-08-13.

@@ -1,6 +1,6 @@
 # 06 — Tech Decisions (Keputusan Arsitektur)
 
-> Status: [DRAFT]
+> Status: [VALIDATED]
 > Last updated: 2026-08-12
 > Sumber utama: `40_operations/01_tech_stack.md` +
 > `90_research/tech-stack-decision-full-edge.md` (full-edge,
@@ -99,15 +99,16 @@ Retensi: minimum 1 tahun (UU PDP + forensik fraud).
   untuk HP tanpa NFC. **Validasi device nyata di Sprint 0
   (C-03)** sebelum mematikan fallback.
 
-### D3 — C-Coin: Build Boleh, Top-Up Gated
+### D3 — C-Coin: Top-Up Aman setelah T&C Final
 
 - Wallet + ledger + payout = fitur teknis biasa, **boleh
   dibangun**.
-- **Top-up uang riil TIDAK BOLEH live** sebelum Q026
-  (klasifikasi e-money vs closed-loop voucher) clear dari
-  lawyer fintech. Tombol top-up disabled di UI.
-- Desain fallback jika jawaban = "tetap e-money": Opsi B
-  (wallet-as-a-service issuer berizin) — tidak di-build dulu.
+- **Top-up uang riil bisa diterima** setelah T&C final
+  (disclosure "saldo tidak dapat diuangkan", refund-to-source,
+  cap saldo) + cap saldo diimplementasi. Validasi lawyer
+  2026-08-13: struktur Opsi A valid, C-Coin bukan e-money.
+- Fallback Opsi B (wallet-as-a-service issuer berizin) disimpan
+  sebagai contingency untuk perubahan regulasi masa depan.
 
 ### D4 — Verifikasi NFC (Server-Side CMAC)
 
@@ -115,9 +116,9 @@ Retensi: minimum 1 tahun (UU PDP + forensik fraud).
   mirror (UID + counter + CMAC).
   > **PENTING**: domain/path NDEF final sebelum provisioning
   > tag — mengubah URL di NDEF = re-provision/pemrograman ulang
-  > chip (bukan bisa diubah remote). Primary "kemungkinan"
-  > `c-verse.co` (keputusan awal 2026-08-12, pending final);
-  > `c-verse.id` redirect. LOCK domain SEBELUM produksi inlay.
+  > chip (bukan bisa diubah remote). **Domain FINAL: `c-verse.co`**
+  > (FINAL 2026-08-13); `c-verse.id` redirect. LOCK sebelum
+  > produksi inlay.
 - Backend (Workers): derive expected CMAC dari AppKey
   (diversified master key + UID) + counter → compare → parse
   TagTamper → lookup `cards` by short_id/UID.
@@ -164,5 +165,5 @@ Retensi: minimum 1 tahun (UU PDP + forensik fraud).
 - `90_research/nfc-decision-ntag-424-dna.md` (N5 arsitektur
   verifikasi, SUN URL).
 - `40_operations/05_mvp_flow.md` (Flow 1-9).
-- `90_research/legal-consultation-brief.md` (Sesi A → Q026).
+- `40_operations/02_legal_compliance.md` 2,2 (C-Coin validasi).
 - Diskusi founder 2026-08-12 (D1, D2).

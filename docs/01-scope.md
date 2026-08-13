@@ -1,7 +1,7 @@
 # 01 — Scope MVP C.Card
 
-> Status: [DRAFT]
-> Last updated: 2026-08-12
+> Status: [VALIDATED]
+> Last updated: 2026-08-13 (KYC trigger diupdate validasi lawyer)
 
 ## 1. Definisi MVP
 
@@ -44,28 +44,29 @@ loyalty (semua post-MVP).
 | F002 | Onboarding & kurasi kreator | 80 | **Off-platform**: ops input data kreator hasil rekrutan manual. TIDAK ada form aplikasi publik |
 | F003 | Upload artwork + narasi | 60 | Ops/designer upload atas nama kreator (artwork sudah di-approve off-platform) |
 | F004 | Drop scheduling & listing | 200 | Admin bikin drop; publik lihat di catalog |
-| F005 | Checkout "siapa cepat" | 250 | Race condition, limit 1 kartu/user, potong saldo C-Coin; **opsi pengiriman: kirim fisik (ongkir C-Coin) ATAU simpan di inventory (tanpa kirim)** |
-| F006 | Payment gateway top-up + disbursement | 200 | Midtrans/Xendit. **Build penuh; go-live terima uang riil menunggu Q026** |
+| F005 | Checkout "siapa cepat" | 250 | Race condition, limit 1 kartu/user, potong saldo C-Coin; **default simpan di inventory (vault) — tanpa alamat/ongkir; OPSIONAL kirim fisik sekarang (isi alamat + ongkir C-Coin); signed card random alokasi 1:10** |
+| F006 | Payment gateway top-up + disbursement | 200 | Midtrans/Xendit. **Top-up uang riil bisa diterima setelah T&C final + cap saldo diimplementasi** (legal resolved 2026-08-13) |
 | F036 | Wallet C-Coin: saldo closed-loop, ledger immutable, payout fee 1% | 200 | Tanpa withdraw buyer; seller/kreator auto-disburse IDR |
 | F007 | NFC NTAG 424 tap & verify | 180 | CMAC server-side; fallback QR di dus |
 | F008 | Sertifikat digital + 3D viewer | 180 | **Cut line #1** — bisa turun ke sertifikat statis |
 | F009 | Order tracking | 120 | Status order + no resi |
 | F010 | Notifikasi push/email | 100 | Email abstraction layer + FCM |
 
-### SHOULD — Blok 2 (10 fitur)
+### SHOULD — Blok 2 (11 fitur)
 
 | ID | Fitur | RICE | Catatan |
 |----|-------|------|---------|
 | F011 | Secondary: Marketplace (buyout) + Browse (bid langsung di kartu) | 180 | Marketplace = owner pasang buyout price; Browse = cari + bid walau tanpa harga. **Pilihan kirim**: ke alamat buyer ATAU kirim/rawat di platform (vault) |
 | F012 | Bid flow: active 1 tertinggi/kartu; outbid & cancel release C-Coin; owner accept only (tanpa reject) | 150 | Bidder bisa cancel; bid lebih tinggi invalidate bid lama |
 | F013 | Notifikasi bid & buyout (anti-snipe manual) | 80 | Notif ke owner saat bid masuk; ke buyer saat buyout terambil |
-| F014 | KYC | 60 | **Trigger**: top-up kumulatif > 99 C-Coin, pasang buyout, atau mau terima bid. Verifikasi manual Y1 |
+| F014 | KYC | 60 | **Trigger (diupdate 2026-08-13)**: payout/disbursement hasil seller/kreator ke IDR + akumulasi top-up besar. **Tidak ada KYC untuk pasang buyout atau terima bid**. Verifikasi manual Y1 |
 | F015 | Profile & collection view | 100 | Koleksi user + ownership history; **profil bisa publik** (koleksi, level, badge, ranking) kecuali privacy anonymous aktif |
 | F016 | Creator dashboard (analitik) | 70 | Traffic + pendapatan only (bukan admin) |
 | F017 | Gamifikasi: level | 80 | **Naik via XP**: spend 1 C-Coin = 1 XP; 10 XP = 1 level (top-up TIDAK menambah XP) |
 | F018 | Gamifikasi: badge | 80 | **Kriteria + logo/ikon + XP reward dikonfigurasi di admin page** (ADM-07); XP badge berkontribusi naik level (bukan masa berlaku) |
 | F019 | Leaderboard | 50 | **Halaman sendiri** (PG-LB-01) — tetap Should |
-| F020 | Dispute resolution | 60 | MVP: manual (email/WA) + status di admin |
+| F020 | Minimum payout 10 C-Coin | 20 | Should |
+| F037 | Dispute resolution | 60 | MVP: manual (email/WA) + status di admin |
 
 ### COULD — Blok 3 (7 fitur)
 
@@ -121,26 +122,27 @@ F001-F007, F009-F011, F013-F019, F036, ADM-01..09.
 
 ## 4. Definition of Done (Release MVP)
 
-- [ ] Primary drop: beli → bayar (C-Coin) → escrow → kirim →
-      delivered → release, jalan end-to-end.
+- [ ] Primary drop: beli → bayar (C-Coin) → escrow → vault
+      default (fisik dipegang platform) → ship-out opsional (ongkir
+      C-Coin), jalan end-to-end.
 - [ ] Verify: tap NFC → LANGSUNG halaman 3D kartu (CMAC
       verified); QR di dus → halaman info kartu (Registered).
       TIDAK ada halaman verifikasi terpisah, TIDAK ada input
       serial manual.
 - [ ] Secondary: Marketplace (buyout price) + Browse (bid
       langsung di kartu, owner accept) jalan.
-- [ ] KYC: trigger top-up kumulatif > 99 C-Coin / pasang buyout
-      / terima bid.
+- [ ] KYC: trigger payout/disbursement ke IDR + akumulasi top-up
+      besar (validasi lawyer 2026-08-13).
 - [ ] Level naik via XP (spend 1 C-Coin = 1 XP, 10 XP = 1
       level); badge (kriteria + ikon + XP reward) dikonfigurasi
       di admin page.
 - [ ] Profil publik tampil (koleksi, level, badge, ranking)
       kecuali privacy anonymous aktif.
-- [ ] Admin: ADM-01..07 bisa menjalankan operasi tanpa DB
+- [ ] Admin: ADM-01..09 bisa menjalankan operasi tanpa DB
       manual.
 - [ ] Top-up & wallet dibangun penuh (ledger immutable);
-      **go-live terima uang riil menunggu Q026** (bukan bloker
-      build).
+      **top-up uang riil bisa diterima setelah T&C final + cap
+      saldo diimplementasi** (legal resolved 2026-08-13).
 - [ ] Unit test coverage > 70%, critical path integration
       tested, QA 3 device, security review fitur data sensitif.
 
@@ -149,10 +151,10 @@ F001-F007, F009-F011, F013-F019, F036, ADM-01..09.
 | Area | Effort (PW) |
 |------|-------------|
 | Blok 1 (11 fitur) | 30-32 (+4-5 F008, +2-3 F036) |
-| Blok 2 (10 fitur) | 16 |
+| Blok 2 (11 fitur) | 17 |
 | Blok 3 (7 fitur) | 6 |
 | Admin (ADM-01..09) | 8-10 (termasuk badge definition, audit log, 2FA) |
-| **Total** | **60-65** |
+| **Total** | **61-66** |
 
 Dengan tim 1-2 developer + AI-assisted: **6-8 bulan** (bukan
 5 bulan — jujur, bukan asumsi optimistik). Cut lines di

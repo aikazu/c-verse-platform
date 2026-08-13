@@ -1,7 +1,7 @@
 # 02 — Peta Halaman MVP
 
 > Status: [DRAFT]
-> Last updated: 2026-08-12 (revisi: verifikasi melekat di
+> Last updated: 2026-08-13 (konten divalidasi — domain final,
 > halaman kartu; marketplace = secondary buyout; browse = bid
 > langsung di kartu tanpa harga; leaderboard jadi halaman;
 > top-up di area user; profil publik + privacy anonymous;
@@ -65,14 +65,15 @@ langsung via service-role key. Detail: `06-tech-decisions.md`.
 | ID | Route | Halaman | Komponen kunci |
 |----|-------|---------|----------------|
 | PG-USR-01 | `/home` | Home user | Drop trending, notif, saldo C-Coin |
-| PG-USR-02 | `/drops/:dropId/checkout` | Checkout drop | Ringkasan, potong saldo, race handling; **opsi pengiriman**: kirim fisik (alamat + ongkir C-Coin) atau simpan di inventory (tanpa kirim) |
+| PG-USR-02 | `/drops/:dropId/checkout` | Checkout drop | Ringkasan, potong saldo, race handling; **DEFAULT simpan di inventory (vault) — tanpa alamat/ongkir; OPSIONAL kirim fisik sekarang (alamat + ongkir C-Coin)** |
 | PG-USR-03 | `/orders` | Daftar order | List order + status (label kirim fisik vs inventory) |
 | PG-USR-04 | `/orders/:orderId` | Detail order | Tracking, no resi, timeline — **hanya order kirim fisik**; order inventory tanpa tracking/alamat |
 | PG-USR-05 | `/wallet` | Wallet C-Coin | Saldo, mutasi (ledger), histori top-up, status payout; **top-up di sini (bukan halaman publik)** |
 | PG-USR-06 | `/me` | Profile & collection | Profil, koleksi kartu, ownership history, level & badge |
-| PG-USR-07 | `/me/manage` | Kelola kartu (sell) | Set/ubah/cabut **buyout price**, lihat bid active, accept bid (tanpa reject); **lihat lokasi kartu** (dengan owner / di vault platform) + tombol **"Kirim dari vault"** (ongkir C-Coin) untuk kartu yang dipegang platform |
+| PG-USR-07 | `/me/manage` | Kelola kartu (sell) | Set/ubah/cabut **buyout price**, lihat bid active, accept bid (tanpa reject); **lihat lokasi kartu** (dengan owner / di vault platform) + tombol **"Kirim dari vault"** (ongkir C-Coin) untuk kartu yang dipegang platform — vault adalah default, ship-out kapan saja |
+| PG-USR-07b | `/me/manage/verify-shipment` | Verifikasi kiriman secondary | Admin/seller upload bukti kirim; platform input hasil verify NFC + QC; release payout |
 | PG-USR-08 | `/notifications` | Notifikasi | List notif (email/FCM) |
-| PG-USR-09 | `/me/kyc` | KYC | Upload KTP/selfie/NPWP (trigger: top-up kumulatif > 99 C-Coin / pasang buyout / terima bid) |
+| PG-USR-09 | `/me/kyc` | KYC | Upload KTP/selfie/NPWP (trigger: payout/disbursement ke IDR + akumulasi top-up besar; tidak perlu KYC untuk pasang buyout atau accept bid) |
 | PG-USR-10 | `/me/privacy` | Privacy settings | Toggle **privacy anonymous** (profil tidak tampil publik) |
 
 ## 6. Sitemap — KREATOR (login, role creator)
@@ -92,7 +93,7 @@ langsung via service-role key. Detail: `06-tech-decisions.md`.
 
 | ID | Route | Halaman | Fitur | Komponen kunci |
 |----|-------|---------|-------|----------------|
-| PG-ADM-01 | `/` | Admin dashboard | ADM-01..06 | Ringkasan: drop aktif, order, escrow, payout due |
+| PG-ADM-01 | `/` | Admin dashboard | ADM-01..08 | Ringkasan: drop aktif, order, escrow, payout due |
 | PG-ADM-02 | `/creators` | Kelola kreator | ADM-01 | CRUD data kreator (hasil rekrutan off-platform), status akun, payment info |
 | PG-ADM-03 | `/drops` | Kelola drop | ADM-02 | Buat drop (artwork final, harga, unit, waktu), schedule, publish, tutup |
 | PG-ADM-04 | `/orders` | Kelola order | ADM-03 | Semua order, update status, no resi, return |

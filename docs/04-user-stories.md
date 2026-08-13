@@ -114,22 +114,25 @@ And drop yang belum publish tidak tampil
 ```
 Given user membuka detail drop dengan unit tersisa > 0
 When mengklik "Beli" dan saldo C-Coin cukup
-Then user memilih opsi pengiriman:
-   A) Kirim fisik -> isi alamat + bayar ongkir C-Coin
-   B) Simpan di inventory -> tanpa alamat/tracking
+Then DEFAULT: kartu disimpan di inventory (vault) —
+   tanpa alamat/ongkir, fisik dipegang platform
+And OPSIONAL: user bisa memilih kirim fisik sekarang —
+   isi alamat + bayar ongkir C-Coin
 And saldo di-debit atomik (harga + ongkir bila kirim fisik)
 And order dibuat dengan status PAID
 And notifikasi email terkirim
 And user tidak bisa checkout drop yang sama > 1 kartu
 ```
 
-### US-USR-001b — Pilih simpan di inventory (vault)
+### US-USR-001b — Simpan di inventory (vault, DEFAULT)
 ```
 Given user checkout drop
-When memilih "simpan di inventory"
+When memilih "simpan di inventory" (default)
 Then kartu ter-bind ke koleksi user secara virtual
 And TIDAK ada alamat pengiriman, ongkir, atau tracking
 And status order langsung menuju SETTLED setelah QC
+And user bisa minta kirim kapan saja via "Kirim dari vault"
+   (bayar ongkir saat itu, bukan saat checkout)
 ```
 
 ### US-USR-002 — Gagal checkout karena saldo kurang
@@ -187,17 +190,18 @@ Then tampil status "Registered" (tanpa CMAC)
 And label status menjelaskan verifikasi lebih lemah
 ```
 
-### US-USR-007b — Secondary: pilih tujuan kirim kartu
+### US-USR-007b — Secondary: vault default, ship-out opsional
 ```
 Given user menang/terima kartu di secondary (buyout / bid accept)
 When settlement selesai
-Then user memilih tujuan kirim:
-   A) Kirim ke alamat saya -> bayar ongkir C-Coin + tracking
-   B) Kirim / rawat di platform -> kartu dikirim ke platform,
-      dipegang vault atas nama saya, platform verifikasi ulang
-      (NFC/QC ringan); tanpa ongkir
+Then DEFAULT: kartu tetap di vault — ownership pindah di ledger,
+   fisik tidak bergerak
+And OPSIONAL: user minta seller kirim fisik sekarang:
+   isi alamat + bayar ongkir C-Coin + tracking
+   (seller kirim dari lokasinya ATAU dari vault platform)
 And ownership sudah berpindah sejak settlement (kirim tidak
    menunda kepemilikan)
+And user bisa minta ship-out kapan saja setelah settlement
 ```
 
 ### US-USR-007c — Kirim kartu dari vault
@@ -210,13 +214,25 @@ And shipment dibuat (packing -> 3PL -> tracking -> delivered)
 And lokasi kartu berubah ke 'with_owner' saat delivered
 ```
 
-### US-USR-008 — Pasang buyout price di kartu (wajib KYC)
+### US-USR-007d — Secondary: seller kirim ke vault, verified, baru payout
+```
+Given kartu terjual di secondary (buyout / bid accept)
+When settlement diproses
+Then jika kartu location = 'with_owner':
+     -> seller WAJIB kirim kartu ke platform untuk verifikasi
+     -> platform terima -> NFC verify + QC ringan
+     -> jika verified: vault masuk inventory buyer, seller payout
+     -> jika gagal verify: dispute, seller tidak dibayar
+And jika kartu location = 'platform_vault':
+     -> langsung selesai: ownership pindah, seller langsung dibayar
+     -> tanpa perlu kirim fisik
+```
+
+### US-USR-008 — Pasang buyout price di kartu
 ```
 Given user memiliki kartu terverifikasi
 When membuka /me/manage dan memasang buyout price
-Then WAJIB KYC approved dulu — jika belum, diminta KYC sebelum
-   bisa pasang harga
-And setelah KYC, kartu tampil di /marketplace
+Then kartu tampil di /marketplace
 And user bisa mengubah/mencabut buyout price kapan saja
    (selama belum dibeli)
 ```
@@ -231,13 +247,11 @@ And owner menerima notifikasi bid
 And bid TIDAK mengikat sampai owner accept
 ```
 
-### US-USR-010 — Owner accept bid (tanpa reject, wajib KYC)
+### US-USR-010 — Owner accept bid (tanpa reject)
 ```
 Given owner menerima bid active di salah satu kartunya
 When memilih "Accept"
-Then WAJIB KYC approved dulu — jika belum, diminta KYC sebelum
-   accept diproses
-And accept → transfer ownership + notif ke bidder
+Then accept → transfer ownership + notif ke bidder
 And TIDAK ada opsi reject untuk owner
 ```
 
@@ -261,11 +275,11 @@ Then C-Coin bid-nya release kembali ke saldo
 
 ### US-USR-011 — KYC
 ```
-Given user melakukan top-up kumulatif > 99 C-Coin, ATAU
-   memasang buyout price, ATAU menerima (accept) bid
-When salah satu trigger terpenuhi
+Given user akan melakukan payout/disbursement ke IDR, ATAU
+   akumulasi top-up mencapai threshold besar
+When trigger terpenuhi
 Then wajib menyelesaikan KYC (KTP, selfie, NPWP opsional)
-   sebelum aksi dilanjutkan
+   sebelum payout diproses
 ```
 
 ### US-USR-012 — Level naik melalui XP
@@ -419,8 +433,8 @@ And catatan TIDAK bisa di-edit atau dihapus (retensi ≥ 1 tahun)
 | EDGE-03 | Tamper terdeteksi | Flag irreversibel + dokumentasi foto |
 | EDGE-04 | HP/browser tanpa NFC | Fallback QR |
 | EDGE-05 | Verify tanpa akun | Halaman kartu (3D/info) publik terbuka tanpa login — data minim (UU PDP) |
-| EDGE-06 | Order rusak/hilang saat pengiriman | Return flow + dispute |
-| EDGE-07 | Top-up dibuka sebelum Q026? | DILARANG — tombol disabled |
+| EDGE-06 | Order rusak/hilang saat pengiriman | Buyer foto bukti -> dispute (F020) -> admin review -> refund ke metode asal / replace / kompensasi C-Coin. Kartu tetap di vault platform, tidak dikembalikan ke seller. |
+| EDGE-07 | Top-up dibuka? | Bisa setelah T&C final + cap saldo; wallet/ledger sudah live di dev/staging |
 
 ## Sumber
 

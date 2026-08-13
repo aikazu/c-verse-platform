@@ -1,6 +1,6 @@
 # 05 — Data Model (Skema Logis)
 
-> Status: [DRAFT]
+> Status: [VALIDATED]
 > Last updated: 2026-08-12
 > Skema LOGIS (tabel + relasi + enum), bukan DDL final.
 > Database: Supabase Postgres (region SG). ORM: Drizzle.
@@ -12,7 +12,8 @@
    Saldo = `SUM` transaksi, TIDAK disimpan sebagai kolom yang
    bisa diedit langsung (jika disimpan, hanya cache).
 2. **Escrow = state**: escrow adalah status di ledger/order,
-   bukan rekening terpisah `[GATE: Q026]`.
+   bukan rekening terpisah (validasi lawyer: cukup T&C +
+   pencatatan terpisah di ledger).
 3. **Ownership berbasis record**: `cards.current_owner_id` +
    `ownership_history` — TIDAK ada rewrite NFC.
 4. **Admin akses service-role**: app publik hanya anon key +
@@ -87,12 +88,18 @@ cards
      -- lokasi FISIK kartu, terpisah dari ownership:
      --   platform_stock: belum terjual (stok platform)
      --   with_owner: fisik sedang/dipegang owner
-     --   platform_vault: dipegang platform atas nama owner (custody)
-  status enum('inventory','bound','listed_buyout','bid_pending','sold','tampered','defect','lost')
+--   platform_vault: dipegang platform atas nama owner (custody)
+	  --     Manajemen fisik Y1: manual (bin/label per kartu di rak).
+	  --     Ship-out request: admin cari kartu via short_id -> packing -> 3PL.
+	  --     Tidak ada warehouse management system — SOP manual di
+	  --     `40_operations/03_operations_playbook.md`.
+	  status enum('inventory','bound','listed_buyout','bid_pending','sold','tampered','defect','lost')
   buyout_price_ccoin int nullable -- dipasang owner -> muncul di Marketplace
   nfc_configured bool default false
-  qc_status enum('pending','passed','failed')
-  created_at, updated_at
+qc_status enum('pending','passed','failed')
+	  -- QC checklist: (1) dus: fisik, cetak, lipatan; (2) acrylic: retak, gores, magnet;
+	  -- (3) kartu: cetak, holo, NFC tap. Defect rate > 2% = investigasi batch.
+	created_at, updated_at
 ```
 > Marketplace = kartu dengan `buyout_price_ccoin` NOT NULL.
 > Browse = semua kartu `bound` bisa di-bid walau tanpa
@@ -141,18 +148,20 @@ orders
   price_ccoin int
   shipping_fee_ccoin int nullable   -- hanya jika delivery_option='shipping'
   shipping_address jsonb nullable   -- hanya jika delivery_option='shipping'
-  escrow_status enum('held','released')  -- [GATE: Q026]
+  escrow_status enum('held','released')
   tracking_number text nullable     -- hanya untuk 'shipping'
   shipped_at, delivered_at timestamptz nullable
   created_at, updated_at
 ```
 > Invariant: max 1 order per (buyer, drop). Enforced via
 > partial unique index / application check.
-> **delivery_option='vault'**: kartu tetap ter-bind ke akun
-> (inventory di koleksi), fisik dipegang platform, tanpa alamat/
-> tracking. Status order: `paid → qc → settled` (tanpa
-> shipped/delivered). `delivery_option='shipping'`: status
-> `paid → qc → shipped → delivered → settled`.
+> **delivery_option='vault'** (DEFAULT): kartu tetap ter-bind
+	> ke akun (inventory di koleksi), fisik dipegang platform,
+	> tanpa alamat/tracking. Status order: `paid → qc → settled`.
+	> Ship-from-vault: owner bisa minta kirim kapan saja via
+	> `shipments` type='vault_shipout' (bayar ongkir saat itu).
+	> `delivery_option='shipping'`: status
+	> `paid → qc → shipped → delivered → settled`.
 
 > **ATURAN NOMINAL C-Coin (keputusan user 2026-08-12)**: semua
 > nominal C-Coin — harga drop, buyout price, bid, ongkir,
@@ -181,6 +190,13 @@ wallet_transactions
 ```
 > **Append-only**: tidak ada UPDATE/DELETE. Idempotency:
 > webhook top-up pakai `metadata.idempotency_key` UNIQUE.
+> **Partial failure handling**: webhook gateway -> system insert
+> wallet_transaction dalam transaksi DB. Jika insert gagal (DB error),
+> webhook return 500 -> gateway retry. Idempotency key mencegah
+> duplikasi saat retry. Jika webhook tidak sampai (network failure),
+> Cron reconciliation harian (ADM-05) mendeteksi top-up sukses di
+> gateway tapi tidak ada di ledger -> alert admin untuk manual
+> reconcile.
 
 ### bids (offer ke owner — bisa di kartu manapun)
 ```
@@ -230,6 +246,27 @@ nfc_batches
   created_at
 ```
 
+### qc_defects
+```
+qc_defects
+  id uuid PK
+  card_id uuid FK cards.id
+  defect_type enum('dus','acrylic','kartu','nfc')
+  severity enum('minor','major','critical')
+  notes text
+  resolution enum('redistribute','destroy','return_vendor')
+  redistribute_discount_pct int   -- potongan harga jual 10-30% jika di-redistribute
+  created_at
+```
+> **Redistribute defect**: kartu defect (misal acrylic retak ringan)
+> bisa dijual dengan potongan 10-30% dari harga. Keputusan per-case
+> oleh admin. Kartu defect yang di-redistribute tetap punya NFC
+> verified — hanya fisik yang kurang sempurna.
+> **Tag damage post-delivery**: jika NFC rusak setelah di tangan
+> owner, kartu tetap bisa diperdagangkan sebagai "unverified"
+> (tanpa jaminan NFC). Harga wajar lebih rendah. Tidak bisa
+> di-claim sebagai defect produksi.
+
 ### kyc_records
 ```
 kyc_records
@@ -240,9 +277,9 @@ kyc_records
   reviewed_by uuid FK users.id nullable (admin)
   created_at, updated_at
 ```
-> Trigger KYC (keputusan 2026-08-12): (1) top-up kumulatif
-> > 99 C-Coin, (2) pasang buyout price, (3) menerima (accept)
-> bid. Bukan trigger transaksi > Rp 1 juta.
+> Trigger KYC (keputusan 2026-08-13, validasi lawyer): payout/
+> disbursement ke IDR + akumulasi top-up besar. Tidak perlu KYC
+> untuk pasang buyout, accept bid, atau top-up rutin.
 
 ### disputes
 ```
@@ -257,18 +294,20 @@ disputes
   created_at, updated_at
 ```
 
-### badge_definitions & user_badges (F018, admin-configurable)
+### badge_definitions (admin-configurable)
 ```
 badge_definitions
   id uuid PK
-  name text
-  description text
-  criteria jsonb              -- {type: 'collect_count'|'creator_cards', ...}
-                              -- contoh: {type:'collect_count', min:5}
-                              --         {type:'creator_cards', creator_id:..., min:3}
-  icon_url text               -- logo/ikon, di-upload admin
-  xp_reward int default 0     -- EXPERIENCE (XP) saat badge diraih -> naik level
-                              -- (bukan masa berlaku/expiry)
+  name text                     -- contoh: "Collector Starter"
+  description text              -- "Berhasil beli 1 kartu"
+  criteria jsonb                -- Kriteria yang dievaluasi:
+     {type: 'collect_count', min: 1}       -- jumlah koleksi
+     {type: 'collect_count', min: 10}      -- 10 kartu
+     {type: 'level', min: 5}               -- level tertentu
+     {type: 'creator_cards', creator_id: 'uuid', min: 3}  -- koleksi kreator tertentu
+     {type: 'xp_total', min: 100}          -- total XP
+  icon_url text
+  xp_reward int default 0
   is_active bool default true
   created_by uuid FK users.id (admin)
   created_at, updated_at
@@ -279,15 +318,12 @@ user_badges
   badge_id uuid FK badge_definitions.id
   awarded_at timestamptz
   xp_reward_snapshot int      -- snapshot xp_reward saat diraih
-  UNIQUE (user_id, badge_id, awarded_at)
+  UNIQUE (user_id, badge_id)
 ```
-> **XP model**: total_xp = SUM(spend C-Coin) + SUM(xp_reward
-> badge). Level = floor(total_xp / 10). Jadi spend 10 C-Coin
-> = +10 XP = naik 1 level; badge memberi bonus XP (mempercepat
-> naik level). Top-up tidak menambah XP.
-> Penilaian badge: evaluasi berkala (cron) atau event-driven
-> (saat transaksi/level-up) sesuai `criteria` jsonb; saat
-> diraih, user mendapat xp_reward.
+> **Rule**: Badge sekali diraih, tetap di profil selamanya — tidak
+> dicabut meskipun criteria tidak lagi terpenuhi (misal sudah
+> menjual kartunya). Evaluasi badge: event-driven (saat transaksi/
+> level-up), bukan cron — untuk menghindari keterlambatan award.
 
 ### admin_audit_log (append-only, tidak bisa edit/hapus)
 ```
@@ -371,7 +407,7 @@ profiles 1─N user_badges
 | I3 | Max 1 kartu/drop per buyer | App + partial unique index |
 | I4 | Buyout price hanya bisa dipasang/cabut oleh OWNER | RLS + app check |
 | I5 | Checkout atomik pada unit terakhir (race) | `SELECT ... FOR UPDATE` / RPC transaction |
-| I6 | Escrow tidak release sebelum DELIVERED + H+7 | App logic + cron |
+| I6 | Escrow vault release saat SETTLED; escrow shipping release DELIVERED + H+7 | App logic + cron |
 | I7 | UID unik; konflik UID = flag investigasi | UNIQUE tag_uid + alert admin |
 | I8 | QR verify tanpa CMAC hanya status "Registered" | Verify service |
 | I9 | Hanya SATU bid active per kartu (tertinggi); bid lebih tinggi meng-outbid yang lama + release C-Coin | App logic + transaction |

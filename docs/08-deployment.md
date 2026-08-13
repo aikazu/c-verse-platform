@@ -1,6 +1,6 @@
 # 08 — Deployment Runbook (Step-by-Step)
 
-> Status: [DRAFT]
+> Status: [VALIDATED]
 > Last updated: 2026-08-12
 > Menjawab open items O-5 (CI/CD pipeline) & O-7 (domain/SSL)
 > di `06-tech-decisions.md`. Konsisten dengan stack full-edge
@@ -37,7 +37,7 @@ Akun & kredensial yang harus sudah ada:
 | 2 | GitHub (repo) | CI/CD Actions |
 | 3 | Supabase | Postgres, Auth, Realtime, Storage |
 | 4 | SumoPod SMTP | Email abstraction layer (default MVP — smtp.sumopod.com:465 SSL) |
-| 5 | Midtrans/Xendit (sandbox dulu) | Top-up & disbursement (gate go-live Q026) |
+| 5 | Midtrans/Xendit (sandbox dulu) | Top-up & disbursement (top-up bisa live setelah T&C final + cap saldo) |
 | 6 | Firebase (FCM) | Push notification |
 
 Tool lokal: Node 20+, pnpm 9, wrangler CLI (`pnpm dlx wrangler`),
@@ -53,13 +53,12 @@ public vars (anon keys) boleh di bundle.
 ## 3. Setup Cloudflare (sekali, Sprint 0)
 
 ### 3.1 Domain & DNS
-1. Domain (keputusan 2026-08-12, bersifat sementara):
-   - **Primary: `c-verse.co`** (kemungkinan besar — zona utama,
-     semua record).
+1. Domain (FINAL 2026-08-13):
+   - **Primary: `c-verse.co`** — zona utama, NDEF URL final
    - **Secondary: `c-verse.id`** — 301 redirect ke `c-verse.co`
-     (brand protection; atau dibalik jika `.co` bermasalah).
-   - **WAJIB final konfirmasi SEBELUM provisioning NFC** (URL
-     NDEF ditulis permanen di chip).
+     (brand protection).
+   - **LOCKED — provisioning NFC bisa dimulai** (URL NDEF ditulis
+     permanen di chip).
    Tambah zona di Cloudflare untuk `c-verse.co` (dan `c-verse.id`
    sebagai alasan terpisah) → update nameserver di registrar.
 2. DNS records (zona `c-verse.co`):
@@ -249,8 +248,9 @@ Secrets CI yang wajib diset (GitHub Settings → Secrets):
 - [ ] Rekonsiliasi harian ledger vs top-up (ADM-05) jalan.
 - [ ] QC: DF test — `curl` API dengan auth salah → 401, tanpa
       leak stack trace.
-- [ ] **Gate Q026**: go-live top-up uang riil menunggu keputusan
-      hukum; wallet/ledger sudah live di dev/staging.
+- [ ] **Top-up readiness**: T&C final (disclosure "saldo tidak
+      dapat diuangkan", refund-to-source, cap saldo) + cap saldo
+      diimplementasi sebelum top-up live.
 
 ## 10. Catatan Biaya Y1 (estimasi)
 

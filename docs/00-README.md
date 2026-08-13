@@ -1,8 +1,8 @@
 # Development Strategy — C.Verse MVP
 
-> Status: [DRAFT]
-> Last updated: 2026-08-12
-> Berlaku untuk: MVP C.Card (Creator Card), Y1.
+> Status: [VALIDATED]
+> Last updated: 2026-08-13 (legal validation C-Coin resolved;
+> KYC trigger di-simplify)
 
 ## 1. Apa Folder Ini
 
@@ -30,8 +30,9 @@ implementasi.
 | 6 | `06-tech-decisions.md` | Stack & keputusan arsitektur yang sudah di-lock |
 | 7 | `07-constraints.md` | Blocker, gate, dan open items yang menentukan WHAT NOT TO BUILD |
 | 8 | `08-deployment.md` | **Runbook deploy step-by-step** (Cloudflare Pages/Workers/R2, Supabase, CI/CD, rollback, go-live checklist) |
+| 9 | `09-recommendations.md` | Rekomendasi development: prioritas build, arsitektur, operasional manual, risiko |
 
-Baca 01-07 secara berurutan. 00-README (ini) cukup untuk
+Baca 01-09 secara berurutan. 00-README (ini) cukup untuk
 orientasi cepat.
 
 ## 3. Konvensi Status
@@ -72,7 +73,7 @@ orientasi cepat.
 | AOV unsigned / signed | Rp 300.000 / Rp 500.000 | `01-scope.md` |
 | COGS kartu unsigned / signed | Rp 104.000 / Rp 120.000 | `01-scope.md` |
 | Threshold kreator MVP | **100 ribu+ followers combined** (gabungan semua platform sosial) | `01-scope.md` |
-| Domain | **c-verse.co** (primary, kemungkinan besar) + **c-verse.id** (redirect) — LOCK sebelum provisioning NFC | `08-deployment.md` (2026-08-12, [DRAFT]) |
+| Domain | **c-verse.co** (primary, FINAL 2026-08-13) + **c-verse.id** (redirect) — LOCK sebelum provisioning NFC | `08-deployment.md` (FINAL) |
 | Format kartu | 63x88mm, 350-400gsm, holo, acrylic hardcase | `01-scope.md` |
 | Web NFC | Chrome Android 89+ only (scan terprogram); iOS tap-to-verify via SUN URL | `06-tech-decisions.md`, `07-constraints.md` |
 
@@ -137,10 +138,14 @@ meng-override dokumen sumber:
    produced (30/70) di-defer Y2+.
 8. **Leaderboard (F019) punya halaman sendiri** (PG-LB-01).
 9. **Top-up di area USER** (PG-USR-05, bukan halaman publik);
-   **tidak ada bloker build** — Q026 (status hukum C-Coin)
-   hanya gate GO-LIVE (terima uang riil), semua fitur dibangun.
-10. **KYC trigger**: top-up kumulatif > 99 C-Coin, pasang
-    buyout, atau menerima (accept) bid.
+   **Q026 (status hukum C-Coin) RESOLVED 2026-08-13** — bukan
+   gate go-live. Top-up uang riil bisa diterima setelah T&C final
+   dan cap saldo diimplementasi. Semua fitur dibangun penuh.
+10. **KYC trigger (diupdate 2026-08-13, validasi lawyer)**: KYC
+    hanya untuk seller yang ingin cash-out/withdrawal hasil
+    penjualan. Threshold: payout/disbursement ke IDR + akumulasi
+    top-up besar. TIDAK ada KYC untuk pasang buyout atau terima
+    bid.
 11. **Profil publik** (koleksi, level, badge, ranking) bisa
     dilihat tanpa login — kecuali user mengaktifkan **privacy
     anonymous**.
@@ -158,14 +163,14 @@ meng-override dokumen sumber:
     semua akun admin (Supabase MFA aal2 + Cloudflare Access)
     dan **audit log append-only** untuk semua aksi admin
     (`admin_audit_log`, retensi ≥ 1 tahun).
-16. **Pengiriman = pilihan**: checkout (primary) bisa **kirim
-    fisik** (ongkir dibayar **C-Coin**, tracking aktif) ATAU
-    **simpan di inventory** (vault). **Secondary juga**: buyer
-    hasil buyout/bid accept pilih kirim ke alamat ATAU
-    **kirim/rawat di platform** (vault + verifikasi ulang).
-    Kartu di vault bisa **dikirim kapan saja** (ship-from-vault,
-    ongkir C-Coin). Semua nominal C-Coin **integer ≥ 1 tanpa
-    desimal**.
+16. **Pengiriman = DEFAULT simpan di inventory (vault)**, fisik
+    dipegang platform tanpa ongkir/tracking. **OPSIONAL kirim
+    fisik saat checkout** (isi alamat + ongkir C-Coin). Ship-from-
+    vault: owner bisa minta kirim kapan saja setelah order
+    settled (bayar ongkir saat itu). Berlaku juga di secondary —
+    kartu tetap di vault, ownership pindah di ledger; buyer bisa
+    minta ship-out kapan saja. Semua nominal C-Coin **integer ≥ 1
+    tanpa desimal**.
 
 ## Sumber
 
