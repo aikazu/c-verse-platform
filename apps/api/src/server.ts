@@ -2,9 +2,8 @@ import dotenv from "dotenv";
 import path from "node:path";
 
 // Load env for `tsx watch src/server.ts` (Node) — Wrangler uses .dev.vars separately.
-// Order: .env (root) → apps/api/.env → apps/api/.dev.vars (last wins, matches wrangler)
+// Order: .env (root) → apps/api/.dev.vars (last wins, matches wrangler)
 dotenv.config({ path: path.resolve(process.cwd(), "../../.env") });
-dotenv.config({ path: path.resolve(process.cwd(), ".env") });
 dotenv.config({ path: path.resolve(process.cwd(), ".dev.vars") });
 
 import app from "./index.js";
