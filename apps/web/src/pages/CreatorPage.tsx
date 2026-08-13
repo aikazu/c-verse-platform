@@ -6,26 +6,27 @@ import { api } from "../lib/api";
 export default function CreatorPage(){
   const { username } = useParams();
   const { data, isLoading } = useQuery({ queryKey:["creator-pub", username], queryFn:()=> api.creatorPublic(username!), enabled: !!username });
-  if(isLoading) return <div className="muted">Memuat...</div>;
-  if(!data) return <div className="card card-pad">Kreator tidak ditemukan</div>;
+  if(isLoading) return <div className="muted" style={{padding:24, textAlign:"center"}}>Memuat…</div>;
+  if(!data) return <div className="card card-pad" style={{textAlign:"center", padding:32}}><p className="muted">Kreator tidak ditemukan</p></div>;
   const c:any = data as any;
   const creator = c.creator ?? c;
   const drops:any[] = c.drops ?? [];
-  return <div style={{display:"flex", flexDirection:"column", gap:18}}>
+  return <div style={{display:"flex", flexDirection:"column", gap:20}}>
     <div className="card card-pad">
-      <h1 className="h2">{creator.displayName}</h1>
-      <div className="muted" style={{fontSize:13}}>@{creator.username ?? creator.handle ?? creator.id}</div>
+      <span className="eyebrow">Kreator</span>
+      <h1 className="h2" style={{marginTop:4}}>{creator.displayName}</h1>
+      <div style={{fontFamily:"var(--font-mono)", fontSize:12, color:"var(--text-muted)", marginTop:4}}>@{creator.username ?? creator.handle ?? creator.id}</div>
     </div>
     <div>
-      <div style={{fontWeight:700, marginBottom:10}}>Koleksi ({drops.length})</div>
-      {drops.length===0 ? <div className="card card-pad muted">Belum ada koleksi</div> :
+      <div style={{fontFamily:"var(--font-mono)", fontSize:11, fontWeight:500, letterSpacing:"0.08em", textTransform:"uppercase", color:"var(--text-dim)", marginBottom:12}}>Koleksi — {drops.length}</div>
+      {drops.length===0 ? <div className="card card-pad muted" style={{textAlign:"center", padding:24, fontFamily:"var(--font-mono)", fontSize:12}}>Belum ada koleksi</div> :
       <div className="grid-3">
         {drops.map((d:any)=> <Link key={d.id} to={"/drops/"+d.id} className="card" style={{overflow:"hidden", textDecoration:"none", color:"inherit"}}>
-          <div style={{height:140, background:"linear-gradient(135deg,#1a1a2e,#2a2040)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:36}}>🎴</div>
+          <div style={{height:140, background:"linear-gradient(135deg,#14141a,#1e1e34)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:36}}>🎴</div>
           <div style={{padding:12}}>
-            <div style={{fontWeight:700, fontSize:13}}>{d.title}</div>
-            <div style={{fontSize:11, color:"var(--muted)"}}>{d.series}</div>
-            <span className="pill pill-info" style={{marginTop:6, display:"inline-block"}}>{d.status}</span>
+            <div style={{fontWeight:600, fontSize:13}}>{d.title}</div>
+            <div style={{fontFamily:"var(--font-mono)", fontSize:11, color:"var(--text-muted)"}}>{d.series}</div>
+            <span className="pill pill-info" style={{marginTop:8, display:"inline-block", fontSize:10}}>{d.status}</span>
           </div>
         </Link>)}
       </div>}
