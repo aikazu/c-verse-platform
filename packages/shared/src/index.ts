@@ -383,6 +383,9 @@ export function xpForNextLevel(xp: number): number {
 // KYC triggers per docs/07 C-05b
 export const KYC_TRIGGER_THRESHOLD_CCOIN = 99;
 export const MAX_BUYOUT_ACTIVE_PER_USER = 20;
+export const MIN_PAYOUT_CCOIN = 10; // docs/07 C-09b: minimum payout 10 C-Coin (Rp 100rb)
+export const BALANCE_CAP_CCOIN = 1000; // docs/07 C-08: cap saldo 500-1000 C-Coin (Rp 5-10jt) — default 1000
+export const BALANCE_CAP_CCOIN_SOFT = 500; // lower bound for warning
 
 // Guards
 export function isCcoinInteger(n: number): boolean {
