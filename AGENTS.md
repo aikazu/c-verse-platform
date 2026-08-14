@@ -64,3 +64,4 @@ Dokumen perencanaan **canonical = `docs/`** (`00_readme` → `09_recommendations
 - `git` di Windows via git-bash: `bash` POSIX, bukan PowerShell. Konversi path dengan `cygpath -w`.
 - Jangan bocorkan `service-role` / `NFC_MASTER_KEY` ke bundle publik — `apps/web` hanya `anon` key + RLS.
 - Jangan ubah kolom C-Coin ke desimal; jangan buat auction timer/anti-sniping di MVP (docs 07 C-07).
+- AGENTS/README: tulis ringkas. Jangan verbosity ("selalu prod & dev", "tidak pernah Supabase", disclaimer dual-env, atau penjelasan infrastruktur yang mengulang dirinya sendiri). Fakta cukup sekali; tidak perlu disclaim tiap paragraf.
