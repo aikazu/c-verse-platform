@@ -1,6 +1,6 @@
 # C.Verse Platform — AGENTS.md
 
-Monorepo `pnpm` workspaces: React 19/Vite SPA (`apps/web` → Cloudflare Pages) + Hono 4 API (`apps/api` → Cloudflare Workers / Node) + React 19/Vite Admin (`apps/admin` → VPS + Cloudflare Tunnel + Access, **terpisah — TIDAK di Pages**) + shared Zod schemas/constants (`packages/shared`). C.Card MVP — 9 flows (primary drop 1 kartu/user/drop, fulfillment vault/ship, settlement escrow, NFC/QR verify melekat di halaman kartu, Marketplace buyout + Browse bid langsung, ship-from-vault, C-Coin top-up/payout closed-loop, gamifikasi via XP). Supabase Postgres (SG region) + Storage (R2 parity).
+Monorepo `pnpm` workspaces: React 19/Vite SPA (`apps/web` → Cloudflare Pages) + Hono 4 API (`apps/api` → Cloudflare Workers / Node) + React 19/Vite Admin (`apps/admin` → VPS + Cloudflare Tunnel + Access, **terpisah — TIDAK di Pages**) + shared Zod schemas/constants (`packages/shared`). C.Card MVP — 9 flows (primary drop 1 kartu/user/drop, fulfillment vault/ship, settlement escrow, NFC/QR verify melekat di halaman kartu, Marketplace buyout + Browse bid langsung, ship-from-vault, C-Coin top-up/payout closed-loop, gamifikasi via XP). Supabase Postgres (SG region) + **Cloudflare R2** (prod storage, zero egress; local dev parity via Supabase Storage buckets `artwork`/`card-assets`/`kyc`).
 
 Dokumen perencanaan **canonical = `docs/`** (`00_readme` → `09_recommendations`, 10 files, self-contained, status `[VALIDATED]`). Jangan baca `00_Dream_Project/` lagi — `docs/` sudah ringkasan final.
 
@@ -13,7 +13,8 @@ Dokumen perencanaan **canonical = `docs/`** (`00_readme` → `09_recommendations
   - `apps/api/.dev.vars` (Wrangler) / `.env.local` (Node): `SUPABASE_URL` / `SUPABASE_ANON_KEY` / `SUPABASE_SERVICE_ROLE_KEY` — **service-role HANYA di `apps/admin` / server, tidak pernah di-bundle `apps/web`**.
   - Secrets prod (tidak di repo): `CF_ACCOUNT_ID`, `CF_API_TOKEN`, `SMTP_HOST=smtp.sumopod.com:465 SSL`, `SMTP_USER/PASS`, `MIDTRANS_SERVER_KEY`, `NFC_MASTER_KEY`, `PAYOUT_WEBHOOK_SIGNING_KEY`. Public vars `VITE_*` boleh di-bundle.
 - Tanpa Supabase, API jalan in-memory via `apps/api/src/lib/store.ts` (`ensureSeed()`).
-- Supabase local (optional): `npx supabase start` (API :54321, DB :54322, Studio :54323), `npx supabase db reset` → `supabase/migrations/*.sql` + `supabase/seed.sql`. Buckets: `artwork` (public 10 MiB), `card-assets` (public 20 MiB), `kyc` (private 5 MiB).
+- Storage: **prod = Cloudflare R2** (`cverse-assets` public, `cverse-kyc` private, `cverse-qr` opsional — zero egress fee, `08_deployment.md` §3.4; binding `ASSETS`/`KYC` di `wrangler.toml` + `docs/06_tech_decisions.md` Stack). **Lokal/dev parity** = Supabase Storage buckets `artwork` / `card-assets` / `kyc` di `supabase/config.toml` (R2 tidak ada di local).
+- Supabase local (optional): `npx supabase start` (API :54321, DB :54322, Studio :54323), `npx supabase db reset` → `supabase/migrations/*.sql` + `supabase/seed.sql`. Buckets (Supabase parity): `artwork` (public 10 MiB), `card-assets` (public 20 MiB), `kyc` (private 5 MiB).
 
 ## Build & test
 
@@ -36,7 +37,7 @@ Dokumen perencanaan **canonical = `docs/`** (`00_readme` → `09_recommendations
 - `apps/web/src/` — `App.tsx` (routes: `/`, `/drops`, `/drops/:id`, `/drops/:id/checkout`, `/home`, `/cards/:cardId`, `/cards/:cardId/3d`, `/marketplace`, `/browse`, `/verify`, `/collection`/`/me`, `/me/manage`, `/me/privacy` (anon + 2 consent toggles), `/me/kyc`, `/orders`, `/wallet` (disclosure + cap), `/leaderboard`, `/c/:username`, `/u/:username`, `/creator`, `/admin` placeholder) + `pages/` + `lib/api.ts`/`auth.tsx` + `worker-seo.ts` (HTMLRewriter edge Worker).
 - `apps/admin/src/` — Vite SPA terpisah (Guard `aal2` via Supabase MFA TOTP, nav ADM-01..10 + Investor: dashboard/creators/drops/orders/nfc/payouts/badges/disputes/audit/**investor**). `apps/admin/README.md` = runbook Tunnel+Access.
 - `packages/shared/src/index.ts` — **single source** Zod schemas + constants (`C_COIN_RATE_IDR=10_000`, `SECONDARY_*`, `REVENUE_SHARE_*`, `calcLevel`, `KYC_TRIGGER 99`, `MAX_BUYOUT 20`, `walletTxType` + `platform_buy`). Import via `@c-verse/shared` (tsconfig `paths`). Jangan relative-import.
-- `supabase/` — `config.toml`, `migrations/20260812000000_initial_schema.sql` + `20260813000000_rework_align_docs.sql` + `20260814000000_build_time_implications.sql` (consent/flag/hold/qc_defects/creator_page_views/platform_buy), `seed.sql`.
+- `supabase/` — `config.toml`, `migrations/20260812000000_initial_schema.sql` + `20260813000000_rework_align_docs.sql` + `20260814000000_build_time_implications.sql` (consent/flag/hold/qc_defects/creator_page_views/platform_buy), `seed.sql`. Storage: **prod = Cloudflare R2** (`08_deployment.md` §3.4, binding di `wrangler.toml`); **local parity = Supabase Storage** (`supabase/config.toml` buckets `artwork`/`card-assets`/`kyc`).
 - `docs/` — `00_readme.md` … `09_recommendations.md` (10 files, canonical). Baca urut 01→09; `00` orientasi. Angka kunci di `00_readme` §4 + `packages/shared`.
 
 ## Conventions
