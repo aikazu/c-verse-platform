@@ -45,7 +45,7 @@ create table if not exists public.qc_defects (
 create index if not exists idx_qc_card on public.qc_defects(card_id);
 
 -- ── wallet_transactions metadata idempotency helpers ───────────────
--- metadata jsonb already exists; ensure index for idempotency_key lookups
+alter table public.wallet_transactions add column if not exists metadata jsonb;
 create index if not exists idx_wtx_metadata_idem on public.wallet_transactions((metadata->>'idempotency_key')) where metadata ? 'idempotency_key';
 
 -- ── Ensure cards indexes for numbering economy (09 3.2) ───────────
