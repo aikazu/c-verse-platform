@@ -57,7 +57,11 @@ export default function Wallet(){
       <div className="card card-pad" style={{display:"flex",flexDirection:"column",gap:14}}>
         <div>
           <div style={{fontWeight:600, fontSize:14}}>Isi Saldo</div>
-          <div className="muted" style={{fontSize:11, marginTop:2}}>Pilih metode dan nominal</div>
+          <div className="muted" style={{fontSize:11, marginTop:2}}>Pilih metode dan nominal — 1 C = Rp 10.000 (Opsi A closed-loop)</div>
+        </div>
+        <div style={{background:"rgba(234,179,8,0.08)", border:"1px solid rgba(234,179,8,0.18)", borderRadius:10, padding:"10px 12px", fontSize:11, lineHeight:1.5, color:"var(--text-muted)"}}>
+          Saldo <strong style={{color:"var(--text)"}}>tidak dapat diuangkan</strong> (Gamified Point — Opsi A). Refund hanya reversal ke metode asal atau penutupan akun bersaldo ke top-up terakhir. Cap saldo {((data as any)?.balanceCap ?? 1000)} C.
+          <br/><span style={{fontFamily:"var(--font-mono)", fontSize:10}}>Isi saldo = kamu setuju T&C C-Coin.</span>
         </div>
         <div style={{display:"flex",gap:8}}>
           <select className="select" value={method} onChange={e=> setMethod(e.target.value)} style={{flex:1}}>

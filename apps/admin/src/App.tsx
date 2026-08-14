@@ -139,9 +139,11 @@ function TotpRequired(){
   return (
     <div className="admin-auth-page">
       <div className="admin-login-card" style={{borderLeft:"4px solid #eab308"}}>
-        <h3 style={{fontWeight:800}}>Verifikasi dua langkah</h3>
-        <p className="muted" style={{fontSize:12, marginTop:6}}>Sesi kamu belum terverifikasi. Selesaikan kode authenticator untuk membuka dashboard.</p>
+        <h3 style={{fontWeight:800}}>Verifikasi dua langkah (aal1 → aal2)</h3>
+        <p className="muted" style={{fontSize:12, marginTop:6}}>Login berhasil (aal1) — sesi kamu terbatas sebagai view-only. Selesaikan kode TOTP untuk membuka dashboard &amp; mutasi (aal2).</p>
+        <p className="muted" style={{fontSize:11, marginTop:6, color:"var(--dim)"}}>Mode: aal1 = read-only (dashboard ringkas); aal2 = privileged (CRUD ADM-01..09). Break-glass: admin lain yang sudah aal2 dapat mereset enrollment yang hilang — tercatat di audit log.</p>
         <div style={{marginTop:16}}><LoginPage /></div>
+        <div style={{fontFamily:"var(--font-mono)", fontSize:10, color:"var(--dim)", marginTop:10}}>Butuh bantuan? Hubungi admin lain untuk reset enrollment — semua langkah di-log.</div>
       </div>
     </div>
   );

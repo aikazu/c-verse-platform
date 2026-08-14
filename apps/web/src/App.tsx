@@ -147,6 +147,7 @@ function AppRoutes(){
         <Route path="/creator" element={<CreatorDashboard/>}/>
         <Route path="/creator/drops" element={<CreatorDashboard/>}/>
         <Route path="/admin" element={<Admin/>}/>
+        {/* Compat: legacy /verify — Verify melekat di /cards/:id (QR→Registered) & /cards/:id/3d (NFC→Verified) per docs/02 */}
         <Route path="/verify" element={<Browse/>}/>
         <Route path="/verify/:shortId" element={<CardInfo/>}/>
       </Routes>

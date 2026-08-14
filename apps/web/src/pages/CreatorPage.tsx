@@ -16,6 +16,14 @@ export default function CreatorPage(){
       <span className="eyebrow">Kreator</span>
       <h1 className="h2" style={{marginTop:4}}>{creator.displayName}</h1>
       <div style={{fontFamily:"var(--font-mono)", fontSize:12, color:"var(--text-muted)", marginTop:4}}>@{creator.username ?? creator.handle ?? creator.id}</div>
+      {/* docs/02 PG-CRT-PUB-01: handle + bio + link sosial + list drop; TANPA jumlah follower */}
+      {creator.handle && <div style={{fontFamily:"var(--font-mono)", fontSize:11, color:"var(--text-dim)", marginTop:8}}>Handle: {creator.handle}</div>}
+      {creator.bio && <p className="muted" style={{marginTop:8, fontSize:13, lineHeight:1.5}}>{creator.bio}</p>}
+      {creator.links && Array.isArray(creator.links) && creator.links.length>0 && (
+        <div style={{display:"flex", gap:8, marginTop:10, flexWrap:"wrap"}}>
+          {creator.links.map((l:any)=> <a key={l.url} href={l.url} target="_blank" rel="noreferrer" className="pill pill-info" style={{fontSize:11, textDecoration:"none"}}>{l.label ?? l.url}</a>)}
+        </div>
+      )}
     </div>
     <div>
       <div style={{fontFamily:"var(--font-mono)", fontSize:11, fontWeight:500, letterSpacing:"0.08em", textTransform:"uppercase", color:"var(--text-dim)", marginBottom:12}}>Koleksi — {drops.length}</div>
