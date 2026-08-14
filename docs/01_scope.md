@@ -25,7 +25,7 @@ Mekanisme inti yang WAJIB jalan di MVP:
    C-Coin balik; bidder bisa cancel; owner accept only — TANPA
    reject).
 4. **C-Coin**: medium tunggal semua transaksi (1 C-Coin =
-   Rp 10.000; top-up gated by legal, lihat `07-constraints.md`).
+   Rp 10.000; top-up gated by legal, lihat `07_constraints.md`).
 5. **Leaderboard**: halaman peringkat kolektor (F019).
 6. **Admin/ops**: founder menjalankan operasi tanpa sentuh
    database.
@@ -41,9 +41,9 @@ loyalty (semua post-MVP).
 | ID | Fitur | RICE | Catatan |
 |----|-------|------|---------|
 | F001 | Registrasi (Google OAuth + email OTP) — **email OTP wajib captcha anti-spam** | 240 | Supabase Auth |
-| F002 | Onboarding & kurasi kreator | 80 | **Off-platform**: ops input data kreator hasil rekrutan manual. TIDAK ada form aplikasi publik |
+| F002 | Onboarding & kurasi kreator | 80 | **Off-platform**: ops input data kreator hasil rekrutan manual. TIDAK ada form aplikasi publik. **Quality gate**: engagement rate ≥ 5% dari 10 post terakhir (per platform) wajib sebelum deal memo — filter manual oleh founder |
 | F003 | Upload artwork + narasi | 60 | Ops/designer upload atas nama kreator (artwork sudah di-approve off-platform) |
-| F004 | Drop scheduling & listing | 200 | Admin bikin drop; publik lihat di catalog |
+| F004 | Drop scheduling & listing | 200 | Admin bikin drop; publik lihat di catalog. **Harga per tier kreator**: emerging (100-300k) = 20 C-Coin, established (300k-1jt) = 30 C-Coin, top (1jt+) = 50 C-Coin, hype = 40-60 C-Coin. Signed variant 1,67× base. Primary = flat price (tanpa numbering premium) |
 | F005 | Checkout "siapa cepat" | 250 | Race condition, limit 1 kartu/user, potong saldo C-Coin; **default simpan di inventory (vault) — tanpa alamat/ongkir; OPSIONAL kirim fisik sekarang (isi alamat + ongkir C-Coin); signed card random alokasi 1:10** |
 | F006 | Payment gateway top-up + disbursement | 200 | Midtrans/Xendit. **Top-up uang riil bisa diterima setelah T&C final + cap saldo diimplementasi** (legal resolved 2026-08-13) |
 | F036 | Wallet C-Coin: saldo closed-loop, ledger immutable, payout fee 1% | 200 | Tanpa withdraw buyer; seller/kreator auto-disburse IDR |
@@ -61,7 +61,7 @@ loyalty (semua post-MVP).
 | F013 | Notifikasi bid & buyout (anti-snipe manual) | 80 | Notif ke owner saat bid masuk; ke buyer saat buyout terambil |
 | F014 | KYC | 60 | **Trigger (diupdate 2026-08-13)**: payout/disbursement hasil seller/kreator ke IDR + akumulasi top-up besar. **Tidak ada KYC untuk pasang buyout atau terima bid**. Verifikasi manual Y1 |
 | F015 | Profile & collection view | 100 | Koleksi user + ownership history; **profil bisa publik** (koleksi, level, badge, ranking) kecuali privacy anonymous aktif |
-| F016 | Creator dashboard (analitik) | 70 | Traffic + pendapatan only (bukan admin) |
+| F016 | Creator dashboard (analitik) | 70 | Traffic, pendapatan + insight kolektor anonim (visitor, repeat rate, avg spending, cross-creator buying, numbering analytics). BUKAN admin |
 | F017 | Gamifikasi: level | 80 | **Naik via XP**: spend 1 C-Coin = 1 XP; 10 XP = 1 level (top-up TIDAK menambah XP) |
 | F018 | Gamifikasi: badge | 80 | **Kriteria + logo/ikon + XP reward dikonfigurasi di admin page** (ADM-07); XP badge berkontribusi naik level (bukan masa berlaku) |
 | F019 | Leaderboard | 50 | **Halaman sendiri** (PG-LB-01) — tetap Should |
@@ -84,7 +84,7 @@ loyalty (semua post-MVP).
 
 > Admin dashboard = **app terpisah** (bukan di edge), akses
 > langsung ke Supabase via service-role key. Tidak ada route
-> admin di API publik. Detail: `06-tech-decisions.md`.
+> admin di API publik. Detail: `06_tech_decisions.md`.
 
 | ID | Fitur | Deskripsi |
 |----|-------|-----------|
@@ -97,6 +97,7 @@ loyalty (semua post-MVP).
 | ADM-07 | Kelola badge (definisi) | CRUD definisi badge: kriteria (mis. koleksi N C.Card, punya C.Card kreator A/B), logo/ikon, **XP reward** (experience untuk naik level) |
 | ADM-08 | Audit log admin | Catat SEMUA aksi admin (siapa, aksi, target, payload ringkas, IP/session, waktu) — **append-only, tidak bisa edit/hapus**; view + filter di admin app |
 | ADM-09 | 2FA admin | Supabase MFA **TOTP wajib** untuk SEMUA akun admin: enrollment (scan QR + recovery codes) saat pertama login, lalu challenge TOTP tiap login sebelum UI privileged terbuka (sesi aal2) |
+| ADM-10 | Investor Data Pack | Halaman `/investor` — ringkasan metrik kunci (GMV, user growth, drop performance, creator earnings, secondary volume) untuk founder tarik data cepat saat meeting fundraising. **BUKAN untuk publik** |
 
 ### WON'T (this release)
 
@@ -114,11 +115,13 @@ F034 AR, F035 loyalty.
    hanya kehilangan wow factor). Hemat ~4-5 PW.
 2. **F012 bid/accept** → hanya buyout dulu (Marketplace tanpa
    bid di Browse). Hemat ~2 PW.
-3. **F008 + F012 digabung** = MVP tetap launchable dengan
+3. **F016 creator analytics detail** → traffic + pendapatan only
+   (tanpa insight kolektor). Hemat ~1 PW.
+4. **F008 + F012 digabung** = MVP tetap launchable dengan
    primary sale + verifikasi di halaman kartu + buyout.
 
 Titik NOL (tidak bisa dipangkas tanpa mengganti definisi MVP):
-F001-F007, F009-F011, F013-F019, F036, ADM-01..09.
+F001-F007, F009-F011, F013-F015, F017-F019, F036, ADM-01..09.
 
 ## 4. Definition of Done (Release MVP)
 

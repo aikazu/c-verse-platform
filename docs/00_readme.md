@@ -22,15 +22,15 @@ implementasi.
 
 | Urutan | Dok | Isi |
 |--------|-----|-----|
-| 1 | `01-scope.md` | Definisi MVP: fitur final (MoSCoW + RICE), fitur admin baru, batasan, cut lines |
-| 2 | `02-pages.md` | Peta halaman per role + sitemap + komponen kunci |
-| 3 | `03-flows.md` | Flow end-to-end (user, kreator, admin) dengan decision point & gate |
-| 4 | `04-user-stories.md` | User stories per halaman (Given/When/Then) |
-| 5 | `05-data-model.md` | Skema logis: tabel inti, relasi, status enum |
-| 6 | `06-tech-decisions.md` | Stack & keputusan arsitektur yang sudah di-lock |
-| 7 | `07-constraints.md` | Blocker, gate, dan open items yang menentukan WHAT NOT TO BUILD |
-| 8 | `08-deployment.md` | **Runbook deploy step-by-step** (Cloudflare Pages/Workers/R2, Supabase, CI/CD, rollback, go-live checklist) |
-| 9 | `09-recommendations.md` | Rekomendasi development: prioritas build, arsitektur, operasional manual, risiko |
+| 1 | `01_scope.md` | Definisi MVP: fitur final (MoSCoW + RICE), fitur admin baru, batasan, cut lines |
+| 2 | `02_pages.md` | Peta halaman per role + sitemap + komponen kunci |
+| 3 | `03_flows.md` | Flow end-to-end (user, kreator, admin) dengan decision point & gate |
+| 4 | `04_user_stories.md` | User stories per halaman (Given/When/Then) |
+| 5 | `05_data_model.md` | Skema logis: tabel inti, relasi, status enum |
+| 6 | `06_tech_decisions.md` | Stack & keputusan arsitektur yang sudah di-lock |
+| 7 | `07_constraints.md` | Blocker, gate, dan open items yang menentukan WHAT NOT TO BUILD |
+| 8 | `08_deployment.md` | **Runbook deploy step-by-step** (Cloudflare Pages/Workers/R2, Supabase, CI/CD, rollback, go-live checklist) |
+| 9 | `09_recommendations.md` | Rekomendasi development: prioritas build, arsitektur, operasional manual, risiko |
 
 Baca 01-09 secara berurutan. 00-README (ini) cukup untuk
 orientasi cepat.
@@ -64,18 +64,25 @@ orientasi cepat.
 
 | Parameter | Nilai | Sumber |
 |-----------|-------|--------|
-| Rate C-Coin | 1 C-Coin = Rp 10.000 (top-up) | `05-data-model.md`, `07-constraints.md` |
-| Struktur C-Coin | Opsi A: saldo buyer closed-loop TANPA withdraw; hasil seller/kreator auto-disburse IDR | `07-constraints.md` |
-| Payout fee (disbursement seller/kreator) | 1% fixed | `01-scope.md` |
-| Revenue share primary (platform-produced) | 70% platform / 30% kreator | `01-scope.md` |
-| Revenue share primary (kreator-produced) | 30% platform / 70% kreator — **TIDAK ADA di MVP** | `01-scope.md` |
-| Fee secondary total | 15% (7,5% platform + 7,5% royalti kreator LIFETIME + 85% owner) | `01-scope.md` |
-| AOV unsigned / signed | Rp 300.000 / Rp 500.000 | `01-scope.md` |
-| COGS kartu unsigned / signed | Rp 104.000 / Rp 120.000 | `01-scope.md` |
-| Threshold kreator MVP | **100 ribu+ followers combined** (gabungan semua platform sosial) | `01-scope.md` |
-| Domain | **c-verse.co** (primary, FINAL 2026-08-13) + **c-verse.id** (redirect) — LOCK sebelum provisioning NFC | `08-deployment.md` (FINAL) |
-| Format kartu | 63x88mm, 350-400gsm, holo, acrylic hardcase | `01-scope.md` |
-| Web NFC | Chrome Android 89+ only (scan terprogram); iOS tap-to-verify via SUN URL | `06-tech-decisions.md`, `07-constraints.md` |
+| Rate C-Coin | 1 C-Coin = Rp 10.000 (top-up) | `05_data_model.md`, `07_constraints.md` |
+| Struktur C-Coin | Opsi A: saldo buyer closed-loop TANPA withdraw; hasil seller/kreator auto-disburse IDR | `07_constraints.md` |
+| Payout fee (disbursement seller/kreator) | 1% fixed | `01_scope.md` |
+| Revenue share primary (platform-produced) | 70% platform / 30% kreator | `01_scope.md` |
+| Revenue share primary (kreator-produced) | 30% platform / 70% kreator — **TIDAK ADA di MVP** | `01_scope.md` |
+| Fee secondary total | 15% (7,5% platform + 7,5% royalti kreator LIFETIME + 85% owner) | `01_scope.md` |
+| AOV unsigned / signed | Rp 300.000 / Rp 500.000 | `01_scope.md` |
+| COGS kartu unsigned / signed | Rp 104.000 / Rp 120.000 | `01_scope.md` |
+| Threshold kreator MVP | **100 ribu+ followers combined** (gabungan semua platform sosial) | `01_scope.md` |
+| Domain | **c-verse.co** (primary, FINAL 2026-08-13) + **c-verse.id** (redirect) — LOCK sebelum provisioning NFC | `08_deployment.md` (FINAL) |
+| Format kartu | 63x88mm, 350-400gsm, holo, acrylic hardcase | `01_scope.md` |
+| Web NFC | Chrome Android 89+ only (scan terprogram); iOS tap-to-verify via SUN URL | `06_tech_decisions.md`, `07_constraints.md` |
+| Pricing kreator (tier) | Emerging (100-300k) = 20 C-Coin, Established (300k-1jt) = 30 C-Coin, Top (1jt+) = 50 C-Coin, Hype = 40-60 C-Coin | `01_scope.md` F004 |
+| Signed card pricing | 1,67× base price (contoh: unsigned 30 → signed 50 C-Coin) | `01_scope.md` F004 |
+| Signed card alokasi | Random 1:10 saat checkout — buyer tidak bisa pilih | `01_scope.md` F005 |
+| Quality gate kreator | Engagement rate ≥ 5% dari 10 post terakhir (IG/Twitter 5%+, TikTok 10%+) — wajib sebelum deal memo | `07_constraints.md` C-05 |
+| Wash trading cooling | 14 hari — kartu tidak bisa dibeli kembali owner sebelumnya | `07_constraints.md` C-12 |
+| Creator self-dealing | 30 hari setelah drop — kreator dilarang beli kartu drop sendiri | `07_constraints.md` C-13 |
+| KYC trigger | payout/disbursement ke IDR + akumulasi top-up besar; TIDAK untuk pasang buyout, accept bid, atau top-up rutin | `01_scope.md` F014 |
 
 ## 5. Istilah yang DILARANG
 
@@ -95,12 +102,12 @@ dan data mentah, lihat dok sumber di workspace:
 | Persona | `00_foundation/03_target_users.md` |
 | Asumsi angka | `00_foundation/05_assumptions.md` |
 | Fitur MVP (orisinal) | `20_product/03_features_mvp.md` |
-| NFC & arsitektur verifikasi | `90_research/nfc-decision-ntag-424-dna.md`, `20_product/05_nfc_ux.md` |
-| Revenue split | `90_research/revenue-split-decision.md` |
-| GTM off-platform | `90_research/mvp-off-platform-gtm.md` |
-| Tech stack | `40_operations/01_tech_stack.md`, `90_research/tech-stack-decision-full-edge.md` |
+| NFC & arsitektur verifikasi | `90_research/18_nfc_decision.md`, `20_product/05_nfc_ux.md` |
+| Revenue split | `90_research/19_revenue_split.md` |
+| GTM off-platform | `90_research/17_mvp_off_platform_gtm.md` |
+| Tech stack | `40_operations/01_tech_stack.md`, `90_research/20_tech_stack_decision.md` |
 | Flow MVP (orisinal) | `40_operations/05_mvp_flow.md` |
-| Legal & C-Coin | `40_operations/02_legal_compliance.md`, `90_research/legal-consultation-brief.md` |
+| Legal & C-Coin | `40_operations/02_legal_compliance.md`, `90_research/14_legal_consultation_brief.md` |
 | SOP operasional | `40_operations/03_operations_playbook.md` |
 
 ## 7. Perubahan Terhadap Dokumen Sumber (2026-08-12)
@@ -114,11 +121,11 @@ meng-override dokumen sumber:
    aplikasi/approval in-platform, tidak ada "inbox kurasi".
    Admin hanya mengelola data kreator yang sudah direkrut.
 3. **Admin/Ops Dashboard = app terpisah** (bukan di edge),
-   fitur baru ADM-01 s/d ADM-06 (lihat `01-scope.md`).
+   fitur baru ADM-01 s/d ADM-06 (lihat `01_scope.md`).
 4. **NFC iOS**: tap-to-verify via SUN URL dianggap MUNGKIN
    (koreksi asumsi lama "iOS tidak bisa verify") — wajib
    divalidasi device nyata di Sprint 0 sebelum dipatok
-   (lihat `07-constraints.md` C-03).
+   (lihat `07_constraints.md` C-03).
 5. **Struktur secondary = Marketplace + Browse** (bukan
    listing+auction): Marketplace = kartu dengan buyout price;
    Browse = cari + bid langsung di kartu walau owner tidak

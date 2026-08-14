@@ -1,7 +1,7 @@
 # 05 — Data Model (Skema Logis)
 
 > Status: [VALIDATED]
-> Last updated: 2026-08-12
+> Last updated: 2026-08-14
 > Skema LOGIS (tabel + relasi + enum), bukan DDL final.
 > Database: Supabase Postgres (region SG). ORM: Drizzle.
 > Nama kolom: `snake_case`. PK: `uuid` (default `gen_random_uuid()`).
@@ -35,8 +35,11 @@ profiles
   is_anonymous bool default false       -- privacy: profil tidak tampil publik
   total_xp int default 0                -- experience; sumber: spend C-Coin + reward badge
   level int default 1                   -- = floor(total_xp / 10)
-  cumulative_spend_ccoin int default 0  -- 1 C-Coin spent = 1 XP (top-up TIDAK menambah XP)
-  created_at, updated_at
+cumulative_spend_ccoin int default 0  -- 1 C-Coin spent = 1 XP (top-up TIDAK menambah XP)
+	  flag_reason text nullable              -- alasan fraud flag (isi manual admin)
+	  consent_analytics_detail bool default false -- izin kreator lihat data per-user (anonim)
+	  consent_data_market bool default false      -- izin data agregat untuk laporan pasar
+	  created_at, updated_at
 ```
 
 ### creators (kreator hasil rekrutan off-platform)
@@ -89,10 +92,9 @@ cards
      --   platform_stock: belum terjual (stok platform)
      --   with_owner: fisik sedang/dipegang owner
 --   platform_vault: dipegang platform atas nama owner (custody)
-	  --     Manajemen fisik Y1: manual (bin/label per kartu di rak).
-	  --     Ship-out request: admin cari kartu via short_id -> packing -> 3PL.
-	  --     Tidak ada warehouse management system — SOP manual di
-	  --     `40_operations/03_operations_playbook.md`.
+--     Manajemen fisik Y1: manual (bin/label per kartu di rak).
+		  --     Ship-out request: admin cari kartu via short_id -> packing -> 3PL.
+		  --     Tidak ada warehouse management system — semua manual Y1.
 	  status enum('inventory','bound','listed_buyout','bid_pending','sold','tampered','defect','lost')
   buyout_price_ccoin int nullable -- dipasang owner -> muncul di Marketplace
   nfc_configured bool default false
@@ -175,21 +177,28 @@ orders
 wallets
   user_id uuid PK FK users.id
   balance_ccoin int           -- cache; audit via SUM(transactions)
+  hold_payout_until timestamptz nullable  -- hold payout jika akun di-flag fraud
   updated_at
 
 wallet_transactions
   id uuid PK
   user_id uuid FK users.id
   type enum('top_up','checkout','escrow_hold','escrow_release',
-            'settlement','payout','royalty','refund','adjustment')
+            'settlement','payout','royalty','refund','adjustment',
+            'platform_buy')    -- platform beli kartu di secondary (admin seed)
   amount_ccoin int            -- signed (+/-)
   ref_type text nullable      -- 'order', 'bid', 'payout'
   ref_id uuid nullable
-  metadata jsonb nullable     -- idempotency key, gateway ref
+  metadata jsonb nullable     -- idempotency key, gateway ref, fee_rate snapshot
   created_at timestamptz
 ```
 > **Append-only**: tidak ada UPDATE/DELETE. Idempotency:
 > webhook top-up pakai `metadata.idempotency_key` UNIQUE.
+> **Fee rate snapshot**: untuk secondary settlement, simpan
+> `metadata.fee_rate_platform` dan `metadata.fee_rate_royalty`
+> sebagai snapshot saat transaksi. Fee rate bisa berubah karena
+> seasonal event (normal 7,5%+7,5%, event 2,5%+7,5%). Jangan
+> hardcode fee rate di settlement logic — baca dari metadata.
 > **Partial failure handling**: webhook gateway -> system insert
 > wallet_transaction dalam transaksi DB. Jika insert gagal (DB error),
 > webhook return 500 -> gateway retry. Idempotency key mencegah
@@ -281,6 +290,21 @@ kyc_records
 > disbursement ke IDR + akumulasi top-up besar. Tidak perlu KYC
 > untuk pasang buyout, accept bid, atau top-up rutin.
 
+### creator_page_views (analytics — log dari day 1)
+```
+creator_page_views
+  id uuid PK
+  creator_id uuid FK creators.id
+  viewed_at timestamptz
+  referrer text nullable         -- domain asal (IG, TikTok, direct, dll)
+  city text nullable             -- dari IP geolokasi (anonymized)
+  user_id uuid FK users.id nullable  -- null = anonymous visitor
+```
+> Log setiap page view halaman kreator `/c/:username`. Data agregat
+> untuk dashboard kreator (total visitor, unique visitor, top
+> referrer, demografi). Y1 < 10k baris/hari — tidak perlu sharding.
+> Retensi: 2 tahun (data mentah), agregat selamanya.
+
 ### disputes
 ```
 disputes
@@ -345,7 +369,7 @@ admin_audit_log
 > (UU PDP + forensik fraud).
 > 2FA: Supabase MFA TOTP (aal2) — bukan kolom di sini; akses
 > admin app dibatasi di level app + Cloudflare Access
-> (`06-tech-decisions.md` D1).
+> (`06_tech_decisions.md` D1).
 
 ### notifications & payouts
 ```
@@ -414,6 +438,8 @@ profiles 1─N user_badges
 | I10 | Max 20 kartu buyout aktif per user | App check |
 | I11 | Level = floor(total_xp / 10); total_xp = spend C-Coin (1 C-Coin = 1 XP) + reward badge; top-up tidak menambah XP | Trigger/app logic |
 | I12 | Profil publik hanya jika `is_anonymous = false` | RLS/query filter |
+| I13 | Wash trading cooling period 14 hari — kartu tidak bisa dibeli kembali oleh owner sebelumnya dalam 14 hari | App logic |
+| I14 | Creator self-dealing — kreator dilarang membeli kartu drop sendiri di secondary untuk 30 hari pertama | App logic + flag |
 
 ## 5. RLS (Row Level Security) — Ringkas
 
@@ -436,7 +462,7 @@ profiles 1─N user_badges
 
 ## Sumber
 
-- `03-flows.md` (Flow 1-9 → struktur data).
+- `03_flows.md` (Flow 1-9 → struktur data).
 - `40_operations/05_mvp_flow.md` (Wallet + WalletTransaction
   ledger, escrow, payout).
 - `20_product/06_auction_mechanics.md` (rules → invariant

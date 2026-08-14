@@ -1,11 +1,9 @@
 # 06 — Tech Decisions (Keputusan Arsitektur)
 
 > Status: [VALIDATED]
-> Last updated: 2026-08-12
-> Sumber utama: `40_operations/01_tech_stack.md` +
-> `90_research/tech-stack-decision-full-edge.md` (full-edge,
-> konsolidasi 2026-08-11). Keputusan baru 2026-08-12:
-> admin app terpisah, koreksi NFC iOS.
+> Last updated: 2026-08-14
+> Konsolidasi final dari full-edge decision. Dok ini SELF-CONTAINED
+> — tidak perlu baca dok sumber lain untuk memahami arsitektur MVP.
 
 ## 1. Stack Ringkas (Full-Edge, Zero Server Management)
 
@@ -153,16 +151,16 @@ Retensi: minimum 1 tahun (UU PDP + forensik fraud).
 | O-2 | Region final Supabase (SG vs lain) | Sprint 0 |
 | O-3 | Struktur bucket R2 (artwork, model 3D, KYC) | Sprint 0 |
 | O-4 | Cache strategy TanStack Query | Sprint 0 |
-| O-5 | CI/CD pipeline detail | **Dijawab `08-deployment.md` section 7** |
+| O-5 | CI/CD pipeline detail | **Dijawab `08_deployment.md` section 7** |
 | O-6 | Monitoring stack final | Sprint 0 |
-| O-7 | Domain & SSL | **Dijawab `08-deployment.md` section 3 & 9** |
+| O-7 | Domain & SSL | **Dijawab `08_deployment.md` section 3 & 9** |
 | C-03 | Validasi iOS tap-to-verify SUN URL di device nyata | Sprint 0 (blocking D2) |
 
 ## Sumber
 
 - `40_operations/01_tech_stack.md` (full-edge, 2026-08-11).
-- `90_research/tech-stack-decision-full-edge.md`.
-- `90_research/nfc-decision-ntag-424-dna.md` (N5 arsitektur
+- `90_research/20_tech_stack_decision.md`.
+- `90_research/18_nfc_decision.md` (N5 arsitektur
   verifikasi, SUN URL).
 - `40_operations/05_mvp_flow.md` (Flow 1-9).
 - `40_operations/02_legal_compliance.md` 2,2 (C-Coin validasi).

@@ -1,6 +1,6 @@
 # 03 — Flow End-to-End MVP
 
-> Status: [DRAFT]
+> Status: [VALIDATED]
 > Last updated: 2026-08-13 (Q026 resolved — semua gate legal
 > dihapus; KYC trigger di-simplify)
 > Semua fitur dibangun penuh. Top-up uang riil bisa diterima
@@ -66,7 +66,7 @@ Status order:
                     -> escrow release LANGSUNG (tidak ada risiko kirim)
 ```
 
-SOP detail: `40_operations/03_operations_playbook.md` SOP 1-3.
+SOP fulfillment: admin packing, panggil kurir, input no resi, update status order. QC: periksa dus (cetak, lipatan), acrylic (retak, gores, magnet), kartu (cetak, holo, NFC tap). Defect rate > 2% = investigasi batch.
 
 ## Flow 3: Payment & Settlement (C-Coin)
 
@@ -111,7 +111,7 @@ tap kartu -> Web NFC API baca NDEF (URL SUN + UID + counter + CMAC)
 iOS: tap kartu -> background tag reading -> URL SUN terbuka di
 Safari -> URL menuju halaman 3D kartu -> backend verify CMAC
 dari URL (tanpa Web NFC API) -> halaman 3D tampil verified.
-   ^-- DIPERLUKAN VALIDASI DEVICE NYATA (C-03, 07-constraints)
+   ^-- DIPERLUKAN VALIDASI DEVICE NYATA (C-03, 07_constraints)
 
 Non-NFC / gagal: scan QR di dus
    -> halaman INFO kartu (/cards/:cardId) -> status "Registered"
@@ -206,8 +206,13 @@ Anti-fraud Y1 (rule-based, bukan ML):
 - Strike system: 3 strike = suspend 30 hari.
 - Shill detection: cross-check IP + device fingerprint + payment
   method. Flag jika bidder dan owner punya pola sama.
-- Wash trading cooling period: 7 hari setelah terjual, kartu tidak
+- **Wash trading cooling period: 14 hari** setelah terjual, kartu tidak
   bisa dibeli kembali oleh owner sebelumnya.
+- **Creator self-dealing**: kreator (dan akun terafiliasi) dilarang
+  membeli kartu drop mereka sendiri di secondary untuk 30 hari pertama
+  setelah drop. Jika terdeteksi: suspend 14 hari + hold payout 30 hari.
+- **Multiple account detection**: jika 2+ akun terdeteksi berbagi
+  device/IP yang sama → flag + investigasi manual.
 - Max buyout aktif: 20 kartu per user.
 
 ## Flow 8: Top-Up & Payout C-Coin

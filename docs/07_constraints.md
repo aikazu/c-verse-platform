@@ -27,7 +27,7 @@
   di vault platform selama secondary market. Kepemilikan fisik
   baru dikirim saat pemilik akhir meminta pengiriman. Desain
   sudah sesuai (lihat `cards.location` + `shipments` di
-  `05-data-model.md`).
+  `05_data_model.md`).
 
 ### C-02 [RESOLVED 2026-08-13] Escrow design (gap G9)
 - Mekanisme escrow ledger internal sudah divalidasi lawyer.
@@ -58,6 +58,10 @@
   dll). Divalidasi manual saat rekrutan off-platform.
 - Onboarding TANPA aplikasi/approval in-platform — direct
   contact. Admin hanya mengelola data (ADM-01).
+- **Quality gate**: engagement rate ≥ 5% dari 10 post terakhir
+  wajib sebelum deal memo. ER < 3% = skip. Threshold per platform:
+  IG/Twitter 5%+, TikTok 10%+. Filter manual oleh founder saat
+  rekrutmen.
 
 ### C-05b KYC trigger (diupdate 2026-08-13, validasi lawyer)
 - **Prinsip**: KYC hanya diwajibkan untuk seller yang ingin
@@ -147,6 +151,22 @@
   dilarang). Kolom sudah `int` (`CHECK x >= 1`);
   konversi IDR → C-Coin dibulatkan ke atas (ceiling).
 
+### C-12 [FINAL] Wash trading cooling period 14 hari
+- Kartu yang baru dibeli tidak bisa di-listing ulang di secondary
+  sebelum 14 hari. Berlaku untuk seller yang sama (current_owner).
+  Menggantikan aturan 7 hari sebelumnya.
+
+### C-13 [FINAL] Creator self-dealing dilarang 30 hari
+- Kreator (dan akun terafiliasi yang terdeteksi) dilarang membeli
+  kartu drop mereka sendiri di secondary untuk 30 hari pertama
+  setelah drop. Pelanggaran: suspend 14 hari + hold payout 30 hari.
+
+### C-14 [DRAFT] Target Y1 realistis
+- Drop: 40-65/tahun (bukan 150). Unit: 400-650 kartu (bukan 1.500).
+- Quarter: Q1=0 (build), Q2=5-10 (pilot), Q3=15-25, Q4=20-30.
+- Konsekuensi: revenue model, COGS, dan unit economics perlu
+  direvisi dengan volume realistis ini.
+
 ## 4. Batasan Teknis yang Diterima
 
 | # | Batasan | Konsekuensi |
@@ -162,7 +182,7 @@
 | Kode | Item | Blocker? |
 |------|------|----------|
 | C-03 | Validasi iOS SUN URL | Ya (mempengaruhi D2) |
-| O-1..O-7 | Tech open items (lihat `06-tech-decisions.md` section 3) | Tidak |
+| O-1..O-7 | Tech open items (lihat `06_tech_decisions.md` section 3) | Tidak |
 | ~~Q026~~ | ~~Status hukum C-Coin~~ | **RESOLVED 2026-08-13** — bukan blocker |
 | R6 | Desain deposit secondary | Tidak (post-launch secondary) |
 | F2 | Acrylic case: magnet vs screw | Tidak (ops, tunggu RFQ vendor) |
@@ -200,9 +220,9 @@
 
 ## Sumber
 
-- `90_research/legal-consultation-brief.md` (Sesi A-D).
+- `90_research/14_legal_consultation_brief.md` (Sesi A-D).
 - `40_operations/02_legal_compliance.md` (2,2 C-Coin — status [VALIDATED]).
-- `90_research/nfc-decision-ntag-424-dna.md` (N5, N5b).
+- `90_research/18_nfc_decision.md` (N5, N5b).
 - `90_research/open_questions_tracker.csv` (Q027-Q030,
   R6, O1-O7).
 - `00_foundation/05_assumptions.md` (A015 status hukum

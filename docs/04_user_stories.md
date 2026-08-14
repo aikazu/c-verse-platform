@@ -3,8 +3,8 @@
 > Status: [DRAFT]
 > Last updated: 2026-08-12
 > Format: Given / When / Then. ID: US-{AREA}-{NNN}.
-> Mapping ke halaman: `02-pages.md`. Mapping ke fitur:
-> `01-scope.md`.
+> Mapping ke halaman: `02_pages.md`. Mapping ke fitur:
+> `01_scope.md`.
 
 ## A. Public (tanpa login)
 
@@ -277,9 +277,11 @@ Then C-Coin bid-nya release kembali ke saldo
 ```
 Given user akan melakukan payout/disbursement ke IDR, ATAU
    akumulasi top-up mencapai threshold besar
+   (KYC HANYA untuk cash-out/withdrawal — validasi lawyer 2026-08-13)
 When trigger terpenuhi
 Then wajib menyelesaikan KYC (KTP, selfie, NPWP opsional)
    sebelum payout diproses
+   (TIDAK ada KYC untuk pasang buyout, accept bid, atau top-up rutin)
 ```
 
 ### US-USR-012 — Level naik melalui XP
@@ -438,8 +440,8 @@ And catatan TIDAK bisa di-edit atau dihapus (retensi ≥ 1 tahun)
 
 ## Sumber
 
-- `02-pages.md` (halaman), `01-scope.md` (fitur),
-  `03-flows.md` (alur).
+- `02_pages.md` (halaman), `01_scope.md` (fitur),
+  `03_flows.md` (alur).
 - `20_product/02_user_journey.md` (per persona).
 - `20_product/05_nfc_ux.md` (edge cases E1-E5).
 - `20_product/06_auction_mechanics.md` (limit & anti-fraud).

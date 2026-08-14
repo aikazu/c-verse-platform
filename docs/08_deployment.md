@@ -1,10 +1,10 @@
 # 08 — Deployment Runbook (Step-by-Step)
 
 > Status: [VALIDATED]
-> Last updated: 2026-08-12
+> Last updated: 2026-08-14
 > Menjawab open items O-5 (CI/CD pipeline) & O-7 (domain/SSL)
-> di `06-tech-decisions.md`. Konsisten dengan stack full-edge
-> di `06-tech-decisions.md` + `40_operations/01_tech_stack.md`.
+> di `06_tech_decisions.md`. Dok ini self-contained — semua
+> detail deploy ada di sini.
 
 ## 1. Target & Arsitektur Deploy
 
@@ -133,7 +133,7 @@ public vars (anon keys) boleh di bundle.
 4. Migrasi: `pnpm --filter api db:generate` →
    `pnpm --filter api db:migrate` → push ke project. Cek output
    `drizzle-kit` untuk drift.
-5. RLS: apply policy per tabel (lihat `05-data-model.md` RLS) —
+5. RLS: apply policy per tabel (lihat `05_data_model.md` RLS) —
    verifikasi dengan `supabase/rls` test setelah deploy.
 6. Realtime: enable broadcast untuk channel `drop_countdown` &
    `bid_events` (extension `supabase_realtime`).
@@ -265,11 +265,10 @@ Secrets CI yang wajib diset (GitHub Settings → Secrets):
 
 ## Sumber
 
-- `06-tech-decisions.md` (stack, open items O-5/O-7 — dijawab
+- `06_tech_decisions.md` (stack, open items O-5/O-7 — dijawab
   runbook ini).
 - `40_operations/01_tech_stack.md` (full-edge, CI/CD O5, domain O7).
-- `90_research/tech-stack-decision-full-edge.md` (monorepo,
+- `90_research/20_tech_stack_decision.md` (monorepo,
   free tier).
-- `05-data-model.md` (RLS → step 4.5).
-- Konvensi angka: `00_foundation/05_assumptions.md` A024 (build
-  time), bootstrap-path (opex Y1).
+- `05_data_model.md` (RLS → step 4.5).
+- Konvensi angka: A024 build time 6 bulan, bootstrap Rp 20 jt/bulan opex Y1.

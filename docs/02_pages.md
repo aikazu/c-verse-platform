@@ -1,6 +1,6 @@
 # 02 — Peta Halaman MVP
 
-> Status: [DRAFT]
+> Status: [VALIDATED]
 > Last updated: 2026-08-13 (konten divalidasi — domain final,
 > halaman kartu; marketplace = secondary buyout; browse = bid
 > langsung di kartu tanpa harga; leaderboard jadi halaman;
@@ -19,7 +19,7 @@ Dua aplikasi terpisah (satu monorepo):
 | `apps/admin` | Lokal / VPS + Cloudflare Access (TIDAK publik) | Founder tim internal | Cloudflare Access + Supabase Auth + role check + **2FA TOTP wajib** |
 
 Tidak ada route admin di API publik. Admin app akses Supabase
-langsung via service-role key. Detail: `06-tech-decisions.md`.
+langsung via service-role key. Detail: `06_tech_decisions.md`.
 
 ## 2. Istilah Pasar
 
@@ -102,17 +102,60 @@ langsung via service-role key. Detail: `06-tech-decisions.md`.
 | PG-ADM-07 | `/disputes` | Dispute | ADM-06 | List dispute, mediasi, keputusan |
 | PG-ADM-08 | `/badges` | Kelola badge | ADM-07 | **Definisi badge: kriteria + logo/ikon + XP reward** (admin-configurable, contoh: koleksi N C.Card, punya C.Card kreator A/B) |
 | PG-ADM-09 | `/audit` | Audit log admin | ADM-08 | Lihat semua aksi admin (**append-only**): siapa, aksi, target, payload ringkas, IP/session, waktu — filter |
+| PG-ADM-10 | `/investor` | Investor Data Pack | — | Ringkasan metrik kunci: GMV, user growth, drop performance, creator earnings, secondary volume — untuk founder tarik data cepat saat meeting. Tabel + chart sederhana. **BUKAN untuk publik** |
 
 > **2FA admin (ADM-09)**: bukan halaman terpisah — flow
 > enrollment + challenge TOTP melekat di login admin (Supabase
-> MFA, sesi aal2). Semua UI privileged (ADM-01..09) terkunci
+> MFA, sesi aal2). Semua UI privileged (ADM-01..10) terkunci
 > sampai sesi aal2 tercapai.
 
-## 8. Halaman PENTING yang Sengaja TIDAK Ada
+## 8. Halaman Kreator & Kartu — Target SEO
+
+Halaman kreator (`/c/:username`) adalah **aset SEO paling
+berharga** platform. Target: muncul di page 1 Google untuk query
+**"nama kreator"** dan **"nama kreator card"** — sebagai profil
+resmi koleksi.
+
+### 8.1 Strategi SEO per Halaman
+
+| Halaman | Route | SEO Target | Teknik |
+|---------|-------|-----------|--------|
+| **Profil kreator** | `/c/:username` | Page 1 untuk "nama kreator" + "nama kreator card" | OG meta (title, desc, image) + JSON-LD `Person` + link sosial media kreator |
+| **Halaman kartu** | `/cards/:cardId/3d` | Page 1 untuk "nama kreator card" / "nama kreator C.Card" | OG meta + JSON-LD `Product` + `ImageObject` |
+| **Detail drop** | `/drops/:dropId` | Page 2+ untuk "nama kreator drop" | OG meta + JSON-LD `Event` |
+| **Landing page** | `/` | Brand search "C.Verse" "C.Card" | Standar meta tags |
+
+### 8.2 Implementasi — HTMLRewriter di Edge
+
+Semua SEO ditangani oleh **1 Worker di depan SPA** tanpa perlu
+SSR framework:
+
+```mermaid
+Request → Cloudflare Worker → HTMLRewriter inject meta tags →
+                                fetch SPA dari Pages →
+                                stream response ke crawler
+```
+
+Worker aktif hanya untuk halaman publik yang butuh SEO:
+- `GET /c/:username` — inject Person schema + OG
+- `GET /cards/:cardId/3d` — inject Product schema + OG
+- `GET /drops/:dropId` — inject OG + Event schema
+- `GET /sitemap.xml` — sitemap dinamis
+
+Halaman login/dashboard/wallet — SPA murni, skip Worker.
+
+### 8.3 Biaya & Effort
+- **Build**: 2-3 hari (Worker + HTMLRewriter + sitemap generator)
+- **Runtime**: Cloudflare Workers free tier (100k req/hari gratis;
+  traffic SEO Y1 < 1k/hari)
+- **Tidak perlu ubah arsitektur**: SPA tetap murni, Worker di
+  depan sebagai proxy ringan
+
+## 9. Halaman PENTING yang Sengaja TIDAK Ada
 
 | Halaman | Alasan |
 |---------|--------|
-| Form apply kreator / inbox kurasi | Onboarding off-platform (direct contact) — `01-scope.md` F002 |
+| Form apply kreator / inbox kurasi | Onboarding off-platform (direct contact) — `01_scope.md` F002 |
 | Upload artwork self-serve kreator | Artwork di-approve & di-upload ops |
 | Halaman verifikasi terpisah (/verify) | **Di-merge ke halaman kartu** (3D dari tap, info dari QR) |
 | Checkout IDR langsung | Medium tunggal = C-Coin |
@@ -121,9 +164,9 @@ langsung via service-role key. Detail: `06-tech-decisions.md`.
 
 ## Sumber
 
-- `01-scope.md` (fitur → mapping halaman).
+- `01_scope.md` (fitur → mapping halaman).
 - `40_operations/05_mvp_flow.md` (Flow 1-9 → dasar route).
-- `90_research/demo-platform-internal-founders.md` (6 screen
+- `90_research/13_demo_platform_internal.md` (6 screen
   demo → referensi visual flow user).
 - Diskusi founder 2026-08-12 (revisi halaman: marketplace,
   browse, leaderboard, kartu 3D + info; verifikasi di-merge).
