@@ -435,6 +435,34 @@ export function awardBadgeIfNeeded(userId: string, badgeId: string) {
   }
   return true;
 }
+export function evaluateBadges(userId: string) {
+  // Event-driven per docs/05 — run after any XP-affecting action (checkout, bid accept, etc.)
+  // Criteria types: collect_count{min}, creator_cards{creator_id?,min}, xp_total{min}, single_bid_gt{min}, level{min}, first_bid, kyc_verified
+  const cardsOwned = [...store.cards.values()].filter((c) => c.ownerId === userId).length;
+  const totalXp = (store.users.get(userId) as unknown as { totalXp?: number }).totalXp ?? (store.users.get(userId) as unknown as { xp?: number }).xp ?? 0;
+  const userLevel = Math.max(1, Math.floor(totalXp / 10) + 1);
+  const hasAnyBid = store.bids.some((b) => b.bidderId === userId);
+  const maxSingleBid = Math.max(0, ...store.bids.filter((b) => b.bidderId === userId).map((b) => b.amountCCoin));
+  const kycOk = isKycApproved(userId);
+  for (const def of store.badges.filter((b) => b.isActive !== false)) {
+    if (store.userBadges.find((ub) => ub.userId === userId && ub.badgeId === def.id)) continue;
+    const cr = (def.criteria ?? {}) as Record<string, unknown>;
+    let ok = false;
+    const t = String((cr as { type?: string }).type ?? "");
+    const min = Number((cr as { min?: number }).min ?? 0);
+    if (t === "collect_count") ok = cardsOwned >= min;
+    else if (t === "creator_cards") {
+      const cid = (cr as { creator_id?: string }).creator_id ?? (cr as { creatorId?: string }).creatorId;
+      if (cid) ok = [...store.cards.values()].filter((c) => c.ownerId === userId && store.drops.get(c.dropId)?.creatorId === cid).length >= min;
+      else ok = [...store.cards.values()].filter((c) => c.ownerId === userId).length >= min;
+    } else if (t === "xp_total") ok = totalXp >= min;
+    else if (t === "single_bid_gt") ok = maxSingleBid > min;
+    else if (t === "level") ok = userLevel >= min;
+    else if (t === "first_bid") ok = hasAnyBid;
+    else if (t === "kyc_verified") ok = kycOk;
+    if (ok) awardBadgeIfNeeded(userId, def.id);
+  }
+}
 export function isKycApproved(userId: string): boolean {
   const rec = [...store.kyc.values()].find(k => k.userId === userId);
   return rec?.status === "approved";

@@ -77,6 +77,17 @@ app.post(
     }
 
     // Docs 03 Flow 7: 1 active tertinggi/kartu; bid lebih tinggi outbid; C-Coin di-hold
+    // Y1 anti-fraud: rate limit + cooling + max-buyout already on listings; add bid guards here
+    const now = Date.now();
+    const activeBidsForUser = store.bids.filter((b) => b.bidderId === user.id && b.status === "active").length;
+    if (activeBidsForUser >= 10) return c.json({ error: "Batas 10 bid aktif per user — cancel salah satu dulu", limit: 10 }, 429);
+    const bidsToday = store.bids.filter((b) => b.bidderId === user.id && now - new Date(b.createdAt).getTime() < 24*3600*1000).length;
+    if (bidsToday >= 50) return c.json({ error: "Batas 50 bid per hari", limit: 50 }, 429);
+    // wash trading cooling 7 hari: owner sebelumnya tidak bisa bid kembali kartunya
+    const lastOwn = store.ownershipHistory.filter((h) => h.cardId === cardId && h.ownerId === user.id).sort((a,b)=> new Date(b.transferredAt).getTime()-new Date(a.transferredAt).getTime())[0];
+    if (lastOwn && now - new Date(lastOwn.transferredAt).getTime() < 7*24*3600*1000) {
+      return c.json({ error: "Cooling period 7 hari — kartu baru saja kamu jual, belum bisa di-bid kembali", coolingDays: 7 }, 400);
+    }
     const active = store.bids.find((b) => b.cardId === cardId && b.status === "active");
     if (active && amount <= active.amountCCoin) {
       return c.json({ error: `Bid harus lebih tinggi dari active tertinggi (${active.amountCCoin} C-Coin)`, minBidCCoin: active.amountCCoin + 1, activeBid: active }, 400);
@@ -124,6 +135,9 @@ app.post(
     if (u) {
       u.totalXp = (u.totalXp ?? u.xp ?? 0) + 0; // hold does not add spend XP; keep level consistent
     }
+    // event-driven badge eval after bid (first_bid, single_bid_gt etc)
+    const { evaluateBadges } = await import("../lib/store.js");
+    evaluateBadges(user.id);
     if (!store.userBadges.find((ub) => ub.userId === user.id && ub.badgeId === "b2")) {
       awardBadgeIfNeeded(user.id, "b2");
     }

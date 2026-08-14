@@ -24,7 +24,14 @@ const app = new Hono<{ Bindings: Bindings }>();
 
 app.use("*", logger());
 app.use("*", cors({
-  origin: ["http://localhost:5173", "http://localhost:3000", "http://127.0.0.1:5173", "http://localhost:4173"],
+  origin: (origin) => {
+    if (!origin) return "https://c-verse.co";
+    if (origin.includes("localhost") || origin.includes("127.0.0.1") || origin.includes("pages.dev")) return origin;
+    if (origin === "https://c-verse.co" || origin === "https://www.c-verse.co") return origin;
+    if (origin === "https://api.c-verse.co" || origin.endsWith(".c-verse.co")) return origin;
+    if (origin === "https://c-verse.id" || origin === "https://www.c-verse.id") return origin;
+    return origin;
+  },
   allowHeaders: ["Content-Type", "Authorization", "x-forwarded-for"],
   allowMethods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
 }));

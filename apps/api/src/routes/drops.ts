@@ -3,6 +3,7 @@ import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
 import { store, ensureSeed, getUserByToken, authHeaderToToken, logAudit } from "../lib/store.js";
 import { C_COIN_RATE_IDR } from "@c-verse/shared";
+import type { DropStatus } from "../lib/store.js";
 
 const app = new Hono();
 app.use("*", async (c, next) => { ensureSeed(); await next(); });
@@ -75,9 +76,13 @@ app.post(
     const { calcSignedCount, calcUnsignedCount } = await import("@c-verse/shared");
     const signedCount = calcSignedCount(body.totalUnits);
     const unsignedCount = calcUnsignedCount(body.totalUnits);
+    // docs/01 + 05-data-model: drop adalah platform-produced (70/30) dengan SATU harga canonical priceCcoin
     const priceCcoin = body.priceCcoin ?? body.priceCCoin ?? body.priceUnsignedCCoin ?? 30;
     const priceUnsigned = body.priceUnsignedCCoin ?? priceCcoin;
     const priceSigned = body.priceSignedCCoin ?? Math.ceil(priceCcoin * 1.6);
+    // Canonical status per docs/05-data-model drops.status = draft/scheduled/published/live/sold_out/closed/cancelled
+    const allowedStatuses: DropStatus[] = ["draft", "scheduled", "published", "live", "sold_out", "closed", "cancelled"];
+    const legacyMap: Record<string, DropStatus> = { review: "draft", approved: "scheduled", production: "scheduled", ended: "closed" };
     const id = `drop-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 5)}`;
     const dropStartAt = body.dropStartAt ?? body.dropAt ?? null;
     const drop = {

@@ -33,7 +33,8 @@ app.post(
 
     const body = c.req.valid("json");
     const dropId = body.dropId;
-    const deliveryOption = body.deliveryOption ?? "shipping";
+    // docs/07 C-10 FINAL: vault is DEFAULT — keep schema default; do not override to shipping
+    const deliveryOption = body.deliveryOption ?? "vault";
     const shippingAddress = body.shippingAddress ?? null;
     const shippingFeeCcoin = body.shippingFeeCcoin ?? null;
 
@@ -98,14 +99,11 @@ app.post(
 
     // Revenue share platform-produced 70/30 credited to creator hold (disburse batch Selasa H+1)
     const creatorShare = Math.floor(priceCcoin * 0.3);
-    if (creatorShare > 0) {
+    if (creatorShare > 0 && drop.creatorId !== user.id) {
       ensureWallet(drop.creatorId);
       addTx(drop.creatorId, "royalty", creatorShare, "order", card.id, `Revenue share 30% — ${drop.title} #${card.unitNumber}`);
-      const creator = store.users.get(drop.creatorId);
-      if (creator) {
-        creator.totalXp = (creator.totalXp ?? creator.xp ?? 0) + 1;
-        creator.xp = creator.totalXp;
-      }
+      // docs 07 C-05c: XP only via spend + badge reward — royalty did not accrue spend XP to recipient;
+      // creator's XP grows when THEY spend, not when receiving share. No totalXp bump here.
     }
 
     const orderId = uid("ord-");
@@ -161,6 +159,8 @@ app.post(
     if (!store.userBadges.find((ub) => ub.userId === user.id && ub.badgeId === "b1")) {
       awardBadgeIfNeeded(user.id, "b1");
     }
+    const { evaluateBadges } = await import("../lib/store.js");
+    evaluateBadges(user.id);
 
     // Guard max 1 unit sold log already covered
 
