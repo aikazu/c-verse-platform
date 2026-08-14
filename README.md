@@ -38,9 +38,8 @@ flowchart LR
     Auth["Auth<br/>(Google + OTP)"]
     RT["Realtime"]
   end
-  subgraph StorageBox["Storage"]
-    R2["Cloudflare R2<br/>prod (zero egress)<br/>cverse-assets / kyc / qr"]
-    SupaBuckets["Supabase Storage<br/>local parity<br/>artwork / card-assets / kyc"]
+  subgraph StorageBox["Cloudflare R2"]
+    R2["cverse-assets / cverse-kyc / cverse-qr<br/>zero egress"]
   end
   subgraph Ops["VPS + Tunnel"]
     Admin["apps/admin<br/>Zero Trust + aal2"]
@@ -49,14 +48,13 @@ flowchart LR
   WorkerSEO -->|/c/* /cards/*/3d /drops/*| Pages
   Api --> DB
   Api --> Auth
-  Api -.->|prod| R2
-  Api -.->|local| SupaBuckets
+  Api --> R2
   Admin -->|service-role| DB
   Pages -->|/api/*| Api
 ```
 
 - **Web publik** → Cloudflare Pages. SEO tanpa SSR: satu Worker di depan SPA inject `og:*` + `JSON-LD` + `sitemap.xml` dari `apps/api/src/routes/seo.ts`.
-- **API** → Hono di Workers (lokal via `@hono/node-server`). Tanpa Supabase tetap jalan in-memory (`apps/api/src/lib/store.ts`). Storage: **prod R2** (`wrangler.toml` binding `ASSETS`/`KYC`), **local parity Supabase buckets** — lihat `08_deployment.md` §3.4 & `06_tech_decisions.md` Stack.
+- **API** → Hono di Workers (lokal via `@hono/node-server`). Tanpa Supabase tetap jalan in-memory (`apps/api/src/lib/store.ts`). Storage: Cloudflare R2 (`wrangler.toml` `ASSETS`/`KYC`).
 - **Admin** → Vite SPA terpisah di VPS + Cloudflare Tunnel + Access. Service-role only, 2FA TOTP (`aal2`), audit log append-only.
 
 ---
@@ -112,14 +110,14 @@ MIDTRANS_SERVER_KEY  NFC_MASTER_KEY  PAYOUT_WEBHOOK_SIGNING_KEY
 
 Tanpa Supabase: API otomatis pakai store in-memory + `ensureSeed()`.
 
-Supabase lokal (opsional):
+Supabase lokal (opsional, DB only):
 
 ```bash
 npx supabase start        # API :54321  DB :54322  Studio :54323
-npx supabase db reset     # jalankan migrations/*.sql + seed.sql
+npx supabase db reset     # jalankan migrations/*.sql + seed.sql (DB saja)
 ```
 
-Storage: **prod = Cloudflare R2** (`cverse-assets` public via CDN, `cverse-kyc` private, `cverse-qr` opsional — `wrangler.toml` `ASSETS`/`KYC` + `docs/08_deployment.md` §3.4). **Lokal/dev parity = Supabase Storage** buckets `artwork` / `card-assets` / `kyc` di `supabase/config.toml` (R2 tidak tersedia di local).
+Storage: Cloudflare R2 (`cverse-assets`, `cverse-kyc`, `cverse-qr` — `wrangler.toml` + `08_deployment.md` §3.4).
 
 ### Akun Demo
 
@@ -141,8 +139,7 @@ Tombol **Demo Login** 1-klik tersedia di `/login`.
 | API | Hono 4 + Zod (`@hono/zod-validator`) → Cloudflare Workers |
 | Admin | React 19 + Vite → VPS + Cloudflare Tunnel + Access (Zero Trust) |
 | DB / Auth / Realtime | Supabase Postgres (SG) + pgcrypto |
-| Storage (prod) | **Cloudflare R2** (`cverse-assets` public, `cverse-kyc` private, `cverse-qr` opsional) — zero egress, `wrangler.toml` `ASSETS`/`KYC` |
-| Storage (local parity) | Supabase Storage buckets `artwork` / `card-assets` / `kyc` (`supabase/config.toml`) |
+| Storage | Cloudflare R2 — `cverse-assets` / `cverse-kyc` / `cverse-qr` · zero egress · `wrangler.toml` `ASSETS`/`KYC` |
 | Shared | `packages/shared` — Zod schemas + constants canonical |
 | Email | SumoPod SMTP (abstraction layer) + FCM push |
 | Monorepo | pnpm workspaces + Turborepo |
@@ -171,9 +168,9 @@ Semua angka & enum canonical di `packages/shared/src/index.ts` — jangan hard-c
 │   └── admin/               # VPS SPA — ADM-01..10 + Investor
 ├── packages/shared/         # single source: schemas + C_COIN_RATE_IDR + fee
 ├── supabase/
-│   ├── migrations/          # 20260812 initial + 20260813 rework + 20260814 build-time
+│   ├── migrations/
 │   ├── seed.sql
-│   └── config.toml          # storage buckets = local parity only (prod = R2)
+│   └── config.toml
 └── docs/                    # canonical 00_readme → 09_recommendations (VALIDATED)
 ```
 
