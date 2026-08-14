@@ -177,16 +177,28 @@ app.post("/buyout", zValidator("json", z.object({ cardId: z.string().min(1) })),
   if (!card || card.buyoutPriceCcoin == null) return c.json({ error: "Kartu tidak dijual buyout" }, 404);
   if (card.ownerId === user.id) return c.json({ error: "Tidak bisa membeli kartu sendiri" }, 400);
   const price = card.buyoutPriceCcoin;
+  // anti-fraud: wash 14d & creator self-dealing 30d on buyout too
+  const nowBuy = Date.now();
+  const lastOwnBuy = store.ownershipHistory.filter((h) => h.cardId === cardId && h.ownerId === user.id).sort((a,b)=> new Date(b.transferredAt).getTime()-new Date(a.transferredAt).getTime())[0];
+  if (lastOwnBuy && nowBuy - new Date(lastOwnBuy.transferredAt).getTime() < 14*24*3600*1000) return c.json({ error: "Cooling period 14 hari — tidak bisa membeli kembali kartu yang baru kamu jual", coolingDays: 14 }, 400);
+  const dropBuy = store.drops.get(card.dropId);
+  if (dropBuy) {
+    const isCreatorSelf = dropBuy.creatorId === user.id || [...store.creators.values()].some((cr) => cr.userId === user.id && cr.id === dropBuy.creatorId);
+    if (isCreatorSelf) {
+      const dStart = new Date((dropBuy as unknown as { dropStartAt?: string | null }).dropStartAt ?? (dropBuy as unknown as { dropAt?: string | null }).dropAt ?? dropBuy.createdAt).getTime();
+      if (nowBuy - dStart < 30*24*3600*1000) return c.json({ error: "Creator self-dealing dilarang 30 hari — kreator tidak bisa membeli kartu drop sendiri", cooldownDays: 30 }, 400);
+    }
+  }
   const { ensureWallet, addTx, store: s } = await import("../lib/store.js");
   const w = ensureWallet(user.id);
   if (w.balanceCCoin < price) return c.json({ error: "Saldo C-Coin tidak cukup", needCCoin: price, haveCCoin: w.balanceCCoin }, 402);
   const prevOwner = card.ownerId!;
   const drop = store.drops.get(card.dropId)!;
-  addTx(user.id, "checkout", -price, "card", card.id, `Buyout ${card.nfcShortId} — ${price} C-Coin`);
+  addTx(user.id, "checkout", -price, "card", card.id, `Buyout ${card.nfcShortId} — ${price} C-Coin`, { fee_rate_platform: 0.075, fee_rate_royalty: 0.075, fee_rate_seller: 0.85, price });
   const sellerNet = Math.floor(price * 0.85);
   const royalty = Math.floor(price * 0.075);
-  addTx(prevOwner, "payout", sellerNet, "card", card.id, `Hasil buyout 85% — ${price} C-Coin`);
-  addTx(drop.creatorId, "royalty", royalty, "card", card.id, `Royalty buyout 7.5% — ${drop.title}`);
+  addTx(prevOwner, "payout", sellerNet, "card", card.id, `Hasil buyout 85% — ${price} C-Coin`, { fee_rate_platform: 0.075, fee_rate_royalty: 0.075, price });
+  addTx(drop.creatorId, "royalty", royalty, "card", card.id, `Royalty buyout 7.5% — ${drop.title}`, { fee_rate_platform: 0.075, fee_rate_royalty: 0.075, price });
   card.ownerId = user.id;
   card.buyoutPriceCcoin = null;
   card.status = "sold";

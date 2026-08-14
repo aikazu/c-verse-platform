@@ -29,7 +29,14 @@ app.get("/", async (c) => {
     });
   }
 
-  cards.sort((a, b) => a.nfcShortId.localeCompare(b.nfcShortId));
+  // Numbering economy (docs 09 3.2): allow sort by unit_number for secondary Browse — pagination-friendly sort
+  const sortBy = (c.req.query("sort") ?? "").toLowerCase();
+  const order = (c.req.query("order") ?? "asc").toLowerCase();
+  if (sortBy === "unit_number" || sortBy === "unit") {
+    cards.sort((a, b) => order === "desc" ? b.unitNumber - a.unitNumber : a.unitNumber - b.unitNumber);
+  } else {
+    cards.sort((a, b) => a.nfcShortId.localeCompare(b.nfcShortId));
+  }
 
   const enriched = cards.map((card) => {
     const drop = store.drops.get(card.dropId);

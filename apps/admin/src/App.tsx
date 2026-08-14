@@ -177,6 +177,7 @@ function Shell({ children }: { children: React.ReactNode }){
     { to:"/badges", label:"Lencana", icon:"✦" },
     { to:"/disputes", label:"Sengketa", icon:"⚑" },
     { to:"/audit", label:"Audit", icon:"◷" },
+    { to:"/investor", label:"Investor", icon:"⬢" },
   ];
 
   return (
@@ -473,9 +474,50 @@ function AuditPage(){
   }
   useEffect(()=>{ load(); },[]);
   return <div className="admin-page">
-    <div className="admin-page-head"><h2>Audit Log</h2><p className="muted">Riwayat aktivitas admin</p></div>
+    <div className="admin-page-head"><h2>Audit Log</h2><p className="muted">Riwayat aktivitas admin — append-only (tidak bisa edit/hapus, retensi ≥1 tahun)</p></div>
     <div style={{display:"flex",gap:8}}><input className="input" placeholder="Cari aksi…" value={filter} onChange={e=>setFilter(e.target.value)} style={{flex:1}} /><button className="btn-ghost" onClick={load}>Cari</button></div>
     <div className="card"><div className="admin-table-head">100 terbaru</div><div className="table-wrap"><table><thead><tr><th>Waktu</th><th>Admin</th><th>Aksi</th><th>Target</th><th>Detail</th></tr></thead><tbody>{rows.length===0? <tr><td colSpan={5} style={{textAlign:"center",padding:20}} className="muted">{hasSupabase? "Belum ada aktivitas":"Memerlukan koneksi database"} </td></tr> : rows.map((r:any)=><tr key={r.id}><td style={{fontSize:11,color:"var(--muted)"}}>{new Date(r.created_at ?? r.createdAt).toLocaleString("id-ID")}</td><td style={{fontFamily:"monospace",fontSize:11}}>{(r.admin_user_id ?? r.adminUserId ?? "").slice(0,10)}</td><td><span className="pill pill-info">{r.action}</span></td><td style={{fontSize:11}}>{r.target_table ?? r.targetTable}{r.target_id? ":"+String(r.target_id).slice(0,8):""}</td><td style={{fontFamily:"monospace",fontSize:11, maxWidth:200, overflow:"hidden", textOverflow:"ellipsis"}}>{r.payload_summary? JSON.stringify(r.payload_summary): r.payloadSummary? JSON.stringify(r.payloadSummary): "—"}</td></tr>)}</tbody></table></div></div>
+  </div>;
+}
+
+function InvestorPage(){
+  const [data,setData]=useState<any>(null);
+  useEffect(()=>{
+    async function load(){
+      if(hasSupabase){
+        const [wtx, us, dr] = await Promise.all([
+          supabase.from("wallet_transactions").select("amount_ccoin,type").limit(1000),
+          supabase.from("users").select("id,total_xp").limit(1000),
+          supabase.from("drops").select("id,total_units,sold_count,status").limit(100),
+        ]);
+        const w:any[] = (wtx as any).data ?? [];
+        const gmv = w.filter((t:any)=> t.type==="checkout" || t.type==="platform_buy").reduce((n:number,t:any)=> n + Math.abs(t.amount_ccoin), 0);
+        const secondaryVol = w.filter((t:any)=> t.type==="payout" || t.type==="royalty").reduce((n:number,t:any)=> n + Math.abs(t.amount_ccoin), 0);
+        const users:any[] = (us as any).data ?? [];
+        const drops:any[] = (dr as any).data ?? [];
+        setData({ gmv, secondaryVol, users: users.length, drops: drops.length, sold: drops.reduce((n:number,d:any)=> n+(d.sold_count??0),0), units: drops.reduce((n:number,d:any)=> n+(d.total_units??0),0), dropsRows: drops });
+      } else {
+        try{
+          const [r1,r2] = await Promise.all([fetch("http://localhost:8787/api/drops").then(r=>r.json().catch(()=>({drops:[]}))), fetch("http://localhost:8787/api/gamification/leaderboard").then(r=>r.json().catch(()=>({leaderboard:[]})))]);
+          const drops:any[] = r1.drops ?? [];
+          const gmv = drops.reduce((n:number,d:any)=> n + (d.soldCount ?? 0)*(d.priceCcoin ?? d.priceUnsignedCCoin ?? 30), 0);
+          setData({ gmv, secondaryVol: 0, users: (r2.leaderboard??[]).length, drops: drops.length, sold: drops.reduce((n:number,d:any)=> n+(d.soldCount??0),0), units: drops.reduce((n:number,d:any)=> n+(d.totalUnits??0),0), dropsRows: drops });
+        }catch{ setData({ gmv:0, users:0, drops:0, sold:0, units:0, secondaryVol:0, dropsRows:[] }); }
+      }
+    }
+    load();
+  },[]);
+  if(!data) return <div className="muted" style={{padding:24, textAlign:"center"}}>Memuat…</div>;
+  return <div className="admin-page">
+    <div className="admin-page-head"><h2>Investor Data Pack <span style={{fontFamily:"var(--font-mono)", fontSize:11, color:"var(--dim)", fontWeight:400}}>ADM-10 · bukan untuk publik</span></h2><p className="muted">Ringkasan metrik kunci untuk meeting fundraising — GMV, user growth, drop performance, secondary volume</p></div>
+    <div className="admin-stats">
+      <div className="admin-stat-card gold"><div className="admin-stat-label">GMV (C-Coin)</div><div className="admin-stat-value">{data.gmv}</div><div className="admin-stat-hint">≈ Rp {(data.gmv*10000).toLocaleString("id-ID")}</div></div>
+      <div className="admin-stat-card"><div className="admin-stat-label">Users</div><div className="admin-stat-value">{data.users}</div><div className="admin-stat-hint">Total terdaftar</div></div>
+      <div className="admin-stat-card"><div className="admin-stat-label">Drops</div><div className="admin-stat-value">{data.drops}</div><div className="admin-stat-hint">{data.sold}/{data.units} unit terjual</div></div>
+      <div className="admin-stat-card"><div className="admin-stat-label">Secondary</div><div className="admin-stat-value">{data.secondaryVol}</div><div className="admin-stat-hint">C-Coin volume</div></div>
+    </div>
+    <div className="card" style={{marginTop:14}}><div className="admin-table-head">Drop performance</div><div className="table-wrap"><table><thead><tr><th>Drop</th><th>Status</th><th>Terjual</th><th>Total</th></tr></thead><tbody>{(data.dropsRows??[]).slice(0,20).map((d:any)=><tr key={d.id}><td style={{fontWeight:600, fontSize:12}}>{d.title}</td><td><span className="pill pill-info" style={{fontSize:10}}>{d.status}</span></td><td style={{fontFamily:"monospace"}}>{d.sold_count ?? d.soldCount ?? 0}</td><td style={{fontFamily:"monospace"}}>{d.total_units ?? d.totalUnits ?? 0}</td></tr>)}</tbody></table></div></div>
+    <div className="muted" style={{fontSize:11, marginTop:12}}>Sumber: Supabase langsung (service-role) atau API publik fallback. Data untuk internal founder saja — tidak diekspos ke publik.</div>
   </div>;
 }
 
@@ -550,6 +592,7 @@ export default function App(){
         <Route path="/badges" element={<BadgesPage />} />
         <Route path="/disputes" element={<DisputesPage />} />
         <Route path="/audit" element={<AuditPage />} />
+        <Route path="/investor" element={<InvestorPage />} />
         <Route path="/login" element={<DashboardInner />} />
       </Routes>
     </Shell>

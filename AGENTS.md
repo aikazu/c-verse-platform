@@ -2,7 +2,7 @@
 
 Monorepo `pnpm` workspaces: React 19/Vite SPA (`apps/web` → Cloudflare Pages) + Hono 4 API (`apps/api` → Cloudflare Workers / Node) + React 19/Vite Admin (`apps/admin` → VPS + Cloudflare Tunnel + Access, **terpisah — TIDAK di Pages**) + shared Zod schemas/constants (`packages/shared`). C.Card MVP — 9 flows (primary drop 1 kartu/user/drop, fulfillment vault/ship, settlement escrow, NFC/QR verify melekat di halaman kartu, Marketplace buyout + Browse bid langsung, ship-from-vault, C-Coin top-up/payout closed-loop, gamifikasi via XP). Supabase Postgres (SG region) + Storage (R2 parity).
 
-Dokumen perencanaan **canonical = `docs/`** (`00-README` → `08-deployment`, self-contained, status `[DRAFT]` kecuali dikunci founder). Jangan baca `00_Dream_Project/` lagi — `docs/` sudah ringkasan final.
+Dokumen perencanaan **canonical = `docs/`** (`00_readme` → `09_recommendations`, 10 files, self-contained, status `[VALIDATED]`). Jangan baca `00_Dream_Project/` lagi — `docs/` sudah ringkasan final.
 
 ## Dev environment
 
@@ -30,14 +30,14 @@ Dokumen perencanaan **canonical = `docs/`** (`00-README` → `08-deployment`, se
 
 ## Project layout
 
-- `apps/api/src/index.ts` — Hono app (CORS + logger, mounts `/api/*`, JSON 404). `apps/api/src/server.ts` — Node entry lokal.
-- `apps/api/src/routes/` — `auth.ts`, `drops.ts`, `orders.ts` (checkout vault/shipping + `vault-shipout`), `wallet.ts`, `nfc.ts` (cards verify + 3D + SUN URL), `listings.ts` (Marketplace buyout via `cards.buyout_price_ccoin`), `bids.ts` (direct on card: 1 active, outbid/cancel, accept only), `browse.ts`, `profile.ts`, `publicProfile.ts` (`/u/:username` anon), `shipments.ts`, `gamification.ts`, `creators.ts`, `kyc.ts`.
-- `apps/api/src/lib/store.ts` — in-memory store + `ensureSeed()` (mirror `supabase/seed.sql`); helpers `isKycApproved`, `awardBadgeIfNeeded`, `logAudit`.
-- `apps/web/src/` — `App.tsx` (routes: `/`, `/drops`, `/drops/:id`, `/drops/:id/checkout`, `/home`, `/cards/:cardId`, `/cards/:cardId/3d`, `/marketplace`, `/browse`, `/verify`, `/collection`/`/me`, `/me/manage`, `/me/privacy`, `/me/kyc`, `/orders`, `/wallet`, `/leaderboard`, `/c/:username`, `/u/:username`, `/creator`, `/admin` placeholder) + `pages/` (Landing, Drops, DropDetail, Checkout, CardInfo, Card3D, Marketplace, Browse, Verify, Collection, ManageCards, Home, Orders, Wallet, Leaderboard, etc.) + `lib/api.ts`/`auth.tsx`.
-- `apps/admin/src/` — Vite SPA terpisah (Guard `aal2` via Supabase MFA TOTP, nav ADM-01..09: dashboard/creators/drops/orders/nfc/payouts/badges/disputes/audit). `apps/admin/README.md` = runbook Tunnel+Access.
-- `packages/shared/src/index.ts` — **single source** Zod schemas + constants (`C_COIN_RATE_IDR=10_000`, `SECONDARY_*`, `REVENUE_SHARE_*`, `calcLevel`, `KYC_TRIGGER 99`, `MAX_BUYOUT 20`). Import via `@c-verse/shared` (tsconfig `paths`). Jangan relative-import.
-- `supabase/` — `config.toml`, `migrations/20260812000000_initial_schema.sql` + `20260813000000_rework_align_docs.sql`, `seed.sql` (users/creators/cards location buyout/shipments/ownership/bids/badges).
-- `docs/` — `00-README.md` … `08-deployment.md` (canonical). Baca urut 01→08; `00` orientasi. Angka kunci di `00-README` §4 + `packages/shared`.
+- `apps/api/src/index.ts` — Hono app (CORS + logger, mounts `/api/*`, JSON 404). `apps/api/src/server.ts` — Node entry lokal. SEO: `/sitemap.xml` + `/api/seo` (OG + JSON-LD, `seo.ts`) untuk Worker HTMLRewriter.
+- `apps/api/src/routes/` — `auth.ts`, `drops.ts`, `orders.ts` (checkout vault/shipping + `vault-shipout`), `wallet.ts` (cap/idempotency/hold), `nfc.ts` (cards verify + 3D + SUN URL), `listings.ts` (Marketplace buyout via `cards.buyout_price_ccoin` + 14d/30d guards), `bids.ts` (direct on card: 1 active, outbid/cancel, accept only + 14d wash/30d self-dealing + fee snapshot), `browse.ts` (sort `unit_number`), `profile.ts` (`PATCH /consent`), `publicProfile.ts` (`/u/:username` anon), `shipments.ts`, `gamification.ts`, `creators.ts` (view log + `?stats=1`), `kyc.ts`, `seo.ts`.
+- `apps/api/src/lib/store.ts` — in-memory store + `ensureSeed()` (mirror `supabase/seed.sql`); helpers `isKycApproved`, `awardBadgeIfNeeded`, `logAudit`, `isPayoutHeld`; tables `creatorPageViews`, `qcDefects`.
+- `apps/web/src/` — `App.tsx` (routes: `/`, `/drops`, `/drops/:id`, `/drops/:id/checkout`, `/home`, `/cards/:cardId`, `/cards/:cardId/3d`, `/marketplace`, `/browse`, `/verify`, `/collection`/`/me`, `/me/manage`, `/me/privacy` (anon + 2 consent toggles), `/me/kyc`, `/orders`, `/wallet` (disclosure + cap), `/leaderboard`, `/c/:username`, `/u/:username`, `/creator`, `/admin` placeholder) + `pages/` + `lib/api.ts`/`auth.tsx` + `worker-seo.ts` (HTMLRewriter edge Worker).
+- `apps/admin/src/` — Vite SPA terpisah (Guard `aal2` via Supabase MFA TOTP, nav ADM-01..10 + Investor: dashboard/creators/drops/orders/nfc/payouts/badges/disputes/audit/**investor**). `apps/admin/README.md` = runbook Tunnel+Access.
+- `packages/shared/src/index.ts` — **single source** Zod schemas + constants (`C_COIN_RATE_IDR=10_000`, `SECONDARY_*`, `REVENUE_SHARE_*`, `calcLevel`, `KYC_TRIGGER 99`, `MAX_BUYOUT 20`, `walletTxType` + `platform_buy`). Import via `@c-verse/shared` (tsconfig `paths`). Jangan relative-import.
+- `supabase/` — `config.toml`, `migrations/20260812000000_initial_schema.sql` + `20260813000000_rework_align_docs.sql` + `20260814000000_build_time_implications.sql` (consent/flag/hold/qc_defects/creator_page_views/platform_buy), `seed.sql`.
+- `docs/` — `00_readme.md` … `09_recommendations.md` (10 files, canonical). Baca urut 01→09; `00` orientasi. Angka kunci di `00_readme` §4 + `packages/shared`.
 
 ## Conventions
 
@@ -45,13 +45,13 @@ Dokumen perencanaan **canonical = `docs/`** (`00-README` → `08-deployment`, se
 - API: `Hono` + `zValidator` dari `@hono/zod-validator` dengan schema dari `@c-verse/shared`. Mount via `app.route("/api/<name>", module)` di `apps/api/src/index.ts`. Compat aliases: `/api/marketplace` → listings.
 - Shared constants canonical — jangan hard-code rate/fee/threshold di app (`docs/00-README` §4 + `packages/shared` adalah lock; `idrToCCoin` = `Math.ceil`).
 - C-Coin: **semua nominal integer ≥1 tanpa desimal** (`CHECK x >= 1`), konversi IDR→C-Coin dibulatkan ke atas. Kolom `int`, jangan ubah ke `numeric`.
-- Drop: 1 harga canonical `priceCcoin` (MVP platform-produced 70/30; creator-produced defer Y2+). `signedCount = ceil(total/10)`.
+- Drop: 1 harga canonical `priceCcoin` (MVP platform-produced 70/30; creator-produced defer Y2+). `signedCount = ceil(total/10)`, `priceSignedCcoin = ceil(priceCcoin*1.67)`.
 - Checkout: 1 kartu/user/drop (atomik), opsi `shipping` (alamat + ongkir C-Coin integer → tracking) vs `vault` (tanpa alamat, `settled` langsung, `platform_vault` custody). `orders.delivery_option`, `cards.location`, `shipments` type `vault_shipout`.
-- Secondary: Marketplace = `cards.buyout_price_ccoin NOT NULL` (KYC wajib, max 20/user); Browse = bid langsung di kartu (1 `active` tertinggi, outbid/cancel release C-Coin, owner `accept` only tanpa reject, **tanpa expire**; history 90 hari, `accepted` selamanya). Fee secondary total 15% (7.5 platform + 7.5 royalti kreator lifetime).
+- Secondary: Marketplace = `cards.buyout_price_ccoin NOT NULL` (KYC **hanya untuk payout**, max 20/user); Browse = bid langsung di kartu (1 `active` tertinggi, outbid/cancel release C-Coin, owner `accept` only tanpa reject, **tanpa expire**; history 90 hari, `accepted` selamanya). Fee secondary total 15% (7.5 platform + 7.5 royalti lifetime, snapshot di `wallet_transactions.metadata`). Anti-fraud: wash 14d + creator self-dealing 30d + rate limit (10 active/50 hari). SEO: `worker-seo.ts` (HTMLRewriter) + `/api/seo` + `/sitemap.xml`.
 - Verify: **tidak ada halaman verifikasi terpisah** — tap NFC → `/cards/:cardId/3d` (badge `Verified Card`), QR di dus → `/cards/:cardId` (`Registered`). `ownershipHistory` hanya di info, bukan di 3D. iOS SUN URL via `GET /api/nfc/sun-verify`.
 - Gamifikasi: `level = floor(total_xp/10)`, `spend 1 C-Coin = 1 XP` (+ `xp_reward` badge via `awardBadgeIfNeeded`), **top-up tidak menambah XP**. Badge definisi (criteria+ikon+xp_reward) di `apps/admin` (ADM-07).
 - Profil publik: `/u/:username` & `/c/:username`; `is_anonymous` hide koleksi/level/badge/ranking. Domain: `c-verse.co` primary + `c-verse.id` redirect — **LOCK sebelum provisioning NFC** (NDEF URL permanen).
-- KYC trigger: top-up kumulatif >99 C-Coin, pasang buyout, atau accept bid (manual Y1). Threshold kreator 100rb+ followers *combined* (validasi off-platform, bukan in-app).
+- KYC trigger: **hanya payout/disbursement ke IDR + akumulasi top-up besar** (validasi lawyer 2026-08-13). **TIDAK untuk pasang buyout/accept bid** (docs 01 F014 + 07 C-05b). Plus `hold_payout_until` (fraud hold 30d). Threshold kreator 100rb+ followers *combined* (off-platform). Consent: `consent_analytics_detail` + `consent_data_market` (docs 09 3.4, `PATCH /api/profile/consent`). Creator views: `creator_page_views` log dari day 1 (docs 05 + 09 2.8, `GET /api/creators/:id?stats=1`). Wallet: cap 1000 C-Coin (07 C-08) + min payout 10 C-Coin (07 C-09b) + idempotency via `metadata.idempotency_key`.
 - Admin: app terpisah — akses Supabase via `service-role` + Cloudflare Access (Zero Trust) + **2FA TOTP wajib** (`aal2` guard di app) + `admin_audit_log` append-only (retensi ≥1 tahun). Tidak ada route admin di API publik.
 - Demo accounts: `demo@cverse.id`/`demo123` (kolektor, 120 C-Coin, order+card vault demo), `admin@cverse.id`/`admin123`. Role enum `user` (legacy `collector` alias), `creator`, `admin`.
 

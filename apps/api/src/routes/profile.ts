@@ -48,6 +48,8 @@ app.get("/", async (c) => {
       levelProgressPct,
       levelProgressLabel,
       isAnonymous: (user as unknown as { isAnonymous?: boolean }).isAnonymous ?? false,
+      consentAnalyticsDetail: (user as unknown as { consentAnalyticsDetail?: boolean }).consentAnalyticsDetail ?? false,
+      consentDataMarket: (user as unknown as { consentDataMarket?: boolean }).consentDataMarket ?? false,
     },
     wallet: { ...wallet, balanceIdrEquiv: wallet.balanceCCoin * C_COIN_RATE_IDR },
     cards: enrichedCards,
@@ -93,6 +95,17 @@ app.patch("/privacy", async (c) => {
   const isAnonymous = Boolean(body.isAnonymous);
   (user as unknown as Record<string, unknown>).isAnonymous = isAnonymous;
   return c.json({ ok: true, isAnonymous });
+});
+
+// PATCH /consent — data consent toggles (docs 09 3.4: consent_analytics_detail + consent_data_market)
+app.patch("/consent", async (c) => {
+  const user = requireAuth(c as unknown as { req: { header: (k: string) => string | undefined } });
+  if (!user) return c.json({ error: "Unauthorized" }, 401);
+  let body: { consentAnalyticsDetail?: boolean; consentDataMarket?: boolean } = {};
+  try { body = (await c.req.json()) as typeof body; } catch {}
+  if (typeof body.consentAnalyticsDetail === "boolean") (user as unknown as Record<string, unknown>).consentAnalyticsDetail = body.consentAnalyticsDetail;
+  if (typeof body.consentDataMarket === "boolean") (user as unknown as Record<string, unknown>).consentDataMarket = body.consentDataMarket;
+  return c.json({ ok: true, consentAnalyticsDetail: (user as unknown as { consentAnalyticsDetail?: boolean }).consentAnalyticsDetail ?? false, consentDataMarket: (user as unknown as { consentDataMarket?: boolean }).consentDataMarket ?? false });
 });
 
 // PATCH / — update displayName / avatar / username

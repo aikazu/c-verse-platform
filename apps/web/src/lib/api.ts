@@ -80,6 +80,7 @@ export const api = {
   profile: ()=> req<any>("/profile"),
   myCards: ()=> req<{cards:any[]}>("/profile/cards"),
   patchPrivacy: (isAnonymous:boolean)=> req<any>("/profile/privacy",{method:"PATCH",body:JSON.stringify({isAnonymous})}),
+  patchConsent: (body:{consentAnalyticsDetail?:boolean;consentDataMarket?:boolean})=> req<any>("/profile/consent",{method:"PATCH",body:JSON.stringify(body)}),
   patchProfile: (body:Record<string,string>)=> req<any>("/profile",{method:"PATCH",body:JSON.stringify(body)}),
   // public profile / creator
   publicProfile: (username:string)=> req<any>(`/public/u/${encodeURIComponent(username)}`),

@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
-import { store, ensureSeed, getUserByToken, authHeaderToToken, ensureWallet, addTx } from "../lib/store.js";
+import { store, ensureSeed, getUserByToken, authHeaderToToken, ensureWallet, addTx, isPayoutHeld } from "../lib/store.js";
 import { C_COIN_RATE_IDR, KYC_TRIGGER_THRESHOLD_CCOIN, BALANCE_CAP_CCOIN, MIN_PAYOUT_CCOIN } from "@c-verse/shared";
 
 const app = new Hono();
@@ -18,7 +18,8 @@ app.get("/", async (c) => {
   if (!user) return c.json({ error: "Unauthorized" }, 401);
   const w = ensureWallet(user.id);
   const txs = store.walletTx.filter((t) => t.userId === user.id).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-  return c.json({ wallet: { ...w, balanceIdrEquiv: w.balanceCCoin * C_COIN_RATE_IDR }, transactions: txs.slice(0, 100), rate: C_COIN_RATE_IDR, thresholdKyc: KYC_THRESHOLD, balanceCap: BALANCE_CAP_CCOIN, minPayout: MIN_PAYOUT_CCOIN });
+  const held = isPayoutHeld(user.id);
+  return c.json({ wallet: { ...w, balanceIdrEquiv: w.balanceCCoin * C_COIN_RATE_IDR }, transactions: txs.slice(0, 100), rate: C_COIN_RATE_IDR, thresholdKyc: KYC_THRESHOLD, balanceCap: BALANCE_CAP_CCOIN, minPayout: MIN_PAYOUT_CCOIN, payoutHeld: held.held, payoutHoldUntil: held.until, disclosureOpsiA: "Saldo C-Coin bersifat closed-loop: saldo buyer tidak dapat diuangkan (withdraw). Hanya hasil penjualan seller/kreator yang dapat di-disburse ke IDR (fee 1%, min 10 C-Coin, KYC wajib)." });
 });
 
 app.post(
@@ -50,11 +51,17 @@ app.post(
     const wouldBe = ensureWallet(user.id).balanceCCoin + amountCCoin;
     if (wouldBe > BALANCE_CAP_CCOIN) return c.json({ error: 'Cap saldo terlampaui (' + BALANCE_CAP_CCOIN + ' C-Coin) — top-up ditolak', cap: BALANCE_CAP_CCOIN, wouldBe }, 400);
 
+    // Idempotency guard: reject duplicate idempotency_key in recent window (docs 05 WalletTransactions metadata)
+    const idemKey = c.req.header("x-idempotency-key") ?? `top-${user.id}-${amountCCoin}-${raw.method}-${Math.floor(Date.now()/5000)}`;
+    const dup = store.walletTx.find((t) => (t.metadata as unknown as { idempotency_key?: string })?.idempotency_key === idemKey);
+    if (dup) return c.json({ error: "Duplicate top-up (idempotency)", idempotencyKey: idemKey, existingTx: dup }, 409);
+
     // Opsi A: buyer closed-loop — top-up menambah saldo; withdrawal buyer tidak ada (refund-to-source only di ops manual)
     // Gateway mocked (Midtrans/Xendit) — langsung credit; metadata holds method for reconciliation
     const tx = addTx(user.id, "top_up", amountCCoin, "topup", `top-${Date.now()}`, `Top-up ${amountCCoin} C-Coin via ${raw.method} (Rp ${(amountCCoin * C_COIN_RATE_IDR).toLocaleString("id-ID")})`, {
       method: raw.method,
-      idempotency_key: `top-${user.id}-${Date.now()}`,
+      idempotency_key: idemKey,
+      disclosure: "Saldo tidak dapat diuangkan — closed-loop buyer (Opsi A, disclosure Opsi A).",
     });
     // XP: top-up TIDAK menambah XP per 05-data-model / 07 C-05c — only spend + badge reward does
     const w = ensureWallet(user.id);
@@ -86,8 +93,11 @@ app.post(
     // KYC + bank gate for payouts (prevents arbitrary withdraw)
     const kyc = [...store.kyc.values()].find((k) => k.userId === user.id && k.status === "approved");
     if (!kyc) return c.json({ error: "KYC approved wajib untuk payout", needKyc: true }, 400);
+    // payout hold (fraud 30d per docs 07 C-13 creator self-dealing & flag_reason)
+    const held = isPayoutHeld(user.id);
+    if (held.held) return c.json({ error: `Payout ditahan sampai ${held.until} (fraud hold)`, holdUntil: held.until }, 403);
     const feeCCoin = Math.max(1, Math.ceil(amountCCoin * 0.01));
-    addTx(user.id, "payout", -amountCCoin, "payout", `payout-${Date.now()}`, `Payout ${amountCCoin} C-Coin -> IDR (fee 1% = ${feeCCoin} C-Coin)`);
+    addTx(user.id, "payout", -amountCCoin, "payout", `payout-${Date.now()}`, `Payout ${amountCCoin} C-Coin -> IDR (fee 1% = ${feeCCoin} C-Coin)`, { fee_rate_payout: 0.01, fee_ccoin: feeCCoin, idempotency_key: `payout-${user.id}-${Date.now()}` });
     const netIdr = (amountCCoin - feeCCoin) * C_COIN_RATE_IDR;
     return c.json({ ok: true, netCCoin: amountCCoin - feeCCoin, feeCCoin, netIdr, wallet: { ...ensureWallet(user.id), balanceIdrEquiv: ensureWallet(user.id).balanceCCoin * C_COIN_RATE_IDR } });
   },

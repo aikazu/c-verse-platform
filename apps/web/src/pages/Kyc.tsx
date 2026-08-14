@@ -20,7 +20,7 @@ export default function Kyc(){
     <div>
       <span className="eyebrow">Verifikasi</span>
       <h1 className="h2" style={{marginTop:4}}>Verifikasi <em style={{fontStyle:"italic", fontWeight:300, color:"var(--gold)"}}>Identitas</em></h1>
-      <p className="muted" style={{marginTop:6}}>Diperlukan untuk penarikan ke rekening</p>
+      <p className="muted" style={{marginTop:6}}>Diperlukan untuk payout ke rekening (disbursement IDR). Tidak diperlukan untuk pasang harga jual atau terima penawaran — hanya untuk penarikan hasil penjualan.</p>
     </div>
     <div className="card card-pad">
       {kyc ? <div style={{padding:"14px 16px", borderRadius:10, background: kyc.status==="approved" ? "rgba(108,195,166,0.10)" : kyc.status==="rejected" ? "rgba(210,122,110,0.10)" : "rgba(201,163,82,0.08)", border:`1px solid ${kyc.status==="approved" ? "rgba(108,195,166,0.2)" : kyc.status==="rejected" ? "rgba(210,122,110,0.2)" : "rgba(201,163,82,0.18)"}`}}>

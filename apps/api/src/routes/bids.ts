@@ -83,10 +83,21 @@ app.post(
     if (activeBidsForUser >= 10) return c.json({ error: "Batas 10 bid aktif per user — cancel salah satu dulu", limit: 10 }, 429);
     const bidsToday = store.bids.filter((b) => b.bidderId === user.id && now - new Date(b.createdAt).getTime() < 24*3600*1000).length;
     if (bidsToday >= 50) return c.json({ error: "Batas 50 bid per hari", limit: 50 }, 429);
-    // wash trading cooling 7 hari: owner sebelumnya tidak bisa bid kembali kartunya
+    // wash trading cooling 14 hari (docs 05 I13, 07 C-12): owner sebelumnya tidak bisa bid/beli kembali kartunya
     const lastOwn = store.ownershipHistory.filter((h) => h.cardId === cardId && h.ownerId === user.id).sort((a,b)=> new Date(b.transferredAt).getTime()-new Date(a.transferredAt).getTime())[0];
-    if (lastOwn && now - new Date(lastOwn.transferredAt).getTime() < 7*24*3600*1000) {
-      return c.json({ error: "Cooling period 7 hari — kartu baru saja kamu jual, belum bisa di-bid kembali", coolingDays: 7 }, 400);
+    if (lastOwn && now - new Date(lastOwn.transferredAt).getTime() < 14*24*3600*1000) {
+      return c.json({ error: "Cooling period 14 hari — kartu baru saja kamu jual, belum bisa di-bid kembali", coolingDays: 14 }, 400);
+    }
+    // creator self-dealing 30 hari (docs 05 I14, 07 C-13): kreator dilarang beli kartu drop sendiri 30 hari pertama
+    const dropForCheck = store.drops.get(card.dropId);
+    if (dropForCheck) {
+      const isCreatorSelf = dropForCheck.creatorId === user.id || [...store.creators.values()].some((cr) => cr.userId === user.id && cr.id === dropForCheck.creatorId);
+      if (isCreatorSelf) {
+        const dropStart = new Date((dropForCheck as unknown as { dropStartAt?: string | null }).dropStartAt ?? (dropForCheck as unknown as { dropAt?: string | null }).dropAt ?? dropForCheck.createdAt).getTime();
+        if (now - dropStart < 30*24*3600*1000) {
+          return c.json({ error: "Creator self-dealing dilarang 30 hari setelah drop — kreator tidak bisa membeli kartu drop sendiri", cooldownDays: 30 }, 400);
+        }
+      }
     }
     const active = store.bids.find((b) => b.cardId === cardId && b.status === "active");
     if (active && amount <= active.amountCCoin) {
@@ -183,12 +194,12 @@ app.post("/:listingId/accept", async (c) => {
   // FINAL: tidak ada KYC untuk accept bid (docs/07 C-05b — hanya payout/disbursement)
   const price = active.amountCCoin;
   // Settlement: hold was already deducted; now convert holds to final transfers.
-  // For MVP: release not needed for accepted — just credit seller/royalty (bidder's hold already debited)
+  // docs 09 3.1: don't hardcode fee — snapshot fee_rate in tx metadata for Y2 event rates
   const sellerNet = Math.floor(price * 0.85);
   const royalty = Math.floor(price * 0.075);
   const drop = store.drops.get(card.dropId)!;
-  addTx(listing.sellerId, "payout", sellerNet, "bid", active.id, `Hasil bid accept 85% — ${price} C-Coin`);
-  addTx(drop.creatorId, "royalty", royalty, "bid", active.id, `Royalty bid 7.5% — ${drop.title}`);
+  addTx(listing.sellerId, "payout", sellerNet, "bid", active.id, `Hasil bid accept 85% — ${price} C-Coin`, { fee_rate_platform: 0.075, fee_rate_royalty: 0.075, fee_rate_seller: 0.85, price });
+  addTx(drop.creatorId, "royalty", royalty, "bid", active.id, `Royalty bid 7.5% — ${drop.title}`, { fee_rate_platform: 0.075, fee_rate_royalty: 0.075, price });
   active.status = "accepted";
   (active as unknown as Record<string, unknown>).acceptedAt = nowIso();
   // outbid remaining actives (should be none, but safety)
@@ -229,8 +240,8 @@ app.post(
     const drop = store.drops.get(card.dropId)!;
     const sellerNet = Math.floor(price * 0.85);
     const royalty = Math.floor(price * 0.075);
-    addTx(card.ownerId!, "payout", sellerNet, "bid", bid.id, `Hasil bid accept 85% — ${price} C-Coin`);
-    addTx(drop.creatorId, "royalty", royalty, "bid", bid.id, `Royalty bid 7.5% — ${drop.title}`);
+    addTx(card.ownerId!, "payout", sellerNet, "bid", bid.id, `Hasil bid accept 85% — ${price} C-Coin`, { fee_rate_platform: 0.075, fee_rate_royalty: 0.075, fee_rate_seller: 0.85, price });
+    addTx(drop.creatorId, "royalty", royalty, "bid", bid.id, `Royalty bid 7.5% — ${drop.title}`, { fee_rate_platform: 0.075, fee_rate_royalty: 0.075, price });
     bid.status = "accepted";
     (bid as unknown as Record<string, unknown>).acceptedAt = nowIso();
     for (const other of store.bids.filter((b) => b.cardId === cardId && b.status === "active" && b.id !== bid.id)) {

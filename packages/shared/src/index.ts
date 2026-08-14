@@ -74,7 +74,7 @@ export type ShipmentToDest = z.infer<typeof shipmentToDestSchema>;
 export const shipmentStatusSchema = z.enum(["requested", "packed", "shipped", "delivered", "cancelled"]);
 export type ShipmentStatus = z.infer<typeof shipmentStatusSchema>;
 
-export const walletTxTypeSchema = z.enum(["top_up", "checkout", "escrow_hold", "escrow_release", "settlement", "payout", "royalty", "refund", "adjustment"]);
+export const walletTxTypeSchema = z.enum(["top_up", "checkout", "escrow_hold", "escrow_release", "settlement", "payout", "royalty", "refund", "adjustment", "platform_buy"]);
 export type WalletTxType = z.infer<typeof walletTxTypeSchema>;
 
 export const verifyStatusSchema = z.enum(["verified", "tamper_detected", "registered", "unknown"]);

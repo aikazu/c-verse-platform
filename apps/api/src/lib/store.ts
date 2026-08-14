@@ -30,6 +30,9 @@ export interface User {
   level: number;
   cumulativeSpendCcoin: number;
   isAnonymous: boolean;
+  flagReason: string | null; // docs 05: fraud flag reason (admin manual)
+  consentAnalyticsDetail: boolean; // docs 09 3.4
+  consentDataMarket: boolean; // docs 09 3.4
   createdAt: string;
 }
 
@@ -91,6 +94,7 @@ export interface Wallet {
   balanceCCoin: number;
   totalTopupCCoin: number;
   totalSpentCCoin: number;
+  holdPayoutUntil: string | null; // docs 05 wallets.hold_payout_until
   updatedAt?: string;
 }
 
@@ -223,6 +227,26 @@ export interface AuditLog {
   createdAt: string;
 }
 
+export interface CreatorPageView {
+  id: string;
+  creatorId: string; // FK creators.id
+  viewedAt: string;
+  referrer: string | null;
+  city: string | null;
+  userId: string | null;
+}
+
+export interface QcDefect {
+  id: string;
+  cardId: string;
+  defectType: "dus" | "acrylic" | "kartu" | "nfc";
+  severity: "minor" | "major" | "critical";
+  notes: string | null;
+  resolution: "redistribute" | "destroy" | "return_vendor" | null;
+  redistributeDiscountPct: number | null; // 10-30 if redistribute
+  createdAt: string;
+}
+
 function uid(prefix = ""): string {
   return prefix + Math.random().toString(36).slice(2, 9) + Date.now().toString(36).slice(-4);
 }
@@ -245,6 +269,8 @@ class Store {
   kyc: Map<string, KycRecord> = new Map();
   ownershipHistory: OwnershipHistory[] = [];
   auditLog: AuditLog[] = [];
+  creatorPageViews: CreatorPageView[] = [];
+  qcDefects: QcDefect[] = [];
   sessions: Map<string, string> = new Map();
   seeded = false;
 }
@@ -266,16 +292,16 @@ export function ensureSeed() {
   ];
 
   const demoUsers: User[] = [
-    { id: "u_demo", email: "demo@cverse.id", passwordHash: "demo123", displayName: "Demo Kolektor", username: "demo_kolektor", role: "user", avatarUrl: null, xp: 45, totalXp: 45, level: 5, cumulativeSpendCcoin: 30, isAnonymous: false, createdAt: nowIso() },
-    { id: "u_admin", email: "admin@cverse.id", passwordHash: "admin123", displayName: "Admin C.Verse", username: "admin", role: "admin", avatarUrl: null, xp: 0, totalXp: 0, level: 1, cumulativeSpendCcoin: 0, isAnonymous: false, createdAt: nowIso() },
-    { id: "cr_karina", email: "karina@creator.id", passwordHash: "x", displayName: "Karina Aespa", username: "karina_aespa", role: "creator", avatarUrl: null, xp: 120, totalXp: 120, level: 13, cumulativeSpendCcoin: 0, isAnonymous: false, createdAt: nowIso() },
-    { id: "cr_hype", email: "hype@creator.id", passwordHash: "x", displayName: "HypeCreator", username: "hypecreator", role: "creator", avatarUrl: null, xp: 90, totalXp: 90, level: 10, cumulativeSpendCcoin: 0, isAnonymous: false, createdAt: nowIso() },
-    { id: "cr_nova", email: "nova@creator.id", passwordHash: "x", displayName: "Nova Studio", username: "nova_studio", role: "creator", avatarUrl: null, xp: 60, totalXp: 60, level: 7, cumulativeSpendCcoin: 0, isAnonymous: false, createdAt: nowIso() },
+    { id: "u_demo", email: "demo@cverse.id", passwordHash: "demo123", displayName: "Demo Kolektor", username: "demo_kolektor", role: "user", avatarUrl: null, xp: 45, totalXp: 45, level: 5, cumulativeSpendCcoin: 30, isAnonymous: false, flagReason: null, consentAnalyticsDetail: false, consentDataMarket: false, createdAt: nowIso() },
+    { id: "u_admin", email: "admin@cverse.id", passwordHash: "admin123", displayName: "Admin C.Verse", username: "admin", role: "admin", avatarUrl: null, xp: 0, totalXp: 0, level: 1, cumulativeSpendCcoin: 0, isAnonymous: false, flagReason: null, consentAnalyticsDetail: false, consentDataMarket: false, createdAt: nowIso() },
+    { id: "cr_karina", email: "karina@creator.id", passwordHash: "x", displayName: "Karina Aespa", username: "karina_aespa", role: "creator", avatarUrl: null, xp: 120, totalXp: 120, level: 13, cumulativeSpendCcoin: 0, isAnonymous: false, flagReason: null, consentAnalyticsDetail: false, consentDataMarket: false, createdAt: nowIso() },
+    { id: "cr_hype", email: "hype@creator.id", passwordHash: "x", displayName: "HypeCreator", username: "hypecreator", role: "creator", avatarUrl: null, xp: 90, totalXp: 90, level: 10, cumulativeSpendCcoin: 0, isAnonymous: false, flagReason: null, consentAnalyticsDetail: false, consentDataMarket: false, createdAt: nowIso() },
+    { id: "cr_nova", email: "nova@creator.id", passwordHash: "x", displayName: "Nova Studio", username: "nova_studio", role: "creator", avatarUrl: null, xp: 60, totalXp: 60, level: 7, cumulativeSpendCcoin: 0, isAnonymous: false, flagReason: null, consentAnalyticsDetail: false, consentDataMarket: false, createdAt: nowIso() },
   ];
   for (const u of demoUsers) {
     // keep legacy xp = totalXp for calcLevel callers using user.xp
     store.users.set(u.id, u);
-    store.wallets.set(u.id, { userId: u.id, balanceCCoin: u.id === "u_demo" ? 120 : u.id === "cr_karina" ? 0 : 50, totalTopupCCoin: u.id === "u_demo" ? 150 : 0, totalSpentCCoin: u.id === "u_demo" ? 30 : 0, updatedAt: nowIso() });
+    store.wallets.set(u.id, { userId: u.id, balanceCCoin: u.id === "u_demo" ? 120 : u.id === "cr_karina" ? 0 : 50, totalTopupCCoin: u.id === "u_demo" ? 150 : 0, totalSpentCCoin: u.id === "u_demo" ? 30 : 0, holdPayoutUntil: null, updatedAt: nowIso() });
   }
   store.sessions.set("demo-token", "u_demo");
   store.sessions.set("admin-token", "u_admin");
@@ -400,7 +426,7 @@ export function makeToken(userId: string): string {
 }
 export function ensureWallet(userId: string): Wallet {
   let w = store.wallets.get(userId);
-  if (!w) { w = { userId, balanceCCoin: 0, totalTopupCCoin: 0, totalSpentCCoin: 0, updatedAt: nowIso() }; store.wallets.set(userId, w); }
+  if (!w) { w = { userId, balanceCCoin: 0, totalTopupCCoin: 0, totalSpentCCoin: 0, holdPayoutUntil: null, updatedAt: nowIso() }; store.wallets.set(userId, w); }
   return w;
 }
 export function addTx(userId: string, type: string, amountCCoin: number, refType: string | null, refId: string | null, note: string | null, metadata?: Record<string, unknown> | null) {
@@ -475,5 +501,12 @@ export function logAudit(adminUserId: string, action: string, targetTable: strin
   const entry: AuditLog = { id: uid("audit-"), adminUserId, action, targetTable, targetId, payloadSummary, ip, sessionId, createdAt: nowIso() };
   store.auditLog.unshift(entry);
   return entry;
+}
+export function isPayoutHeld(userId: string): { held: boolean; until: string | null } {
+  const w = store.wallets.get(userId);
+  if (!w?.holdPayoutUntil) return { held: false, until: null };
+  const until = new Date(w.holdPayoutUntil).getTime();
+  if (Date.now() < until) return { held: true, until: w.holdPayoutUntil };
+  return { held: false, until: null };
 }
 export { uid, nowIso };

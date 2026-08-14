@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { store, ensureSeed } from "../lib/store.js";
+import { store, ensureSeed, uid, nowIso, getUserByToken, authHeaderToToken } from "../lib/store.js";
 
 const app = new Hono();
 app.use("*", async (c, next) => { ensureSeed(); await next(); });
@@ -26,6 +26,20 @@ app.get("/", async (c) => {
   return c.json({ creators });
 });
 
+// Helper: log creator page view (docs 05 creator_page_views + 09 3.5 log from day 1)
+function logCreatorView(creatorUserId: string, c: { req: { header: (k: string) => string | undefined } }) {
+  const rec = [...store.creators.values()].find((cr) => cr.userId === creatorUserId) ?? null;
+  if (!rec) return;
+  const referrer = c.req.header("referer") ?? c.req.header("referrer") ?? null;
+  // city anonymized from header — MVP uses x-forwarded-for stub, not real geo
+  const city = (c.req.header("x-city") as string) ?? null;
+  const token = authHeaderToToken(c.req.header("authorization"));
+  const viewer = token ? getUserByToken(token) : null;
+  store.creatorPageViews.push({ id: uid("cpv-"), creatorId: rec.id, viewedAt: nowIso(), referrer, city, userId: viewer?.id ?? null });
+  // guard Y1 <10k/day — simple cap 50k in-memory (avoid unbounded growth)
+  if (store.creatorPageViews.length > 50000) store.creatorPageViews.splice(0, 10000);
+}
+
 // GET /:id — creator by userId or handle or creator rec id; includes published/live drops only for public
 app.get("/:id", async (c) => {
   const raw = c.req.param("id");
@@ -37,9 +51,24 @@ app.get("/:id", async (c) => {
   if (!user) user = [...store.users.values()].find((u) => ((u as unknown as { username?: string }).username ?? "").toLowerCase() === raw.toLowerCase()) ?? null;
   if (!user || (user.role as string) !== "creator") return c.json({ error: "Creator tidak ditemukan" }, 404);
   const rec = [...store.creators.values()].find((cr) => cr.userId === user!.id) ?? null;
+  logCreatorView(user.id, c);
   const drops = [...store.drops.values()]
     .filter((d) => d.creatorId === user!.id && ["published", "live", "sold_out", "scheduled", "ended", "closed"].includes(d.status))
     .sort((a, b) => new Date((b as unknown as { dropStartAt?: string | null }).dropStartAt ?? (b as unknown as { dropAt: string | null }).dropAt ?? b.createdAt).getTime() - new Date((a as unknown as { dropStartAt?: string | null }).dropStartAt ?? (a as unknown as { dropAt: string | null }).dropAt ?? a.createdAt).getTime());
+  const wantStats = c.req.query("stats") === "1" || c.req.query("includeStats") === "1";
+  if (wantStats && rec) {
+    const views = store.creatorPageViews.filter((v) => v.creatorId === rec.id);
+    const totalViews = views.length;
+    const uniqueViewers = new Set(views.filter((v) => v.userId).map((v) => v.userId)).size;
+    const refMap: Record<string, number> = {};
+    for (const v of views) if (v.referrer) { try { const h = new URL(v.referrer).hostname; refMap[h] = (refMap[h] ?? 0) + 1; } catch { refMap[v.referrer] = (refMap[v.referrer] ?? 0) + 1; } }
+    const topReferrer = Object.entries(refMap).sort((a, b) => b[1] - a[1])[0] ?? null;
+    return c.json({
+      creator: { id: user.id, displayName: user.displayName, username: (user as unknown as { username?: string }).username ?? null, handle: rec?.handle ?? null, totalFollowersCombined: rec?.totalFollowersCombined ?? null, xp: (user as unknown as { totalXp?: number }).totalXp ?? (user as unknown as { xp?: number }).xp ?? 0 },
+      drops,
+      stats: { totalViews, uniqueViewers, topReferrer: topReferrer ? { domain: topReferrer[0], count: topReferrer[1] } : null },
+    });
+  }
   return c.json({
     creator: {
       id: user.id,
@@ -59,6 +88,7 @@ app.get("/handle/:handle", async (c) => {
   if (!rec) return c.json({ error: "Creator tidak ditemukan" }, 404);
   const user = store.users.get(rec.userId!) ?? null;
   if (!user) return c.json({ error: "Creator tidak ditemukan" }, 404);
+  logCreatorView(user.id, c);
   const drops = [...store.drops.values()].filter((d) => d.creatorId === user.id);
   return c.json({ creator: { id: user.id, displayName: user.displayName, handle: rec.handle }, drops, rec });
 });

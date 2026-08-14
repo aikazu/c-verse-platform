@@ -79,7 +79,7 @@ app.post(
     // docs/01 + 05-data-model: drop adalah platform-produced (70/30) dengan SATU harga canonical priceCcoin
     const priceCcoin = body.priceCcoin ?? body.priceCCoin ?? body.priceUnsignedCCoin ?? 30;
     const priceUnsigned = body.priceUnsignedCCoin ?? priceCcoin;
-    const priceSigned = body.priceSignedCCoin ?? Math.ceil(priceCcoin * 1.6);
+    const priceSigned = body.priceSignedCCoin ?? Math.ceil(priceCcoin * 1.67); // docs 01 F004 / 09 2.7: signed = 1.67× base (20→34, 30→50, 50→84 ceil)
     // Canonical status per docs/05-data-model drops.status = draft/scheduled/published/live/sold_out/closed/cancelled
     const allowedStatuses: DropStatus[] = ["draft", "scheduled", "published", "live", "sold_out", "closed", "cancelled"];
     const legacyMap: Record<string, DropStatus> = { review: "draft", approved: "scheduled", production: "scheduled", ended: "closed" };
