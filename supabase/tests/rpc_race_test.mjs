@@ -26,16 +26,6 @@ function errCode(e) {
   return String(e.message).trim().split("\n")[0];
 }
 
-async function asUser(conn, sub, fn) {
-  await conn.query("set role authenticated");
-  await conn.query(`set request.jwt.claims to '{"sub":"${sub}","role":"authenticated"}'`);
-  try {
-    return await fn(conn);
-  } finally {
-    await conn.query("reset role");
-  }
-}
-
 const admin = new Client({ connectionString: url });
 await admin.connect();
 
@@ -112,9 +102,9 @@ await admin.query("commit");
   const clients = conns.map((c) => c.client ?? c);
   await Promise.all(
     clients.map((c, i) =>
-      c.query("set role authenticated").then(() =>
-        c.query(`set request.jwt.claims to '{"sub":"${r1Users[i].id}","role":"authenticated"}'`),
-      ),
+      c
+        .query("set role authenticated")
+        .then(() => c.query(`set request.jwt.claims to '{"sub":"${r1Users[i].id}","role":"authenticated"}'`)),
     ),
   );
   const outcomes = await Promise.all(
@@ -142,16 +132,14 @@ await admin.query("commit");
   const clients = pair.map((c) => c.client ?? c);
   await Promise.all(
     clients.map((c) =>
-      c.query("set role authenticated").then(() =>
-        c.query(`set request.jwt.claims to '{"sub":"${r2User.id}","role":"authenticated"}'`),
-      ),
+      c.query("set role authenticated").then(() => c.query(`set request.jwt.claims to '{"sub":"${r2User.id}","role":"authenticated"}'`)),
     ),
   );
   const outcomes = await Promise.all(
     clients.map((c) =>
       c
         .query("select public.checkout($1, 'regular', 'vault', null, null) as order_id", [drop2])
-        .then((r) => ({ ok: true }))
+        .then(() => ({ ok: true }))
         .catch((e) => ({ ok: false, code: errCode(e) })),
     ),
   );
@@ -160,7 +148,10 @@ await admin.query("commit");
   report(
     "R2",
     ok.length === 1 && limit.length === 1,
-    `sukses=${ok.length} limit_1=${limit.length} ${outcomes.filter((o) => !o.ok && o.code !== "LIMIT_1_PER_DROP").map((o) => o.code).join(",")}`,
+    `sukses=${ok.length} limit_1=${limit.length} ${outcomes
+      .filter((o) => !o.ok && o.code !== "LIMIT_1_PER_DROP")
+      .map((o) => o.code)
+      .join(",")}`,
   );
   await Promise.all(clients.map((c) => c.end()));
 }
@@ -172,9 +163,7 @@ await admin.query("commit");
   const clients = conns.map((c) => c.client ?? c);
   await Promise.all(
     clients.map((c) =>
-      c.query("set role authenticated").then(() =>
-        c.query(`set request.jwt.claims to '{"sub":"${r3User.id}","role":"authenticated"}'`),
-      ),
+      c.query("set role authenticated").then(() => c.query(`set request.jwt.claims to '{"sub":"${r3User.id}","role":"authenticated"}'`)),
     ),
   );
   const outcomes = await Promise.all(
@@ -203,9 +192,7 @@ await admin.query("commit");
   const clients = conns.map((c) => c.client ?? c);
   await Promise.all(
     clients.map((c) =>
-      c.query("set role authenticated").then(() =>
-        c.query(`set request.jwt.claims to '{"sub":"${r4User.id}","role":"authenticated"}'`),
-      ),
+      c.query("set role authenticated").then(() => c.query(`set request.jwt.claims to '{"sub":"${r4User.id}","role":"authenticated"}'`)),
     ),
   );
   const outcomes = await Promise.all(
@@ -263,8 +250,13 @@ await admin.query("commit");
 
   const draw1 = await admin.query("select public.draw_drop($1) as winners", [drop4]);
   const draw2 = await admin.query("select public.draw_drop($1) as winners", [drop4]);
-  const entries = await admin.query("select status, count(*)::int as n from public.drop_entries where drop_id = $1 group by status", [drop4]);
-  const balances = await admin.query("select user_id, balance_ccoin::int as b from public.wallets where user_id = any($1) order by user_id", [users]);
+  const entries = await admin.query("select status, count(*)::int as n from public.drop_entries where drop_id = $1 group by status", [
+    drop4,
+  ]);
+  const balances = await admin.query(
+    "select user_id, balance_ccoin::int as b from public.wallets where user_id = any($1) order by user_id",
+    [users],
+  );
   const winnerOrder = await admin.query("select count(*)::int as n from public.orders where drop_id = $1 and source = 'raffle'", [drop4]);
   const statuses = Object.fromEntries(entries.rows.map((r) => [r.status, r.n]));
   // Fixture menyisipkan entry TANPA mendebet hold — winner tidak di-refund (1000),
