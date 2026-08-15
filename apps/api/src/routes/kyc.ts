@@ -2,7 +2,8 @@ import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import { z } from "zod";
 import { requireUser } from "../lib/auth.js";
-import { awardBadgeIfNeeded, ensureSeed, logAudit, nowIso, store, uid } from "../lib/store.js";
+import { awardBadgeIfNeededDb, getKycByUser, listKycRecords, logAuditDb, setKycStatus, upsertKycSubmission } from "../lib/reads/kyc.js";
+import { ensureSeed } from "../lib/store.js";
 
 const app = new Hono();
 app.use("*", async (_c, next) => {
@@ -14,7 +15,7 @@ app.get("/", async (c) => {
   const authRes = await requireUser(c);
   if ("error" in authRes) return c.json({ error: authRes.error === 403 ? "Akun disuspend" : "Unauthorized" }, authRes.error);
   const user = authRes.user;
-  const rec = [...store.kyc.values()].find((k) => k.userId === user.id);
+  const rec = await getKycByUser(user.id);
   return c.json({ kyc: rec || null });
 });
 
@@ -36,20 +37,9 @@ app.post(
     if ("error" in authRes) return c.json({ error: authRes.error === 403 ? "Akun disuspend" : "Unauthorized" }, authRes.error);
     const user = authRes.user;
     const body = c.req.valid("json");
-    const existing = [...store.kyc.values()].find((k) => k.userId === user.id);
+    const existing = await getKycByUser(user.id);
     if (existing && existing.status === "approved") return c.json({ error: "KYC sudah approved" }, 400);
-    const id = existing?.id ?? uid("kyc-");
-    const rec = {
-      id,
-      userId: user.id,
-      fullName: body.fullName,
-      nik: body.nik,
-      address: body.address,
-      status: "pending" as const,
-      createdAt: existing?.createdAt ?? nowIso(),
-      updatedAt: nowIso(),
-    } as unknown as Parameters<typeof store.kyc.set>[1];
-    store.kyc.set(id, rec as never);
+    const rec = await upsertKycSubmission(user.id, existing, { fullName: body.fullName, nik: body.nik, address: body.address });
     return c.json({ kyc: rec }, 201);
   },
 );
@@ -58,12 +48,11 @@ app.post("/:id/approve", async (c) => {
   const authRes = await requireUser(c);
   const user = "error" in authRes ? null : authRes.user;
   if (!user || (user.role as string) !== "admin") return c.json({ error: "Hanya admin" }, 403);
-  const rec = store.kyc.get(c.req.param("id")) as unknown as { status: string; userId: string } & Record<string, unknown>;
+  const rec = await setKycStatus(c.req.param("id"), "approved");
   if (!rec) return c.json({ error: "Not found" }, 404);
-  (rec as unknown as Record<string, unknown>).status = "approved";
-  const owner = store.users.get((rec as unknown as { userId: string }).userId);
-  if (owner) awardBadgeIfNeeded(owner.id, "b6");
-  logAudit(
+  // Side effect: badge "verified" (store id b6) + XP reward, once per user
+  await awardBadgeIfNeededDb(rec.userId, "verified");
+  await logAuditDb(
     user.id,
     "update",
     "kyc_records",
@@ -79,10 +68,9 @@ app.post("/:id/reject", async (c) => {
   const authRes = await requireUser(c);
   const user = "error" in authRes ? null : authRes.user;
   if (!user || (user.role as string) !== "admin") return c.json({ error: "Hanya admin" }, 403);
-  const rec = store.kyc.get(c.req.param("id")) as unknown as Record<string, unknown> | undefined;
+  const rec = await setKycStatus(c.req.param("id"), "rejected");
   if (!rec) return c.json({ error: "Not found" }, 404);
-  (rec as Record<string, unknown>).status = "rejected";
-  logAudit(
+  await logAuditDb(
     user.id,
     "update",
     "kyc_records",
@@ -98,7 +86,7 @@ app.get("/admin/all", async (c) => {
   const authRes = await requireUser(c);
   const user = "error" in authRes ? null : authRes.user;
   if (!user || (user.role as string) !== "admin") return c.json({ error: "Hanya admin" }, 403);
-  return c.json({ kyc: [...store.kyc.values()] });
+  return c.json({ kyc: await listKycRecords() });
 });
 
 export default app;

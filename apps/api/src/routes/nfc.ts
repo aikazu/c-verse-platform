@@ -2,7 +2,11 @@ import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import { z } from "zod";
 import { deriveAppKey, verifySun } from "../lib/cmac.js";
-import { type Card, ensureSeed, logAudit, store } from "../lib/store.js";
+import { listBids } from "../lib/reads/bids.js";
+import { getCardByIdOrNfc, getDropById } from "../lib/reads/drops.js";
+import { getCardByNfcShortId, getCardByNfcUid, listOwnershipByCard } from "../lib/reads/nfc.js";
+import { getUserById, listUsersByIds } from "../lib/reads/users.js";
+import { type Card, ensureSeed, logAudit } from "../lib/store.js";
 import { getSupabase } from "../lib/supabase.js";
 
 // NFC verification (docs/12): SUN/CMAC real verification — never "verified" without crypto match.
@@ -24,10 +28,6 @@ function masterKeyBytes(): Uint8Array | null {
   const hex = getEnv("NFC_MASTER_KEY");
   if (!hex || !/^[0-9a-fA-F]{32}$/.test(hex)) return null;
   return new Uint8Array((hex.match(/.{2}/g) ?? []).map((b) => Number.parseInt(b, 16)));
-}
-
-function findCard(idOrShortId: string): Card | null {
-  return store.cards.get(idOrShortId) ?? [...store.cards.values()].find((ca) => ca.nfcShortId === idOrShortId) ?? null;
 }
 
 /** Persist verification state to Postgres when wired; store fallback keeps dev demo working. */
@@ -93,15 +93,16 @@ async function verifyTap(card: Card, input: TapInput): Promise<TapOutcome> {
 
 // GET /cards/:cardId — unified card info (ownership history here, not on 3D per docs/02)
 app.get("/cards/:cardId", async (c) => {
-  const card = findCard(c.req.param("cardId"));
+  const card = await getCardByIdOrNfc(c.req.param("cardId"));
   if (!card) return c.json({ error: "Kartu tidak ditemukan", status: "unknown" }, 404);
-  const drop = store.drops.get(card.dropId);
-  const owner = card.ownerId ? store.users.get(card.ownerId) : null;
-  const creator = drop ? store.users.get(drop.creatorId) : null;
-  const bids = store.bids.filter((b) => b.cardId === card.id && b.status === "active").sort((a, b) => b.amountCCoin - a.amountCCoin);
-  const history = store.ownershipHistory
-    .filter((h) => h.cardId === card.id)
-    .sort((a, b) => new Date(b.transferredAt).getTime() - new Date(a.transferredAt).getTime());
+  const drop = await getDropById(card.dropId);
+  const owner = card.ownerId ? await getUserById(card.ownerId) : null;
+  const creator = drop ? await getUserById(drop.creatorId) : null;
+  const bids = (await listBids({ cardId: card.id, status: "active" })).sort((a, b) => b.amountCCoin - a.amountCCoin);
+  const history = await listOwnershipByCard(card.id);
+  const ownerNames = new Map(
+    (await listUsersByIds([...new Set(history.map((h) => h.ownerId))])).map((u) => [u.id, u.displayName] as const),
+  );
   return c.json({
     card: {
       id: card.id,
@@ -132,16 +133,16 @@ app.get("/cards/:cardId", async (c) => {
     owner: owner ? { id: owner.id, displayName: owner.displayName, isAnonymous: owner.isAnonymous ?? false } : null,
     activeBid: bids[0] ?? null,
     bids,
-    ownershipHistory: history.map((h) => ({ ...h, ownerName: store.users.get(h.ownerId)?.displayName ?? h.ownerId })),
+    ownershipHistory: history.map((h) => ({ ...h, ownerName: ownerNames.get(h.ownerId) ?? h.ownerId })),
   });
 });
 
 // GET /cards/:cardId/3d — 3D viewer data. SUN URL params (?uid=&ctr=&c=) trigger CMAC verification.
 app.get("/cards/:cardId/3d", async (c) => {
-  const card = findCard(c.req.param("cardId"));
+  const card = await getCardByIdOrNfc(c.req.param("cardId"));
   if (!card) return c.json({ error: "Kartu tidak ditemukan" }, 404);
-  const drop = store.drops.get(card.dropId);
-  const owner = card.ownerId ? store.users.get(card.ownerId) : null;
+  const drop = await getDropById(card.dropId);
+  const owner = card.ownerId ? await getUserById(card.ownerId) : null;
 
   let verifyStatus = card.verifyStatus;
   const uidQ = c.req.query("uid");
@@ -170,7 +171,7 @@ app.get("/cards/:cardId/3d", async (c) => {
       : null,
     seriesLink: drop ? `/drops/${drop.id}` : null,
     creator: drop
-      ? { id: drop.creatorId, name: drop.creatorName, link: `/c/${store.users.get(drop.creatorId)?.username ?? drop.creatorId}` }
+      ? { id: drop.creatorId, name: drop.creatorName, link: `/c/${(await getUserById(drop.creatorId))?.username ?? drop.creatorId}` }
       : null,
     owner: owner ? { id: owner.id, name: owner.displayName, link: `/u/${owner.username ?? owner.id}` } : null,
     releaseDate: drop?.dropStartAt ?? drop?.dropAt ?? null,
@@ -181,10 +182,10 @@ app.get("/cards/:cardId/3d", async (c) => {
 
 // GET /verify/:shortId — QR di dus → maksimal "registered" (tanpa CMAC per docs/03 Flow 4)
 app.get("/verify/:shortId", async (c) => {
-  const card = [...store.cards.values()].find((ca) => ca.nfcShortId === c.req.param("shortId"));
+  const card = await getCardByNfcShortId(c.req.param("shortId"));
   if (!card) return c.json({ status: "unknown", message: "Kartu tidak terdaftar di C.Verse" }, 404);
-  const drop = store.drops.get(card.dropId);
-  const owner = card.ownerId ? store.users.get(card.ownerId) : null;
+  const drop = await getDropById(card.dropId);
+  const owner = card.ownerId ? await getUserById(card.ownerId) : null;
   if (card.verifyStatus !== "tamper_detected") {
     card.verifyStatus = "registered";
     await persistVerification(card);
@@ -222,8 +223,8 @@ app.post(
   ),
   async (c) => {
     const { uid, counter, cmac, shortId } = c.req.valid("json");
-    let card = [...store.cards.values()].find((ca) => ca.nfcUid.toLowerCase() === uid.toLowerCase());
-    if (!card && shortId) card = [...store.cards.values()].find((ca) => ca.nfcShortId === shortId);
+    let card = await getCardByNfcUid(uid);
+    if (!card && shortId) card = await getCardByNfcShortId(shortId);
     if (!card) return c.json({ status: "unknown", message: "UID tidak terdaftar", verifyStatus: "unknown" as const }, 404);
 
     if (!counter || !cmac) {
@@ -239,8 +240,8 @@ app.post(
     }
 
     const outcome = await verifyTap(card, { uidHex: uid, ctrHex: counter, cmacHex: cmac });
-    const drop = store.drops.get(card.dropId);
-    const owner = card.ownerId ? store.users.get(card.ownerId) : null;
+    const drop = await getDropById(card.dropId);
+    const owner = card.ownerId ? await getUserById(card.ownerId) : null;
     return c.json({
       verifyStatus: outcome.verifyStatus,
       message: outcome.message,
@@ -260,8 +261,8 @@ app.get("/sun-verify", async (c) => {
   const uidParam = c.req.query("uid") ?? c.req.query("UID");
   const shortId = c.req.query("shortId") ?? c.req.query("id");
   let card: Card | null = null;
-  if (uidParam) card = [...store.cards.values()].find((ca) => ca.nfcUid.toLowerCase() === String(uidParam).toLowerCase()) ?? null;
-  if (!card && shortId) card = [...store.cards.values()].find((ca) => ca.nfcShortId === String(shortId)) ?? null;
+  if (uidParam) card = await getCardByNfcUid(String(uidParam));
+  if (!card && shortId) card = await getCardByNfcShortId(String(shortId));
   if (!card) return c.json({ verifyStatus: "unknown" as const, message: "Kartu tidak terdaftar" }, 404);
 
   const ctr = c.req.query("ctr");
