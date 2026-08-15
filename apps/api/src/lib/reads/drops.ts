@@ -37,6 +37,19 @@ export async function listCardsByDrop(dropId: string): Promise<Card[]> {
   return (data ?? []).map((r) => mapCardRow(r as Record<string, unknown>));
 }
 
+/** Batch fetch by ids — 1 query untuk N kartu (hindari N+1 di order detail). */
+export async function listCardsByIds(ids: string[]): Promise<Card[]> {
+  if (ids.length === 0) return [];
+  const db = readDb();
+  if (!db) {
+    seedOnce();
+    return ids.map((id) => store.cards.get(id)).filter((c): c is Card => c != null);
+  }
+  const { data, error } = await db.from("cards").select("*").in("id", ids);
+  if (error) throw new Error(error.message);
+  return (data ?? []).map((r) => mapCardRow(r as Record<string, unknown>));
+}
+
 export interface CardQuery {
   ownerId?: string;
   dropId?: string;

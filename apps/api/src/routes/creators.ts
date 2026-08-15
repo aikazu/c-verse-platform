@@ -43,15 +43,16 @@ app.get("/", async (c) => {
 });
 
 // Helper: log creator page view (docs 05 creator_page_views + 09 3.5 log from day 1)
-async function logCreatorView(creatorUserId: string, c: { req: { header: (k: string) => string | undefined } }) {
-  const rec = await getCreatorByUserId(creatorUserId);
-  if (!rec) return;
+// rec diteruskan dari caller — hindari query getCreatorByUserId ganda per request.
+async function logCreatorView(creatorUserId: string, c: { req: { header: (k: string) => string | undefined } }, rec: CreatorRec | null) {
+  const resolved = rec ?? (await getCreatorByUserId(creatorUserId));
+  if (!resolved) return;
   const referrer = c.req.header("referer") ?? c.req.header("referrer") ?? null;
   // city anonymized from header — MVP uses x-forwarded-for stub, not real geo
   const city = c.req.header("x-city") ?? null;
   const viewerRes = await requireUser(c);
   const viewer = "error" in viewerRes ? null : viewerRes.user;
-  recordCreatorPageView({ creatorId: rec.id, referrer, city, userId: viewer?.id ?? null });
+  recordCreatorPageView({ creatorId: resolved.id, referrer, city, userId: viewer?.id ?? null });
 }
 
 // GET /:id — creator by userId or handle or creator rec id; includes published/live drops only for public
@@ -62,8 +63,7 @@ app.get("/:id", async (c) => {
   let user = recByHandle?.userId ? await getUserById(recByHandle.userId) : null;
   if (!user && !recByHandle) user = await getUserByUsernameOrId(raw);
   if (!user || (user.role as string) !== "creator") return c.json({ error: "Creator tidak ditemukan" }, 404);
-  const rec = await getCreatorByUserId(user.id);
-  await logCreatorView(user.id, c);
+  const [rec] = await Promise.all([getCreatorByUserId(user.id), logCreatorView(user.id, c, recByHandle)]);
   const drops = (await listDrops())
     .filter((d) => d.creatorId === user?.id && ["published", "live", "sold_out", "scheduled", "ended", "closed"].includes(d.status))
     .sort(
@@ -117,7 +117,7 @@ app.get("/handle/:handle", async (c) => {
   if (!rec) return c.json({ error: "Creator tidak ditemukan" }, 404);
   const user = rec.userId ? await getUserById(rec.userId) : null;
   if (!user) return c.json({ error: "Creator tidak ditemukan" }, 404);
-  await logCreatorView(user.id, c);
+  await logCreatorView(user.id, c, rec);
   const drops = (await listDrops()).filter((d) => d.creatorId === user.id);
   return c.json({ creator: { id: user.id, displayName: user.displayName, handle: rec.handle }, drops, rec });
 });

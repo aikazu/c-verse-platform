@@ -26,13 +26,17 @@ app.get("/u/:username", async (c) => {
   const { level, tier } = calcLevel(totalXp);
   const progressInLevel = totalXp % 10;
   const levelProgressPct = Math.round((progressInLevel / 10) * 100);
-  const dropById = new Map<string, Drop>((await listDrops()).map((d) => [d.id, d]));
-  const cards = (await listCards({ ownerId: user.id })).map((ca) => {
+  const [drops, myCards, badges, rank] = await Promise.all([
+    listDrops(),
+    listCards({ ownerId: user.id }),
+    listUserBadges(user.id),
+    getUserRank(user.id, totalXp),
+  ]);
+  const dropById = new Map<string, Drop>(drops.map((d) => [d.id, d]));
+  const cards = myCards.map((ca) => {
     const drop = dropById.get(ca.dropId);
     return { ...ca, drop: drop ? { id: drop.id, title: drop.title, series: drop.series } : null };
   });
-  const badges = await listUserBadges(user.id);
-  const rank = await getUserRank(user.id, totalXp);
   return c.json({
     user: {
       id: user.id,

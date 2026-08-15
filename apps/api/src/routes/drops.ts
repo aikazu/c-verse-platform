@@ -42,6 +42,8 @@ app.get("/", async (c) => {
   drops.sort(
     (a, b) => (order[a.status] ?? 9) - (order[b.status] ?? 9) || new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
   );
+  // data publik yang jarang berubah — cache edge/browser 60 detik
+  c.header("Cache-Control", "public, max-age=60");
   return c.json({
     drops: drops.map((d) => ({
       ...d,

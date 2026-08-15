@@ -4,11 +4,10 @@ import { Hono } from "hono";
 import { z } from "zod";
 import { requireUser } from "../lib/auth.js";
 import { isDbEnabled, RpcError, rpcCheckout, userDb } from "../lib/db.js";
-import { getDropById } from "../lib/reads/drops.js";
+import { getDropById, listCardsByIds } from "../lib/reads/drops.js";
 import { getCardById, getOrderById, listOrdersByUser, listShipmentsByCards } from "../lib/reads/orders.js";
 import { getWalletByUser } from "../lib/reads/profile.js";
 import { mapOrderRow, mapShipmentRow, type Row, readDb } from "../lib/reads.js";
-import type { Card } from "../lib/store.js";
 import { addTx, awardBadgeIfNeeded, ensureSeed, ensureWallet, logAudit, nowIso, store, uid } from "../lib/store.js";
 
 const app = new Hono();
@@ -240,9 +239,11 @@ app.get("/:id", async (c) => {
   const o = await getOrderById(c.req.param("id"));
   if (!o) return c.json({ error: "Order tidak ditemukan" }, 404);
   if (o.userId !== user.id && (user.role as string) !== "admin") return c.json({ error: "Forbidden" }, 403);
-  const drop = await getDropById(o.dropId);
-  const cards = (await Promise.all((o.cardIds ?? []).map((id) => getCardById(id)))).filter((ca): ca is Card => ca != null);
-  const shipments = await listShipmentsByCards(o.cardIds ?? []);
+  const [drop, cards, shipments] = await Promise.all([
+    getDropById(o.dropId),
+    listCardsByIds(o.cardIds ?? []),
+    listShipmentsByCards(o.cardIds ?? []),
+  ]);
   return c.json({ order: o, drop: drop ?? undefined, cards, shipments });
 });
 

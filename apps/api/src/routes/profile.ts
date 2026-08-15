@@ -22,13 +22,18 @@ app.get("/", async (c) => {
   const authRes = await requireUser(c);
   if ("error" in authRes) return c.json({ error: authRes.error === 403 ? "Akun disuspend" : "Unauthorized" }, authRes.error);
   const user = authRes.user;
-  const myCards = await listCards({ ownerId: user.id });
-  const myOrders = await listOrdersByUser(user.id);
-  const myShipments = await listShipmentsByRequester(user.id);
-  const myBids = (await listBids({ bidderId: user.id })).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-  const dropById = new Map((await listDrops()).map((d) => [d.id, d]));
+  const [myCards, myOrders, myShipments, bidList, drops, activeBids] = await Promise.all([
+    listCards({ ownerId: user.id }),
+    listOrdersByUser(user.id),
+    listShipmentsByRequester(user.id),
+    listBids({ bidderId: user.id }),
+    listDrops(),
+    listBids({ status: "active" }),
+  ]);
+  const myBids = bidList.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  const dropById = new Map(drops.map((d) => [d.id, d]));
   const activeBidByCard = new Map<string, Bid>();
-  for (const b of await listBids({ status: "active" })) {
+  for (const b of activeBids) {
     if (!activeBidByCard.has(b.cardId)) activeBidByCard.set(b.cardId, b);
   }
   const enrichedCards = myCards.map((ca) => {

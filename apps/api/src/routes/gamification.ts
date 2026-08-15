@@ -26,10 +26,12 @@ app.get("/leaderboard", async (c) => {
       totalCards: cardCounts.get(u.id) ?? 0,
     };
   });
+  c.header("Cache-Control", "public, max-age=60");
   return c.json({ leaderboard: board });
 });
 
 app.get("/badges", async (c) => {
+  c.header("Cache-Control", "public, max-age=86400");
   return c.json({ badges: await listBadges() });
 });
 

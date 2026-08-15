@@ -99,14 +99,18 @@ async function verifyTap(card: Card, input: TapInput): Promise<TapOutcome> {
 app.get("/cards/:cardId", async (c) => {
   const card = await getCardByIdOrNfc(c.req.param("cardId"));
   if (!card) return c.json({ error: "Kartu tidak ditemukan", status: "unknown" }, 404);
-  const drop = await getDropById(card.dropId);
-  const owner = card.ownerId ? await getUserById(card.ownerId) : null;
-  const creator = drop ? await getUserById(drop.creatorId) : null;
-  const bids = (await listBids({ cardId: card.id, status: "active" })).sort((a, b) => b.amountCCoin - a.amountCCoin);
-  const history = await listOwnershipByCard(card.id);
-  const ownerNames = new Map(
-    (await listUsersByIds([...new Set(history.map((h) => h.ownerId))])).map((u) => [u.id, u.displayName] as const),
-  );
+  const [drop, owner, bidList, history] = await Promise.all([
+    getDropById(card.dropId),
+    card.ownerId ? getUserById(card.ownerId) : Promise.resolve(null),
+    listBids({ cardId: card.id, status: "active" }),
+    listOwnershipByCard(card.id),
+  ]);
+  const bids = bidList.sort((a, b) => b.amountCCoin - a.amountCCoin);
+  const [creator, users] = await Promise.all([
+    drop ? getUserById(drop.creatorId) : Promise.resolve(null),
+    listUsersByIds([...new Set(history.map((h) => h.ownerId))]),
+  ]);
+  const ownerNames = new Map(users.map((u) => [u.id, u.displayName] as const));
   return c.json({
     card: {
       id: card.id,
@@ -145,8 +149,7 @@ app.get("/cards/:cardId", async (c) => {
 app.get("/cards/:cardId/3d", async (c) => {
   const card = await getCardByIdOrNfc(c.req.param("cardId"));
   if (!card) return c.json({ error: "Kartu tidak ditemukan" }, 404);
-  const drop = await getDropById(card.dropId);
-  const owner = card.ownerId ? await getUserById(card.ownerId) : null;
+  const [drop, owner] = await Promise.all([getDropById(card.dropId), card.ownerId ? getUserById(card.ownerId) : Promise.resolve(null)]);
 
   let verifyStatus = card.verifyStatus;
   const uidQ = c.req.query("uid");
@@ -244,8 +247,7 @@ app.post(
     }
 
     const outcome = await verifyTap(card, { uidHex: uid, ctrHex: counter, cmacHex: cmac });
-    const drop = await getDropById(card.dropId);
-    const owner = card.ownerId ? await getUserById(card.ownerId) : null;
+    const [drop, owner] = await Promise.all([getDropById(card.dropId), card.ownerId ? getUserById(card.ownerId) : Promise.resolve(null)]);
     return c.json({
       verifyStatus: outcome.verifyStatus,
       message: outcome.message,

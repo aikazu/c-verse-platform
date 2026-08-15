@@ -293,8 +293,11 @@ await admin.query("delete from public.wallet_transactions where user_id = any($1
 await admin.query("alter table public.wallet_transactions enable trigger trg_wtx_immutable");
 await admin.query("delete from public.ownership_history where card_id like $1", [`card-${drop1}%`]);
 await admin.query("delete from public.ownership_history where card_id like $1", [`card-${drop2}%`]);
+await admin.query("delete from public.ownership_history where card_id like $1", [`card-${drop3}%`]);
 await admin.query("delete from public.orders where drop_id = any($1)", [[drop1, drop2, drop3]]);
-await admin.query("delete from public.drops where id = any($1)", [[drop1, drop2]]);
+await admin.query("delete from public.drop_entries where drop_id = any($1)", [[drop3]]);
+await admin.query("delete from public.cards where drop_id = any($1)", [[drop1, drop2, drop3]]);
+await admin.query("delete from public.drops where id = any($1)", [[drop1, drop2, drop3]]);
 await admin.query("delete from public.wallets where user_id = any($1)", [allTest]);
 await admin.query("delete from public.users where id = any($1)", [allTest]);
 await admin.query("commit");

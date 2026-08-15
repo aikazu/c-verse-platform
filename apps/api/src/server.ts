@@ -1,4 +1,5 @@
 import path from "node:path";
+import { serve } from "@hono/node-server";
 import dotenv from "dotenv";
 
 // Load env for `tsx watch src/server.ts` (Node) — Wrangler uses .dev.vars separately.
@@ -6,8 +7,9 @@ import dotenv from "dotenv";
 dotenv.config({ path: path.resolve(process.cwd(), "../../.env") });
 dotenv.config({ path: path.resolve(process.cwd(), ".dev.vars") });
 
-import { serve } from "@hono/node-server";
-import app from "./index.js";
+// Dynamic import: index.ts punya fail-safe guard module-level (butuh SUPABASE_URL
+// atau ENV eksplisit) — env harus termuat SEBELUM modul dievaluasi.
+const { default: app } = await import("./index.js");
 
 const port = Number(process.env.PORT || 8787);
 serve({ fetch: app.fetch, port }, (info) => {
