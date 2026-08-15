@@ -329,7 +329,7 @@ function CreatorsPage() {
   async function load() {
     setLoading(true);
     if (hasSupabase) {
-      const { data } = await supabase.from("creators").select("*").order("created_at", { ascending: false });
+      const { data } = await supabase.from("creators").select("*").order("created_at", { ascending: false }).limit(500);
       setRows(data ?? []);
     } else {
       try {
@@ -493,7 +493,7 @@ function DropsPage() {
   async function load() {
     setLoading(true);
     if (hasSupabase) {
-      const { data } = await supabase.from("drops").select("*").order("created_at", { ascending: false });
+      const { data } = await supabase.from("drops").select("*").order("created_at", { ascending: false }).limit(500);
       setRows(data ?? []);
     } else {
       try {
@@ -916,7 +916,7 @@ function PayoutsPage() {
       setMsg("Mode demo — payout via database.");
       return;
     }
-    const { data } = await supabase.from("payout_batches").select("*").order("created_at", { ascending: false });
+    const { data } = await supabase.from("payout_batches").select("*").order("created_at", { ascending: false }).limit(500);
     setBatches(data ?? []);
   }
   useEffect(() => {
@@ -1001,7 +1001,7 @@ function DisputesPage() {
       setMsg("Mode demo — sengketa via database.");
       return;
     }
-    const { data } = await supabase.from("disputes").select("*").order("created_at", { ascending: false });
+    const { data } = await supabase.from("disputes").select("*").order("created_at", { ascending: false }).limit(500);
     setRows(data ?? []);
   }
   useEffect(() => {
