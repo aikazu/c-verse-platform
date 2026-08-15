@@ -533,6 +533,64 @@ await admin.query("commit");
   report("W2", r1 === "INVALID_AMOUNT" && r2 === "INVALID_AMOUNT", `${r1},${r2}`);
 }
 
+// ── X1-X3: lockdown EXECUTE RPC (regresi celah mint via PostgREST) ─────────
+{
+  const restUrl = process.env.SUPABASE_URL_REST ?? "http://127.0.0.1:54321";
+  const anonKey =
+    process.env.SUPABASE_ANON_KEY ??
+    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0";
+  async function restRpc(fn, body) {
+    const res = await fetch(`${restUrl}/rest/v1/rpc/${fn}`, {
+      method: "POST",
+      headers: { apikey: anonKey, Authorization: `Bearer ${anonKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    return res.status;
+  }
+  const s1 = await restRpc("wallet_credit", {
+    p_user: U.p1,
+    p_amount: 999999,
+    p_type: "top_up",
+    p_ref_type: "hack",
+    p_ref_id: "x",
+    p_idem: "x-mint",
+  });
+  const s2 = await restRpc("wallet_debit", {
+    p_user: U.p1,
+    p_amount: 1,
+    p_type: "top_up",
+    p_ref_type: "hack",
+    p_ref_id: "x",
+    p_idem: "x-drain",
+  });
+  const s3 = await restRpc("award_badge_if_eligible", { p_user: U.p1, p_code: "whale" });
+  const s4 = await restRpc("payout_batch_run", {});
+  report(
+    "X1",
+    s1 !== 200 && s2 !== 200 && s3 !== 200 && s4 !== 200,
+    `anon rpc wallet_credit=${s1} wallet_debit=${s2} badge=${s3} payout=${s4} (semua harus bukan 200)`,
+  );
+
+  // authenticated: debit orang lain FORBIDDEN, debit diri sendiri OK (orders.ts ongkir vault)
+  const p2 = await userClient(U.p2);
+  const drain = await expectCode(p2.query("select public.wallet_debit($1, 1, 'checkout', 'test', 'x3', 'x3-drain')", [U.p1]));
+  const balBefore = await balance(U.p2);
+  await p2.query("select public.wallet_debit($1, 10, 'checkout', 'test', 'x4', 'x4-self')", [U.p2]);
+  const balAfter = await balance(U.p2);
+  report(
+    "X2",
+    drain === "FORBIDDEN" && balBefore - balAfter === 10,
+    `debit_orang_lain=${drain} debit_sendiri=${balBefore - balAfter === 10 ? "ok" : "GAGAL"}`,
+  );
+  await p2.end();
+
+  // checkout tetap bisa dieksekusi authenticated (auth.uid()-based RPC)
+  const p1 = await userClient(U.p1);
+  const exec = await expectCode(p1.query("select public.checkout('cov-drop-nope', 'regular')"));
+  report("X3", exec === "DROP_NOT_LIVE", `checkout_authenticated=${exec} (harus DROP_NOT_LIVE, bukan permission denied)`);
+  await p1.end();
+}
+
 // ── Cleanup ────────────────────────────────────────────────────────────────
 await admin.query("begin");
 await admin.query("alter table public.wallet_transactions disable trigger trg_wtx_immutable");
