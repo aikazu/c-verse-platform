@@ -57,7 +57,8 @@ end $$;
 -- T8: anon insert creator_page_views -> OK
 do $$
 begin
-  insert into public.creator_page_views (id, creator_id, viewed_at) values ('90000000-0000-4000-8000-000000000002', 'cr-karina', now());
+  insert into public.creator_page_views (id, creator_id, viewed_at) values ('90000000-0000-4000-8000-000000000002', 'cr-karina', now())
+  on conflict (id) do nothing;
   raise notice 'T8 PASS';
 exception when others then
   raise notice 'T8 FAIL (%)', sqlerrm;
@@ -136,7 +137,8 @@ reset role;
 set local role service_role;
 do $$
 begin
-  insert into public.user_badges (user_id, badge_id) values ('10000000-0000-4000-8000-00000000000a', 'b1');
+  insert into public.user_badges (user_id, badge_id) values ('10000000-0000-4000-8000-00000000000a', 'b1')
+  on conflict do nothing;
   raise notice 'T10 PASS';
 exception when others then
   raise notice 'T10 FAIL (%)', sqlerrm;
