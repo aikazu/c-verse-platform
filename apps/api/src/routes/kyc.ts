@@ -1,7 +1,8 @@
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import { z } from "zod";
-import { authHeaderToToken, awardBadgeIfNeeded, ensureSeed, getUserByToken, logAudit, nowIso, store, uid } from "../lib/store.js";
+import { requireUser } from "../lib/auth.js";
+import { awardBadgeIfNeeded, ensureSeed, logAudit, nowIso, store, uid } from "../lib/store.js";
 
 const app = new Hono();
 app.use("*", async (_c, next) => {
@@ -9,13 +10,10 @@ app.use("*", async (_c, next) => {
   await next();
 });
 
-function requireAuth(c: { req: { header: (k: string) => string | undefined } }): ReturnType<typeof getUserByToken> {
-  return getUserByToken(authHeaderToToken(c.req.header("authorization")));
-}
-
 app.get("/", async (c) => {
-  const user = requireAuth(c as unknown as { req: { header: (k: string) => string | undefined } });
-  if (!user) return c.json({ error: "Unauthorized" }, 401);
+  const authRes = await requireUser(c);
+  if ("error" in authRes) return c.json({ error: authRes.error === 403 ? "Akun disuspend" : "Unauthorized" }, authRes.error);
+  const user = authRes.user;
   const rec = [...store.kyc.values()].find((k) => k.userId === user.id);
   return c.json({ kyc: rec || null });
 });
@@ -34,8 +32,9 @@ app.post(
     }),
   ),
   async (c) => {
-    const user = requireAuth(c as unknown as { req: { header: (k: string) => string | undefined } });
-    if (!user) return c.json({ error: "Unauthorized" }, 401);
+    const authRes = await requireUser(c);
+    if ("error" in authRes) return c.json({ error: authRes.error === 403 ? "Akun disuspend" : "Unauthorized" }, authRes.error);
+    const user = authRes.user;
     const body = c.req.valid("json");
     const existing = [...store.kyc.values()].find((k) => k.userId === user.id);
     if (existing && existing.status === "approved") return c.json({ error: "KYC sudah approved" }, 400);
@@ -56,7 +55,8 @@ app.post(
 );
 
 app.post("/:id/approve", async (c) => {
-  const user = requireAuth(c as unknown as { req: { header: (k: string) => string | undefined } });
+  const authRes = await requireUser(c);
+  const user = "error" in authRes ? null : authRes.user;
   if (!user || (user.role as string) !== "admin") return c.json({ error: "Hanya admin" }, 403);
   const rec = store.kyc.get(c.req.param("id")) as unknown as { status: string; userId: string } & Record<string, unknown>;
   if (!rec) return c.json({ error: "Not found" }, 404);
@@ -70,13 +70,14 @@ app.post("/:id/approve", async (c) => {
     c.req.param("id"),
     { status: "approved" },
     c.req.header("x-forwarded-for") ?? null,
-    authHeaderToToken(c.req.header("authorization")) ?? null,
+    c.req.header("authorization") ?? null,
   );
   return c.json({ kyc: rec });
 });
 
 app.post("/:id/reject", async (c) => {
-  const user = requireAuth(c as unknown as { req: { header: (k: string) => string | undefined } });
+  const authRes = await requireUser(c);
+  const user = "error" in authRes ? null : authRes.user;
   if (!user || (user.role as string) !== "admin") return c.json({ error: "Hanya admin" }, 403);
   const rec = store.kyc.get(c.req.param("id")) as unknown as Record<string, unknown> | undefined;
   if (!rec) return c.json({ error: "Not found" }, 404);
@@ -88,13 +89,14 @@ app.post("/:id/reject", async (c) => {
     c.req.param("id"),
     { status: "rejected" },
     c.req.header("x-forwarded-for") ?? null,
-    authHeaderToToken(c.req.header("authorization")) ?? null,
+    c.req.header("authorization") ?? null,
   );
   return c.json({ kyc: rec });
 });
 
 app.get("/admin/all", async (c) => {
-  const user = requireAuth(c as unknown as { req: { header: (k: string) => string | undefined } });
+  const authRes = await requireUser(c);
+  const user = "error" in authRes ? null : authRes.user;
   if (!user || (user.role as string) !== "admin") return c.json({ error: "Hanya admin" }, 403);
   return c.json({ kyc: [...store.kyc.values()] });
 });

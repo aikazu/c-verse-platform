@@ -2,8 +2,9 @@ import { C_COIN_RATE_IDR } from "@c-verse/shared";
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import { z } from "zod";
+import { requireUser } from "../lib/auth.js";
 import type { DropStatus } from "../lib/store.js";
-import { authHeaderToToken, ensureSeed, getUserByToken, logAudit, store } from "../lib/store.js";
+import { ensureSeed, logAudit, store } from "../lib/store.js";
 
 const app = new Hono();
 app.use("*", async (_c, next) => {
@@ -89,11 +90,10 @@ app.post(
     }),
   ),
   async (c) => {
-    const token = authHeaderToToken(c.req.header("authorization"));
-    const user = getUserByToken(token);
-    if (!user) return c.json({ error: "Unauthorized" }, 401);
-    if ((user.role as string) !== "creator" && (user.role as string) !== "admin")
-      return c.json({ error: "Hanya kreator/admin yang bisa membuat drop" }, 403);
+    const authRes = await requireUser(c);
+    if ("error" in authRes) return c.json({ error: authRes.error === 403 ? "Akun disuspend" : "Unauthorized" }, authRes.error);
+    const user = authRes.user;
+    if (user.role !== "creator" && user.role !== "admin") return c.json({ error: "Hanya kreator/admin yang bisa membuat drop" }, 403);
     const body = c.req.valid("json");
     const { calcSignedCount, calcUnsignedCount } = await import("@c-verse/shared");
     const signedCount = calcSignedCount(body.totalUnits);
@@ -153,7 +153,15 @@ app.post(
         lastCtr: 0,
       });
     }
-    logAudit(user.id, "create", "drops", id, { title: body.title }, c.req.header("x-forwarded-for") ?? null, token ?? null);
+    logAudit(
+      user.id,
+      "create",
+      "drops",
+      id,
+      { title: body.title },
+      c.req.header("x-forwarded-for") ?? null,
+      c.req.header("authorization") ?? null,
+    );
     return c.json({ drop }, 201);
   },
 );
@@ -179,13 +187,22 @@ app.patch(
     }),
   ),
   async (c) => {
-    const token = authHeaderToToken(c.req.header("authorization"));
-    const user = getUserByToken(token);
-    if (!user || (user.role as string) !== "admin") return c.json({ error: "Hanya admin" }, 403);
+    const authRes = await requireUser(c);
+    if ("error" in authRes) return c.json({ error: authRes.error === 403 ? "Akun disuspend" : "Unauthorized" }, authRes.error);
+    const user = authRes.user;
+    if (user.role !== "admin") return c.json({ error: "Hanya admin" }, 403);
     const d = store.drops.get(c.req.param("id"));
     if (!d) return c.json({ error: "Drop tidak ditemukan" }, 404);
     d.status = c.req.valid("json").status as typeof d.status;
-    logAudit(user.id, "update", "drops", d.id, { status: d.status }, c.req.header("x-forwarded-for") ?? null, token ?? null);
+    logAudit(
+      user.id,
+      "update",
+      "drops",
+      d.id,
+      { status: d.status },
+      c.req.header("x-forwarded-for") ?? null,
+      c.req.header("authorization") ?? null,
+    );
     return c.json({ drop: d });
   },
 );

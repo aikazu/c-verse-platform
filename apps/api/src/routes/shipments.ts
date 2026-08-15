@@ -1,7 +1,8 @@
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import { z } from "zod";
-import { authHeaderToToken, ensureSeed, getUserByToken, logAudit, store } from "../lib/store.js";
+import { requireUser } from "../lib/auth.js";
+import { ensureSeed, logAudit, store } from "../lib/store.js";
 
 const app = new Hono();
 app.use("*", async (_c, next) => {
@@ -9,17 +10,15 @@ app.use("*", async (_c, next) => {
   await next();
 });
 
-function requireAuth(c: { req: { header: (k: string) => string | undefined } }): ReturnType<typeof getUserByToken> {
-  return getUserByToken(authHeaderToToken(c.req.header("authorization")));
-}
 function _requireAdmin(_c: typeof app extends Hono<infer _> ? never : never): never {
   throw new Error("unused");
 }
 
 // Shipments: list my shipments
 app.get("/", async (c) => {
-  const user = requireAuth(c as unknown as { req: { header: (k: string) => string | undefined } });
-  if (!user) return c.json({ error: "Unauthorized" }, 401);
+  const authRes = await requireUser(c);
+  if ("error" in authRes) return c.json({ error: authRes.error === 403 ? "Akun disuspend" : "Unauthorized" }, authRes.error);
+  const user = authRes.user;
   const mine = [...store.shipments.values()]
     .filter((s) => s.requesterId === user.id)
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
@@ -27,8 +26,9 @@ app.get("/", async (c) => {
 });
 
 app.get("/:id", async (c) => {
-  const user = requireAuth(c as unknown as { req: { header: (k: string) => string | undefined } });
-  if (!user) return c.json({ error: "Unauthorized" }, 401);
+  const authRes = await requireUser(c);
+  if ("error" in authRes) return c.json({ error: authRes.error === 403 ? "Akun disuspend" : "Unauthorized" }, authRes.error);
+  const user = authRes.user;
   const s = store.shipments.get(c.req.param("id"));
   if (!s) return c.json({ error: "Shipment tidak ditemukan" }, 404);
   if (s.requesterId !== user.id && (user.role as string) !== "admin") return c.json({ error: "Forbidden" }, 403);
@@ -50,7 +50,8 @@ app.patch(
     z.object({ status: z.enum(["requested", "packed", "shipped", "delivered", "cancelled"]), trackingNumber: z.string().optional() }),
   ),
   async (c) => {
-    const user = requireAuth(c as unknown as { req: { header: (k: string) => string | undefined } });
+    const authRes = await requireUser(c);
+    const user = "error" in authRes ? null : authRes.user;
     if (!user || (user.role as string) !== "admin") return c.json({ error: "Hanya admin" }, 403);
     const s = store.shipments.get(c.req.param("id"));
     if (!s) return c.json({ error: "Not found" }, 404);
@@ -68,7 +69,7 @@ app.patch(
       s.id,
       { status },
       c.req.header("x-forwarded-for") ?? null,
-      authHeaderToToken(c.req.header("authorization")) ?? null,
+      c.req.header("authorization") ?? null,
     );
     return c.json({ shipment: s });
   },

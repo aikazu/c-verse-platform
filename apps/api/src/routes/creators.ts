@@ -1,5 +1,6 @@
 import { Hono } from "hono";
-import { authHeaderToToken, ensureSeed, getUserByToken, nowIso, store, uid } from "../lib/store.js";
+import { requireUser } from "../lib/auth.js";
+import { ensureSeed, nowIso, store, uid } from "../lib/store.js";
 
 const app = new Hono();
 app.use("*", async (_c, next) => {
@@ -30,14 +31,14 @@ app.get("/", async (c) => {
 });
 
 // Helper: log creator page view (docs 05 creator_page_views + 09 3.5 log from day 1)
-function logCreatorView(creatorUserId: string, c: { req: { header: (k: string) => string | undefined } }) {
+async function logCreatorView(creatorUserId: string, c: { req: { header: (k: string) => string | undefined } }) {
   const rec = [...store.creators.values()].find((cr) => cr.userId === creatorUserId) ?? null;
   if (!rec) return;
   const referrer = c.req.header("referer") ?? c.req.header("referrer") ?? null;
   // city anonymized from header — MVP uses x-forwarded-for stub, not real geo
   const city = (c.req.header("x-city") as string) ?? null;
-  const token = authHeaderToToken(c.req.header("authorization"));
-  const viewer = token ? getUserByToken(token) : null;
+  const viewerRes = await requireUser(c);
+  const viewer = "error" in viewerRes ? null : viewerRes.user;
   store.creatorPageViews.push({ id: uid("cpv-"), creatorId: rec.id, viewedAt: nowIso(), referrer, city, userId: viewer?.id ?? null });
   // guard Y1 <10k/day — simple cap 50k in-memory (avoid unbounded growth)
   if (store.creatorPageViews.length > 50000) store.creatorPageViews.splice(0, 10000);
@@ -57,7 +58,7 @@ app.get("/:id", async (c) => {
       null;
   if (!user || (user.role as string) !== "creator") return c.json({ error: "Creator tidak ditemukan" }, 404);
   const rec = [...store.creators.values()].find((cr) => cr.userId === user?.id) ?? null;
-  logCreatorView(user.id, c);
+  await logCreatorView(user.id, c);
   const drops = [...store.drops.values()]
     .filter((d) => d.creatorId === user?.id && ["published", "live", "sold_out", "scheduled", "ended", "closed"].includes(d.status))
     .sort(
@@ -121,7 +122,7 @@ app.get("/handle/:handle", async (c) => {
   if (!rec) return c.json({ error: "Creator tidak ditemukan" }, 404);
   const user = rec.userId ? (store.users.get(rec.userId) ?? null) : null;
   if (!user) return c.json({ error: "Creator tidak ditemukan" }, 404);
-  logCreatorView(user.id, c);
+  await logCreatorView(user.id, c);
   const drops = [...store.drops.values()].filter((d) => d.creatorId === user.id);
   return c.json({ creator: { id: user.id, displayName: user.displayName, handle: rec.handle }, drops, rec });
 });

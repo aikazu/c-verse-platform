@@ -2,7 +2,8 @@ import { C_COIN_RATE_IDR, MAX_BUYOUT_ACTIVE_PER_USER, splitSecondaryFeeCcoin } f
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import { z } from "zod";
-import { addTx, authHeaderToToken, ensureSeed, ensureWallet, getUserByToken, logAudit, nowIso, store, uid } from "../lib/store.js";
+import { requireUser } from "../lib/auth.js";
+import { addTx, ensureSeed, ensureWallet, logAudit, nowIso, store, uid } from "../lib/store.js";
 
 // Marketplace = buyout langsung di kartu (C-07 FINAL — legacy auction/listing dihapus, spec 16 F-02).
 
@@ -11,10 +12,6 @@ app.use("*", async (_c, next) => {
   ensureSeed();
   await next();
 });
-
-function requireAuth(c: { req: { header: (k: string) => string | undefined } }): ReturnType<typeof getUserByToken> {
-  return getUserByToken(authHeaderToToken(c.req.header("authorization")));
-}
 
 function marketplaceFromCards() {
   return [...store.cards.values()].filter((ca) => ca.buyoutPriceCcoin != null && ca.buyoutPriceCcoin >= 1);
@@ -36,7 +33,8 @@ app.get("/", async (c) => {
     });
   }
   if (mine) {
-    const user = requireAuth(c as unknown as { req: { header: (k: string) => string | undefined } });
+    const authRes = await requireUser(c);
+    const user = "error" in authRes ? null : authRes.user;
     if (user) cards = cards.filter((ca) => ca.ownerId === user.id);
   }
 
@@ -72,8 +70,9 @@ app.post(
     }),
   ),
   async (c) => {
-    const user = requireAuth(c as unknown as { req: { header: (k: string) => string | undefined } });
-    if (!user) return c.json({ error: "Unauthorized" }, 401);
+    const authRes = await requireUser(c);
+    if ("error" in authRes) return c.json({ error: authRes.error === 403 ? "Akun disuspend" : "Unauthorized" }, authRes.error);
+    const user = authRes.user;
     const raw = c.req.valid("json");
     const card = store.cards.get(raw.cardId);
     if (!card) return c.json({ error: "Card tidak ditemukan" }, 404);
@@ -97,8 +96,9 @@ app.post(
 
 // POST /buyout — beli kartu di harga buyout (fee 7,5/7,5/85 via splitSecondaryFeeCcoin)
 app.post("/buyout", zValidator("json", z.object({ cardId: z.string().min(1) })), async (c) => {
-  const user = requireAuth(c as unknown as { req: { header: (k: string) => string | undefined } });
-  if (!user) return c.json({ error: "Unauthorized" }, 401);
+  const authRes = await requireUser(c);
+  if ("error" in authRes) return c.json({ error: authRes.error === 403 ? "Akun disuspend" : "Unauthorized" }, authRes.error);
+  const user = authRes.user;
   const { cardId } = c.req.valid("json");
   const card = store.cards.get(cardId);
   if (!card || card.buyoutPriceCcoin == null) return c.json({ error: "Kartu tidak dijual buyout" }, 404);
@@ -183,8 +183,9 @@ app.post("/buyout", zValidator("json", z.object({ cardId: z.string().min(1) })),
 
 // PATCH /cards/:id/buyout — ubah/hapus harga buyout
 app.patch("/cards/:id/buyout", zValidator("json", z.object({ buyoutPriceCcoin: z.number().int().min(1).nullable() })), async (c) => {
-  const user = requireAuth(c as unknown as { req: { header: (k: string) => string | undefined } });
-  if (!user) return c.json({ error: "Unauthorized" }, 401);
+  const authRes = await requireUser(c);
+  if ("error" in authRes) return c.json({ error: authRes.error === 403 ? "Akun disuspend" : "Unauthorized" }, authRes.error);
+  const user = authRes.user;
   const card = store.cards.get(c.req.param("id"));
   if (!card) return c.json({ error: "Kartu tidak ditemukan" }, 404);
   if (card.ownerId !== user.id) return c.json({ error: "Bukan pemilik" }, 403);
@@ -197,8 +198,9 @@ app.patch("/cards/:id/buyout", zValidator("json", z.object({ buyoutPriceCcoin: z
 
 // DELETE /:cardId — cabut buyout (by card id)
 app.delete("/:id", async (c) => {
-  const user = requireAuth(c as unknown as { req: { header: (k: string) => string | undefined } });
-  if (!user) return c.json({ error: "Unauthorized" }, 401);
+  const authRes = await requireUser(c);
+  if ("error" in authRes) return c.json({ error: authRes.error === 403 ? "Akun disuspend" : "Unauthorized" }, authRes.error);
+  const user = authRes.user;
   const card = store.cards.get(c.req.param("id"));
   if (!card) return c.json({ error: "Kartu tidak ditemukan" }, 404);
   if (card.ownerId !== user.id && (user.role as string) !== "admin") return c.json({ error: "Forbidden" }, 403);

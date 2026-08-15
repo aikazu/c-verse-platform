@@ -2,7 +2,8 @@ import { BALANCE_CAP_CCOIN, C_COIN_RATE_IDR, KYC_TRIGGER_THRESHOLD_CCOIN, MIN_PA
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import { z } from "zod";
-import { addTx, authHeaderToToken, ensureSeed, ensureWallet, getUserByToken, isPayoutHeld, store } from "../lib/store.js";
+import { requireUser } from "../lib/auth.js";
+import { addTx, ensureSeed, ensureWallet, isPayoutHeld, store } from "../lib/store.js";
 
 const app = new Hono();
 app.use("*", async (_c, next) => {
@@ -10,15 +11,12 @@ app.use("*", async (_c, next) => {
   await next();
 });
 
-function requireAuth(c: { req: { header: (k: string) => string | undefined } }): ReturnType<typeof getUserByToken> {
-  return getUserByToken(authHeaderToToken(c.req.header("authorization")));
-}
-
 const KYC_THRESHOLD = KYC_TRIGGER_THRESHOLD_CCOIN; // 1.000 C-Coin (docs/16 F-03; demo pakai KYC_TOPUP_THRESHOLD_DEMO di seed)
 
 app.get("/", async (c) => {
-  const user = requireAuth(c as unknown as { req: { header: (k: string) => string | undefined } });
-  if (!user) return c.json({ error: "Unauthorized" }, 401);
+  const authRes = await requireUser(c);
+  if ("error" in authRes) return c.json({ error: authRes.error === 403 ? "Akun disuspend" : "Unauthorized" }, authRes.error);
+  const user = authRes.user;
   const w = ensureWallet(user.id);
   const txs = store.walletTx
     .filter((t) => t.userId === user.id)
@@ -50,8 +48,9 @@ app.post(
     }),
   ),
   async (c) => {
-    const user = requireAuth(c as unknown as { req: { header: (k: string) => string | undefined } });
-    if (!user) return c.json({ error: "Unauthorized" }, 401);
+    const authRes = await requireUser(c);
+    if ("error" in authRes) return c.json({ error: authRes.error === 403 ? "Akun disuspend" : "Unauthorized" }, authRes.error);
+    const user = authRes.user;
     const raw = c.req.valid("json") as { amountCCoin?: number; amountCcoin?: number; amount_ccoin?: number; method: string };
     const amountCCoin = raw.amountCcoin ?? raw.amountCCoin ?? raw.amount_ccoin;
     if (amountCCoin == null) return c.json({ error: "amountCCoin wajib" }, 400);
@@ -122,8 +121,9 @@ app.post(
     }),
   ),
   async (c) => {
-    const user = requireAuth(c as unknown as { req: { header: (k: string) => string | undefined } });
-    if (!user) return c.json({ error: "Unauthorized" }, 401);
+    const authRes = await requireUser(c);
+    if ("error" in authRes) return c.json({ error: authRes.error === 403 ? "Akun disuspend" : "Unauthorized" }, authRes.error);
+    const user = authRes.user;
     const raw = c.req.valid("json") as { amountCCoin?: number; amountCcoin?: number; bankAccount?: string };
     const amountCCoin = raw.amountCcoin ?? raw.amountCCoin;
     if (amountCCoin == null) return c.json({ error: "amountCCoin wajib" }, 400);

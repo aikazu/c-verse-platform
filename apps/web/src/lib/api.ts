@@ -1,11 +1,24 @@
 const API_BASE = "";
 
+// Supabase Auth: access token di-push dari AuthProvider (session di-manage supabase-js).
+// Legacy dev (tanpa Supabase): token demo di localStorage.
+let sessionToken: string | null = null;
+
+export function setApiToken(token: string | null) {
+  sessionToken = token;
+}
+
 function getToken(): string | null {
-  try {
-    return localStorage.getItem("cverse_token");
-  } catch {
-    return null;
-  }
+  return (
+    sessionToken ??
+    (() => {
+      try {
+        return localStorage.getItem("cverse_token");
+      } catch {
+        return null;
+      }
+    })()
+  );
 }
 function authHeaders(): Record<string, string> {
   const t = getToken();
@@ -25,14 +38,9 @@ async function req<T>(path: string, opts: RequestInit = {}): Promise<T> {
 }
 
 export const api = {
-  // auth
-  login: (email: string, password: string) =>
-    req<{ token: string; user: any }>("/auth/login", { method: "POST", body: JSON.stringify({ email, password }) }),
-  register: (email: string, password: string, displayName: string) =>
-    req<{ token: string; user: any }>("/auth/register", { method: "POST", body: JSON.stringify({ email, password, displayName }) }),
+  // auth (Supabase Auth dipakai di lib/auth.tsx; endpoint password dihapus per docs/10)
   demoLogin: () => req<{ token: string; user: any }>("/auth/demo-login", { method: "POST" }),
   me: () => req<any>("/auth/me"),
-  logout: () => req("/auth/logout", { method: "POST" }),
   // drops
   drops: (params?: Record<string, string>) => {
     const qs = params ? `?${new URLSearchParams(params).toString()}` : "";

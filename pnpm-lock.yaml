@@ -76,6 +76,9 @@ importers:
       hono:
         specifier: ^4.7.4
         version: 4.13.1
+      jose:
+        specifier: ^6.2.8
+        version: 6.2.8
       zod:
         specifier: ^3.24.1
         version: 3.25.76
@@ -1366,6 +1369,9 @@ packages:
 
   is-arrayish@0.3.4:
     resolution: {integrity: sha512-m6UrgzFVUYawGBh1dUsWR5M2Clqic9RVXC/9f8ceNlv2IcO9j9J/z8UoCLPqtsPBFNzEpfR3xftohbfqDx8EQA==}
+
+  jose@6.2.8:
+    resolution: {integrity: sha512-Bsdjwm3Qsd/P0jR+BHDe3LytDfY7WBq2HmCCLIwuVRHMuEC9ae7/R474GIUdF1NgCyZjzVo/A9DOiOBtXq8ZoQ==}
 
   js-tokens@4.0.0:
     resolution: {integrity: sha512-RdJUflcE3cUzKiMqQgsCu06FPu9UdIJO0beYbPhHN4k6apgJtifcoCtT9bcxOpYBtpD2kCM6Sbzg4CausW/PKQ==}
@@ -2723,6 +2729,8 @@ snapshots:
 
   is-arrayish@0.3.4:
     optional: true
+
+  jose@6.2.8: {}
 
   js-tokens@4.0.0: {}
 

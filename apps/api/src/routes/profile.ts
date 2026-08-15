@@ -1,6 +1,7 @@
 import { C_COIN_RATE_IDR } from "@c-verse/shared";
 import { Hono } from "hono";
-import { authHeaderToToken, ensureSeed, ensureWallet, getUserByToken, store } from "../lib/store.js";
+import { requireUser } from "../lib/auth.js";
+import { ensureSeed, ensureWallet, store } from "../lib/store.js";
 
 const app = new Hono();
 app.use("*", async (_c, next) => {
@@ -8,14 +9,11 @@ app.use("*", async (_c, next) => {
   await next();
 });
 
-function requireAuth(c: { req: { header: (k: string) => string | undefined } }): ReturnType<typeof getUserByToken> {
-  return getUserByToken(authHeaderToToken(c.req.header("authorization")));
-}
-
 // GET / — my profile, cards, orders, shipments, badges, kyc, level
 app.get("/", async (c) => {
-  const user = requireAuth(c as unknown as { req: { header: (k: string) => string | undefined } });
-  if (!user) return c.json({ error: "Unauthorized" }, 401);
+  const authRes = await requireUser(c);
+  if ("error" in authRes) return c.json({ error: authRes.error === 403 ? "Akun disuspend" : "Unauthorized" }, authRes.error);
+  const user = authRes.user;
   const myCards = [...store.cards.values()].filter((ca) => ca.ownerId === user.id);
   const myOrders = [...store.orders.values()]
     .filter((o) => o.userId === user.id)
@@ -80,8 +78,9 @@ app.get("/", async (c) => {
 });
 
 app.get("/cards", async (c) => {
-  const user = requireAuth(c as unknown as { req: { header: (k: string) => string | undefined } });
-  if (!user) return c.json({ error: "Unauthorized" }, 401);
+  const authRes = await requireUser(c);
+  if ("error" in authRes) return c.json({ error: authRes.error === 403 ? "Akun disuspend" : "Unauthorized" }, authRes.error);
+  const user = authRes.user;
   const myCards = [...store.cards.values()]
     .filter((ca) => ca.ownerId === user.id)
     .map((ca) => {
@@ -93,8 +92,9 @@ app.get("/cards", async (c) => {
 
 // PATCH /privacy — toggle isAnonymous (02-pages PG-USR-10 / PG-PROF-01)
 app.patch("/privacy", async (c) => {
-  const user = requireAuth(c as unknown as { req: { header: (k: string) => string | undefined } });
-  if (!user) return c.json({ error: "Unauthorized" }, 401);
+  const authRes = await requireUser(c);
+  if ("error" in authRes) return c.json({ error: authRes.error === 403 ? "Akun disuspend" : "Unauthorized" }, authRes.error);
+  const user = authRes.user;
   let body: { isAnonymous?: boolean } = {};
   try {
     body = (await c.req.json()) as typeof body;
@@ -108,8 +108,9 @@ app.patch("/privacy", async (c) => {
 
 // PATCH /consent — data consent toggles (docs 09 3.4: consent_analytics_detail + consent_data_market)
 app.patch("/consent", async (c) => {
-  const user = requireAuth(c as unknown as { req: { header: (k: string) => string | undefined } });
-  if (!user) return c.json({ error: "Unauthorized" }, 401);
+  const authRes = await requireUser(c);
+  if ("error" in authRes) return c.json({ error: authRes.error === 403 ? "Akun disuspend" : "Unauthorized" }, authRes.error);
+  const user = authRes.user;
   let body: { consentAnalyticsDetail?: boolean; consentDataMarket?: boolean } = {};
   try {
     body = (await c.req.json()) as typeof body;
@@ -126,8 +127,9 @@ app.patch("/consent", async (c) => {
 
 // PATCH / — update displayName / avatar / username
 app.patch("/", async (c) => {
-  const user = requireAuth(c as unknown as { req: { header: (k: string) => string | undefined } });
-  if (!user) return c.json({ error: "Unauthorized" }, 401);
+  const authRes = await requireUser(c);
+  if ("error" in authRes) return c.json({ error: authRes.error === 403 ? "Akun disuspend" : "Unauthorized" }, authRes.error);
+  const user = authRes.user;
   let body: { displayName?: string; avatarUrl?: string; username?: string } = {};
   try {
     body = (await c.req.json()) as typeof body;

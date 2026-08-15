@@ -2,28 +2,14 @@ import { C_COIN_RATE_IDR } from "@c-verse/shared";
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import { z } from "zod";
-import {
-  addTx,
-  authHeaderToToken,
-  awardBadgeIfNeeded,
-  ensureSeed,
-  ensureWallet,
-  getUserByToken,
-  logAudit,
-  nowIso,
-  store,
-  uid,
-} from "../lib/store.js";
+import { requireUser } from "../lib/auth.js";
+import { addTx, awardBadgeIfNeeded, ensureSeed, ensureWallet, logAudit, nowIso, store, uid } from "../lib/store.js";
 
 const app = new Hono();
 app.use("*", async (_c, next) => {
   ensureSeed();
   await next();
 });
-
-function requireAuth(c: { req: { header: (k: string) => string | undefined } }): ReturnType<typeof getUserByToken> {
-  return getUserByToken(authHeaderToToken(c.req.header("authorization")));
-}
 
 // ── Checkout (primary sale — 1 kartu per checkout, 1 kartu/user/drop) ─────
 // Delivery: shipping (alamat + ongkir integer >=1) atau vault (no alamat/tracking)
@@ -42,8 +28,9 @@ app.post(
     }),
   ),
   async (c) => {
-    const user = requireAuth(c as unknown as { req: { header: (k: string) => string | undefined } });
-    if (!user) return c.json({ error: "Unauthorized" }, 401);
+    const authRes = await requireUser(c);
+    if ("error" in authRes) return c.json({ error: authRes.error === 403 ? "Akun disuspend" : "Unauthorized" }, authRes.error);
+    const user = authRes.user;
 
     const body = c.req.valid("json");
     const dropId = body.dropId;
@@ -210,8 +197,9 @@ app.post(
 
 // List orders mine
 app.get("/", async (c) => {
-  const user = requireAuth(c as unknown as { req: { header: (k: string) => string | undefined } });
-  if (!user) return c.json({ error: "Unauthorized" }, 401);
+  const authRes = await requireUser(c);
+  if ("error" in authRes) return c.json({ error: authRes.error === 403 ? "Akun disuspend" : "Unauthorized" }, authRes.error);
+  const user = authRes.user;
   const orders = [...store.orders.values()]
     .filter((o) => o.userId === user.id)
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
@@ -219,8 +207,9 @@ app.get("/", async (c) => {
 });
 
 app.get("/:id", async (c) => {
-  const user = requireAuth(c as unknown as { req: { header: (k: string) => string | undefined } });
-  if (!user) return c.json({ error: "Unauthorized" }, 401);
+  const authRes = await requireUser(c);
+  if ("error" in authRes) return c.json({ error: authRes.error === 403 ? "Akun disuspend" : "Unauthorized" }, authRes.error);
+  const user = authRes.user;
   const o = store.orders.get(c.req.param("id")) as unknown as { userId: string; dropId: string; cardIds: string[] } & Record<
     string,
     unknown
@@ -235,8 +224,9 @@ app.get("/:id", async (c) => {
 });
 
 app.post("/:id/confirm-delivered", async (c) => {
-  const user = requireAuth(c as unknown as { req: { header: (k: string) => string | undefined } });
-  if (!user) return c.json({ error: "Unauthorized" }, 401);
+  const authRes = await requireUser(c);
+  if ("error" in authRes) return c.json({ error: authRes.error === 403 ? "Akun disuspend" : "Unauthorized" }, authRes.error);
+  const user = authRes.user;
   const o = store.orders.get(c.req.param("id")) as unknown as Record<string, unknown> & { userId: string; status: string };
   if (!o || o.userId !== user.id) return c.json({ error: "Order tidak ditemukan" }, 404);
   (o as unknown as Record<string, unknown>).status = "delivered";
@@ -249,7 +239,7 @@ app.post("/:id/confirm-delivered", async (c) => {
     o.id as string,
     { status: "delivered" },
     c.req.header("x-forwarded-for") ?? null,
-    authHeaderToToken(c.req.header("authorization")) ?? null,
+    c.req.header("authorization") ?? null,
   );
   return c.json({ order: o });
 });
@@ -259,8 +249,9 @@ app.post(
   "/vault-shipout",
   zValidator("json", z.object({ cardId: z.string().min(1), address: z.string().min(10).max(500), feeCcoin: z.number().int().min(1) })),
   async (c) => {
-    const user = requireAuth(c as unknown as { req: { header: (k: string) => string | undefined } });
-    if (!user) return c.json({ error: "Unauthorized" }, 401);
+    const authRes = await requireUser(c);
+    if ("error" in authRes) return c.json({ error: authRes.error === 403 ? "Akun disuspend" : "Unauthorized" }, authRes.error);
+    const user = authRes.user;
     const { cardId, address, feeCcoin } = c.req.valid("json");
     const card = store.cards.get(cardId);
     if (!card) return c.json({ error: "Kartu tidak ditemukan" }, 404);
@@ -297,7 +288,7 @@ app.post(
       shipId,
       { cardId, feeCcoin },
       c.req.header("x-forwarded-for") ?? null,
-      authHeaderToToken(c.req.header("authorization")) ?? null,
+      c.req.header("authorization") ?? null,
     );
     return c.json({
       ok: true,
