@@ -1,5 +1,5 @@
 import type React from "react";
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { api, clearToken, saveToken, setApiToken } from "./api";
 import { isSupabaseEnabled, supabase } from "./supabase";
 
@@ -127,13 +127,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await loadProfile(setUser, token);
   }
 
-  return (
-    <AuthCtx.Provider
-      value={{ user, token, loading, isSupabaseAuth: isSupabaseEnabled, loginGoogle, sendOtp, verifyOtp, demoLogin, logout, refresh }}
-    >
-      {children}
-    </AuthCtx.Provider>
+  // value stabil antar-render — konsumen useAuth tidak ikut re-render saat state lain berubah
+  const ctxValue = useMemo(
+    () => ({ user, token, loading, isSupabaseAuth: isSupabaseEnabled, loginGoogle, sendOtp, verifyOtp, demoLogin, logout, refresh }),
+    [user, token, loading, loginGoogle, sendOtp, verifyOtp, demoLogin, logout, refresh],
   );
+
+  return <AuthCtx.Provider value={ctxValue}>{children}</AuthCtx.Provider>;
 }
 
 export const useAuth = () => useContext(AuthCtx);

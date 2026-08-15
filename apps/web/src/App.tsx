@@ -1,33 +1,36 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import React from "react";
+import React, { lazy, Suspense } from "react";
 import { BrowserRouter, NavLink, Route, Routes, useNavigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./lib/auth";
 import { ToastProvider } from "./lib/toast";
-import Browse from "./pages/Browse";
-import Card3D from "./pages/Card3D";
-import CardInfo from "./pages/CardInfo";
-import Checkout from "./pages/Checkout";
-import Collection from "./pages/Collection";
-import CreatorDashboard from "./pages/CreatorDashboard";
-import CreatorPage from "./pages/CreatorPage";
-import DropDetail from "./pages/DropDetail";
-import Drops from "./pages/Drops";
-import Home from "./pages/Home";
-import Kyc from "./pages/Kyc";
-import Landing from "./pages/Landing";
-import Leaderboard from "./pages/Leaderboard";
-import ListingDetail from "./pages/ListingDetail";
-import Login from "./pages/Login";
-import ManageCards from "./pages/ManageCards";
-import Marketplace from "./pages/Marketplace";
-import Notifications from "./pages/Notifications";
-import OrderDetail from "./pages/OrderDetail";
-import Orders from "./pages/Orders";
-import Privacy from "./pages/Privacy";
-import PublicProfile from "./pages/PublicProfile";
-import Register from "./pages/Register";
-import Wallet from "./pages/Wallet";
 import "./styles.css";
+
+// Code-splitting: tiap halaman jadi chunk terpisah — visitor landing tidak
+// mengunduh kode marketplace/wallet/creator dashboard (audit performance P0).
+const Browse = lazy(() => import("./pages/Browse"));
+const Card3D = lazy(() => import("./pages/Card3D"));
+const CardInfo = lazy(() => import("./pages/CardInfo"));
+const Checkout = lazy(() => import("./pages/Checkout"));
+const Collection = lazy(() => import("./pages/Collection"));
+const CreatorDashboard = lazy(() => import("./pages/CreatorDashboard"));
+const CreatorPage = lazy(() => import("./pages/CreatorPage"));
+const DropDetail = lazy(() => import("./pages/DropDetail"));
+const Drops = lazy(() => import("./pages/Drops"));
+const Home = lazy(() => import("./pages/Home"));
+const Kyc = lazy(() => import("./pages/Kyc"));
+const Landing = lazy(() => import("./pages/Landing"));
+const Leaderboard = lazy(() => import("./pages/Leaderboard"));
+const ListingDetail = lazy(() => import("./pages/ListingDetail"));
+const Login = lazy(() => import("./pages/Login"));
+const ManageCards = lazy(() => import("./pages/ManageCards"));
+const Marketplace = lazy(() => import("./pages/Marketplace"));
+const Notifications = lazy(() => import("./pages/Notifications"));
+const OrderDetail = lazy(() => import("./pages/OrderDetail"));
+const Orders = lazy(() => import("./pages/Orders"));
+const Privacy = lazy(() => import("./pages/Privacy"));
+const PublicProfile = lazy(() => import("./pages/PublicProfile"));
+const Register = lazy(() => import("./pages/Register"));
+const Wallet = lazy(() => import("./pages/Wallet"));
 
 const qc = new QueryClient();
 
@@ -224,37 +227,45 @@ function AppRoutes() {
     <div className="app-shell">
       <Navbar />
       <main className="main-content">
-        <Routes>
-          <Route path="/" element={<Landing />} />
-          <Route path="/drops" element={<Drops />} />
-          <Route path="/drops/:id" element={<DropDetail />} />
-          <Route path="/drops/:id/checkout" element={<Checkout />} />
-          <Route path="/home" element={<Home />} />
-          <Route path="/wallet" element={<Wallet />} />
-          <Route path="/orders" element={<Orders />} />
-          <Route path="/orders/:id" element={<OrderDetail />} />
-          <Route path="/cards/:cardId" element={<CardInfo />} />
-          <Route path="/cards/:cardId/3d" element={<Card3D />} />
-          <Route path="/marketplace" element={<Marketplace />} />
-          <Route path="/marketplace/:id" element={<ListingDetail />} />
-          <Route path="/browse" element={<Browse />} />
-          <Route path="/collection" element={<Collection />} />
-          <Route path="/me" element={<Collection />} />
-          <Route path="/me/manage" element={<ManageCards />} />
-          <Route path="/me/privacy" element={<Privacy />} />
-          <Route path="/me/kyc" element={<Kyc />} />
-          <Route path="/notifications" element={<Notifications />} />
-          <Route path="/leaderboard" element={<Leaderboard />} />
-          <Route path="/c/:username" element={<CreatorPage />} />
-          <Route path="/u/:username" element={<PublicProfile />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
-          <Route path="/creator" element={<CreatorDashboard />} />
-          <Route path="/creator/drops" element={<CreatorDashboard />} />
-          {/* Compat: legacy /verify — Verify melekat di /cards/:id (QR→Registered) & /cards/:id/3d (NFC→Verified) per docs/02 */}
-          <Route path="/verify" element={<Browse />} />
-          <Route path="/verify/:shortId" element={<CardInfo />} />
-        </Routes>
+        <Suspense
+          fallback={
+            <div className="muted" style={{ padding: 32, textAlign: "center" }}>
+              Memuat…
+            </div>
+          }
+        >
+          <Routes>
+            <Route path="/" element={<Landing />} />
+            <Route path="/drops" element={<Drops />} />
+            <Route path="/drops/:id" element={<DropDetail />} />
+            <Route path="/drops/:id/checkout" element={<Checkout />} />
+            <Route path="/home" element={<Home />} />
+            <Route path="/wallet" element={<Wallet />} />
+            <Route path="/orders" element={<Orders />} />
+            <Route path="/orders/:id" element={<OrderDetail />} />
+            <Route path="/cards/:cardId" element={<CardInfo />} />
+            <Route path="/cards/:cardId/3d" element={<Card3D />} />
+            <Route path="/marketplace" element={<Marketplace />} />
+            <Route path="/marketplace/:id" element={<ListingDetail />} />
+            <Route path="/browse" element={<Browse />} />
+            <Route path="/collection" element={<Collection />} />
+            <Route path="/me" element={<Collection />} />
+            <Route path="/me/manage" element={<ManageCards />} />
+            <Route path="/me/privacy" element={<Privacy />} />
+            <Route path="/me/kyc" element={<Kyc />} />
+            <Route path="/notifications" element={<Notifications />} />
+            <Route path="/leaderboard" element={<Leaderboard />} />
+            <Route path="/c/:username" element={<CreatorPage />} />
+            <Route path="/u/:username" element={<PublicProfile />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
+            <Route path="/creator" element={<CreatorDashboard />} />
+            <Route path="/creator/drops" element={<CreatorDashboard />} />
+            {/* Compat: legacy /verify — Verify melekat di /cards/:id (QR→Registered) & /cards/:id/3d (NFC→Verified) per docs/02 */}
+            <Route path="/verify" element={<Browse />} />
+            <Route path="/verify/:shortId" element={<CardInfo />} />
+          </Routes>
+        </Suspense>
       </main>
       <footer
         style={{
