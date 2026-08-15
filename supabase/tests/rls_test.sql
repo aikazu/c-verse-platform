@@ -57,8 +57,7 @@ end $$;
 -- T8: anon insert creator_page_views -> OK
 do $$
 begin
-  insert into public.creator_page_views (id, creator_id, viewed_at) values ('90000000-0000-4000-8000-000000000002', 'cr-karina', now())
-  on conflict (id) do nothing;
+  insert into public.creator_page_views (id, creator_id, viewed_at) values (gen_random_uuid()::text, 'cr-karina', now());
   raise notice 'T8 PASS';
 exception when others then
   raise notice 'T8 FAIL (%)', sqlerrm;
