@@ -23,12 +23,14 @@ export type Bindings = {
   ENV?: string;
 };
 
-// Fail-fast: in-memory store fallback is dev/demo only — production MUST have Supabase (spec 16 F-08).
+// Fail-safe: fallback in-memory (session demo hardcoded) HANYA boleh aktif jika
+// ENV eksplisit "development" — deploy tanpa ENV/secrets harus mati keras,
+// bukan diam-diam jalan dengan token demo (spec 16 F-08).
 const g = globalThis as unknown as Record<string, string | undefined>;
 const envMode = g.ENV ?? (typeof process !== "undefined" ? process.env.NODE_ENV : undefined) ?? "";
 const supabaseUrl = g.SUPABASE_URL ?? (typeof process !== "undefined" ? process.env.SUPABASE_URL : undefined);
-if (envMode === "production" && !supabaseUrl) {
-  throw new Error("SUPABASE_URL required in production");
+if (envMode !== "development" && envMode !== "dev" && !supabaseUrl) {
+  throw new Error("SUPABASE_URL required (set ENV=development explicitly to allow the in-memory demo fallback)");
 }
 
 const app = new Hono<{ Bindings: Bindings }>();

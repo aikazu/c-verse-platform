@@ -6,7 +6,7 @@ compatibility_flags = ["nodejs_compat"]
 # ── Bindings (docs/08 §3.3 — runbook full-edge)
 # ENV distinguishes local vs preview vs prod; real secrets via `wrangler secret put` (never in repo).
 [vars]
-ENV = "development"
+ENV = "production"
 
 # Secrets (set via `wrangler secret put` — see docs/08 §3.3 + §7):
 # SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY,
