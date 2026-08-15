@@ -4,6 +4,10 @@ import { Hono } from "hono";
 import { z } from "zod";
 import { requireUser } from "../lib/auth.js";
 import { isDbEnabled, RpcError, rpcBuyoutCard, rpcSetBuyout, userDb } from "../lib/db.js";
+import { listDrops } from "../lib/reads/drops.js";
+import { listMarketplaceCards } from "../lib/reads/marketplace.js";
+import { listUsersByIds } from "../lib/reads/users.js";
+import type { Drop, User } from "../lib/store.js";
 import { addTx, ensureSeed, ensureWallet, logAudit, nowIso, store, uid } from "../lib/store.js";
 
 // Marketplace = buyout langsung di kartu (C-07 FINAL — legacy auction/listing dihapus, spec 16 F-02).
@@ -14,20 +18,17 @@ app.use("*", async (_c, next) => {
   await next();
 });
 
-function marketplaceFromCards() {
-  return [...store.cards.values()].filter((ca) => ca.buyoutPriceCcoin != null && ca.buyoutPriceCcoin >= 1);
-}
-
 // GET / — kartu dengan harga buyout aktif
 app.get("/", async (c) => {
   const q = c.req.query();
   const search = q.search?.toLowerCase();
   const mine = q.mine === "1";
 
-  let cards = marketplaceFromCards();
+  const dropById = new Map<string, Drop>((await listDrops()).map((d) => [d.id, d]));
+  let cards = await listMarketplaceCards();
   if (search) {
     cards = cards.filter((ca) => {
-      const drop = store.drops.get(ca.dropId);
+      const drop = dropById.get(ca.dropId);
       const title = drop?.title.toLowerCase().includes(search) ?? false;
       const series = drop?.series.toLowerCase().includes(search) ?? false;
       return title || series || ca.nfcShortId.toLowerCase().includes(search);
@@ -39,11 +40,14 @@ app.get("/", async (c) => {
     if (user) cards = cards.filter((ca) => ca.ownerId === user.id);
   }
 
+  const sellerIds = [...new Set(cards.map((ca) => ca.ownerId).filter((id): id is string => id != null))];
+  const sellerById = new Map<string, User>((await listUsersByIds(sellerIds)).map((u) => [u.id, u]));
+
   const marketplace = cards
     .sort((a, b) => (a.buyoutPriceCcoin ?? 0) - (b.buyoutPriceCcoin ?? 0))
     .map((card) => {
-      const drop = store.drops.get(card.dropId);
-      const seller = card.ownerId ? store.users.get(card.ownerId) : null;
+      const drop = dropById.get(card.dropId);
+      const seller = card.ownerId ? (sellerById.get(card.ownerId) ?? null) : null;
       return {
         kind: "buyout" as const,
         card,

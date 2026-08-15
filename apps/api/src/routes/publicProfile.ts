@@ -1,5 +1,8 @@
 import { Hono } from "hono";
-import { ensureSeed, store } from "../lib/store.js";
+import { listCards, listDrops } from "../lib/reads/drops.js";
+import { getUserByUsernameOrId, getUserRank, listUserBadges } from "../lib/reads/profiles.js";
+import type { Drop } from "../lib/store.js";
+import { ensureSeed } from "../lib/store.js";
 
 const app = new Hono();
 app.use("*", async (_c, next) => {
@@ -10,51 +13,31 @@ app.use("*", async (_c, next) => {
 // GET /u/:username — public collector profile (koleksi/level/badge/ranking) — hidden if isAnonymous
 app.get("/u/:username", async (c) => {
   const raw = c.req.param("username");
-  const user = [...store.users.values()].find(
-    (u) => ((u as unknown as { username?: string }).username ?? "").toLowerCase() === raw.toLowerCase() || u.id === raw,
-  );
+  const user = await getUserByUsernameOrId(raw);
   if (!user) return c.json({ error: "User tidak ditemukan" }, 404);
-  if ((user as unknown as { isAnonymous?: boolean }).isAnonymous) {
+  if (user.isAnonymous) {
     return c.json({
-      user: {
-        id: user.id,
-        displayName: user.displayName,
-        username: (user as unknown as { username?: string }).username ?? null,
-        isAnonymous: true,
-      },
+      user: { id: user.id, displayName: user.displayName, username: user.username ?? null, isAnonymous: true },
       hidden: true,
     });
   }
-  const totalXp = (user as unknown as { totalXp?: number }).totalXp ?? (user as unknown as { xp?: number }).xp ?? 0;
+  const totalXp = user.totalXp ?? user.xp ?? 0;
   const { calcLevel } = await import("@c-verse/shared");
   const { level, tier } = calcLevel(totalXp);
   const progressInLevel = totalXp % 10;
   const levelProgressPct = Math.round((progressInLevel / 10) * 100);
-  const cards = [...store.cards.values()]
-    .filter((ca) => ca.ownerId === user.id)
-    .map((ca) => {
-      const drop = store.drops.get(ca.dropId);
-      return { ...ca, drop: drop ? { id: drop.id, title: drop.title, series: drop.series } : null };
-    });
-  const badges = store.userBadges
-    .filter((ub) => ub.userId === user.id)
-    .map((ub) => {
-      const def = store.badges.find((b) => b.id === ub.badgeId);
-      return { ...ub, badge: def };
-    });
-  const rank =
-    [...store.users.values()]
-      .sort(
-        (a, b) =>
-          ((b as unknown as { totalXp?: number }).totalXp ?? (b as unknown as { xp: number }).xp) -
-          ((a as unknown as { totalXp?: number }).totalXp ?? (a as unknown as { xp: number }).xp),
-      )
-      .findIndex((u) => u.id === user.id) + 1;
+  const dropById = new Map<string, Drop>((await listDrops()).map((d) => [d.id, d]));
+  const cards = (await listCards({ ownerId: user.id })).map((ca) => {
+    const drop = dropById.get(ca.dropId);
+    return { ...ca, drop: drop ? { id: drop.id, title: drop.title, series: drop.series } : null };
+  });
+  const badges = await listUserBadges(user.id);
+  const rank = await getUserRank(user.id, totalXp);
   return c.json({
     user: {
       id: user.id,
       displayName: user.displayName,
-      username: (user as unknown as { username?: string }).username ?? null,
+      username: user.username ?? null,
       level,
       tier,
       levelProgressPct,

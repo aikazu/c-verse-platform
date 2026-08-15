@@ -1,6 +1,10 @@
 import { PRIMARY_DOMAIN } from "@c-verse/shared";
 import { Hono } from "hono";
-import { ensureSeed, store } from "../lib/store.js";
+import { getCreatorByHandle, getCreatorByUserId, listCreators, listCreatorUsers } from "../lib/reads/creators.js";
+import { getCardByIdOrNfc, getDropById, listCards, listDrops } from "../lib/reads/drops.js";
+import { getUserById, getUserByUsername } from "../lib/reads/users.js";
+import type { CreatorRec } from "../lib/store.js";
+import { ensureSeed } from "../lib/store.js";
 
 const app = new Hono();
 app.use("*", async (_c, next) => {
@@ -11,9 +15,12 @@ app.use("*", async (_c, next) => {
 // GET /sitemap.xml — dynamic sitemap for SEO (docs 02 s.8: SPA + Worker HTMLRewriter + sitemap generator)
 app.get("/sitemap.xml", async (_c) => {
   const base = `https://${PRIMARY_DOMAIN}`;
-  const drops = [...store.drops.values()].filter((d) => ["published", "live", "sold_out", "scheduled"].includes(d.status));
-  const creators = [...store.users.values()].filter((u) => (u.role as string) === "creator");
-  const cards = [...store.cards.values()].slice(0, 100); // cap for Y1
+  const drops = (await listDrops()).filter((d) => ["published", "live", "sold_out", "scheduled"].includes(d.status));
+  const creators = await listCreatorUsers();
+  const recByUserId = new Map<string, CreatorRec>(
+    (await listCreators()).filter((cr) => cr.userId != null).map((cr) => [cr.userId as string, cr]),
+  );
+  const cards = (await listCards()).slice(0, 100); // cap for Y1
   const now = new Date().toISOString();
   const urls: string[] = [
     `<url><loc>${base}/</loc><lastmod>${now}</lastmod></url>`,
@@ -24,8 +31,8 @@ app.get("/sitemap.xml", async (_c) => {
   ];
   for (const d of drops) urls.push(`<url><loc>${base}/drops/${d.id}</loc><lastmod>${d.createdAt}</lastmod></url>`);
   for (const u of creators) {
-    const handle = (u as unknown as { username?: string }).username ?? u.id;
-    const rec = [...store.creators.values()].find((cr) => cr.userId === u.id);
+    const handle = u.username ?? u.id;
+    const rec = recByUserId.get(u.id);
     const slug = rec?.handle ?? handle;
     urls.push(`<url><loc>${base}/c/${slug}</loc><lastmod>${u.createdAt}</lastmod></url>`);
   }
@@ -39,16 +46,11 @@ app.get("/meta", async (c) => {
   const path = c.req.query("path") ?? "/";
   if (path.startsWith("/c/")) {
     const slug = path.slice(3).split("?")[0].split("/")[0];
-    const rec = [...store.creators.values()].find((cr) => cr.handle.toLowerCase() === slug.toLowerCase());
-    const user = rec
-      ? rec.userId
-        ? store.users.get(rec.userId)
-        : undefined
-      : [...store.users.values()].find(
-          (u) => ((u as unknown as { username?: string }).username ?? "").toLowerCase() === slug.toLowerCase(),
-        );
+    const rec = await getCreatorByHandle(slug);
+    // mirror store behavior: username fallback only when no creator record matches the handle
+    const user = rec ? (rec.userId ? await getUserById(rec.userId) : null) : await getUserByUsername(slug);
     if (!user) return c.json({ error: "Not found" }, 404);
-    const rec2 = [...store.creators.values()].find((cr) => cr.userId === user.id);
+    const rec2 = await getCreatorByUserId(user.id);
     return c.json({
       og: { title: `${user.displayName} — C.Verse`, description: `Koleksi kreator ${user.displayName} di C.Verse`, image: null },
       jsonLd: {
@@ -62,9 +64,9 @@ app.get("/meta", async (c) => {
   }
   if (path.startsWith("/cards/")) {
     const id = path.split("/")[2];
-    const card = store.cards.get(id) ?? [...store.cards.values()].find((ca) => ca.nfcShortId === id);
+    const card = await getCardByIdOrNfc(id);
     if (!card) return c.json({ error: "Not found" }, 404);
-    const drop = store.drops.get(card.dropId);
+    const drop = await getDropById(card.dropId);
     return c.json({
       og: {
         title: `${drop?.title ?? "Kartu"} #${card.unitNumber} — C.Verse`,
@@ -83,7 +85,7 @@ app.get("/meta", async (c) => {
   }
   if (path.startsWith("/drops/")) {
     const id = path.split("/")[2];
-    const drop = store.drops.get(id);
+    const drop = await getDropById(id);
     if (!drop) return c.json({ error: "Not found" }, 404);
     return c.json({
       og: { title: `${drop.title} — Drop C.Verse`, description: drop.narrative?.slice(0, 160) ?? "", image: drop.artworkUrl },
@@ -92,8 +94,7 @@ app.get("/meta", async (c) => {
         "@type": "Event",
         name: drop.title,
         image: drop.artworkUrl,
-        startDate:
-          (drop as unknown as { dropStartAt?: string }).dropStartAt ?? (drop as unknown as { dropAt?: string }).dropAt ?? undefined,
+        startDate: drop.dropStartAt ?? drop.dropAt ?? undefined,
       },
     });
   }
