@@ -141,7 +141,7 @@ export default function ListingDetail() {
             )}
           </div>
           <div style={{ fontSize: 12, color: "var(--muted)" }}>
-            Seller: {(data as any).seller?.displayName ?? listing.sellerId} · Card: {card?.id} · ShortID: {card?.nfcShortId}
+            Seller: {(data as any).seller?.displayName ?? "—"} · Card: {card?.id} · ShortID: {card?.nfcShortId}
           </div>
           <div
             style={{

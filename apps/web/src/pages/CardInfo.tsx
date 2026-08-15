@@ -93,7 +93,7 @@ export default function CardInfo() {
                 <div style={{ fontSize: 13 }}>
                   <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--text-dim)" }}>Pemilik</span>{" "}
                   <Link to={`/u/${owner.username ?? owner.id}`} style={{ color: "var(--gold)", fontWeight: 500 }}>
-                    {owner.displayName ?? owner.id}
+                    {owner.displayName}
                   </Link>
                 </div>
               )}

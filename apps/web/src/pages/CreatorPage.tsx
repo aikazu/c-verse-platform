@@ -31,9 +31,11 @@ export default function CreatorPage() {
         <h1 className="h2" style={{ marginTop: 4 }}>
           {creator.displayName}
         </h1>
-        <div style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--text-muted)", marginTop: 4 }}>
-          @{creator.username ?? creator.handle ?? creator.id}
-        </div>
+        {(creator.username ?? creator.handle) && (
+          <div style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--text-muted)", marginTop: 4 }}>
+            @{creator.username ?? creator.handle}
+          </div>
+        )}
         {/* docs/02 PG-CRT-PUB-01: handle + bio + link sosial + list drop; TANPA jumlah follower */}
         {creator.handle && (
           <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--text-dim)", marginTop: 8 }}>

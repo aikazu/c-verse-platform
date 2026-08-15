@@ -114,9 +114,9 @@ export default function DropDetail() {
             <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--text-dim)", marginTop: 10 }}>
               oleh {drop.creatorName} {dropAt ? `· ${new Date(dropAt).toLocaleString("id-ID")}` : ""}
             </div>
-            {drop.creatorId && (
+            {(drop.creatorHandle ?? drop.creatorUsername ?? drop.creatorId) && (
               <Link
-                to={`/c/${drop.creatorId}`}
+                to={`/c/${drop.creatorHandle ?? drop.creatorUsername ?? drop.creatorId}`}
                 style={{ fontSize: 12, color: "var(--gold)", marginTop: 8, display: "inline-block", fontWeight: 500 }}
               >
                 Lihat kreator →

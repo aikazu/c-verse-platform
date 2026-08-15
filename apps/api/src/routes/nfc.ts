@@ -141,11 +141,13 @@ app.get("/cards/:cardId", async (c) => {
           status: drop.status,
         }
       : null,
-    creator: creator ? { id: creator.id, displayName: creator.displayName } : null,
-    owner: owner ? { id: owner.id, displayName: owner.displayName, isAnonymous: owner.isAnonymous ?? false } : null,
+    creator: creator ? { id: creator.id, displayName: creator.displayName, username: creator.username ?? null } : null,
+    owner: owner
+      ? { id: owner.id, displayName: owner.displayName, username: owner.username ?? null, isAnonymous: owner.isAnonymous ?? false }
+      : null,
     activeBid: bids[0] ?? null,
     bids,
-    ownershipHistory: history.map((h) => ({ ...h, ownerName: ownerNames.get(h.ownerId) ?? h.ownerId })),
+    ownershipHistory: history.map((h) => ({ ...h, ownerName: ownerNames.get(h.ownerId) ?? "—" })),
   });
 });
 
