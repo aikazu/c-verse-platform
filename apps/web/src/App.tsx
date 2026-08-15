@@ -207,14 +207,9 @@ function Navbar() {
       </div>
       <div className="nav-actions">
         {!user ? (
-          <>
-            <button className="btn-ghost" onClick={() => nav("/login")}>
-              Masuk
-            </button>
-            <button className="btn-gold" onClick={() => nav("/register")}>
-              Daftar
-            </button>
-          </>
+          <button className="btn-gold" onClick={() => nav("/login")}>
+            Masuk / Daftar
+          </button>
         ) : (
           <UserMenu />
         )}

@@ -5,9 +5,13 @@ import { useAuth } from "../lib/auth";
 import { useToast } from "../lib/toast";
 import { isTurnstileEnabled, mountTurnstile, type TurnstileHandle } from "../lib/turnstile";
 
-// Login/Register via Supabase Auth (docs/10): Google OAuth + email OTP 6 digit + Turnstile.
+// Auth tunggal (docs/10): Google OAuth + email OTP 6 digit + Turnstile.
+// Karena cuma magic-link & OAuth, TIDAK ada pemisahan login vs register:
+//   - email belum ada  → akun baru dibuat (otomatis)
+//   - email sudah ada  → masuk ke akun tersebut (otomatis)
+// Satu alur, dijalankan dari email + Google.
 
-export default function AuthForm({ mode }: { mode: "login" | "register" }) {
+export default function AuthForm() {
   const { loginGoogle, sendOtp, verifyOtp, isSupabaseAuth } = useAuth();
   const { push } = useToast();
   const nav = useNavigate();
@@ -42,7 +46,8 @@ export default function AuthForm({ mode }: { mode: "login" | "register" }) {
     }
     setBusy(true);
     try {
-      await sendOtp(email, turnstileRefHandle.current?.token(), mode === "register" ? displayName : undefined);
+      // full_name dipakai saat akun BARU dibuat; email existing diabaikan (login).
+      await sendOtp(email, turnstileRefHandle.current?.token(), displayName.trim() ? displayName : undefined);
       setOtpSent(true);
       push(`Kode 6 digit dikirim ke ${email}`, "success");
     } catch (err: any) {
@@ -57,7 +62,7 @@ export default function AuthForm({ mode }: { mode: "login" | "register" }) {
     setBusy(true);
     try {
       await verifyOtp(email, code);
-      push(mode === "register" ? "Akun dibuat — selamat datang!" : "Masuk berhasil", "success");
+      push("Berhasil masuk", "success");
       nav("/drops");
     } catch (err: any) {
       push(err.message ?? "Kode salah atau kedaluwarsa", "error");
@@ -93,13 +98,13 @@ export default function AuthForm({ mode }: { mode: "login" | "register" }) {
               marginTop: 4,
             }}
           >
-            {mode === "register" ? "Daftar" : "Masuk"}
+            Masuk / Daftar — satu akun
           </div>
         </div>
 
         {!isSupabaseAuth && (
           <div className="muted" style={{ fontSize: 12 }}>
-            Supabase belum terkonfigurasi — set VITE_SUPABASE_URL & VITE_SUPABASE_ANON_KEY untuk login.
+            Supabase belum terkonfigurasi — set VITE_SUPABASE_URL & VITE_SUPABASE_ANON_KEY untuk masuk.
           </div>
         )}
 
@@ -116,20 +121,18 @@ export default function AuthForm({ mode }: { mode: "login" | "register" }) {
 
         {!otpSent ? (
           <form onSubmit={onRequestOtp} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            {mode === "register" && (
-              <div className="form-row" style={{ marginBottom: 0 }}>
-                <label className="label">Nama tampilan</label>
-                <input
-                  className="input"
-                  value={displayName}
-                  onChange={(e) => setDisplayName(e.target.value)}
-                  required={mode === "register"}
-                />
-              </div>
-            )}
             <div className="form-row" style={{ marginBottom: 0 }}>
               <label className="label">Email</label>
               <input className="input" value={email} onChange={(e) => setEmail(e.target.value)} type="email" required />
+            </div>
+            <div className="form-row" style={{ marginBottom: 0 }}>
+              <label className="label">Nama tampilan (opsional — untuk akun baru)</label>
+              <input
+                className="input"
+                value={displayName}
+                onChange={(e) => setDisplayName(e.target.value)}
+                placeholder="Cara dipanggil di C.Verse"
+              />
             </div>
             <div ref={turnstileRef} />
             <button className="btn-gold" disabled={busy || !isSupabaseAuth} style={{ padding: "12px", width: "100%" }}>

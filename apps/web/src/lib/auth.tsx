@@ -6,6 +6,15 @@ import { isSupabaseEnabled, supabase } from "./supabase";
 // Auth (docs/10): Supabase Auth — Google OAuth + email OTP 6 digit + captcha Turnstile.
 // DB wajib — demo-login in-memory dihapus bersama fallback store di API.
 
+/** Map GoTrue/DB error mentah ke pesan ramah (duplicate canonical email → login di akun lama). */
+export function friendlyAuthError(error: unknown): string {
+  const msg = String((error as { message?: string })?.message ?? error).toLowerCase();
+  if (msg.includes("duplicate key") || msg.includes("already registered") || msg.includes("23505")) {
+    return "Email ini sudah punya akun — silakan masuk dengan email yang sama (magic link / Google).";
+  }
+  return String((error as { message?: string })?.message ?? "Terjadi kesalahan");
+}
+
 type User = {
   id: string;
   email: string;
@@ -97,7 +106,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       provider: "google",
       options: { redirectTo: window.location.origin },
     });
-    if (error) throw error;
+    if (error) throw new Error(friendlyAuthError(error));
   }
 
   async function sendOtp(email: string, captchaToken?: string, displayName?: string) {
@@ -110,13 +119,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         data: displayName ? { full_name: displayName } : undefined,
       },
     });
-    if (error) throw error;
+    if (error) throw new Error(friendlyAuthError(error));
   }
 
   async function verifyOtp(email: string, code: string) {
     if (!supabase) throw new Error("Supabase belum terkonfigurasi");
     const { error } = await supabase.auth.verifyOtp({ email, token: code, type: "email" });
-    if (error) throw error;
+    if (error) throw new Error(friendlyAuthError(error));
   }
 
   async function logout() {
