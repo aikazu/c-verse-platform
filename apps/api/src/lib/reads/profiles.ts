@@ -1,6 +1,5 @@
-import { mapBadgeRow, mapUserBadgeRow, mapUserRow, type Row, readDb, seedOnce } from "../reads.js";
+import { mapBadgeRow, mapUserBadgeRow, mapUserRow, type Row, readDb } from "../reads.js";
 import type { BadgeDef, User, UserBadge } from "../store.js";
-import { store } from "../store.js";
 
 // Domain reads: public profile (docs 02 PG-PROFILE-01 + gamification badges).
 
@@ -9,10 +8,6 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 
 export async function getUserByUsernameOrId(raw: string): Promise<User | null> {
   const db = readDb();
-  if (!db) {
-    seedOnce();
-    return [...store.users.values()].find((u) => (u.username ?? "").toLowerCase() === raw.toLowerCase() || u.id === raw) ?? null;
-  }
   const byName = await db.from("users").select("*").ilike("username", raw).maybeSingle();
   if (byName.error) throw new Error(byName.error.message);
   if (byName.data) return mapUserRow(byName.data as Row);
@@ -25,10 +20,6 @@ export async function getUserByUsernameOrId(raw: string): Promise<User | null> {
 export async function listBadgeDefs(ids: string[]): Promise<BadgeDef[]> {
   if (ids.length === 0) return [];
   const db = readDb();
-  if (!db) {
-    seedOnce();
-    return store.badges.filter((b) => ids.includes(b.id));
-  }
   const { data, error } = await db.from("badges").select("*").in("id", ids);
   if (error) throw new Error(error.message);
   return (data ?? []).map((r) => mapBadgeRow(r as Row));
@@ -40,12 +31,6 @@ export interface UserBadgeWithDef extends UserBadge {
 
 export async function listUserBadges(userId: string): Promise<UserBadgeWithDef[]> {
   const db = readDb();
-  if (!db) {
-    seedOnce();
-    return store.userBadges
-      .filter((ub) => ub.userId === userId)
-      .map((ub) => ({ ...ub, badge: store.badges.find((b) => b.id === ub.badgeId) }));
-  }
   const { data, error } = await db.from("user_badges").select("*").eq("user_id", userId).order("earned_at");
   if (error) throw new Error(error.message);
   const rows = (data ?? []) as Row[];
@@ -60,10 +45,6 @@ export async function listUserBadges(userId: string): Promise<UserBadgeWithDef[]
 /** Rank = number of users with strictly higher XP, +1. */
 export async function getUserRank(userId: string, xp: number): Promise<number> {
   const db = readDb();
-  if (!db) {
-    seedOnce();
-    return [...store.users.values()].sort((a, b) => (b.totalXp ?? b.xp) - (a.totalXp ?? a.xp)).findIndex((u) => u.id === userId) + 1;
-  }
   const { count, error } = await db.from("users").select("id", { count: "exact", head: true }).gt("total_xp", xp);
   if (error) throw new Error(error.message);
   return (count ?? 0) + 1;

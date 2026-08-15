@@ -14,8 +14,5 @@ const { default: app } = await import("./index.js");
 const port = Number(process.env.PORT || 8787);
 serve({ fetch: app.fetch, port }, (info) => {
   console.log(`C.Verse API listening on http://localhost:${info.port}`);
-  const hasDb = Boolean(process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL);
-  console.log(
-    `DB: ${hasDb ? `Supabase (${(process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL)?.slice(0, 32)}...)` : "in-memory (store.ts)"}`,
-  );
+  console.log(`DB: Supabase (${(process.env.SUPABASE_URL || "").slice(0, 32)}...)`);
 });

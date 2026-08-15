@@ -2,21 +2,12 @@ import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import { z } from "zod";
 import { requireUser } from "../lib/auth.js";
-import { isDbEnabled } from "../lib/db.js";
 import { getDropById } from "../lib/reads/drops.js";
 import { getCardById, getShipmentById, listShipmentsByRequester } from "../lib/reads/orders.js";
-import { mapShipmentRow, type Row, readDb } from "../lib/reads.js";
-import { ensureSeed, logAudit, store } from "../lib/store.js";
+import { logAuditDb } from "../lib/reads/kyc.js";
+import { mapShipmentRow, readDb, type Row } from "../lib/reads.js";
 
 const app = new Hono();
-app.use("*", async (_c, next) => {
-  ensureSeed();
-  await next();
-});
-
-function _requireAdmin(_c: typeof app extends Hono<infer _> ? never : never): never {
-  throw new Error("unused");
-}
 
 // Shipments: list my shipments
 app.get("/", async (c) => {
@@ -51,46 +42,33 @@ app.patch(
     const user = "error" in authRes ? null : authRes.user;
     if (!user || (user.role as string) !== "admin") return c.json({ error: "Hanya admin" }, 403);
     const { status, trackingNumber } = c.req.valid("json");
-    // DB path: direct table writes (non-money) — shipments + cards.location + orders.tracking_number when relevant.
-    if (isDbEnabled()) {
-      const db = readDb();
-      if (db) {
-        const existing = await getShipmentById(c.req.param("id"));
-        if (!existing) return c.json({ error: "Not found" }, 404);
-        const patch: Record<string, unknown> = { status };
-        if (trackingNumber) patch.tracking_number = trackingNumber;
-        const { data, error } = await db.from("shipments").update(patch).eq("id", c.req.param("id")).select("*").maybeSingle();
-        if (error) throw new Error(error.message);
-        if (!data) return c.json({ error: "Not found" }, 404);
-        if (status === "delivered") {
-          const { error: cardError } = await db.from("cards").update({ location: "with_owner" }).eq("id", existing.cardId);
-          if (cardError) throw new Error(cardError.message);
-        }
-        if (trackingNumber) {
-          const { error: orderError } = await db.from("orders").update({ tracking_number: trackingNumber }).eq("card_id", existing.cardId);
-          if (orderError) throw new Error(orderError.message);
-        }
-        return c.json({ shipment: mapShipmentRow(data as Row) });
-      }
-    }
-    const s = store.shipments.get(c.req.param("id"));
-    if (!s) return c.json({ error: "Not found" }, 404);
-    s.status = status as typeof s.status;
-    if (trackingNumber) s.trackingNumber = trackingNumber;
+    // direct table writes (non-money) — shipments + cards.location + orders.tracking_number when relevant.
+    const db = readDb();
+    const existing = await getShipmentById(c.req.param("id"));
+    if (!existing) return c.json({ error: "Not found" }, 404);
+    const patch: Record<string, unknown> = { status };
+    if (trackingNumber) patch.tracking_number = trackingNumber;
+    const { data, error } = await db.from("shipments").update(patch).eq("id", c.req.param("id")).select("*").maybeSingle();
+    if (error) throw new Error(error.message);
+    if (!data) return c.json({ error: "Not found" }, 404);
     if (status === "delivered") {
-      const card = store.cards.get(s.cardId);
-      if (card) card.location = "with_owner";
+      const { error: cardError } = await db.from("cards").update({ location: "with_owner" }).eq("id", existing.cardId);
+      if (cardError) throw new Error(cardError.message);
     }
-    logAudit(
+    if (trackingNumber) {
+      const { error: orderError } = await db.from("orders").update({ tracking_number: trackingNumber }).eq("card_id", existing.cardId);
+      if (orderError) throw new Error(orderError.message);
+    }
+    await logAuditDb(
       user.id,
       "update",
       "shipments",
-      s.id,
+      existing.id,
       { status },
       c.req.header("x-forwarded-for") ?? null,
       c.req.header("authorization") ?? null,
     );
-    return c.json({ shipment: s });
+    return c.json({ shipment: mapShipmentRow(data as Row) });
   },
 );
 

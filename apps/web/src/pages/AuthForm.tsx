@@ -6,10 +6,9 @@ import { useToast } from "../lib/toast";
 import { isTurnstileEnabled, mountTurnstile, type TurnstileHandle } from "../lib/turnstile";
 
 // Login/Register via Supabase Auth (docs/10): Google OAuth + email OTP 6 digit + Turnstile.
-const DEMO_LOGIN_ENABLED = import.meta.env.VITE_ENABLE_DEMO_LOGIN === "1";
 
 export default function AuthForm({ mode }: { mode: "login" | "register" }) {
-  const { loginGoogle, sendOtp, verifyOtp, demoLogin, isSupabaseAuth } = useAuth();
+  const { loginGoogle, sendOtp, verifyOtp, isSupabaseAuth } = useAuth();
   const { push } = useToast();
   const nav = useNavigate();
   const [email, setEmail] = useState("");
@@ -77,19 +76,6 @@ export default function AuthForm({ mode }: { mode: "login" | "register" }) {
     }
   }
 
-  async function onDemo() {
-    setBusy(true);
-    try {
-      await demoLogin();
-      push("Demo login berhasil", "success");
-      nav("/drops");
-    } catch (err: any) {
-      push(err.message ?? "Demo login gagal", "error");
-    } finally {
-      setBusy(false);
-    }
-  }
-
   return (
     <div style={{ maxWidth: 420, margin: "48px auto", padding: "0 16px" }}>
       <div className="card card-pad" style={{ display: "flex", flexDirection: "column", gap: 18, padding: 28 }}>
@@ -113,7 +99,7 @@ export default function AuthForm({ mode }: { mode: "login" | "register" }) {
 
         {!isSupabaseAuth && (
           <div className="muted" style={{ fontSize: 12 }}>
-            Mode dev tanpa Supabase — login Google/OTP tidak aktif. {DEMO_LOGIN_ENABLED ? "Gunakan demo login di bawah." : ""}
+            Supabase belum terkonfigurasi — set VITE_SUPABASE_URL & VITE_SUPABASE_ANON_KEY untuk login.
           </div>
         )}
 
@@ -168,20 +154,6 @@ export default function AuthForm({ mode }: { mode: "login" | "register" }) {
               {busy ? "Memverifikasi…" : "Verifikasi & Masuk"}
             </button>
           </form>
-        )}
-
-        {DEMO_LOGIN_ENABLED && (
-          <>
-            <div style={{ height: 1, background: "var(--border)" }} />
-            <button
-              className="btn-ghost"
-              onClick={onDemo}
-              disabled={busy}
-              style={{ padding: "11px", width: "100%", fontFamily: "var(--font-mono)", fontSize: 12 }}
-            >
-              ⚡ Demo — 1 klik
-            </button>
-          </>
         )}
       </div>
     </div>

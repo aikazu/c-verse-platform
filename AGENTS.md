@@ -13,8 +13,8 @@ Dokumen perencanaan **canonical = `docs/`** (`00_readme` → `09_recommendations
   - `apps/admin/.env.local` ← `apps/admin/.env.example`: `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` (anon + MFA aal2, di belakang Cloudflare Access).
   - `apps/api/.dev.vars` ← `apps/api/.env.example` (satu file untuk Wrangler & Node): `SUPABASE_URL`/`SUPABASE_ANON_KEY`/`SUPABASE_SERVICE_ROLE_KEY`, `TURNSTILE_SECRET_KEY`, `NFC_MASTER_KEY`, `MIDTRANS_*`, `PAYOUT_WEBHOOK_SIGNING_KEY`, SMTP.
   - Secrets prod (tidak di repo): sama seperti di atas + `CF_ACCOUNT_ID`, `CF_API_TOKEN` via `wrangler secret put`.
-- Tanpa Supabase, API jalan in-memory via `apps/api/src/lib/store.ts` (`ensureSeed()`).
-- Supabase local (optional): `npx supabase start` (API :54321, DB :54322, Studio :54323), `npx supabase db reset` → `supabase/migrations/*.sql` + `supabase/seed.sql`.
+- Supabase WAJIB — tanpa `SUPABASE_URL` API gagal start (fail-fast, tidak ada fallback in-memory).
+- Supabase local (wajib untuk dev): `npx supabase start` (API :54321, DB :54322, Studio :54323), `npx supabase db reset` → `supabase/migrations/*.sql` + `supabase/seed.sql`.
 
 ## Build & test
 
@@ -35,8 +35,8 @@ Dokumen perencanaan **canonical = `docs/`** (`00_readme` → `09_recommendations
 
 - `apps/api/src/index.ts` — Hono app (CORS + logger, mounts `/api/*`, JSON 404). `apps/api/src/server.ts` — Node entry lokal.
 - `apps/api/src/routes/` — `auth.ts`, `drops.ts`, `orders.ts`, `wallet.ts`, `nfc.ts`, `marketplace.ts` (buyout-on-card; alias `/api/listings`), `bids.ts`, `browse.ts`, `profile.ts`, `publicProfile.ts`, `shipments.ts`, `gamification.ts`, `creators.ts`, `kyc.ts`, `seo.ts`, `payments.ts` (Midtrans).
-- `apps/api/src/lib/` — `auth.ts` (Supabase JWT verify + `requireUser`; dev tanpa Supabase → session in-memory), `cmac.ts` (AES-CMAC RFC 4493 + SUN AN12196), `db.ts` (RPC facade — klien pakai JWT user karena RPC baca `auth.uid()`), `reads.ts` + `reads/` (domain selectors — Supabase select + mapper snake_case→camelCase, fallback store; semua route read lewat sini), `cron.ts` (scheduled handler → `escrow_auto_release`/`draw_pending_drops`/`payout_batch_run`), `payments/` (provider + midtrans), `store.ts` (dev fallback), `supabase.ts`.
-- `apps/api/src/lib/store.ts` — in-memory store + `ensureSeed()` (mirror `supabase/seed.sql`); helpers `isKycApproved`, `awardBadgeIfNeeded`, `logAudit`, `isPayoutHeld`.
+- `apps/api/src/lib/` — `auth.ts` (Supabase JWT verify + `requireUser`), `cmac.ts` (AES-CMAC RFC 4493 + SUN AN12196), `db.ts` (RPC facade — klien pakai JWT user karena RPC baca `auth.uid()`), `reads.ts` + `reads/` (domain selectors — Supabase select + mapper snake_case→camelCase; semua route read lewat sini), `cron.ts` (scheduled handler → `escrow_auto_release`/`draw_pending_drops`/`payout_batch_run`), `payments/` (provider + midtrans), `supabase.ts` (klien wajib — throw saat env absen).
+- `apps/api/src/lib/store.ts` — domain types (dipakai mapper/route) + helper murni `uid`/`nowIso`. Tidak ada lagi data in-memory.
 - `apps/web/src/` — `App.tsx` (routes: `/`, `/drops`, `/drops/:id/checkout`, `/home`, `/cards/:cardId/3d`, `/marketplace`, `/browse`, `/collection`, `/me/manage`, `/me/privacy`, `/me/kyc`, `/wallet`, `/leaderboard`, `/c/:username`, `/u/:username`, `/creator`) + `pages/` + `lib/api.ts` + `worker-seo.ts`.
 - `apps/admin/src/` — Vite SPA terpisah (Guard `aal2` via Supabase MFA TOTP, nav ADM-01..10: dashboard/creators/drops/orders/nfc/payouts/badges/disputes/audit/investor).
 - `packages/shared/src/index.ts` — **single source** Zod schemas + constants (`C_COIN_RATE_IDR=10_000`, `SECONDARY_*`, `REVENUE_SHARE_*`, `calcLevel`, `KYC_TRIGGER 99`, `MAX_BUYOUT 20`). Import via `@c-verse/shared`.
@@ -47,8 +47,8 @@ Dokumen perencanaan **canonical = `docs/`** (`00_readme` → `09_recommendations
 
 - ESM only (`"type": "module"`), Strict TS (`strict: true`, `moduleResolution: bundler`).
 - API: `Hono` + `zValidator` dengan schema dari `@c-verse/shared`. Mount via `app.route("/api/<name>", module)` di `apps/api/src/index.ts`. Alias `/api/listings` → marketplace (buyout).
-- Auth: Supabase JWT (Google OAuth + email OTP + Turnstile) — `requireUser(c)` di semua route; 401 invalid, 403 suspend (`flag_reason`). Register/login password DILARANG. Demo-login hanya mode tanpa Supabase (`VITE_ENABLE_DEMO_LOGIN`).
-- Uang & stok: saat `SUPABASE_URL` terpasang wajib lewat RPC (`apps/api/src/lib/db.ts`: checkout, drop_entry/draw, place/cancel/accept bid, set_buyout/buyout_card, wallet_credit/debit — single transaction). `store.ts` hanya fallback dev; fail-fast di production (F-08).
+- Auth: Supabase JWT (Google OAuth + email OTP + Turnstile) — `requireUser(c)` di semua route; 401 invalid, 403 suspend (`flag_reason`). Register/login password DILARANG. Demo-login dihapus (butuh Supabase).
+- Uang & stok: wajib lewat RPC (`apps/api/src/lib/db.ts`: checkout, drop_entry/draw, place/cancel/accept bid, set_buyout/buyout_card, wallet_credit/debit — single transaction). DB wajib — fail-fast tanpa `SUPABASE_URL` (F-08).
 - NFC: verdict `verified` HANYA via CMAC valid (`lib/cmac.ts`, key diversification N5) + counter maju. QR → maksimal `registered`. Tamper permanen.
 - Shared constants canonical — jangan hard-code rate/fee/threshold di app (`idrToCCoin = Math.ceil`).
 - C-Coin: **integer ≥1 tanpa desimal** (`CHECK x >= 1`), konversi IDR→C-Coin ceil. Kolom `int`, jangan `numeric`.

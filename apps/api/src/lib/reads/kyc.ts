@@ -1,17 +1,12 @@
-import { mapKycRow, readDb, seedOnce } from "../reads.js";
+import { mapKycRow, readDb } from "../reads.js";
 import type { KycRecord } from "../store.js";
-import { awardBadgeIfNeeded, logAudit, nowIso, store, uid } from "../store.js";
+import { nowIso, uid } from "../store.js";
 
-// Domain reads/writes: KYC (docs/13 §3 Wave 5). Reads via Supabase when wired;
-// in-memory store fallback only for dev/demo without Supabase. Writes here are
-// non-money tables (kyc_records / user_badges / admin_audit_log) — no RPC needed.
+// Domain reads/writes: KYC (docs/13 §3 Wave 5). Writes di sini adalah tabel
+// non-uang (kyc_records / user_badges / admin_audit_log) — no RPC needed.
 
 export async function getKycByUser(userId: string): Promise<KycRecord | null> {
   const db = readDb();
-  if (!db) {
-    seedOnce();
-    return [...store.kyc.values()].find((k) => k.userId === userId) ?? null;
-  }
   const { data, error } = await db.from("kyc_records").select("*").eq("user_id", userId).maybeSingle();
   if (error) throw new Error(error.message);
   return data ? mapKycRow(data as Record<string, unknown>) : null;
@@ -19,10 +14,6 @@ export async function getKycByUser(userId: string): Promise<KycRecord | null> {
 
 export async function getKycById(id: string): Promise<KycRecord | null> {
   const db = readDb();
-  if (!db) {
-    seedOnce();
-    return store.kyc.get(id) ?? null;
-  }
   const { data, error } = await db.from("kyc_records").select("*").eq("id", id).maybeSingle();
   if (error) throw new Error(error.message);
   return data ? mapKycRow(data as Record<string, unknown>) : null;
@@ -30,10 +21,6 @@ export async function getKycById(id: string): Promise<KycRecord | null> {
 
 export async function listKycRecords(): Promise<KycRecord[]> {
   const db = readDb();
-  if (!db) {
-    seedOnce();
-    return [...store.kyc.values()];
-  }
   const { data, error } = await db.from("kyc_records").select("*").order("created_at", { ascending: false });
   if (error) throw new Error(error.message);
   return (data ?? []).map((r) => mapKycRow(r as Record<string, unknown>));
@@ -59,11 +46,6 @@ export async function upsertKycSubmission(userId: string, existing: KycRecord | 
     updatedAt: now,
   };
   const db = readDb();
-  if (!db) {
-    seedOnce();
-    store.kyc.set(rec.id, rec);
-    return rec;
-  }
   const { error } = await db
     .from("kyc_records")
     .upsert(
@@ -77,19 +59,12 @@ export async function upsertKycSubmission(userId: string, existing: KycRecord | 
 /** Admin status transition. Returns null when the record does not exist. */
 export async function setKycStatus(id: string, status: "approved" | "rejected"): Promise<KycRecord | null> {
   const db = readDb();
-  if (!db) {
-    seedOnce();
-    const rec = store.kyc.get(id);
-    if (!rec) return null;
-    rec.status = status;
-    return rec;
-  }
   const { data, error } = await db.from("kyc_records").update({ status }).eq("id", id).select().maybeSingle();
   if (error) throw new Error(error.message);
   return data ? mapKycRow(data as Record<string, unknown>) : null;
 }
 
-/** Audit trail: DB insert when wired, store fallback for dev/demo. */
+/** Audit trail: append-only insert ke admin_audit_log. */
 export async function logAuditDb(
   adminUserId: string,
   action: string,
@@ -100,11 +75,6 @@ export async function logAuditDb(
   sessionId: string | null,
 ): Promise<void> {
   const db = readDb();
-  if (!db) {
-    seedOnce();
-    logAudit(adminUserId, action, targetTable, targetId, payloadSummary, ip, sessionId);
-    return;
-  }
   const { error } = await db.from("admin_audit_log").insert({
     id: uid("audit-"),
     admin_user_id: adminUserId,
@@ -119,18 +89,12 @@ export async function logAuditDb(
 }
 
 /**
- * Award a badge once (DB path mirrors store.awardBadgeIfNeeded semantics):
- * skip if already owned, insert user_badges with xp snapshot, then add the
- * badge XP reward to users.total_xp and recompute level. Resolves the badge
- * def by id OR code so store ids ("b6") and DB codes ("verified") both work.
+ * Award a badge once: skip if already owned, insert user_badges with xp snapshot,
+ * then add the badge XP reward to users.total_xp and recompute level. Resolves
+ * the badge def by id OR code so seed ids ("b6") and DB codes ("verified") both work.
  */
 export async function awardBadgeIfNeededDb(userId: string, badgeIdOrCode: string): Promise<boolean> {
   const db = readDb();
-  if (!db) {
-    seedOnce();
-    const def = store.badges.find((b) => b.id === badgeIdOrCode || b.code === badgeIdOrCode);
-    return awardBadgeIfNeeded(userId, def?.id ?? badgeIdOrCode);
-  }
   const { data: def, error: defError } = await db
     .from("badges")
     .select("id, xp_reward, xp, is_active")

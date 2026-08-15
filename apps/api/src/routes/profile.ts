@@ -1,7 +1,6 @@
 import { C_COIN_RATE_IDR } from "@c-verse/shared";
 import { Hono } from "hono";
 import { requireUser } from "../lib/auth.js";
-import { isDbEnabled } from "../lib/db.js";
 import { listBids } from "../lib/reads/bids.js";
 import { listCards, listDrops } from "../lib/reads/drops.js";
 import { listOrdersByUser, listShipmentsByRequester } from "../lib/reads/orders.js";
@@ -9,13 +8,8 @@ import { getKycByUser, getWalletByUser, listUserBadges } from "../lib/reads/prof
 import { getUserByUsername } from "../lib/reads/users.js";
 import { readDb } from "../lib/reads.js";
 import type { Bid } from "../lib/store.js";
-import { ensureSeed, store } from "../lib/store.js";
 
 const app = new Hono();
-app.use("*", async (_c, next) => {
-  ensureSeed();
-  await next();
-});
 
 // GET / — my profile, cards, orders, shipments, badges, kyc, level
 app.get("/", async (c) => {
@@ -111,16 +105,10 @@ app.patch("/privacy", async (c) => {
     // no body
   }
   const isAnonymous = Boolean(body.isAnonymous);
-  // DB path: direct users update (non-money column)
-  if (isDbEnabled()) {
-    const db = readDb();
-    if (db) {
-      const { error } = await db.from("users").update({ is_anonymous: isAnonymous }).eq("id", user.id);
-      if (error) throw new Error(error.message);
-      return c.json({ ok: true, isAnonymous });
-    }
-  }
-  (user as unknown as Record<string, unknown>).isAnonymous = isAnonymous;
+  // direct users update (non-money column)
+  const db = readDb();
+  const { error } = await db.from("users").update({ is_anonymous: isAnonymous }).eq("id", user.id);
+  if (error) throw new Error(error.message);
   return c.json({ ok: true, isAnonymous });
 });
 
@@ -144,20 +132,12 @@ app.patch("/consent", async (c) => {
     patch.consent_data_market = body.consentDataMarket;
     consentDataMarket = body.consentDataMarket;
   }
-  // DB path: direct users update (non-money columns)
-  if (isDbEnabled()) {
+  // direct users update (non-money columns)
+  if (Object.keys(patch).length > 0) {
     const db = readDb();
-    if (db) {
-      if (Object.keys(patch).length > 0) {
-        const { error } = await db.from("users").update(patch).eq("id", user.id);
-        if (error) throw new Error(error.message);
-      }
-      return c.json({ ok: true, consentAnalyticsDetail, consentDataMarket });
-    }
+    const { error } = await db.from("users").update(patch).eq("id", user.id);
+    if (error) throw new Error(error.message);
   }
-  if (typeof body.consentAnalyticsDetail === "boolean")
-    (user as unknown as Record<string, unknown>).consentAnalyticsDetail = body.consentAnalyticsDetail;
-  if (typeof body.consentDataMarket === "boolean") (user as unknown as Record<string, unknown>).consentDataMarket = body.consentDataMarket;
   return c.json({ ok: true, consentAnalyticsDetail, consentDataMarket });
 });
 
@@ -187,30 +167,19 @@ app.patch("/", async (c) => {
       username = s;
     }
   }
-  // DB path: direct users update (non-money columns)
-  if (isDbEnabled()) {
+  // direct users update (non-money columns)
+  if (Object.keys(patch).length > 0) {
     const db = readDb();
-    if (db) {
-      if (Object.keys(patch).length > 0) {
-        const { error } = await db.from("users").update(patch).eq("id", user.id);
-        if (error) throw new Error(error.message);
-      }
-      return c.json({ user: { id: user.id, displayName, username } });
-    }
+    const { error } = await db.from("users").update(patch).eq("id", user.id);
+    if (error) throw new Error(error.message);
   }
-  if (patch.display_name != null) (user as unknown as Record<string, unknown>).displayName = displayName;
-  if (patch.username != null) (user as unknown as Record<string, unknown>).username = username;
   return c.json({ user: { id: user.id, displayName, username } });
 });
 
-/** Username uniqueness across both sources; true when another user already claims it. */
+/** Username uniqueness; true when another user already claims it. */
 async function isUsernameTaken(username: string, selfId: string): Promise<boolean> {
-  const db = readDb();
-  if (db) {
-    const existing = await getUserByUsername(username);
-    return existing != null && existing.id !== selfId;
-  }
-  return [...store.users.values()].some((u) => ((u as unknown as { username?: string }).username ?? "") === username && u.id !== selfId);
+  const existing = await getUserByUsername(username);
+  return existing != null && existing.id !== selfId;
 }
 
 export default app;

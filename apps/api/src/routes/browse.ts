@@ -5,13 +5,8 @@ import { getCardByIdOrNfc, getDropById, listDrops, listOwnedCards } from "../lib
 import { listUsersByIds } from "../lib/reads/users.js";
 import { pageMeta, parsePageParams, slicePage } from "../lib/reads.js";
 import type { Bid, Drop, User } from "../lib/store.js";
-import { ensureSeed } from "../lib/store.js";
 
 const app = new Hono();
-app.use("*", async (_c, next) => {
-  ensureSeed();
-  await next();
-});
 
 // Browse (docs 02 PG-BROWSE-01): search by kartu/kreator, bid langsung walau tanpa buyout price
 app.get("/", async (c) => {

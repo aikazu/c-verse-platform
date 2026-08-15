@@ -4,13 +4,8 @@ import { getCreatorByHandle, getCreatorByUserId, listCreators, listCreatorUsers 
 import { getCardByIdOrNfc, getDropById, listCards, listDrops } from "../lib/reads/drops.js";
 import { getUserById, getUserByUsername } from "../lib/reads/users.js";
 import type { CreatorRec } from "../lib/store.js";
-import { ensureSeed } from "../lib/store.js";
 
 const app = new Hono();
-app.use("*", async (_c, next) => {
-  ensureSeed();
-  await next();
-});
 
 // GET /sitemap.xml — dynamic sitemap for SEO (docs 02 s.8: SPA + Worker HTMLRewriter + sitemap generator)
 app.get("/sitemap.xml", async (_c) => {

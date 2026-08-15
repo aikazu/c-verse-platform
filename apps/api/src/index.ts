@@ -23,14 +23,12 @@ export type Bindings = {
   ENV?: string;
 };
 
-// Fail-safe: fallback in-memory (session demo hardcoded) HANYA boleh aktif jika
-// ENV eksplisit "development" — deploy tanpa ENV/secrets harus mati keras,
-// bukan diam-diam jalan dengan token demo (spec 16 F-08).
+// Fail-fast (F-08 diperketat): tanpa SUPABASE_URL API menolak start — tidak ada
+// lagi mode in-memory. Jalankan `npx supabase start` lalu set apps/api/.dev.vars.
 const g = globalThis as unknown as Record<string, string | undefined>;
-const envMode = g.ENV ?? (typeof process !== "undefined" ? process.env.NODE_ENV : undefined) ?? "";
 const supabaseUrl = g.SUPABASE_URL ?? (typeof process !== "undefined" ? process.env.SUPABASE_URL : undefined);
-if (envMode !== "development" && envMode !== "dev" && !supabaseUrl) {
-  throw new Error("SUPABASE_URL required (set ENV=development explicitly to allow the in-memory demo fallback)");
+if (!supabaseUrl?.startsWith("http")) {
+  throw new Error("SUPABASE_URL wajib — API tidak jalan tanpa Supabase DB (npx supabase start + apps/api/.dev.vars).");
 }
 
 const app = new Hono<{ Bindings: Bindings }>();

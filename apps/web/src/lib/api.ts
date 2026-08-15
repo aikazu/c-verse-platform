@@ -46,8 +46,7 @@ async function req<T>(path: string, opts: RequestInit = {}): Promise<T> {
 }
 
 export const api = {
-  // auth (Supabase Auth dipakai di lib/auth.tsx; endpoint password dihapus per docs/10)
-  demoLogin: () => req<{ token: string; user: any }>("/auth/demo-login", { method: "POST" }),
+  // auth (Supabase Auth dipakai di lib/auth.tsx; endpoint password & demo-login dihapus per docs/10)
   me: () => req<any>("/auth/me"),
   // drops
   drops: (params?: Record<string, string>) => {

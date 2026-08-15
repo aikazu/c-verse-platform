@@ -1,21 +1,15 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { BadgeDef, Bid, Card, CreatorRec, Drop, KycRecord, Order, Shipment, User, UserBadge, Wallet, WalletTx } from "./store.js";
-import { ensureSeed } from "./store.js";
 import { getSupabase } from "./supabase.js";
 
-// Read facade (docs/13 §3 Wave 1-5): read-only SELECT via Supabase saat terkonfigurasi,
-// fallback in-memory store.ts hanya untuk dev/demo tanpa Supabase. Writes uang & stok
-// tetap WAJIB lewat RPC (lib/db.ts). Mapper mengembalikan bentuk camelCase yang sama
-// dengan store agar respons route tidak berubah.
+// Read facade (docs/13 §3 Wave 1-5): read-only SELECT via Supabase — DB wajib,
+// tanpa fallback in-memory. Writes uang & stok tetap WAJIB lewat RPC (lib/db.ts).
+// Mapper mengembalikan bentuk camelCase yang dipakai respons route.
 
 export type Row = Record<string, unknown>;
 
-export function readDb(): SupabaseClient | null {
+export function readDb(): SupabaseClient {
   return getSupabase();
-}
-
-export function seedOnce(): void {
-  ensureSeed();
 }
 
 const str = (v: unknown): string => (v == null ? "" : String(v));

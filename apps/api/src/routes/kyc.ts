@@ -3,13 +3,8 @@ import { Hono } from "hono";
 import { z } from "zod";
 import { requireUser } from "../lib/auth.js";
 import { awardBadgeIfNeededDb, getKycByUser, listKycRecords, logAuditDb, setKycStatus, upsertKycSubmission } from "../lib/reads/kyc.js";
-import { ensureSeed } from "../lib/store.js";
 
 const app = new Hono();
-app.use("*", async (_c, next) => {
-  ensureSeed();
-  await next();
-});
 
 app.get("/", async (c) => {
   const authRes = await requireUser(c);

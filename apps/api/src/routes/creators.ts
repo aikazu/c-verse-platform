@@ -12,13 +12,8 @@ import { listDrops } from "../lib/reads/drops.js";
 import { getUserByUsernameOrId } from "../lib/reads/profiles.js";
 import { getUserById } from "../lib/reads/users.js";
 import type { CreatorRec } from "../lib/store.js";
-import { ensureSeed } from "../lib/store.js";
 
 const app = new Hono();
-app.use("*", async (_c, next) => {
-  ensureSeed();
-  await next();
-});
 
 // GET / — list public creators (derived from users.role=creator + creators table for handle/followers)
 app.get("/", async (c) => {

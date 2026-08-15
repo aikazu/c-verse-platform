@@ -1,23 +1,18 @@
-import { C_COIN_RATE_IDR, MAX_BUYOUT_ACTIVE_PER_USER, splitSecondaryFeeCcoin } from "@c-verse/shared";
+import { C_COIN_RATE_IDR } from "@c-verse/shared";
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import { z } from "zod";
 import { requireUser } from "../lib/auth.js";
-import { isDbEnabled, RpcError, rpcBuyoutCard, rpcSetBuyout, userDb } from "../lib/db.js";
+import { RpcError, rpcBuyoutCard, rpcSetBuyout, userDb } from "../lib/db.js";
 import { listDrops } from "../lib/reads/drops.js";
 import { listMarketplaceCards } from "../lib/reads/marketplace.js";
 import { listUsersByIds } from "../lib/reads/users.js";
 import { pageMeta, parsePageParams, slicePage } from "../lib/reads.js";
 import type { Drop, User } from "../lib/store.js";
-import { addTx, ensureSeed, ensureWallet, logAudit, nowIso, store, uid } from "../lib/store.js";
 
 // Marketplace = buyout langsung di kartu (C-07 FINAL — legacy auction/listing dihapus, spec 16 F-02).
 
 const app = new Hono();
-app.use("*", async (_c, next) => {
-  ensureSeed();
-  await next();
-});
 
 // GET / — kartu dengan harga buyout aktif
 app.get("/", async (c) => {
@@ -80,186 +75,71 @@ app.post(
   async (c) => {
     const authRes = await requireUser(c);
     if ("error" in authRes) return c.json({ error: authRes.error === 403 ? "Akun disuspend" : "Unauthorized" }, authRes.error);
-    const user = authRes.user;
     const raw = c.req.valid("json");
-    const card = store.cards.get(raw.cardId);
-    if (!card) return c.json({ error: "Card tidak ditemukan" }, 404);
-    if (card.ownerId !== user.id) return c.json({ error: "Kamu bukan pemilik kartu ini" }, 403);
-    if (card.verifyStatus === "tamper_detected") return c.json({ error: "Kartu tamper — tidak bisa dipasarkan" }, 400);
-
     const price = raw.buyoutPriceCcoin ?? raw.priceCCoin;
     if (price == null) return c.json({ error: "buyoutPriceCcoin wajib (integer ≥ 1)" }, 400);
 
-    if (isDbEnabled()) {
-      const db = userDb(authRes.token);
-      if (db) {
-        try {
-          const card = await rpcSetBuyout(db, raw.cardId, price);
-          return c.json({ card, buyoutPriceCcoin: price, dbPath: "rpc" }, 201);
-        } catch (err) {
-          if (err instanceof RpcError) return c.json({ error: err.message, code: err.code }, err.code === "FORBIDDEN" ? 403 : 400);
-          throw err;
-        }
-      }
+    const db = userDb(authRes.token);
+    try {
+      const card = await rpcSetBuyout(db, raw.cardId, price);
+      return c.json({ card, buyoutPriceCcoin: price, dbPath: "rpc" }, 201);
+    } catch (err) {
+      if (err instanceof RpcError) return c.json({ error: err.message, code: err.code }, err.code === "FORBIDDEN" ? 403 : 400);
+      throw err;
     }
-
-    const activeBuyouts = [...store.cards.values()].filter((ca) => ca.ownerId === user.id && ca.buyoutPriceCcoin != null).length;
-    if (activeBuyouts >= MAX_BUYOUT_ACTIVE_PER_USER && card.buyoutPriceCcoin == null) {
-      return c.json({ error: `Maksimum ${MAX_BUYOUT_ACTIVE_PER_USER} kartu buyout aktif per user` }, 400);
-    }
-
-    card.buyoutPriceCcoin = price;
-    if (card.status === "sold" || card.status === "available") card.status = "listed_buyout" as never;
-    logAudit(user.id, "update", "cards.buyout", card.id, { buyoutPriceCcoin: price }, c.req.header("x-forwarded-for") ?? null, null);
-    return c.json({ card, buyoutPriceCcoin: price, marketplace: { card, buyoutPriceCcoin: price } }, 201);
   },
 );
 
-// POST /buyout — beli kartu di harga buyout (fee 7,5/7,5/85 via splitSecondaryFeeCcoin)
+// POST /buyout — beli kartu di harga buyout (fee 7,5/7,5/85 via RPC)
 app.post("/buyout", zValidator("json", z.object({ cardId: z.string().min(1) })), async (c) => {
   const authRes = await requireUser(c);
   if ("error" in authRes) return c.json({ error: authRes.error === 403 ? "Akun disuspend" : "Unauthorized" }, authRes.error);
-  const user = authRes.user;
   const { cardId } = c.req.valid("json");
-  if (isDbEnabled()) {
-    const db = userDb(authRes.token);
-    if (db) {
-      try {
-        const card = await rpcBuyoutCard(db, cardId);
-        return c.json({ ok: true, card, needShipmentChoice: true, dbPath: "rpc" });
-      } catch (err) {
-        if (err instanceof RpcError) {
-          const status =
-            err.code === "INSUFFICIENT"
-              ? 402
-              : ["FORBIDDEN", "OWN_CARD", "COOLING_PERIOD_14D", "CREATOR_SELF_DEALING_30D"].includes(err.code)
-                ? 403
-                : 400;
-          return c.json({ error: err.message, code: err.code }, status);
-        }
-        throw err;
-      }
+  const db = userDb(authRes.token);
+  try {
+    const card = await rpcBuyoutCard(db, cardId);
+    return c.json({ ok: true, card, needShipmentChoice: true, dbPath: "rpc" });
+  } catch (err) {
+    if (err instanceof RpcError) {
+      const status =
+        err.code === "INSUFFICIENT"
+          ? 402
+          : ["FORBIDDEN", "OWN_CARD", "COOLING_PERIOD_14D", "CREATOR_SELF_DEALING_30D"].includes(err.code)
+            ? 403
+            : 400;
+      return c.json({ error: err.message, code: err.code }, status);
     }
+    throw err;
   }
-  const card = store.cards.get(cardId);
-  if (!card || card.buyoutPriceCcoin == null) return c.json({ error: "Kartu tidak dijual buyout" }, 404);
-  if (card.ownerId === user.id) return c.json({ error: "Tidak bisa membeli kartu sendiri" }, 400);
-  const price = card.buyoutPriceCcoin;
-
-  // anti-fraud: wash 14d & creator self-dealing 30d
-  const nowBuy = Date.now();
-  const lastOwnBuy = store.ownershipHistory
-    .filter((h) => h.cardId === cardId && h.ownerId === user.id)
-    .sort((a, b) => new Date(b.transferredAt).getTime() - new Date(a.transferredAt).getTime())[0];
-  if (lastOwnBuy && nowBuy - new Date(lastOwnBuy.transferredAt).getTime() < 14 * 24 * 3600 * 1000) {
-    return c.json({ error: "Cooling period 14 hari — tidak bisa membeli kembali kartu yang baru kamu jual", coolingDays: 14 }, 400);
-  }
-  const dropBuy = store.drops.get(card.dropId);
-  if (dropBuy) {
-    const isCreatorSelf =
-      dropBuy.creatorId === user.id || [...store.creators.values()].some((cr) => cr.userId === user.id && cr.id === dropBuy.creatorId);
-    if (isCreatorSelf) {
-      const dStart = new Date(dropBuy.dropStartAt ?? dropBuy.dropAt ?? dropBuy.createdAt).getTime();
-      if (nowBuy - dStart < 30 * 24 * 3600 * 1000)
-        return c.json(
-          { error: "Creator self-dealing dilarang 30 hari — kreator tidak bisa membeli kartu drop sendiri", cooldownDays: 30 },
-          400,
-        );
-    }
-  }
-
-  const w = ensureWallet(user.id);
-  if (w.balanceCCoin < price) return c.json({ error: "Saldo C-Coin tidak cukup", needCCoin: price, haveCCoin: w.balanceCCoin }, 402);
-
-  const prevOwner = card.ownerId;
-  if (!prevOwner) return c.json({ error: "Kartu tidak punya pemilik" }, 400);
-  const drop = store.drops.get(card.dropId);
-  if (!drop) return c.json({ error: "Drop kartu tidak ditemukan" }, 404);
-  const { platformCcoin, royaltyCcoin, sellerCcoin } = splitSecondaryFeeCcoin(price);
-  addTx(user.id, "platform_buy", -price, "card", card.id, `Buyout ${card.nfcShortId} — ${price} C-Coin`, {
-    fee_rate_platform: 0.075,
-    fee_rate_royalty: 0.075,
-    fee_rate_seller: 0.85,
-    price,
-  });
-  addTx(prevOwner, "settlement", sellerCcoin, "card", card.id, `Hasil buyout 85% — ${price} C-Coin`, {
-    fee_rate_platform: 0.075,
-    fee_rate_royalty: 0.075,
-    fee_rate_seller: 0.85,
-    price,
-  });
-  addTx(drop.creatorId, "royalty", royaltyCcoin, "card", card.id, `Royalty buyout 7,5% — ${drop.title}`, {
-    fee_rate_platform: 0.075,
-    fee_rate_royalty: 0.075,
-    platformCcoin,
-    price,
-  });
-
-  card.ownerId = user.id;
-  card.buyoutPriceCcoin = null;
-  card.status = "sold";
-
-  // bid aktif di kartu ini di-outbid + release hold
-  for (const b of store.bids.filter((b) => b.cardId === card.id && b.status === "active")) {
-    addTx(b.bidderId, "escrow_release", b.amountCCoin, "bid", b.id, "Outbid release — buyout taken");
-    b.status = "outbid";
-    b.outbidAt = nowIso();
-  }
-  store.ownershipHistory.push({
-    id: uid("oh-"),
-    cardId,
-    ownerId: user.id,
-    acquiredVia: "secondary_buyout",
-    orderId: null,
-    bidId: null,
-    transferredAt: nowIso(),
-  });
-  return c.json({
-    ok: true,
-    card,
-    needShipmentChoice: true,
-    hint: "Pilih tujuan kirim: ke alamat buyer (ongkir C-Coin) atau kirim/rawat di platform (vault).",
-  });
 });
 
 // PATCH /cards/:id/buyout — ubah/hapus harga buyout
 app.patch("/cards/:id/buyout", zValidator("json", z.object({ buyoutPriceCcoin: z.number().int().min(1).nullable() })), async (c) => {
   const authRes = await requireUser(c);
   if ("error" in authRes) return c.json({ error: authRes.error === 403 ? "Akun disuspend" : "Unauthorized" }, authRes.error);
-  const user = authRes.user;
   const { buyoutPriceCcoin } = c.req.valid("json");
-  if (isDbEnabled()) {
-    const db = userDb(authRes.token);
-    if (db) {
-      try {
-        const card = await rpcSetBuyout(db, c.req.param("id"), buyoutPriceCcoin);
-        return c.json({ card });
-      } catch (err) {
-        if (err instanceof RpcError) return c.json({ error: err.message, code: err.code }, err.code === "FORBIDDEN" ? 403 : 400);
-        throw err;
-      }
-    }
+  const db = userDb(authRes.token);
+  try {
+    const card = await rpcSetBuyout(db, c.req.param("id"), buyoutPriceCcoin);
+    return c.json({ card });
+  } catch (err) {
+    if (err instanceof RpcError) return c.json({ error: err.message, code: err.code }, err.code === "FORBIDDEN" ? 403 : 400);
+    throw err;
   }
-  const card = store.cards.get(c.req.param("id"));
-  if (!card) return c.json({ error: "Kartu tidak ditemukan" }, 404);
-  if (card.ownerId !== user.id) return c.json({ error: "Bukan pemilik" }, 403);
-  card.buyoutPriceCcoin = buyoutPriceCcoin;
-  if (buyoutPriceCcoin == null && (card.status === "listed_buyout" || card.status === "listed")) card.status = "sold";
-  if (buyoutPriceCcoin != null && card.status === "sold") card.status = "listed_buyout" as never;
-  return c.json({ card });
 });
 
 // DELETE /:cardId — cabut buyout (by card id)
 app.delete("/:id", async (c) => {
   const authRes = await requireUser(c);
   if ("error" in authRes) return c.json({ error: authRes.error === 403 ? "Akun disuspend" : "Unauthorized" }, authRes.error);
-  const user = authRes.user;
-  const card = store.cards.get(c.req.param("id"));
-  if (!card) return c.json({ error: "Kartu tidak ditemukan" }, 404);
-  if (card.ownerId !== user.id && (user.role as string) !== "admin") return c.json({ error: "Forbidden" }, 403);
-  card.buyoutPriceCcoin = null;
-  if (card.status === "listed_buyout") card.status = "sold";
-  return c.json({ ok: true, card });
+  const db = userDb(authRes.token);
+  try {
+    const card = await rpcSetBuyout(db, c.req.param("id"), null);
+    return c.json({ ok: true, card });
+  } catch (err) {
+    if (err instanceof RpcError) return c.json({ error: err.message, code: err.code }, err.code === "FORBIDDEN" ? 403 : 400);
+    throw err;
+  }
 });
 
 export default app;

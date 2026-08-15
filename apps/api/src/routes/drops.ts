@@ -3,18 +3,14 @@ import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import { z } from "zod";
 import { requireUser } from "../lib/auth.js";
-import { isDbEnabled, RpcError, rpcDropEntry, userDb } from "../lib/db.js";
+import { RpcError, rpcDropEntry, userDb } from "../lib/db.js";
 import { getDropById, listCardsByDrop, listDrops } from "../lib/reads/drops.js";
+import { logAuditDb } from "../lib/reads/kyc.js";
 import { pageMeta, parsePageParams, slicePage } from "../lib/reads.js";
-import type { DropStatus } from "../lib/store.js";
-import { ensureSeed, logAudit, store } from "../lib/store.js";
 import { getSupabase } from "../lib/supabase.js";
+import type { DropStatus } from "../lib/store.js";
 
 const app = new Hono();
-app.use("*", async (_c, next) => {
-  ensureSeed();
-  await next();
-});
 
 app.get("/", async (c) => {
   const q = c.req.query();
@@ -75,6 +71,8 @@ app.get("/:id", async (c) => {
   });
 });
 
+const LEGACY_STATUS_MAP: Record<string, DropStatus> = { review: "draft", approved: "scheduled", production: "scheduled", ended: "closed" };
+
 app.post(
   "/",
   zValidator(
@@ -109,58 +107,55 @@ app.post(
     const priceCcoin = body.priceCcoin ?? body.priceCCoin ?? body.priceUnsignedCCoin ?? 30;
     const priceUnsigned = body.priceUnsignedCCoin ?? priceCcoin;
     const priceSigned = body.priceSignedCCoin ?? Math.ceil(priceCcoin * 1.67); // docs 01 F004 / 09 2.7: signed = 1.67× base (20→34, 30→50, 50→84 ceil)
-    // Canonical status per docs/05-data-model drops.status = draft/scheduled/published/live/sold_out/closed/cancelled
-    const _allowedStatuses: DropStatus[] = ["draft", "scheduled", "published", "live", "sold_out", "closed", "cancelled"];
-    const _legacyMap: Record<string, DropStatus> = { review: "draft", approved: "scheduled", production: "scheduled", ended: "closed" };
     const id = `drop-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 5)}`;
     const dropStartAt = body.dropStartAt ?? body.dropAt ?? null;
-    const drop = {
+    const db = getSupabase();
+    const { error: dropError } = await db.from("drops").insert({
       id,
       title: body.title,
       series: body.series,
       narrative: body.narrative,
-      artworkUrl: body.artworkUrl || "/textures/genesis.jpg",
-      artwork3dUrl: (body as unknown as { artwork3dUrl?: string }).artwork3dUrl || null,
-      totalUnits: body.totalUnits,
-      signedCount,
-      unsignedCount,
-      priceUnsignedCCoin: priceUnsigned,
-      priceSignedCCoin: priceSigned,
-      priceCcoin: priceCcoin,
-      status: "draft" as const,
-      dropAt: dropStartAt,
-      dropStartAt,
-      dropEndAt: body.dropEndAt ?? null,
-      creatorId: user.id,
-      creatorName: user.displayName,
-      soldCount: 0,
-      createdAt: new Date().toISOString(),
-      createdBy: user.id,
-    };
-    store.drops.set(id, drop);
-    for (let i = 1; i <= body.totalUnits; i++) {
-      const variant = i <= signedCount ? ("signed" as const) : ("unsigned" as const);
-      const shortId = `${id.slice(0, 4)}-${String(i).padStart(3, "0")}`;
-      const nfcUid = `04A1${Math.random().toString(16).slice(2, 10).padEnd(8, "0").toUpperCase()}${String(i).padStart(2, "0")}`;
-      const cardId = `card-${id}-${String(i).padStart(2, "0")}`;
-      store.cards.set(cardId, {
-        id: cardId,
-        dropId: id,
-        unitNumber: i,
-        variant,
+      artwork_url: body.artworkUrl || "/textures/genesis.jpg",
+      artwork_3d_url: body.artwork3dUrl || null,
+      total_units: body.totalUnits,
+      signed_count: signedCount,
+      unsigned_count: unsignedCount,
+      price_unsigned_ccoin: priceUnsigned,
+      price_signed_ccoin: priceSigned,
+      price_ccoin: priceCcoin,
+      status: "draft",
+      drop_at: dropStartAt,
+      drop_start_at: dropStartAt,
+      drop_end_at: body.dropEndAt ?? null,
+      creator_id: user.id,
+      creator_name: user.displayName,
+      created_by: user.id,
+    });
+    if (dropError) return c.json({ error: dropError.message }, 400);
+
+    const cardRows = Array.from({ length: body.totalUnits }, (_, i) => {
+      const unit = i + 1;
+      return {
+        id: `card-${id}-${String(unit).padStart(2, "0")}`,
+        drop_id: id,
+        unit_number: unit,
+        variant: unit <= signedCount ? "signed" : "unsigned",
         status: "available",
         location: "platform_stock",
-        buyoutPriceCcoin: null,
-        nfcConfigured: false,
-        qcStatus: "pending",
-        ownerId: null,
-        nfcUid,
-        nfcShortId: shortId,
-        verifyStatus: "verified",
-        lastCtr: 0,
-      });
-    }
-    logAudit(
+        buyout_price_ccoin: null,
+        nfc_configured: false,
+        qc_status: "pending",
+        owner_id: null,
+        nfc_uid: `04A1${Math.random().toString(16).slice(2, 10).padEnd(8, "0").toUpperCase()}${String(unit).padStart(2, "0")}`,
+        nfc_short_id: `${id.slice(0, 4)}-${String(unit).padStart(3, "0")}`,
+        verify_status: "verified",
+        last_ctr: 0,
+      };
+    });
+    const { error: cardsError } = await db.from("cards").insert(cardRows);
+    if (cardsError) return c.json({ error: cardsError.message }, 400);
+
+    await logAuditDb(
       user.id,
       "create",
       "drops",
@@ -169,6 +164,7 @@ app.post(
       c.req.header("x-forwarded-for") ?? null,
       c.req.header("authorization") ?? null,
     );
+    const drop = await getDropById(id);
     return c.json({ drop }, 201);
   },
 );
@@ -198,19 +194,23 @@ app.patch(
     if ("error" in authRes) return c.json({ error: authRes.error === 403 ? "Akun disuspend" : "Unauthorized" }, authRes.error);
     const user = authRes.user;
     if (user.role !== "admin") return c.json({ error: "Hanya admin" }, 403);
-    const d = store.drops.get(c.req.param("id"));
-    if (!d) return c.json({ error: "Drop tidak ditemukan" }, 404);
-    d.status = c.req.valid("json").status as typeof d.status;
-    logAudit(
+    const raw = c.req.valid("json").status;
+    const status = LEGACY_STATUS_MAP[raw] ?? raw;
+    const db = getSupabase();
+    const { data, error } = await db.from("drops").update({ status }).eq("id", c.req.param("id")).select().maybeSingle();
+    if (error) return c.json({ error: error.message }, 400);
+    if (!data) return c.json({ error: "Drop tidak ditemukan" }, 404);
+    await logAuditDb(
       user.id,
       "update",
       "drops",
-      d.id,
-      { status: d.status },
+      String(data.id),
+      { status },
       c.req.header("x-forwarded-for") ?? null,
       c.req.header("authorization") ?? null,
     );
-    return c.json({ drop: d });
+    const drop = await getDropById(String(data.id));
+    return c.json({ drop });
   },
 );
 
@@ -221,9 +221,7 @@ app.post("/:id/entry", zValidator("json", z.object({ pool: z.enum(["regular", "p
   const authRes = await requireUser(c);
   if ("error" in authRes) return c.json({ error: authRes.error === 403 ? "Akun disuspend" : "Unauthorized" }, authRes.error);
   const { pool } = c.req.valid("json");
-  if (!isDbEnabled()) return c.json({ error: "Raffle membutuhkan database (RPC drop_entry)" }, 503);
   const db = userDb(authRes.token);
-  if (!db) return c.json({ error: "Database tidak terkonfigurasi" }, 503);
   try {
     const entry = await rpcDropEntry(db, c.req.param("id"), pool);
     return c.json({ entry }, 201);
@@ -242,7 +240,6 @@ app.post("/:id/draw", async (c) => {
   if ("error" in authRes) return c.json({ error: authRes.error === 403 ? "Akun disuspend" : "Unauthorized" }, authRes.error);
   if (authRes.user.role !== "admin") return c.json({ error: "Hanya admin" }, 403);
   const supabase = getSupabase();
-  if (!supabase) return c.json({ error: "Database tidak terkonfigurasi" }, 503);
   const { data, error } = await supabase.rpc("draw_drop", { p_drop_id: c.req.param("id") });
   if (error) return c.json({ error: error.message }, 400);
   return c.json({ winners: data });

@@ -1,10 +1,10 @@
 import type React from "react";
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
-import { api, clearToken, saveToken, setApiToken } from "./api";
+import { api, clearToken, setApiToken } from "./api";
 import { isSupabaseEnabled, supabase } from "./supabase";
 
 // Auth (docs/10): Supabase Auth — Google OAuth + email OTP 6 digit + captcha Turnstile.
-// Mode dev tanpa Supabase: hanya demo-login (founder demo).
+// DB wajib — demo-login in-memory dihapus bersama fallback store di API.
 
 type User = { id: string; email: string; displayName: string; role: string; xp?: number } | null;
 
@@ -16,7 +16,6 @@ interface AuthContextValue {
   loginGoogle: () => Promise<void>;
   sendOtp: (email: string, captchaToken?: string, displayName?: string) => Promise<void>;
   verifyOtp: (email: string, code: string) => Promise<void>;
-  demoLogin: () => Promise<void>;
   logout: () => Promise<void>;
   refresh: () => Promise<void>;
 }
@@ -29,7 +28,6 @@ const AuthCtx = createContext<AuthContextValue>({
   loginGoogle: async () => {},
   sendOtp: async () => {},
   verifyOtp: async () => {},
-  demoLogin: async () => {},
   logout: async () => {},
   refresh: async () => {},
 });
@@ -105,14 +103,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (error) throw error;
   }
 
-  async function demoLogin() {
-    const r = await api.demoLogin();
-    saveToken(r.token);
-    setApiToken(r.token);
-    setToken(r.token);
-    setUser({ id: r.user.id, email: r.user.email, displayName: r.user.displayName, role: r.user.role });
-  }
-
   async function logout() {
     if (supabase) {
       await supabase.auth.signOut().catch(() => {});
@@ -129,8 +119,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // value stabil antar-render — konsumen useAuth tidak ikut re-render saat state lain berubah
   const ctxValue = useMemo(
-    () => ({ user, token, loading, isSupabaseAuth: isSupabaseEnabled, loginGoogle, sendOtp, verifyOtp, demoLogin, logout, refresh }),
-    [user, token, loading, loginGoogle, sendOtp, verifyOtp, demoLogin, logout, refresh],
+    () => ({ user, token, loading, isSupabaseAuth: isSupabaseEnabled, loginGoogle, sendOtp, verifyOtp, logout, refresh }),
+    [user, token, loading, loginGoogle, sendOtp, verifyOtp, logout, refresh],
   );
 
   return <AuthCtx.Provider value={ctxValue}>{children}</AuthCtx.Provider>;

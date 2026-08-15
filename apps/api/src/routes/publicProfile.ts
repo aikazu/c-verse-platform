@@ -2,13 +2,8 @@ import { Hono } from "hono";
 import { listCards, listDrops } from "../lib/reads/drops.js";
 import { getUserByUsernameOrId, getUserRank, listUserBadges } from "../lib/reads/profiles.js";
 import type { Drop } from "../lib/store.js";
-import { ensureSeed } from "../lib/store.js";
 
 const app = new Hono();
-app.use("*", async (_c, next) => {
-  ensureSeed();
-  await next();
-});
 
 // GET /u/:username — public collector profile (koleksi/level/badge/ranking) — hidden if isAnonymous
 app.get("/u/:username", async (c) => {

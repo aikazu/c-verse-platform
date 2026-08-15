@@ -1,5 +1,4 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import { isSupabaseEnabled } from "./supabase.js";
 
 // RPC facade (docs/13): semua aksi uang & stok lewat Postgres RPC single-transaction.
 // RPC security definer membaca auth.uid() dari JWT — klien harus dibuat dengan
@@ -12,14 +11,12 @@ function getEnv(name: string): string | undefined {
   return g[name] ?? processEnv?.[name];
 }
 
-export function isDbEnabled(): boolean {
-  return isSupabaseEnabled() && Boolean(getEnv("SUPABASE_URL")?.startsWith("http"));
-}
-
 /** Per-request Supabase client authenticated as the calling user (JWT forwarded). */
-export function userDb(userToken: string): SupabaseClient | null {
+export function userDb(userToken: string): SupabaseClient {
   const url = getEnv("SUPABASE_URL");
-  if (!url?.startsWith("http")) return null;
+  if (!url?.startsWith("http")) {
+    throw new Error("SUPABASE_URL tidak terkonfigurasi — API tidak jalan tanpa DB (fail-fast).");
+  }
   return createClient(url, userToken, { auth: { persistSession: false, autoRefreshToken: false } });
 }
 

@@ -1,15 +1,10 @@
-import { mapBadgeRow, mapKycRow, mapUserBadgeRow, mapWalletRow, type Row, readDb, seedOnce } from "../reads.js";
+import { mapBadgeRow, mapKycRow, mapUserBadgeRow, mapWalletRow, type Row, readDb } from "../reads.js";
 import type { BadgeDef, KycRecord, UserBadge, Wallet } from "../store.js";
-import { ensureWallet, store } from "../store.js";
 
 // Domain reads: profile aggregation (docs/13 §3 Wave 3 — public select, no RPC needed).
 
 export async function getWalletByUser(userId: string): Promise<Wallet> {
   const db = readDb();
-  if (!db) {
-    seedOnce();
-    return ensureWallet(userId);
-  }
   const { data, error } = await db.from("wallets").select("*").eq("user_id", userId).maybeSingle();
   if (error) throw new Error(error.message);
   // No wallet row yet -> zero-balance view (rows are created lazily by wallet RPCs).
@@ -22,12 +17,6 @@ export interface UserBadgeWithDef extends UserBadge {
 
 export async function listUserBadges(userId: string): Promise<UserBadgeWithDef[]> {
   const db = readDb();
-  if (!db) {
-    seedOnce();
-    return store.userBadges
-      .filter((ub) => ub.userId === userId)
-      .map((ub) => ({ ...ub, badge: store.badges.find((b) => b.id === ub.badgeId) }));
-  }
   const { data: ubRows, error: ubError } = await db.from("user_badges").select("*").eq("user_id", userId);
   if (ubError) throw new Error(ubError.message);
   const earned = (ubRows ?? []).map((r) => mapUserBadgeRow(r as Row));
@@ -46,10 +35,6 @@ export async function listUserBadges(userId: string): Promise<UserBadgeWithDef[]
 
 export async function getKycByUser(userId: string): Promise<KycRecord | null> {
   const db = readDb();
-  if (!db) {
-    seedOnce();
-    return [...store.kyc.values()].find((k) => k.userId === userId) ?? null;
-  }
   const { data, error } = await db.from("kyc_records").select("*").eq("user_id", userId).maybeSingle();
   if (error) throw new Error(error.message);
   return data ? mapKycRow(data as Row) : null;

@@ -4,18 +4,15 @@ import { z } from "zod";
 import { deriveAppKey, verifySun } from "../lib/cmac.js";
 import { listBids } from "../lib/reads/bids.js";
 import { getCardByIdOrNfc, getDropById } from "../lib/reads/drops.js";
+import { logAuditDb } from "../lib/reads/kyc.js";
 import { getCardByNfcShortId, getCardByNfcUid, listOwnershipByCard } from "../lib/reads/nfc.js";
 import { getUserById, listUsersByIds } from "../lib/reads/users.js";
-import { type Card, ensureSeed, logAudit } from "../lib/store.js";
 import { getSupabase } from "../lib/supabase.js";
+import type { Card } from "../lib/store.js";
 
 // NFC verification (docs/12): SUN/CMAC real verification — never "verified" without crypto match.
 
 const app = new Hono();
-app.use("*", async (_c, next) => {
-  ensureSeed();
-  await next();
-});
 
 function getEnv(name: string): string | undefined {
   const g = globalThis as unknown as Record<string, string | undefined>;
@@ -30,10 +27,9 @@ function masterKeyBytes(): Uint8Array | null {
   return new Uint8Array((hex.match(/.{2}/g) ?? []).map((b) => Number.parseInt(b, 16)));
 }
 
-/** Persist verification state to Postgres when wired; store fallback keeps dev demo working. */
+/** Persist verification state to Postgres. */
 async function persistVerification(card: Card): Promise<void> {
   const supabase = getSupabase();
-  if (!supabase) return;
   await supabase.from("cards").update({ verify_status: card.verifyStatus, last_ctr: card.lastCtr }).eq("id", card.id);
 }
 
@@ -69,7 +65,7 @@ async function verifyTap(card: Card, input: TapInput): Promise<TapOutcome> {
   const appKey = await deriveAppKey(master, uidBytes);
   const result = await verifySun({ uidHex: input.uidHex, ctrHex: input.ctrHex, cmacHex: input.cmacHex }, appKey);
   if (!result.valid) {
-    logAudit("system", "view_sensitive", "cards", card.id, { fraud: "nfc_cmac_invalid", reason: result.reason }, null, null);
+    await logAuditDb("system", "view_sensitive", "cards", card.id, { fraud: "nfc_cmac_invalid", reason: result.reason }, null, null);
     return { verifyStatus: "unknown", message: "Verifikasi kripto gagal", reason: result.reason };
   }
 
@@ -85,7 +81,15 @@ async function verifyTap(card: Card, input: TapInput): Promise<TapOutcome> {
   // Anti-replay: counter must strictly advance
   const ctrNum = Number.parseInt(input.ctrHex, 16);
   if (!Number.isFinite(ctrNum) || ctrNum <= card.lastCtr) {
-    logAudit("system", "view_sensitive", "cards", card.id, { fraud: "nfc_counter_replay", ctr: ctrNum, lastCtr: card.lastCtr }, null, null);
+    await logAuditDb(
+      "system",
+      "view_sensitive",
+      "cards",
+      card.id,
+      { fraud: "nfc_counter_replay", ctr: ctrNum, lastCtr: card.lastCtr },
+      null,
+      null,
+    );
     return { verifyStatus: "unknown", message: "Counter tidak bertambah (replay ditolak)", reason: "counter_replay" };
   }
 

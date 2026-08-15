@@ -1,13 +1,8 @@
 import { calcLevel } from "@c-verse/shared";
 import { Hono } from "hono";
 import { countCardsByOwner, listBadges, listTopUsersByXp, listUserBadges } from "../lib/reads/gamification.js";
-import { ensureSeed } from "../lib/store.js";
 
 const app = new Hono();
-app.use("*", async (_c, next) => {
-  ensureSeed();
-  await next();
-});
 
 app.get("/leaderboard", async (c) => {
   const limit = Math.min(50, Math.max(5, Number(c.req.query("limit") || 20)));

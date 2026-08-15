@@ -9,11 +9,7 @@ export const CRON_PAYOUT_BATCH = "0 23 * * 1"; // Tue 06:00 WIB = Mon 23:00 UTC
 type EnvLike = Record<string, string | undefined>;
 
 async function rpcOrNull(env: EnvLike, fn: string, args?: Record<string, unknown>): Promise<number | string | null> {
-  const db = getSupabase(env);
-  if (!db) {
-    console.warn(`[cron] Supabase not configured — skip ${fn}`);
-    return null;
-  }
+  const db = getSupabase(env); // fail-fast: tanpa DB cron ikut mati keras
   const { data, error } = await db.rpc(fn, args ?? {});
   if (error) {
     console.error(`[cron] ${fn} failed:`, error.message);
