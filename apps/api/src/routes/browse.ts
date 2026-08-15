@@ -1,6 +1,10 @@
 import { C_COIN_RATE_IDR } from "@c-verse/shared";
 import { Hono } from "hono";
-import { ensureSeed, store } from "../lib/store.js";
+import { listBids, listBidsByCard } from "../lib/reads/bids.js";
+import { getCardByIdOrNfc, getDropById, listCards, listDrops } from "../lib/reads/drops.js";
+import { listUsersByIds } from "../lib/reads/users.js";
+import type { Bid, Drop, User } from "../lib/store.js";
+import { ensureSeed } from "../lib/store.js";
 
 const app = new Hono();
 app.use("*", async (_c, next) => {
@@ -12,22 +16,20 @@ app.use("*", async (_c, next) => {
 app.get("/", async (c) => {
   const q = (c.req.query("q") ?? c.req.query("search") ?? "").toLowerCase().trim();
   const creatorFilter = (c.req.query("creator") ?? "").toLowerCase().trim();
-  let cards = [...store.cards.values()].filter(
-    (ca) => ca.status !== "available" || ca.ownerId != null || ca.buyoutPriceCcoin != null || true,
-  );
   // For browse we show bound cards (owned), including those without buyout (can still bid)
-  cards = [...store.cards.values()].filter((ca) => ca.ownerId != null);
+  let cards = (await listCards()).filter((ca) => ca.ownerId != null);
 
+  const dropById = new Map<string, Drop>((await listDrops()).map((d) => [d.id, d]));
   if (q) {
     cards = cards.filter((ca) => {
-      const drop = store.drops.get(ca.dropId);
+      const drop = dropById.get(ca.dropId);
       const hay = `${ca.nfcShortId} ${drop?.title ?? ""} ${drop?.series ?? ""} ${drop?.creatorName ?? ""}`.toLowerCase();
       return hay.includes(q);
     });
   }
   if (creatorFilter) {
     cards = cards.filter((ca) => {
-      const drop = store.drops.get(ca.dropId);
+      const drop = dropById.get(ca.dropId);
       return (
         (drop?.creatorName.toLowerCase().includes(creatorFilter) ?? false) ||
         (drop?.creatorId.toLowerCase().includes(creatorFilter) ?? false)
@@ -44,10 +46,16 @@ app.get("/", async (c) => {
     cards.sort((a, b) => a.nfcShortId.localeCompare(b.nfcShortId));
   }
 
+  const ownerIds = [...new Set(cards.map((ca) => ca.ownerId).filter((id): id is string => id != null))];
+  const ownerById = new Map<string, User>((await listUsersByIds(ownerIds)).map((u) => [u.id, u]));
+  const activeBidByCard = new Map<string, Bid>();
+  for (const b of await listBids({ status: "active" })) {
+    if (!activeBidByCard.has(b.cardId)) activeBidByCard.set(b.cardId, b);
+  }
+
   const enriched = cards.map((card) => {
-    const drop = store.drops.get(card.dropId);
-    const owner = card.ownerId ? store.users.get(card.ownerId) : null;
-    const activeBid = store.bids.find((b) => b.cardId === card.id && b.status === "active") ?? null;
+    const drop = dropById.get(card.dropId);
+    const owner = card.ownerId ? ownerById.get(card.ownerId) : null;
     return {
       card: {
         id: card.id,
@@ -64,7 +72,7 @@ app.get("/", async (c) => {
         : null,
       owner: owner ? { id: owner.id, displayName: owner.displayName } : null,
       buyoutIdr: card.buyoutPriceCcoin != null ? card.buyoutPriceCcoin * C_COIN_RATE_IDR : null,
-      activeBid,
+      activeBid: activeBidByCard.get(card.id) ?? null,
       canBid: true,
     };
   });
@@ -74,11 +82,11 @@ app.get("/", async (c) => {
 
 // GET /cards/:id — single card browse detail (same as nfc /cards/:id but via browse mount for convenience)
 app.get("/cards/:id", async (c) => {
-  const card = store.cards.get(c.req.param("id")) ?? [...store.cards.values()].find((ca) => ca.nfcShortId === c.req.param("id")) ?? null;
+  const card = await getCardByIdOrNfc(c.req.param("id"));
   if (!card) return c.json({ error: "Kartu tidak ditemukan" }, 404);
-  const drop = store.drops.get(card.dropId);
-  const owner = card.ownerId ? store.users.get(card.ownerId) : null;
-  const bids = store.bids.filter((b) => b.cardId === card.id).sort((a, b) => b.amountCCoin - a.amountCCoin);
+  const drop = await getDropById(card.dropId);
+  const owner = card.ownerId ? ((await listUsersByIds([card.ownerId]))[0] ?? null) : null;
+  const bids = (await listBidsByCard(card.id)).sort((a, b) => b.amountCCoin - a.amountCCoin);
   const activeBid = bids.find((b) => b.status === "active") ?? null;
   return c.json({ card, drop, owner: owner ? { id: owner.id, displayName: owner.displayName } : null, activeBid, bids: bids.slice(0, 20) });
 });

@@ -96,6 +96,8 @@ export interface Drop {
   dropAt: string | null; // legacy
   dropStartAt: string | null;
   dropEndAt: string | null;
+  raffleEndAt?: string | null; // C-15 hybrid raffle window
+  drawnAt?: string | null; // idempotency marker for draw_drop
   creatorId: string;
   creatorName: string;
   soldCount: number;

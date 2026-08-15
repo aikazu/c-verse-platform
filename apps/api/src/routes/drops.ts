@@ -4,6 +4,7 @@ import { Hono } from "hono";
 import { z } from "zod";
 import { requireUser } from "../lib/auth.js";
 import { isDbEnabled, RpcError, rpcDropEntry, userDb } from "../lib/db.js";
+import { getDropById, listCardsByDrop, listDrops } from "../lib/reads/drops.js";
 import type { DropStatus } from "../lib/store.js";
 import { ensureSeed, logAudit, store } from "../lib/store.js";
 import { getSupabase } from "../lib/supabase.js";
@@ -18,7 +19,7 @@ app.get("/", async (c) => {
   const q = c.req.query();
   const status = q.status as string | undefined;
   const search = (q.search as string | undefined)?.toLowerCase();
-  let drops = [...store.drops.values()];
+  let drops = await listDrops();
   if (status && status !== "all") drops = drops.filter((d) => d.status === status);
   if (search)
     drops = drops.filter(
@@ -53,9 +54,9 @@ app.get("/", async (c) => {
 });
 
 app.get("/:id", async (c) => {
-  const d = store.drops.get(c.req.param("id"));
+  const d = await getDropById(c.req.param("id"));
   if (!d) return c.json({ error: "Drop tidak ditemukan" }, 404);
-  const cards = [...store.cards.values()].filter((ca) => ca.dropId === d.id);
+  const cards = await listCardsByDrop(d.id);
   const soldCards = cards.filter((ca) => ca.status !== "available");
   return c.json({
     ...d,
