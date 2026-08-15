@@ -24,25 +24,31 @@ Dokumen perencanaan **canonical = `docs/`** (`00_readme` → `09_recommendations
   - `pnpm --filter @c-verse/web dev` — `vite --host 0.0.0.0 --port 5173` (proxy `/api` → `http://localhost:8787`)
   - `pnpm --filter @c-verse/admin dev` — `vite --host 127.0.0.1 --port 3000`
 - Typecheck: `pnpm run typecheck` (`pnpm -r typecheck` → `tsc --noEmit` per package; 4 workspaces: shared, api, web, admin)
+- Test: `pnpm test` (Vitest; proyek `packages/shared` + `apps/api`). Lint: `pnpm lint` (Biome, 0 error/warning hard gate). Format: `pnpm format`.
+- Integration SQL (RPC/RLS) butuh `npx supabase start` (Docker): `psql ... -f supabase/tests/rls_test.sql`.
 - Build: `pnpm run build` (`pnpm -r build`); `pnpm --filter @c-verse/web build` → `apps/web/dist`, `pnpm --filter @c-verse/admin build` → `apps/admin/dist`, `pnpm --filter @c-verse/api build` = `tsc --noEmit` only. Workers deploy: `pnpm --filter @c-verse/api deploy` (`wrangler deploy`).
 - Lint: `pnpm run lint` = no-op (`echo "no lint configured"`).
-- CI: *(disabled di dev — lihat `.github/workflows.disabled/`)* — aktif lagi saat siap prod: `supabase-branch-check.yml` on PR `supabase/**` → `pnpm install`, `typecheck`, `build`, `supabase db lint`.
+- CI: `.github/workflows/ci.yml` (PR + main): `pnpm install → typecheck → lint → test → build` + `supabase db lint` di PR.
 
 ## Project layout
 
 - `apps/api/src/index.ts` — Hono app (CORS + logger, mounts `/api/*`, JSON 404). `apps/api/src/server.ts` — Node entry lokal.
-- `apps/api/src/routes/` — `auth.ts`, `drops.ts`, `orders.ts`, `wallet.ts`, `nfc.ts`, `listings.ts`, `bids.ts`, `browse.ts`, `profile.ts`, `publicProfile.ts`, `shipments.ts`, `gamification.ts`, `creators.ts`, `kyc.ts`, `seo.ts`.
+- `apps/api/src/routes/` — `auth.ts`, `drops.ts`, `orders.ts`, `wallet.ts`, `nfc.ts`, `marketplace.ts` (buyout-on-card; alias `/api/listings`), `bids.ts`, `browse.ts`, `profile.ts`, `publicProfile.ts`, `shipments.ts`, `gamification.ts`, `creators.ts`, `kyc.ts`, `seo.ts`, `payments.ts` (Midtrans).
+- `apps/api/src/lib/` — `auth.ts` (Supabase JWT verify + `requireUser`; dev tanpa Supabase → session in-memory), `cmac.ts` (AES-CMAC RFC 4493 + SUN AN12196), `db.ts` (RPC facade — klien pakai JWT user karena RPC baca `auth.uid()`), `payments/` (provider + midtrans), `store.ts` (dev fallback), `supabase.ts`.
 - `apps/api/src/lib/store.ts` — in-memory store + `ensureSeed()` (mirror `supabase/seed.sql`); helpers `isKycApproved`, `awardBadgeIfNeeded`, `logAudit`, `isPayoutHeld`.
 - `apps/web/src/` — `App.tsx` (routes: `/`, `/drops`, `/drops/:id/checkout`, `/home`, `/cards/:cardId/3d`, `/marketplace`, `/browse`, `/collection`, `/me/manage`, `/me/privacy`, `/me/kyc`, `/wallet`, `/leaderboard`, `/c/:username`, `/u/:username`, `/creator`) + `pages/` + `lib/api.ts` + `worker-seo.ts`.
 - `apps/admin/src/` — Vite SPA terpisah (Guard `aal2` via Supabase MFA TOTP, nav ADM-01..10: dashboard/creators/drops/orders/nfc/payouts/badges/disputes/audit/investor).
 - `packages/shared/src/index.ts` — **single source** Zod schemas + constants (`C_COIN_RATE_IDR=10_000`, `SECONDARY_*`, `REVENUE_SHARE_*`, `calcLevel`, `KYC_TRIGGER 99`, `MAX_BUYOUT 20`). Import via `@c-verse/shared`.
-- `supabase/` — `config.toml`, `migrations/*.sql`, `seed.sql`.
+- `supabase/` — `config.toml`, `migrations/*.sql` (auth uuid + RLS matrix + RPC atomic), `seed.sql` (fixed UUID = `auth.users`), `tests/rls_test.sql`.
 - `docs/` — `00_readme.md` … `09_recommendations.md` (10 files). Baca urut 01→09.
 
 ## Conventions
 
 - ESM only (`"type": "module"`), Strict TS (`strict: true`, `moduleResolution: bundler`).
-- API: `Hono` + `zValidator` dengan schema dari `@c-verse/shared`. Mount via `app.route("/api/<name>", module)` di `apps/api/src/index.ts`. Alias: `/api/marketplace` → listings.
+- API: `Hono` + `zValidator` dengan schema dari `@c-verse/shared`. Mount via `app.route("/api/<name>", module)` di `apps/api/src/index.ts`. Alias `/api/listings` → marketplace (buyout).
+- Auth: Supabase JWT (Google OAuth + email OTP + Turnstile) — `requireUser(c)` di semua route; 401 invalid, 403 suspend (`flag_reason`). Register/login password DILARANG. Demo-login hanya mode tanpa Supabase (`VITE_ENABLE_DEMO_LOGIN`).
+- Uang & stok: saat `SUPABASE_URL` terpasang wajib lewat RPC (`apps/api/src/lib/db.ts`: checkout, drop_entry/draw, place/cancel/accept bid, set_buyout/buyout_card, wallet_credit/debit — single transaction). `store.ts` hanya fallback dev; fail-fast di production (F-08).
+- NFC: verdict `verified` HANYA via CMAC valid (`lib/cmac.ts`, key diversification N5) + counter maju. QR → maksimal `registered`. Tamper permanen.
 - Shared constants canonical — jangan hard-code rate/fee/threshold di app (`idrToCCoin = Math.ceil`).
 - C-Coin: **integer ≥1 tanpa desimal** (`CHECK x >= 1`), konversi IDR→C-Coin ceil. Kolom `int`, jangan `numeric`.
 - Drop: `priceCcoin` canonical (platform-produced 70/30), `signedCount = ceil(total/10)`, `priceSigned = ceil(price*1.67)`.
@@ -53,7 +59,7 @@ Dokumen perencanaan **canonical = `docs/`** (`00_readme` → `09_recommendations
 - Profil: `/u/:username` & `/c/:username`; `is_anonymous` hide koleksi/level/badge. Domain `c-verse.co` + `c-verse.id` redirect — LOCK sebelum NFC.
 - KYC: hanya payout + top-up besar. Tidak untuk pasang buyout/accept bid. `hold_payout_until` untuk fraud hold.
 - Admin: terpisah, `service-role` + Cloudflare Access + 2FA TOTP (`aal2`) + `admin_audit_log` append-only. Tidak ada route admin di API publik.
-- Demo: `demo@cverse.id`/`demo123` (120 C-Coin), `admin@cverse.id`/`admin123`. Role `user` (legacy `collector`), `creator`, `admin`.
+- Demo (seed `auth.users`): `demo@cverse.id`/`demo123` (120 C-Coin), `admin@cverse.id`/`admin123`; creator `karina@creator.id` dll. Role `user` (legacy `collector`), `creator`, `admin`.
 
 ## Pitfalls
 

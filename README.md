@@ -263,15 +263,22 @@ Semua angka & enum canonical di `packages/shared/src/index.ts` — jangan hard-c
 
 ## Keamanan & Anti-Fraud
 
-- **Rate limit** — 10 bid aktif/user, 50 bid/hari.
-- **Wash trading** — cooling **14 hari** (`docs/05 I13`, `07 C-12`) — tidak bisa beli kembali kartu yang baru dijual.
-- **Creator self-dealing** — larang beli kartu drop sendiri **30 hari** (`I14`, `C-13`) + hold payout 30d jika terdeteksi.
-- **Buyout guard** — max **20** kartu buyout aktif/user (`I10`).
-- **Idempotency** — `metadata.idempotency_key` di `wallet_transactions` (top-up & payout).
-- **Hold payout** — `wallets.hold_payout_until` + helper `isPayoutHeld()` (fraud hold).
-- **Fee snapshot** — `fee_rate_platform/royalty/seller` disimpan per transaksi (antisipasi event rate 10% vs 15%).
-- **Consent** — `consent_analytics_detail` + `consent_data_market` (`PATCH /api/profile/consent`, UI di `/me/privacy`).
-- **Creator views** — `creator_page_views` log dari day 1 (`GET /api/creators/:id?stats=1`).
+Status implementasi per item (`[done]` = ada di code + test; `[spec NN]` = spec docs/NN siap, eksekusi bertahap).
+
+- **Auth Supabase (JWT + Turnstile)** — Google OAuth + email OTP 6 digit; API verify JWKS `jose`. `[done — docs/10]` (aktifasi provider Google/Turnstile = config dashboard).
+- **RLS default-deny** — matriks policy per tabel + guard trigger (buyout-only update, ledger & audit append-only). `[done — docs/11]` (verifikasi `supabase/tests/rls_test.sql` butuh Docker).
+- **NFC CMAC (SUN AN12196)** — AES-CMAC RFC 4493 + anti-replay counter + tamper permanen. `[done — docs/12]` (provisioning tag fisik = ops TapLinx).
+- **Atomic money RPC** — wallet/checkout/raffle/bid/buyout single-transaction + idempotency ledger. `[done — docs/13]` (route read-only masih gelombang migrasi; store.ts dev fallback).
+- **Payments Midtrans** — Snap top-up + webhook signature + payout disbursement. `[done — docs/14]` (sandbox keys + e2e = ops; gate C-08 sebelum uang riil).
+- **Rate limit** — 10 bid aktif/user, 50 bid/hari. `[done]`
+- **Wash trading** — cooling **14 hari** (`docs/05 I13`, `07 C-12`). `[done]`
+- **Creator self-dealing** — larang beli kartu drop sendiri **30 hari** (`I14`, `C-13`). `[done]`
+- **Buyout guard** — max **20** kartu buyout aktif/user (`I10`). `[done]`
+- **Idempotency** — `metadata.idempotency_key` unique index + RPC `ON CONFLICT`. `[done]`
+- **Hold payout** — `wallets.hold_payout_until` + helper `isPayoutHeld()` (fraud hold). `[done]`
+- **Fee snapshot** — `fee_rate_platform/royalty/seller` disimpan per transaksi. `[done]`
+- **Consent** — `consent_analytics_detail` + `consent_data_market` (`PATCH /api/profile/consent`, UI di `/me/privacy`). `[done]`
+- **Creator views** — `creator_page_views` log dari day 1 (`GET /api/creators/:id?stats=1`). `[done]`
 
 ---
 
@@ -282,7 +289,7 @@ Semua angka & enum canonical di `packages/shared/src/index.ts` — jangan hard-c
 | Web | `apps/web/dist` | Cloudflare Pages (`pnpm --filter @c-verse/web build`) |
 | API | `apps/api` | `wrangler deploy` (Workers) · cron: escrow 5m, payout Selasa 06:00 WIB, badge 03:00 WIB |
 | Admin | `apps/admin/dist` | VPS + `cloudflared tunnel` → `admin.c-verse.co` + Access *Allow founders* |
-| DB | `supabase/` | `npx supabase db reset` (migrasi + seed) · RLS permissive MVP, tighten saat Auth live |
+| DB | `supabase/` | `npx supabase db reset` (migrasi + seed) · RLS default-deny (docs/11) |
 
 **Go-live checklist** (08): SSL aktif, `/health` OK, NFC verify di device nyata, RLS tanpa leak `service_role`, secret tidak di bundle, email terkirim, cron OK, T&C + cap saldo live sebelum top-up uang riil.
 

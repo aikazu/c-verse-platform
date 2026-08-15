@@ -72,7 +72,9 @@ describe("MidtransProvider (fetch mocked)", () => {
     expect(instruction.snapToken).toBe("snap-token-1");
     expect(instruction.redirectUrl).toContain("snap-token-1");
     expect(calls[0]?.path).toBe(MIDTRANS_SNAP_PATH);
-    expect((calls[0]?.body as { transaction_details: { order_id: string } }).transaction_details.order_id).toBe("top-1-1-ab");
+    expect((calls[0]?.body as unknown as { transaction_details: { order_id: string } } | undefined)?.transaction_details.order_id).toBe(
+      "top-1-1-ab",
+    );
   });
 
   it("getStatus queries status endpoint", async () => {
