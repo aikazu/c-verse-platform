@@ -11,7 +11,7 @@ function requireAuth(c: { req: { header: (k: string) => string | undefined } }):
   return getUserByToken(authHeaderToToken(c.req.header("authorization")));
 }
 
-const KYC_THRESHOLD = KYC_TRIGGER_THRESHOLD_CCOIN; // re-export threshold from shared (99)
+const KYC_THRESHOLD = KYC_TRIGGER_THRESHOLD_CCOIN; // 1.000 C-Coin (docs/16 F-03; demo pakai KYC_TOPUP_THRESHOLD_DEMO di seed)
 
 app.get("/", async (c) => {
   const user = requireAuth(c as unknown as { req: { header: (k: string) => string | undefined } });

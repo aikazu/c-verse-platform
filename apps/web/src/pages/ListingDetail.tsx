@@ -68,7 +68,7 @@ export default function ListingDetail(){
           <div><div style={{fontSize:11,color:"var(--dim)",fontWeight:700}}>HARGA AWAL</div><div style={{fontWeight:800,fontSize:18}}>{listing.priceCCoin} C <span style={{fontSize:11,color:"var(--muted)"}}>({formatIdr(listing.priceCCoin*10000)})</span></div></div>
           {listing.currentBidCCoin && <div><div style={{fontSize:11,color:"var(--dim)",fontWeight:700}}>BID TERTINGGI</div><div style={{fontWeight:800,fontSize:18,color:"var(--gold)"}}>{listing.currentBidCCoin} C <span style={{fontSize:11,color:"var(--muted)"}}>({formatIdr(listing.currentBidCCoin*10000)})</span></div></div>}
         </div>
-        <div style={{fontSize:12,color:"var(--muted)"}}>Seller: {(data as any).seller?.displayName ?? listing.sellerId} · Ends: {new Date(listing.endsAt).toLocaleString("id-ID")} · Card: {card?.id} · ShortID: {card?.nfcShortId}</div>
+        <div style={{fontSize:12,color:"var(--muted)"}}>Seller: {(data as any).seller?.displayName ?? listing.sellerId} · Card: {card?.id} · ShortID: {card?.nfcShortId}</div>
         <div style={{fontSize:11,background:"var(--bg-elevated)",border:"1px solid var(--border)",borderRadius:8,padding:8,color:"var(--muted)"}}>
           Fee secondary 15%: 7.5% platform + 7.5% royalty kreator lifetime + 85% seller.
         </div>

@@ -36,6 +36,17 @@ export const SECONDARY_SELLER_PCT = 0.85;
 export const REVENUE_SHARE_PLATFORM_PRODUCED = { platform: 0.7, creator: 0.3 } as const;
 export const REVENUE_SHARE_CREATOR_PRODUCED = { platform: 0.3, creator: 0.7 } as const; // deferred Y2+ (not in MVP)
 
+/**
+ * Secondary sale fee split (15% total: 7.5 platform + 7.5 royalty + 85 seller).
+ * Integer C-Coin: platform/royalty rounded to nearest, seller takes the remainder
+ * so the three parts always sum exactly to the sale price.
+ */
+export function splitSecondaryFeeCcoin(priceCcoin: number): { platformCcoin: number; royaltyCcoin: number; sellerCcoin: number } {
+  const platformCcoin = Math.round(priceCcoin * SECONDARY_PLATFORM_PCT);
+  const royaltyCcoin = Math.round(priceCcoin * SECONDARY_ROYALTY_PCT);
+  return { platformCcoin, royaltyCcoin, sellerCcoin: priceCcoin - platformCcoin - royaltyCcoin };
+}
+
 // ── Domain & product shape ─────────────────────────────────────────────────
 export const PRIMARY_DOMAIN = "c-verse.co"; // 00-README: must lock before NFC provisioning
 export const SECONDARY_DOMAIN = "c-verse.id";
@@ -90,12 +101,7 @@ export type KycStatus = z.infer<typeof kycStatusSchema>;
 export const levelTierSchema = z.enum(["bronze", "silver", "gold", "platinum", "diamond"]);
 export type LevelTier = z.infer<typeof levelTierSchema>;
 
-// Legacy — kept for incremental migration (old marketplace auction code).
-// New code should use cardLocation/cardStatus/bidStatus; avoid listingStatus.
-export const listingStatusSchema = z.enum(["draft", "listed", "bidding", "awaiting_settlement", "settled", "expired", "cancelled", "failed"]);
-export type ListingStatus = z.infer<typeof listingStatusSchema>;
-export const listingTypeSchema = z.enum(["fixed", "auction"]);
-export type ListingType = z.infer<typeof listingTypeSchema>;
+// Secondary market = buyout on card + direct bids (C-07 FINAL — no auction/listing).
 
 // ── API Schemas ────────────────────────────────────────────────────────────
 export const paginationSchema = z.object({
@@ -126,7 +132,7 @@ export type CreateDropInput = z.infer<typeof createDropSchema>;
 // Checkout: single-card, 1 kartu/user/drop, delivery option + on-chain shipping fee (integer >=1)
 export const checkoutSchema = z.object({
   dropId: z.string().min(1),
-  deliveryOption: deliveryOptionSchema.default("shipping"),
+  deliveryOption: deliveryOptionSchema.default("vault"), // C-10 FINAL: vault default, shipping = opt-in
   shippingFeeCcoin: z.number().int().min(1).nullable().optional(), // required when shipping; must be >=1 (no fractional)
   shippingAddress: z.string().min(10).max(500).nullable().optional(), // required when shipping
   // legacy fields (accept but ignore/convert)
@@ -182,19 +188,6 @@ export const verifyNfcSchema = z.object({
   counter: z.string().optional(),
   cmac: z.string().optional(),
   shortId: z.string().optional(),
-});
-
-export const createListingSchema = z.object({
-  cardId: z.string().min(1),
-  type: z.enum(["fixed", "auction"]).default("fixed"),
-  priceCCoin: z.number().int().min(1),
-  reserveCCoin: z.number().int().min(0).optional(),
-  durationDays: z.number().int().min(1).max(14).default(7),
-});
-
-export const bidSchema = z.object({
-  listingId: z.string().min(1),
-  amountCCoin: z.number().int().min(1),
 });
 
 export const kycSchema = z.object({
@@ -267,6 +260,8 @@ export interface WalletTransaction {
   refType: string | null;
   refId: string | null;
   note: string | null;
+  metadata?: Record<string, unknown> | null;
+  feeCcoin?: number | null;
   createdAt: string;
 }
 
@@ -300,24 +295,9 @@ export interface Shipment {
   createdAt: string;
 }
 
-export interface Listing {
-  id: string;
-  cardId: string;
-  sellerId: string;
-  type: "fixed" | "auction";
-  priceCCoin: number;
-  reserveCCoin: number | null;
-  currentBidCCoin: number | null;
-  currentBidderId: string | null;
-  status: ListingStatus;
-  endsAt: string;
-  createdAt: string;
-}
-
 export interface Bid {
   id: string;
-  cardId?: string; // new: bid directly on card
-  listingId: string; // legacy, kept
+  cardId: string;
   bidderId: string;
   bidderName: string;
   amountCCoin: number;
@@ -361,27 +341,28 @@ export function calcUnsignedCount(totalUnits: number): number {
   return totalUnits - calcSignedCount(totalUnits);
 }
 
-/** docs/05-data-model + 07 C-05c: level = floor(total_xp / 10); top-up does NOT add XP */
+/** docs/05-data-model + 07 C-05c: level = floor(total_xp / 10) + 1; top-up does NOT add XP */
 export function calcLevel(xp: number): { level: number; tier: LevelTier } {
   const safe = Math.max(0, Math.floor(xp));
-  const level = Math.max(1, Math.floor(safe / 10) + (safe >= 0 ? 0 : 0));
-  // xp 0-9 => level 1 — guard so 0 xp is still level 1
-  const lvl = Math.min(100, Math.max(1, Math.floor(safe / 10) + 1 > 100 ? 100 : Math.floor(safe / 10) + 1));
-  // above floors: 0-9 =>1, 10-19=>2 etc. clamp 1..100
+  // xp 0-9 => level 1, 10-19 => level 2, etc. clamp 1..100
+  const level = Math.min(100, Math.max(1, Math.floor(safe / 10) + 1));
   let tier: LevelTier = "bronze";
-  if (lvl >= 41) tier = "diamond";
-  else if (lvl >= 31) tier = "platinum";
-  else if (lvl >= 21) tier = "gold";
-  else if (lvl >= 11) tier = "silver";
-  return { level: lvl, tier };
+  if (level >= 41) tier = "diamond";
+  else if (level >= 31) tier = "platinum";
+  else if (level >= 21) tier = "gold";
+  else if (level >= 11) tier = "silver";
+  return { level, tier };
 }
 export function xpForNextLevel(xp: number): number {
   const { level } = calcLevel(xp);
   return level * 10 - xp;
 }
 
-// KYC triggers per docs/07 C-05b
-export const KYC_TRIGGER_THRESHOLD_CCOIN = 99;
+// KYC triggers per docs/07 C-05b.
+// TODO(founder): finalisasi sebelum launch (40_operations/10_kyc_policy) — jangan dipakai
+// untuk demo tanpa env override.
+export const KYC_TRIGGER_THRESHOLD_CCOIN = 1000; // 1.000 C-Coin = Rp 10 jt
+export const KYC_TOPUP_THRESHOLD_DEMO = 99; // khusus seed/demo (trigger rendah)
 export const MAX_BUYOUT_ACTIVE_PER_USER = 20;
 export const MIN_PAYOUT_CCOIN = 10; // docs/07 C-09b: minimum payout 10 C-Coin (Rp 100rb)
 export const BALANCE_CAP_CCOIN = 1000; // docs/07 C-08: cap saldo 500-1000 C-Coin (Rp 5-10jt) — default 1000

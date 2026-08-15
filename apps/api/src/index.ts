@@ -5,7 +5,7 @@ import drops from "./routes/drops.js";
 import wallet from "./routes/wallet.js";
 import orders from "./routes/orders.js";
 import nfc from "./routes/nfc.js";
-import listings from "./routes/listings.js";
+import marketplace from "./routes/marketplace.js";
 import bids from "./routes/bids.js";
 import browse from "./routes/browse.js";
 import auth from "./routes/auth.js";
@@ -20,6 +20,14 @@ import seo from "./routes/seo.js";
 export type Bindings = {
   ENV?: string;
 };
+
+// Fail-fast: in-memory store fallback is dev/demo only — production MUST have Supabase (spec 16 F-08).
+const g = globalThis as unknown as Record<string, string | undefined>;
+const envMode = (g.ENV ?? (typeof process !== "undefined" ? process.env.NODE_ENV : undefined)) ?? "";
+const supabaseUrl = g.SUPABASE_URL ?? (typeof process !== "undefined" ? process.env.SUPABASE_URL : undefined);
+if (envMode === "production" && !supabaseUrl) {
+  throw new Error("SUPABASE_URL required in production");
+}
 
 const app = new Hono<{ Bindings: Bindings }>();
 
@@ -46,7 +54,7 @@ app.route("/api/drops", drops);
 app.route("/api/wallet", wallet);
 app.route("/api/orders", orders);
 app.route("/api/nfc", nfc);
-app.route("/api/listings", listings);
+app.route("/api/marketplace", marketplace);
 app.route("/api/bids", bids);
 app.route("/api/browse", browse);
 app.route("/api/profile", profile);
@@ -62,8 +70,8 @@ app.get("/sitemap.xml", async (c) => {
   return r;
 });
 
-// Compat aliases (old clients hit /api/marketplace etc directly)
-app.route("/api/marketplace", listings);
+// Compat alias: old clients hit /api/listings directly (buyout-only since C-07 FINAL)
+app.route("/api/listings", marketplace);
 
 // Fallback JSON 404
 app.notFound((c) => c.json({ error: "Not found", path: c.req.path }, 404));

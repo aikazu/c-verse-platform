@@ -35,7 +35,6 @@ app.get("/", async (c) => {
   const progressInLevel = totalXp % 10; // 0..9
   const levelProgressPct = Math.round((progressInLevel / 10) * 100); // 0,10..90
   const levelProgressLabel = `Level ${level} — ${progressInLevel}/10 menuju level ${level + 1}`;
-  const myListingsCompat = [...store.listings.values()].filter((l) => l.sellerId === user.id);
   return c.json({
     user: {
       id: user.id,
@@ -56,7 +55,7 @@ app.get("/", async (c) => {
     orders: myOrders,
     shipments: myShipments,
     bids: myBids,
-    listings: myListingsCompat,
+    listings: [],
     badges,
     kyc,
     stats: {
@@ -65,7 +64,6 @@ app.get("/", async (c) => {
       withOwnerCards: myCards.filter((ca) => ca.location === "with_owner").length,
       buyoutListed: myCards.filter((ca) => ca.buyoutPriceCcoin != null).length,
       totalOrders: myOrders.length,
-      activeListingsCompat: myListingsCompat.filter((l) => ["listed", "bidding"].includes(l.status as string)).length,
     },
   });
 });

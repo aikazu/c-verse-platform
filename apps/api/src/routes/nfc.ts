@@ -145,11 +145,4 @@ app.get("/sun-verify", async (c) => {
   return c.json({ verifyStatus: "verified" as const, card: { id: (card as unknown as { id: string }).id }, redirectTo: `/cards/${(card as unknown as { id: string }).id}/3d`, verifiedBadge: "Verified Card" });
 });
 
-app.post("/simulate-tamper/:cardId", async (c) => {
-  const card = store.cards.get(c.req.param("cardId"));
-  if (!card) return c.json({ error: "Card not found" }, 404);
-  card.verifyStatus = "tamper_detected";
-  return c.json({ card });
-});
-
 export default app;

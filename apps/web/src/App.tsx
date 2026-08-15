@@ -27,7 +27,6 @@ import OrderDetail from "./pages/OrderDetail";
 import Privacy from "./pages/Privacy";
 import Kyc from "./pages/Kyc";
 import Notifications from "./pages/Notifications";
-import Admin from "./pages/Admin";
 import "./styles.css";
 
 const qc = new QueryClient();
@@ -47,7 +46,6 @@ function UserMenu(){
   if(!user) return null;
   const initial = ((user as any).displayName || (user as any).username || user.email || "U").slice(0,1).toUpperCase();
   const isCreator = user.role === "creator" || user.role === "admin";
-  const isAdmin = user.role === "admin";
   return (
     <div ref={ref} style={{position:"relative"}}>
       <button onClick={()=> setOpen(v=>!v)} aria-expanded={open} aria-haspopup="menu" style={{display:"flex", alignItems:"center", gap:10, background:"var(--surface-2)", border:"1px solid var(--border)", borderRadius:99, padding:"5px 10px 5px 5px", color:"var(--text)", transition:"border-color var(--motion-fast)"}}>
@@ -73,7 +71,6 @@ function UserMenu(){
             <MenuLink to="/me/kyc" label="Verifikasi" onClick={()=> setOpen(false)} />
             <MenuLink to="/me/privacy" label="Privasi" onClick={()=> setOpen(false)} />
             {isCreator && <MenuLink to="/creator" label="Dashboard Kreator" onClick={()=> setOpen(false)} />}
-            {isAdmin && <MenuLink to="/admin" label="Admin" onClick={()=> setOpen(false)} />}
           </div>
           <div style={{padding:"8px", borderTop:"1px solid var(--border)"}}>
             <button onClick={async()=>{ await logout(); setOpen(false); nav("/"); }} style={{width:"100%", background:"transparent", border:"1px solid var(--border)", borderRadius:8, padding:"9px 12px", color:"var(--text)", fontWeight:600, fontSize:13, transition:"border-color var(--motion-fast)"}}>Keluar</button>
@@ -146,7 +143,6 @@ function AppRoutes(){
         <Route path="/register" element={<Register/>}/>
         <Route path="/creator" element={<CreatorDashboard/>}/>
         <Route path="/creator/drops" element={<CreatorDashboard/>}/>
-        <Route path="/admin" element={<Admin/>}/>
         {/* Compat: legacy /verify — Verify melekat di /cards/:id (QR→Registered) & /cards/:id/3d (NFC→Verified) per docs/02 */}
         <Route path="/verify" element={<Browse/>}/>
         <Route path="/verify/:shortId" element={<CardInfo/>}/>

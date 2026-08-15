@@ -15,7 +15,7 @@ export type ShipmentToDest = "buyer_address" | "platform_vault";
 export type ShipmentStatus = "requested" | "packed" | "shipped" | "delivered" | "cancelled";
 export type BidStatus = "active" | "outbid" | "cancelled" | "accepted";
 export type VerifyStatus = "verified" | "tamper_detected" | "registered" | "unknown";
-export type ListingStatus = "draft" | "listed" | "bidding" | "awaiting_settlement" | "settled" | "expired" | "cancelled" | "failed";
+export type ListingStatus = never; // legacy auction/listing removed (C-07 FINAL)
 
 export interface User {
   id: string;
@@ -145,24 +145,9 @@ export interface Shipment {
   createdAt: string;
 }
 
-export interface Listing {
-  id: string;
-  cardId: string;
-  sellerId: string;
-  type: "fixed" | "auction";
-  priceCCoin: number;
-  reserveCCoin: number | null;
-  currentBidCCoin: number | null;
-  currentBidderId: string | null;
-  status: ListingStatus;
-  endsAt: string;
-  createdAt: string;
-}
-
 export interface Bid {
   id: string;
-  cardId: string | null;
-  listingId: string | null;
+  cardId: string;
   bidderId: string;
   bidderName: string;
   amountCCoin: number;
@@ -262,7 +247,6 @@ class Store {
   walletTx: WalletTx[] = [];
   orders: Map<string, Order> = new Map();
   shipments: Map<string, Shipment> = new Map();
-  listings: Map<string, Listing> = new Map();
   bids: Bid[] = [];
   badges: BadgeDef[] = [];
   userBadges: UserBadge[] = [];
@@ -393,15 +377,9 @@ export function ensureSeed() {
     { id: "oh-vault-1", cardId: "card-drop-genesis-alpha-02", ownerId: "u_demo", acquiredVia: "primary", orderId: "ord-vault-demo", bidId: null, transferredAt: new Date(Date.now() - 86400_000 * 5).toISOString() },
   );
 
-  const listingDemo: Listing = {
-    id: "lst-001", cardId: "card-drop-aespa-2025-03", sellerId: "u_demo", type: "auction",
-    priceCCoin: 45, reserveCCoin: 35, currentBidCCoin: 42, currentBidderId: "u_admin",
-    status: "bidding", endsAt: new Date(Date.now() + 86400_000 * 2).toISOString(), createdAt: new Date(Date.now() - 86400_000).toISOString(),
-  };
-  store.listings.set(listingDemo.id, listingDemo);
   store.bids.push(
-    { id: uid("bid-"), cardId: "card-drop-aespa-2025-03", listingId: "lst-001", bidderId: "u_admin", bidderName: "Admin C.Verse", amountCCoin: 38, status: "outbid", createdAt: new Date(Date.now() - 3600_000 * 5).toISOString(), outbidAt: new Date(Date.now() - 3600_000).toISOString() },
-    { id: uid("bid-"), cardId: "card-drop-aespa-2025-03", listingId: "lst-001", bidderId: "cr_hype", bidderName: "HypeCreator", amountCCoin: 42, status: "active", createdAt: new Date(Date.now() - 3600_000).toISOString() },
+    { id: uid("bid-"), cardId: "card-drop-aespa-2025-03", bidderId: "u_admin", bidderName: "Admin C.Verse", amountCCoin: 38, status: "outbid", createdAt: new Date(Date.now() - 3600_000 * 5).toISOString(), outbidAt: new Date(Date.now() - 3600_000).toISOString() },
+    { id: uid("bid-"), cardId: "card-drop-aespa-2025-03", bidderId: "cr_hype", bidderName: "HypeCreator", amountCCoin: 42, status: "active", createdAt: new Date(Date.now() - 3600_000).toISOString() },
   );
 
   store.userBadges.push({ userId: "u_demo", badgeId: "b1", earnedAt: new Date(Date.now() - 86400_000 * 2).toISOString(), awardedAt: new Date(Date.now() - 86400_000 * 2).toISOString(), xpRewardSnapshot: 100 });
@@ -436,7 +414,7 @@ export function addTx(userId: string, type: string, amountCCoin: number, refType
   if (amountCCoin < 0) w.totalSpentCCoin += Math.abs(amountCCoin);
   // mirror spend to cumulative + totalXp (docs/07 C-05c: spend 1 C-Coin = 1 XP)
   const user = store.users.get(userId);
-  if (user && amountCCoin < 0 && (type === "checkout" || type === "settlement" || type.includes("checkout"))) {
+  if (user && amountCCoin < 0 && (type === "checkout" || type === "platform_buy" || type === "settlement" || type.includes("checkout"))) {
     const spend = Math.abs(amountCCoin);
     user.cumulativeSpendCcoin = (user.cumulativeSpendCcoin ?? 0) + spend;
     user.totalXp = (user.totalXp ?? user.xp ?? 0) + spend;

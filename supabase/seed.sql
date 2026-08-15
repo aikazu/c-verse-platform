@@ -118,15 +118,10 @@ insert into public.ownership_history (id, card_id, owner_id, acquired_via, order
  ('oh-vault-1', 'card-drop-genesis-alpha-02', 'u_demo', 'primary', 'ord-vault-demo', now() - interval '5 days')
 on conflict (id) do nothing;
 
--- Listings kept for backwards compat (Marketplace buyout is now cards.buyout_price_ccoin)
-insert into public.listings (id, card_id, seller_id, type, price_ccoin, reserve_ccoin, current_bid_ccoin, current_bidder_id, status, ends_at, created_at) values
- ('lst-001', 'card-drop-aespa-2025-03', 'u_demo', 'auction', 45, 35, 42, 'u_admin', 'bidding', now() + interval '2 days', now() - interval '1 day')
-on conflict (id) do nothing;
-
--- Bids: direct on card + on listing (both populated for compat)
-insert into public.bids (id, listing_id, card_id, bidder_id, bidder_name, amount_ccoin, status, created_at) values
- ('bid-seed-1', 'lst-001', 'card-drop-aespa-2025-03', 'u_admin', 'Admin C.Verse', 38, 'outbid', now() - interval '5 hours'),
- ('bid-seed-2', 'lst-001', 'card-drop-aespa-2025-03', 'cr_hype', 'HypeCreator', 42, 'active', now() - interval '1 hour')
+-- Bids: direct on card (legacy listing path removed — C-07 FINAL)
+insert into public.bids (id, card_id, bidder_id, bidder_name, amount_ccoin, status, created_at) values
+ ('bid-seed-1', 'card-drop-aespa-2025-03', 'u_admin', 'Admin C.Verse', 38, 'outbid', now() - interval '5 hours'),
+ ('bid-seed-2', 'card-drop-aespa-2025-03', 'cr_hype', 'HypeCreator', 42, 'active', now() - interval '1 hour')
 on conflict (id) do nothing;
 
 -- Shipments demo (primary shipping + vault)
