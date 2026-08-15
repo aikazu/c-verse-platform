@@ -92,7 +92,7 @@ export default function CreatorPage() {
                 <div
                   style={{
                     height: 140,
-                    background: "linear-gradient(135deg,#14141a,#1e1e34)",
+                    background: "var(--thumb-grad)",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",

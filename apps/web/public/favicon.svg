@@ -1,5 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
-  <rect width="32" height="32" rx="7" fill="#0A0A0A" stroke="#2A2A2A" stroke-width="1"/>
-  <rect x="0" y="0" width="32" height="2" rx="1" fill="#C9A352"/>
-  <text x="16" y="21" text-anchor="middle" font-family="Fraunces, Georgia, serif" font-size="15" font-weight="600" fill="#C9A352">C</text>
+  <rect width="32" height="32" fill="#0B0614" stroke="#45307A" stroke-width="2"/>
+  <rect x="2" y="2" width="28" height="4" fill="#FF2E97"/>
+  <rect x="2" y="2" width="9.33" height="4" fill="#FFD541"/>
+  <rect x="2" y="2" width="4" height="4" fill="#00E5FF"/>
+  <text x="16" y="24" text-anchor="middle" font-family="'Press Start 2P', monospace" font-size="13" fill="#FFD541">C</text>
 </svg>

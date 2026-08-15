@@ -36,7 +36,7 @@ export default function DropDetail() {
           <div
             style={{
               aspectRatio: "4/3",
-              background: "linear-gradient(135deg,#14141a 0%, #1e1e34 50%, #141e2e 100%)",
+              background: "var(--thumb-grad)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",

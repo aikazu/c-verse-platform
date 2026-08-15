@@ -229,8 +229,8 @@ function AppRoutes() {
       <main className="main-content">
         <Suspense
           fallback={
-            <div className="muted" style={{ padding: 32, textAlign: "center" }}>
-              Memuat…
+            <div className="now-loading">
+              Now Loading<span className="blink">▮</span>
             </div>
           }
         >
@@ -267,24 +267,11 @@ function AppRoutes() {
           </Routes>
         </Suspense>
       </main>
-      <footer
-        style={{
-          textAlign: "center",
-          padding: "22px 24px",
-          fontSize: 11,
-          color: "var(--text-dim)",
-          borderTop: "1px solid var(--border)",
-          marginTop: 48,
-          fontFamily: "var(--font-mono)",
-          letterSpacing: "0.06em",
-          textTransform: "uppercase",
-        }}
-      >
-        C.Verse — Koleksi Kreator Edisi Terbatas ·{" "}
-        <a href="/sitemap.xml" style={{ color: "var(--text-dim)", textDecoration: "none" }}>
-          Sitemap
-        </a>{" "}
-        · c-verse.co
+      <footer className="footer-arcade">
+        <div className="footer-line">C.Verse — Koleksi Kreator Edisi Terbatas</div>
+        <div className="footer-meta">
+          © 2026 · <a href="/sitemap.xml">Sitemap</a> · c-verse.co · Insert Coin <span className="blink">▮</span>
+        </div>
       </footer>
     </div>
   );

@@ -33,7 +33,7 @@ export default function Card3D() {
         ← Kembali
       </Link>
       <div className="card" style={{ overflow: "hidden" }}>
-        <div ref={viewerRef} style={{ height: 420, background: "#08080a" }} />
+        <div ref={viewerRef} style={{ height: 420, background: "var(--viewer-bg)" }} />
         <div className="card-pad">
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
             {d.verifiedBadge ? (

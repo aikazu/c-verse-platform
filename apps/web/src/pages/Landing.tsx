@@ -1,160 +1,189 @@
 import { Link } from "react-router-dom";
 
+const TICKER_ITEMS = [
+  "NEW DROP SETIAP MINGGU",
+  "KOLEKSI KREATOR EDISI TERBATAS",
+  "NFC VERIFIED",
+  "1 C-COIN = RP 10.000",
+  "1 KARTU / USER / DROP",
+  "TRADE DI MARKETPLACE",
+];
+
+const STEPS = [
+  {
+    num: "01",
+    title: "PILIH DROP",
+    desc: "Beli kartu edisi terbatas dari kreator favoritmu sebelum habis. Satu kartu per user per drop — yang cepat, dapat.",
+  },
+  {
+    num: "02",
+    title: "TAP NFC",
+    desc: "Sentuh kartu ke ponselmu. Chip NTAG dengan CMAC AES-128 memverifikasi keaslian dalam sekejap — tamper permanen.",
+  },
+  {
+    num: "03",
+    title: "TRADE & LEVEL UP",
+    desc: "Pasang buyout di Marketplace atau bid langsung di Browse. Setiap 1 C-Coin belanja = 1 XP — naik level, buka badge.",
+  },
+];
+
+const POWER_UPS = [
+  {
+    icon: "⬡",
+    label: "POWER-UP 1",
+    title: "FISIK PREMIUM",
+    desc: "Acrylic hardcase 63×88 mm dengan efek holo — koleksi yang benar-benar bisa dipegang, dipajang, dan ditunjukkan.",
+  },
+  {
+    icon: "◈",
+    label: "POWER-UP 2",
+    title: "NFC VERIFIED",
+    desc: "Verifikasi keaslian instan lewat tap NFC. Counter maju + diversifikasi key — kartu palsu tidak akan lolos.",
+  },
+  {
+    icon: "₵",
+    label: "POWER-UP 3",
+    title: "C-COIN",
+    desc: "1 C-Coin = Rp 10.000. Top-up, beli drop, trade — semua transaksi dalam satu mata uang simpel, tanpa desimal.",
+  },
+];
+
 export default function Landing() {
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 32 }}>
-      {/* Hero */}
-      <div
-        style={{
-          background: "var(--gold-glow), linear-gradient(135deg, #0f0f0f 0%, #141414 55%, #0d0d12 100%)",
-          border: "1px solid var(--border)",
-          borderRadius: "var(--r-4)",
-          padding: "48px 32px",
-          display: "flex",
-          gap: 36,
-          alignItems: "center",
-          flexWrap: "wrap",
-          overflow: "hidden",
-          position: "relative",
-        }}
-      >
-        <div style={{ flex: "1 1 420px" }}>
-          <span className="eyebrow">C.Verse — Creator Verse</span>
-          <h1 className="h1" style={{ marginTop: 10 }}>
-            Koleksi
-            <br />
-            <em>Kreator</em> Favoritmu
-          </h1>
-          <hr className="hr-gold" />
-          <p className="muted" style={{ marginTop: 14, maxWidth: 500, fontSize: 14, lineHeight: 1.7 }}>
-            Kartu edisi terbatas dalam acrylic premium. Setiap kartu terverifikasi lewat NFC.
-          </p>
-          <div style={{ display: "flex", gap: 10, marginTop: 24, flexWrap: "wrap" }}>
-            <Link
-              to="/drops"
-              className="btn-gold"
-              style={{
-                padding: "12px 24px",
-                borderRadius: 99,
-                fontWeight: 700,
-                display: "inline-flex",
-                textDecoration: "none",
-                fontSize: 14,
-              }}
-            >
-              Jelajahi Drops →
-            </Link>
-            <Link to="/marketplace" className="btn-ghost" style={{ padding: "12px 24px", display: "inline-flex", textDecoration: "none" }}>
-              Marketplace
-            </Link>
-          </div>
-        </div>
-        <div style={{ flex: "0 0 280px", display: "flex", alignItems: "center", justifyContent: "center", minHeight: 240 }}>
-          <div
-            style={{
-              width: 168,
-              height: 232,
-              borderRadius: 14,
-              background: "linear-gradient(145deg, #1a1a2a 0%, #1e1e30 50%, #16162a 100%)",
-              border: "1px solid var(--border)",
-              borderTop: "2px solid var(--gold)",
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 12,
-              boxShadow: "0 20px 50px rgba(0,0,0,0.5), 0 0 0 1px rgba(201,163,82,0.08) inset",
-            }}
-          >
-            <span style={{ fontSize: 52, filter: "drop-shadow(0 2px 8px rgba(201,163,82,0.2))" }}>🎴</span>
-            <span
-              style={{
-                fontFamily: "var(--font-mono)",
-                fontSize: 10,
-                letterSpacing: "0.12em",
-                textTransform: "uppercase",
-                color: "var(--text-dim)",
-              }}
-            >
-              C.Card · NFC Verified
+    <div className="landing">
+      {/* Coin-slot ticker */}
+      <div className="marquee" aria-hidden="true">
+        <div className="marquee-track">
+          {[0, 1].map((pass) => (
+            <span key={pass}>
+              {TICKER_ITEMS.map((item) => (
+                <span key={`${pass}-${item}`}>★ {item}&nbsp;&nbsp;&nbsp;</span>
+              ))}
             </span>
-          </div>
+          ))}
         </div>
       </div>
 
-      {/* 3 pillars — tighter, mono labels */}
-      <div className="grid-3">
-        {[
-          { icon: "◈", label: "Fisik Premium", desc: "Acrylic hardcase 63×88 mm, holo — koleksi yang bisa dipegang." },
-          { icon: "⬡", label: "Terverifikasi", desc: "Tap NFC untuk keaslian kartu." },
-          { icon: "₵", label: "C-Coin", desc: "1 C-Coin = Rp 10.000. Transaksi simpel." },
-        ].map((c) => (
-          <div key={c.label} className="card card-pad" style={{ padding: "22px 20px" }}>
-            <div
-              style={{
-                width: 36,
-                height: 36,
-                borderRadius: 8,
-                background: "rgba(201,163,82,0.10)",
-                border: "1px solid rgba(201,163,82,0.18)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontSize: 16,
-                color: "var(--gold)",
-              }}
-            >
-              {c.icon}
+      {/* HERO — attract mode */}
+      <section className="hero">
+        <div className="hero-stars" />
+        <div className="hero-stars-2" />
+        <div className="hero-grid-floor" />
+        <div className="hero-inner">
+          <div className="hero-copy">
+            <span className="hero-tag">Player 1 — Ready</span>
+            <h1 className="hero-title">
+              C<span className="dot">.</span>VERSE
+            </h1>
+            <p className="hero-sub">Koleksi Kreator · Edisi Terbatas</p>
+            <p className="hero-desc">
+              Kartu kolaborasi kreator dalam <strong>acrylic premium</strong> — setiap kartu terverifikasi lewat <strong>tap NFC</strong>.
+              Kumpulkan, trade, dan naik level dalam satu ekosistem arcade koleksi.
+            </p>
+            <div className="hero-cta">
+              <Link to="/drops" className="btn-gold btn-xl">
+                ▶ Mulai Main
+              </Link>
+              <Link to="/marketplace" className="btn-ghost btn-xl">
+                Marketplace
+              </Link>
             </div>
-            <div
-              style={{
-                fontFamily: "var(--font-mono)",
-                fontSize: 11,
-                fontWeight: 500,
-                letterSpacing: "0.08em",
-                textTransform: "uppercase",
-                color: "var(--text-dim)",
-                marginTop: 14,
-              }}
-            >
-              {c.label}
-            </div>
-            <div style={{ fontWeight: 600, marginTop: 4, fontSize: 14 }}>{c.label}</div>
-            <div className="muted" style={{ marginTop: 6, fontSize: 13, lineHeight: 1.6 }}>
-              {c.desc}
+            <p className="insert-coin">
+              Insert coin to continue <span className="coin-slot blink">▮</span>
+            </p>
+          </div>
+
+          <div className="hero-card-scene">
+            <div className="holo-card">
+              <div className="holo-card-top">
+                <span>C.CARD</span>
+                <span>NO.001</span>
+              </div>
+              <span className="holo-emoji">🎴</span>
+              <span className="holo-name">FIRST DROP</span>
+              <span className="holo-chip">✓ NFC Verified</span>
             </div>
           </div>
-        ))}
+        </div>
+      </section>
+
+      {/* HI-SCORE strip */}
+      <div className="hero-score">
+        <div className="hero-score-cell">
+          <div className="hero-score-value">63×88</div>
+          <div className="hero-score-label">MM Acrylic Premium</div>
+        </div>
+        <div className="hero-score-cell">
+          <div className="hero-score-value cyan">AES-128</div>
+          <div className="hero-score-label">CMAC NFC Anti-Tamper</div>
+        </div>
+        <div className="hero-score-cell">
+          <div className="hero-score-value magenta">Rp 10.000</div>
+          <div className="hero-score-label">Per 1 C-Coin</div>
+        </div>
       </div>
 
-      {/* CTA strip */}
-      <div
-        className="card card-pad"
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          flexWrap: "wrap",
-          gap: 16,
-          background: "var(--surface-2)",
-        }}
-      >
-        <div>
-          <div style={{ fontFamily: "var(--font-display)", fontSize: 16, fontWeight: 500 }}>
-            Mulai <em style={{ fontStyle: "italic", fontWeight: 300, color: "var(--gold)" }}>koleksimu</em>
+      <div className="landing-inner">
+        {/* HOW TO PLAY */}
+        <section className="sect">
+          <div className="sect-head">
+            <span className="eyebrow">How to Play</span>
+            <h2 className="h2">
+              Cara Main — <em>3 Langkah</em>
+            </h2>
           </div>
-          <div className="muted" style={{ fontSize: 12, marginTop: 2 }}>
-            Drops terbaru dan koleksi kreator menantimu.
+          <div className="grid-3">
+            {STEPS.map((s) => (
+              <div key={s.num} className="crt-screen">
+                <div className="step-num">{s.num}</div>
+                <div className="step-title">{s.title}</div>
+                <p className="step-desc">{s.desc}</p>
+              </div>
+            ))}
           </div>
-        </div>
-        <div style={{ display: "flex", gap: 10 }}>
-          <Link to="/drops" className="btn-gold">
-            Lihat Drops
-          </Link>
-          <Link to="/collection" className="btn-ghost">
-            Koleksiku
-          </Link>
-        </div>
+        </section>
+
+        {/* POWER-UPS */}
+        <section className="sect">
+          <div className="sect-head">
+            <span className="eyebrow">Power-Ups</span>
+            <h2 className="h2">
+              Kenapa <em>C.Verse</em>
+            </h2>
+          </div>
+          <div className="grid-3">
+            {POWER_UPS.map((p) => (
+              <div key={p.title} className="card card-pad">
+                <div className="power-icon">{p.icon}</div>
+                <div className="power-label">{p.label}</div>
+                <div className="power-title">{p.title}</div>
+                <p className="power-desc">{p.desc}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* ATTRACT MODE CTA */}
+        <section className="attract">
+          <span className="eyebrow" style={{ textAlign: "center" }}>
+            Attract Mode
+          </span>
+          <h2 className="attract-title" style={{ marginTop: 10 }}>
+            Ready <em>Player One?</em>
+          </h2>
+          <p className="attract-desc">Buat akun, klaim kartu pertamamu dari drop berikutnya, dan mulai kumpulkan XP. High score menanti.</p>
+          <div className="attract-cta">
+            <Link to="/register" className="btn-gold btn-xl">
+              ▶ Tekan Start
+            </Link>
+            <Link to="/drops" className="btn-ghost btn-xl">
+              Lihat Drops
+            </Link>
+          </div>
+          <p className="press-start">
+            Press Start <span className="blink">▮</span>
+          </p>
+        </section>
       </div>
     </div>
   );
