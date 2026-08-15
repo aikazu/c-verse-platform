@@ -10,9 +10,27 @@ export async function listDrops(): Promise<Drop[]> {
     seedOnce();
     return [...store.drops.values()];
   }
-  const { data, error } = await db.from("drops").select("*").order("created_at", { ascending: false });
+  // ceiling working set — jangan muat tabel drop tanpa batas ke memori Worker
+  const { data, error } = await db.from("drops").select("*").order("created_at", { ascending: false }).limit(2000);
   if (error) throw new Error(error.message);
   return (data ?? []).map((r) => mapDropRow(r as Record<string, unknown>));
+}
+
+/** Kartu ber-pemilik (browse secondary) — filter + kolom + ceiling di level DB. */
+export async function listOwnedCards(): Promise<Card[]> {
+  const db = readDb();
+  if (!db) {
+    seedOnce();
+    return [...store.cards.values()].filter((c) => c.ownerId != null);
+  }
+  const { data, error } = await db
+    .from("cards")
+    .select("id, drop_id, unit_number, variant, status, location, buyout_price_ccoin, owner_id, nfc_short_id")
+    .not("owner_id", "is", null)
+    .order("unit_number")
+    .limit(2000);
+  if (error) throw new Error(error.message);
+  return (data ?? []).map((r) => mapCardRow(r as Record<string, unknown>));
 }
 
 export async function getDropById(id: string): Promise<Drop | null> {

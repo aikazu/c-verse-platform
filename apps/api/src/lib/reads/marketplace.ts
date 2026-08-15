@@ -11,8 +11,9 @@ export async function listMarketplaceCards(): Promise<Card[]> {
     seedOnce();
     return [...store.cards.values()].filter((ca) => ca.buyoutPriceCcoin != null && ca.buyoutPriceCcoin >= 1);
   }
-  // gte implicitly excludes NULL buyout prices (comparison with NULL is not true)
-  const { data, error } = await db.from("cards").select("*").gte("buyout_price_ccoin", 1).order("buyout_price_ccoin");
+  // gte implicitly excludes NULL buyout prices (comparison with NULL is not true);
+  // ceiling working set — listing dibatasi MAX_BUYOUT 20/user jadi 2000 sangat longgar
+  const { data, error } = await db.from("cards").select("*").gte("buyout_price_ccoin", 1).order("buyout_price_ccoin").limit(2000);
   if (error) throw new Error(error.message);
   return (data ?? []).map((r) => mapCardRow(r as Row));
 }

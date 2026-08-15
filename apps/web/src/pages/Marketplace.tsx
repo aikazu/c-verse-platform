@@ -1,11 +1,16 @@
-import { useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { api, formatIdr } from "../lib/api";
 
 export default function Marketplace() {
-  const { data, isLoading, refetch } = useQuery({ queryKey: ["marketplace"], queryFn: () => api.listings() });
-  const marketplace: any[] = (data as any)?.marketplace ?? (data as any)?.cards ?? [];
-  const listings: any[] = (data as any)?.listings ?? [];
+  const { data, isLoading, refetch, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteQuery({
+    queryKey: ["marketplace"],
+    queryFn: ({ pageParam }) => api.listings({ limit: "60", offset: String(pageParam) }),
+    initialPageParam: 0,
+    getNextPageParam: (last) => (last.hasMore ? last.offset + last.limit : undefined),
+  });
+  const marketplace: any[] = data?.pages.flatMap((p) => p.marketplace ?? p.cards ?? []) ?? [];
+  const listings: any[] = data?.pages.flatMap((p) => p.listings ?? []) ?? [];
   const cards = marketplace.length
     ? marketplace
     : listings.map((l: any) => ({
@@ -84,6 +89,11 @@ export default function Marketplace() {
             );
           })}
         </div>
+      )}
+      {hasNextPage && (
+        <button className="btn-ghost" onClick={() => fetchNextPage()} disabled={isFetchingNextPage} style={{ alignSelf: "center" }}>
+          {isFetchingNextPage ? "Memuat…" : "Muat lagi"}
+        </button>
       )}
     </div>
   );

@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../lib/api";
@@ -10,8 +10,13 @@ export default function Browse() {
   const { push } = useToast();
   const [q, setQ] = useState("");
   const [bidAmt, setBidAmt] = useState<Record<string, number>>({});
-  const { data, refetch, isLoading } = useQuery({ queryKey: ["browse", q], queryFn: () => api.browse(q ? { q } : undefined) });
-  const cards: any[] = (data as any)?.cards ?? (data as any)?.results ?? [];
+  const { data, refetch, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteQuery({
+    queryKey: ["browse", q],
+    queryFn: ({ pageParam }) => api.browse({ ...(q ? { q } : {}), limit: "60", offset: String(pageParam) }),
+    initialPageParam: 0,
+    getNextPageParam: (last) => (last.hasMore ? last.offset + last.limit : undefined),
+  });
+  const cards: any[] = data?.pages.flatMap((p) => p.cards ?? p.results ?? []) ?? [];
   async function onBid(cardId: string) {
     if (!user) {
       push("Masuk untuk menawar", "info");
@@ -139,6 +144,11 @@ export default function Browse() {
             );
           })}
         </div>
+      )}
+      {hasNextPage && (
+        <button className="btn-ghost" onClick={() => fetchNextPage()} disabled={isFetchingNextPage} style={{ alignSelf: "center" }}>
+          {isFetchingNextPage ? "Memuat…" : "Muat lagi"}
+        </button>
       )}
     </div>
   );

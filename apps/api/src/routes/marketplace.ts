@@ -7,6 +7,7 @@ import { isDbEnabled, RpcError, rpcBuyoutCard, rpcSetBuyout, userDb } from "../l
 import { listDrops } from "../lib/reads/drops.js";
 import { listMarketplaceCards } from "../lib/reads/marketplace.js";
 import { listUsersByIds } from "../lib/reads/users.js";
+import { pageMeta, parsePageParams, slicePage } from "../lib/reads.js";
 import type { Drop, User } from "../lib/store.js";
 import { addTx, ensureSeed, ensureWallet, logAudit, nowIso, store, uid } from "../lib/store.js";
 
@@ -60,7 +61,9 @@ app.get("/", async (c) => {
       };
     });
 
-  return c.json({ marketplace, cards: marketplace, listings: [], enriched: marketplace });
+  const page = parsePageParams(c.req.query());
+  const paged = slicePage(marketplace, page);
+  return c.json({ marketplace: paged, cards: paged, listings: [], enriched: paged, ...pageMeta(marketplace.length, page) });
 });
 
 // POST / — pasang harga buyout di kartu milik sendiri (tanpa KYC — FINAL 2026-08-13)

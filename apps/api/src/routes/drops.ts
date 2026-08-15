@@ -5,6 +5,7 @@ import { z } from "zod";
 import { requireUser } from "../lib/auth.js";
 import { isDbEnabled, RpcError, rpcDropEntry, userDb } from "../lib/db.js";
 import { getDropById, listCardsByDrop, listDrops } from "../lib/reads/drops.js";
+import { pageMeta, parsePageParams, slicePage } from "../lib/reads.js";
 import type { DropStatus } from "../lib/store.js";
 import { ensureSeed, logAudit, store } from "../lib/store.js";
 import { getSupabase } from "../lib/supabase.js";
@@ -42,17 +43,18 @@ app.get("/", async (c) => {
   drops.sort(
     (a, b) => (order[a.status] ?? 9) - (order[b.status] ?? 9) || new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
   );
+  const enriched = drops.map((d) => ({
+    ...d,
+    remainingUnits: d.totalUnits - d.soldCount,
+    idrPrice: (d.priceCcoin ?? d.priceUnsignedCCoin) * C_COIN_RATE_IDR,
+    idrUnsigned: d.priceUnsignedCCoin * C_COIN_RATE_IDR,
+    idrSigned: d.priceSignedCCoin * C_COIN_RATE_IDR,
+  }));
+  const page = parsePageParams(c.req.query());
+  const paged = slicePage(enriched, page);
   // data publik yang jarang berubah — cache edge/browser 60 detik
   c.header("Cache-Control", "public, max-age=60");
-  return c.json({
-    drops: drops.map((d) => ({
-      ...d,
-      remainingUnits: d.totalUnits - d.soldCount,
-      idrPrice: (d.priceCcoin ?? d.priceUnsignedCCoin) * C_COIN_RATE_IDR,
-      idrUnsigned: d.priceUnsignedCCoin * C_COIN_RATE_IDR,
-      idrSigned: d.priceSignedCCoin * C_COIN_RATE_IDR,
-    })),
-  });
+  return c.json({ drops: paged, ...pageMeta(enriched.length, page) });
 });
 
 app.get("/:id", async (c) => {

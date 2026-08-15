@@ -1,8 +1,9 @@
 import { C_COIN_RATE_IDR } from "@c-verse/shared";
 import { Hono } from "hono";
 import { listBids, listBidsByCard } from "../lib/reads/bids.js";
-import { getCardByIdOrNfc, getDropById, listCards, listDrops } from "../lib/reads/drops.js";
+import { getCardByIdOrNfc, getDropById, listDrops, listOwnedCards } from "../lib/reads/drops.js";
 import { listUsersByIds } from "../lib/reads/users.js";
+import { pageMeta, parsePageParams, slicePage } from "../lib/reads.js";
 import type { Bid, Drop, User } from "../lib/store.js";
 import { ensureSeed } from "../lib/store.js";
 
@@ -17,7 +18,7 @@ app.get("/", async (c) => {
   const q = (c.req.query("q") ?? c.req.query("search") ?? "").toLowerCase().trim();
   const creatorFilter = (c.req.query("creator") ?? "").toLowerCase().trim();
   // For browse we show bound cards (owned), including those without buyout (can still bid)
-  let cards = (await listCards()).filter((ca) => ca.ownerId != null);
+  let cards = await listOwnedCards();
 
   const dropById = new Map<string, Drop>((await listDrops()).map((d) => [d.id, d]));
   if (q) {
@@ -77,7 +78,9 @@ app.get("/", async (c) => {
     };
   });
 
-  return c.json({ cards: enriched, results: enriched });
+  const page = parsePageParams(c.req.query());
+  const paged = slicePage(enriched, page);
+  return c.json({ cards: paged, results: paged, ...pageMeta(enriched.length, page) });
 });
 
 // GET /cards/:id — single card browse detail (same as nfc /cards/:id but via browse mount for convenience)

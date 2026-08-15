@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { api, formatIdr } from "../lib/api";
@@ -28,10 +28,14 @@ function Badge({ status }: { status: string }) {
 export default function Drops() {
   const [filter, setFilter] = useState("all");
   const [search, setSearch] = useState("");
-  const { data, isLoading, refetch } = useQuery({
+  const { data, isLoading, refetch, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteQuery({
     queryKey: ["drops", filter, search],
-    queryFn: () => api.drops({ ...(filter !== "all" ? { status: filter } : {}), ...(search ? { search } : {}) }),
+    queryFn: ({ pageParam }) =>
+      api.drops({ ...(filter !== "all" ? { status: filter } : {}), ...(search ? { search } : {}), limit: "60", offset: String(pageParam) }),
+    initialPageParam: 0,
+    getNextPageParam: (last) => (last.hasMore ? last.offset + last.limit : undefined),
   });
+  const drops: any[] = data?.pages.flatMap((p) => p.drops ?? []) ?? [];
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: 12 }}>
@@ -68,13 +72,13 @@ export default function Drops() {
         <div className="muted" style={{ padding: 24, textAlign: "center" }}>
           Memuat…
         </div>
-      ) : !data?.drops.length ? (
+      ) : !drops.length ? (
         <div className="card card-pad muted" style={{ textAlign: "center", padding: 32 }}>
           Belum ada drop untuk filter ini
         </div>
       ) : (
         <div className="grid-3">
-          {data.drops.map((d: any) => (
+          {drops.map((d: any) => (
             <Link key={d.id} to={`/drops/${d.id}`} className="card drop-card">
               <div className="drop-thumb">
                 <Badge status={d.status} />
@@ -155,6 +159,11 @@ export default function Drops() {
             </Link>
           ))}
         </div>
+      )}
+      {hasNextPage && (
+        <button className="btn-ghost" onClick={() => fetchNextPage()} disabled={isFetchingNextPage} style={{ alignSelf: "center" }}>
+          {isFetchingNextPage ? "Memuat…" : "Muat lagi"}
+        </button>
       )}
     </div>
   );

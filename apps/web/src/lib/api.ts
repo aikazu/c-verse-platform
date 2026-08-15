@@ -1,5 +1,13 @@
 const API_BASE = "";
 
+// metadata pagination dari endpoint list server-side (lihat apps/api reads.ts PageMeta)
+export interface PagedMeta {
+  total: number;
+  limit: number;
+  offset: number;
+  hasMore: boolean;
+}
+
 // Supabase Auth: access token di-push dari AuthProvider (session di-manage supabase-js).
 // Legacy dev (tanpa Supabase): token demo di localStorage.
 let sessionToken: string | null = null;
@@ -44,7 +52,7 @@ export const api = {
   // drops
   drops: (params?: Record<string, string>) => {
     const qs = params ? `?${new URLSearchParams(params).toString()}` : "";
-    return req<{ drops: any[] }>(`/drops${qs}`);
+    return req<{ drops: any[] } & PagedMeta>(`/drops${qs}`);
   },
   drop: (id: string) => req<any>(`/drops/${id}`),
   createDrop: (body: any) => req<{ drop: any }>("/drops", { method: "POST", body: JSON.stringify(body) }),
@@ -75,14 +83,14 @@ export const api = {
   verifyShortId: (shortId: string) => req<any>(`/nfc/verify/${encodeURIComponent(shortId)}`),
   verifyNfc: (body: { uid: string; counter?: string; cmac?: string; shortId?: string }) =>
     req<any>("/nfc/verify-nfc", { method: "POST", body: JSON.stringify(body) }),
-  // marketplace (buyout on card)
+  // marketplace (buyout on card) — list endpoint terpaginasi (limit/offset, default 60)
   marketplaceCards: (params?: Record<string, string>) => {
     const qs = params ? `?${new URLSearchParams(params).toString()}` : "";
-    return req<{ marketplace: any[]; cards: any[] }>(`/listings${qs}`);
+    return req<{ marketplace: any[]; cards: any[] } & PagedMeta>(`/listings${qs}`);
   },
   listings: (params?: Record<string, string>) => {
     const qs = params ? `?${new URLSearchParams(params).toString()}` : "";
-    return req<{ listings: any[]; marketplace?: any[] }>(`/listings${qs}` as string);
+    return req<{ listings: any[]; marketplace?: any[]; cards?: any[] } & PagedMeta>(`/listings${qs}` as string);
   },
   listing: (id: string) => req<{ listing: any; card: any; drop: any; seller: any; bids: any[] }>(`/listings/${id}`),
   createListing: (body: any) => req<{ listing: any; card?: any }>("/listings", { method: "POST", body: JSON.stringify(body) }),
@@ -96,7 +104,7 @@ export const api = {
   // browse
   browse: (params?: Record<string, string>) => {
     const qs = params ? `?${new URLSearchParams(params).toString()}` : "";
-    return req<{ cards: any[]; results: any[] }>(`/browse${qs}`);
+    return req<{ cards: any[]; results: any[] } & PagedMeta>(`/browse${qs}`);
   },
   browseCard: (cardId: string) => req<any>(`/browse/cards/${cardId}`),
   // bids (direct on card)

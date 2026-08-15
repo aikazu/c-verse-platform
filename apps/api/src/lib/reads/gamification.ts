@@ -10,7 +10,12 @@ export async function listTopUsersByXp(limit: number): Promise<User[]> {
     seedOnce();
     return [...store.users.values()].sort((a, b) => (b.totalXp ?? b.xp ?? 0) - (a.totalXp ?? a.xp ?? 0)).slice(0, limit);
   }
-  const { data, error } = await db.from("users").select("*").order("total_xp", { ascending: false }).limit(limit);
+  // leaderboard cuma butuh identitas + XP — jangan tarik email/consent/flag kolom lain
+  const { data, error } = await db
+    .from("users")
+    .select("id, display_name, username, role, total_xp, level, is_anonymous")
+    .order("total_xp", { ascending: false })
+    .limit(limit);
   if (error) throw new Error(error.message);
   return (data ?? []).map((r) => mapUserRow(r as Record<string, unknown>));
 }

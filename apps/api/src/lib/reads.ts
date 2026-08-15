@@ -244,3 +244,34 @@ export function mapOwnershipRow(r: Row): {
     transferredAt: str(r.transferred_at),
   };
 }
+
+// ── Pagination helper (query param limit/offset, clamp) ────────────────────
+export interface PageParams {
+  limit: number;
+  offset: number;
+}
+export interface PageMeta {
+  total: number;
+  limit: number;
+  offset: number;
+  hasMore: boolean;
+}
+const MAX_PAGE_LIMIT = 200;
+const DEFAULT_PAGE_LIMIT = 60;
+
+export function parsePageParams(query: Record<string, string>): PageParams {
+  const limit = Number.parseInt(query.limit ?? "", 10);
+  const offset = Number.parseInt(query.offset ?? "", 10);
+  return {
+    limit: Number.isFinite(limit) ? Math.min(MAX_PAGE_LIMIT, Math.max(1, limit)) : DEFAULT_PAGE_LIMIT,
+    offset: Number.isFinite(offset) && offset > 0 ? offset : 0,
+  };
+}
+
+export function pageMeta(total: number, p: PageParams): PageMeta {
+  return { total, limit: p.limit, offset: p.offset, hasMore: p.offset + p.limit < total };
+}
+
+export function slicePage<T>(items: T[], p: PageParams): T[] {
+  return items.slice(p.offset, p.offset + p.limit);
+}
