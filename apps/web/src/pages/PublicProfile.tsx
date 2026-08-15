@@ -48,7 +48,7 @@ export default function PublicProfile() {
           Pemilik menyembunyikan profil
         </div>
         <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--text-dim)", marginTop: 4 }}>
-          @{d.user?.username ?? username}
+          {d.user?.username ? `@${d.user.username}` : d.user?.displayName}
         </div>
       </div>
     );
@@ -61,7 +61,8 @@ export default function PublicProfile() {
       <div className="card card-pad">
         <span className="eyebrow">Profil</span>
         <h1 className="h2" style={{ marginTop: 4 }}>
-          @{user.username ?? username} — {user.displayName}
+          {user.username ? `@${user.username} — ` : ""}
+          {user.displayName}
         </h1>
         <LevelBar level={user.level} tier={user.tier} pct={user.levelProgressPct ?? 0} />
         <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--text-muted)", marginTop: 10 }}>

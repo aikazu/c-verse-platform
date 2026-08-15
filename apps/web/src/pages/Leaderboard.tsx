@@ -52,7 +52,7 @@ export default function Leaderboard() {
                 </tr>
               ) : (
                 board.map((e: any) => {
-                  const href = e.username ? `/u/${e.username}` : `/u/${e.userId}`;
+                  const href = `/u/${e.username ?? e.userId}`;
                   const t = tierStyle[e.tier] ?? tierStyle.bronze;
                   return (
                     <tr key={e.userId} style={e.rank <= 3 ? { background: "rgba(201,163,82,0.04)" } : {}}>
@@ -63,10 +63,9 @@ export default function Leaderboard() {
                         <Link to={href} style={{ fontWeight: 600, color: "var(--text)", textDecoration: "none", fontSize: 13 }}>
                           {e.displayName}
                         </Link>
-                        <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--text-dim)" }}>
-                          {" "}
-                          · {e.username ? `@${e.username}` : e.userId.slice(0, 8)}
-                        </span>
+                        {e.username && (
+                          <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--text-dim)" }}> · @{e.username}</span>
+                        )}
                       </td>
                       <td>
                         <span
