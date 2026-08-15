@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
+import { runCron } from "./lib/cron.js";
 import auth from "./routes/auth.js";
 import bids from "./routes/bids.js";
 import browse from "./routes/browse.js";
@@ -85,4 +86,13 @@ app.onError((err, c) => {
   return c.json({ error: err.message || "Internal error" }, 500);
 });
 
-export default app;
+// Cron Triggers (docs/08 §3.3) — escrow/draw tiap 5 menit, payout batch Selasa 06:00 WIB.
+type ScheduledControllerLike = { cron: string; scheduledTime: number };
+type ExecutionContextLike = { waitUntil(promise: Promise<unknown>): void };
+
+export default {
+  fetch: app.fetch,
+  async scheduled(controller: ScheduledControllerLike, env: Bindings, ctx: ExecutionContextLike) {
+    ctx.waitUntil(runCron(controller.cron, (env ?? {}) as Record<string, string | undefined>));
+  },
+};

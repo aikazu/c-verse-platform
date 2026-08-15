@@ -10,16 +10,27 @@ function getEnv(name: string): string | undefined {
   return g[name] ?? processEnv?.[name];
 }
 
+type EnvLike = Record<string, string | undefined>;
+
+function envValue(name: string, env?: EnvLike): string | undefined {
+  return env?.[name] ?? getEnv(name);
+}
+
 /**
  * Returns Supabase client if env is configured, else null.
  * Branch-aware: Supabase Branching injects per-branch URL/keys via env/Secrets.
  * Fallback path: caller should use in-memory store (store.ts) when null.
+ * Optional `env` (Workers bindings / scheduled handler) takes precedence over globals.
  */
-export function getSupabase(): SupabaseClient | null {
+export function getSupabase(env?: EnvLike): SupabaseClient | null {
+  if (env?.SUPABASE_URL?.startsWith("http")) {
+    const key = env.SUPABASE_SERVICE_ROLE_KEY ?? env.SUPABASE_ANON_KEY;
+    if (key) return createClient(env.SUPABASE_URL, key, { auth: { persistSession: false, autoRefreshToken: false } });
+  }
   if (_client !== undefined) return _client;
-  const url = getEnv("SUPABASE_URL") ?? getEnv("VITE_SUPABASE_URL");
-  const anonKey = getEnv("SUPABASE_ANON_KEY") ?? getEnv("VITE_SUPABASE_ANON_KEY");
-  const serviceKey = getEnv("SUPABASE_SERVICE_ROLE_KEY");
+  const url = envValue("SUPABASE_URL", env) ?? getEnv("VITE_SUPABASE_URL");
+  const anonKey = envValue("SUPABASE_ANON_KEY", env) ?? getEnv("VITE_SUPABASE_ANON_KEY");
+  const serviceKey = envValue("SUPABASE_SERVICE_ROLE_KEY", env);
 
   // Prefer service_role on server (bypasses RLS for MVP); anon on client
   const key = serviceKey ?? anonKey;

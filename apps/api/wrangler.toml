@@ -32,14 +32,11 @@ ENV = "development"
 # max_batch_size = 10
 
 # Cron Triggers (§3.3):
-# - every 5 min: escrow auto-release (DELIVERED + H+7)
-# - Tue 06:00 WIB: payout batch (Selasa H+1, fee 1%, withholding)
-# - daily 03:00 WIB: badge evaluation
-# - daily 04:00 WIB: housekeeping (no bid expire — bid ends via accept/cancel/outbid)
-# Add via Dashboard → Workers → c-verse-api → Triggers → Cron, or wrangler.toml [[triggers.crons]]:
-# [triggers]
-# crons = ["*/5 * * * *", "0 23 * * 1", "0 20 * * *", "0 21 * * *"]
-# Note: WIB = UTC+7, so Tue 06:00 WIB = Mon 23:00 UTC, etc.
+# - every 5 min: escrow auto-release (DELIVERED + H+7) + raffle draw pending (draw_pending_drops)
+# - Tue 06:00 WIB (Mon 23:00 UTC): payout batch (fee 1%, withholding; disbursement via Midtrans + webhook)
+# Badge & housekeeping tanpa cron — badge event-driven (docs/06), bid tanpa expire (accept/cancel/outbid).
+[triggers]
+crons = ["*/5 * * * *", "0 23 * * 1"]
 
 # Route (§3.1): api.c-verse.co/*
 # Set in Dashboard → Workers → Routes, or via `wrangler.toml` route (when domain zone is in this account):
