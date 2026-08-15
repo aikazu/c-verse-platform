@@ -3,6 +3,7 @@ import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import { z } from "zod";
 import { requireUser } from "../lib/auth.js";
+import { isDbEnabled, RpcError, rpcAcceptBid, rpcCancelBid, rpcPlaceBid, userDb } from "../lib/db.js";
 import { addTx, awardBadgeIfNeeded, ensureSeed, ensureWallet, nowIso, store, uid } from "../lib/store.js";
 
 const app = new Hono();
@@ -52,6 +53,22 @@ app.post(
     if (!cardId) return c.json({ error: "cardId wajib (bid langsung di kartu)" }, 400);
     const amount = raw.amountCcoin ?? raw.amountCCoin ?? raw.amount_ccoin;
     if (amount == null || amount < 1) return c.json({ error: "amount wajib integer ≥ 1" }, 400);
+
+    if (isDbEnabled()) {
+      const db = userDb(authRes.token);
+      if (db) {
+        try {
+          const bid = await rpcPlaceBid(db, cardId, amount);
+          return c.json({ bid, activeBid: bid }, 201);
+        } catch (err) {
+          if (err instanceof RpcError) {
+            const status = err.code === "INSUFFICIENT" ? 402 : err.code === "AUTH_REQUIRED" ? 401 : err.code === "FORBIDDEN" ? 403 : 400;
+            return c.json({ error: err.message, code: err.code }, status);
+          }
+          throw err;
+        }
+      }
+    }
 
     const card = store.cards.get(cardId);
     if (!card) return c.json({ error: "Kartu tidak ditemukan" }, 404);
@@ -171,6 +188,18 @@ app.post("/:id/cancel", async (c) => {
   const authRes = await requireUser(c);
   if ("error" in authRes) return c.json({ error: authRes.error === 403 ? "Akun disuspend" : "Unauthorized" }, authRes.error);
   const user = authRes.user;
+  if (isDbEnabled()) {
+    const db = userDb(authRes.token);
+    if (db) {
+      try {
+        const bid = await rpcCancelBid(db, c.req.param("id"));
+        return c.json({ ok: true, bid });
+      } catch (err) {
+        if (err instanceof RpcError) return c.json({ error: err.message, code: err.code }, err.code === "FORBIDDEN" ? 403 : 400);
+        throw err;
+      }
+    }
+  }
   const bid = store.bids.find((b) => b.id === c.req.param("id"));
   if (!bid) return c.json({ error: "Bid tidak ditemukan" }, 404);
   if (bid.bidderId !== user.id) return c.json({ error: "Hanya bidder pemilik yang bisa cancel" }, 403);
@@ -202,6 +231,21 @@ app.post(
     if ("error" in authRes) return c.json({ error: authRes.error === 403 ? "Akun disuspend" : "Unauthorized" }, authRes.error);
     const user = authRes.user;
     const cardId = c.req.param("cardId");
+    if (isDbEnabled()) {
+      const db = userDb(authRes.token);
+      if (db) {
+        try {
+          const body = c.req.valid("json") as { destination?: "buyer_address" | "platform_vault" };
+          const bid = await rpcAcceptBid(db, cardId, body.destination ?? "buyer_address");
+          return c.json({ ok: true, bid, needShipmentChoice: true });
+        } catch (err) {
+          if (err instanceof RpcError) {
+            return c.json({ error: err.message, code: err.code }, err.code === "FORBIDDEN" ? 403 : 400);
+          }
+          throw err;
+        }
+      }
+    }
     const card = store.cards.get(cardId);
     if (!card) return c.json({ error: "Kartu tidak ditemukan" }, 404);
     if (card.ownerId !== user.id) return c.json({ error: "Hanya owner yang bisa accept" }, 403);

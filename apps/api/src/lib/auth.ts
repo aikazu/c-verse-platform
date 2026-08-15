@@ -70,7 +70,7 @@ function dbUserToStoreUser(row: Record<string, unknown>): User {
   };
 }
 
-export type RequireUserResult = { user: User } | { error: 401 } | { error: 403; reason: "suspended" };
+export type RequireUserResult = { user: User; token: string } | { error: 401 } | { error: 403; reason: "suspended" };
 
 /**
  * Resolve the caller from `Authorization: Bearer <token>`.
@@ -81,6 +81,7 @@ export async function requireUser(c: { req: { header: (k: string) => string | un
   ensureSeed();
   const token = authHeaderToToken(c.req.header("authorization"));
   if (!token) return { error: 401 };
+  // (token kept for RPC calls that forward the user JWT)
 
   if (getSupabase() && supabaseIssuer()) {
     const verified = await verifySupabaseJwt(token);
@@ -91,13 +92,13 @@ export async function requireUser(c: { req: { header: (k: string) => string | un
     if (error || !data) return { error: 401 };
     const user = dbUserToStoreUser(data as Record<string, unknown>);
     if (user.flagReason) return { error: 403, reason: "suspended" };
-    return { user };
+    return { user, token };
   }
 
   const user = getUserByToken(token);
   if (!user) return { error: 401 };
   if (user.flagReason) return { error: 403, reason: "suspended" };
-  return { user };
+  return { user, token };
 }
 
 export { store };

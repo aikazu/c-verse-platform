@@ -3,6 +3,7 @@ import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import { z } from "zod";
 import { requireUser } from "../lib/auth.js";
+import { isDbEnabled, RpcError, rpcBuyoutCard, rpcSetBuyout, userDb } from "../lib/db.js";
 import { addTx, ensureSeed, ensureWallet, logAudit, nowIso, store, uid } from "../lib/store.js";
 
 // Marketplace = buyout langsung di kartu (C-07 FINAL — legacy auction/listing dihapus, spec 16 F-02).
@@ -82,6 +83,19 @@ app.post(
     const price = raw.buyoutPriceCcoin ?? raw.priceCCoin;
     if (price == null) return c.json({ error: "buyoutPriceCcoin wajib (integer ≥ 1)" }, 400);
 
+    if (isDbEnabled()) {
+      const db = userDb(authRes.token);
+      if (db) {
+        try {
+          const card = await rpcSetBuyout(db, raw.cardId, price);
+          return c.json({ card, buyoutPriceCcoin: price, dbPath: "rpc" }, 201);
+        } catch (err) {
+          if (err instanceof RpcError) return c.json({ error: err.message, code: err.code }, err.code === "FORBIDDEN" ? 403 : 400);
+          throw err;
+        }
+      }
+    }
+
     const activeBuyouts = [...store.cards.values()].filter((ca) => ca.ownerId === user.id && ca.buyoutPriceCcoin != null).length;
     if (activeBuyouts >= MAX_BUYOUT_ACTIVE_PER_USER && card.buyoutPriceCcoin == null) {
       return c.json({ error: `Maksimum ${MAX_BUYOUT_ACTIVE_PER_USER} kartu buyout aktif per user` }, 400);
@@ -100,6 +114,26 @@ app.post("/buyout", zValidator("json", z.object({ cardId: z.string().min(1) })),
   if ("error" in authRes) return c.json({ error: authRes.error === 403 ? "Akun disuspend" : "Unauthorized" }, authRes.error);
   const user = authRes.user;
   const { cardId } = c.req.valid("json");
+  if (isDbEnabled()) {
+    const db = userDb(authRes.token);
+    if (db) {
+      try {
+        const card = await rpcBuyoutCard(db, cardId);
+        return c.json({ ok: true, card, needShipmentChoice: true, dbPath: "rpc" });
+      } catch (err) {
+        if (err instanceof RpcError) {
+          const status =
+            err.code === "INSUFFICIENT"
+              ? 402
+              : ["FORBIDDEN", "OWN_CARD", "COOLING_PERIOD_14D", "CREATOR_SELF_DEALING_30D"].includes(err.code)
+                ? 403
+                : 400;
+          return c.json({ error: err.message, code: err.code }, status);
+        }
+        throw err;
+      }
+    }
+  }
   const card = store.cards.get(cardId);
   if (!card || card.buyoutPriceCcoin == null) return c.json({ error: "Kartu tidak dijual buyout" }, 404);
   if (card.ownerId === user.id) return c.json({ error: "Tidak bisa membeli kartu sendiri" }, 400);
@@ -186,10 +220,22 @@ app.patch("/cards/:id/buyout", zValidator("json", z.object({ buyoutPriceCcoin: z
   const authRes = await requireUser(c);
   if ("error" in authRes) return c.json({ error: authRes.error === 403 ? "Akun disuspend" : "Unauthorized" }, authRes.error);
   const user = authRes.user;
+  const { buyoutPriceCcoin } = c.req.valid("json");
+  if (isDbEnabled()) {
+    const db = userDb(authRes.token);
+    if (db) {
+      try {
+        const card = await rpcSetBuyout(db, c.req.param("id"), buyoutPriceCcoin);
+        return c.json({ card });
+      } catch (err) {
+        if (err instanceof RpcError) return c.json({ error: err.message, code: err.code }, err.code === "FORBIDDEN" ? 403 : 400);
+        throw err;
+      }
+    }
+  }
   const card = store.cards.get(c.req.param("id"));
   if (!card) return c.json({ error: "Kartu tidak ditemukan" }, 404);
   if (card.ownerId !== user.id) return c.json({ error: "Bukan pemilik" }, 403);
-  const { buyoutPriceCcoin } = c.req.valid("json");
   card.buyoutPriceCcoin = buyoutPriceCcoin;
   if (buyoutPriceCcoin == null && (card.status === "listed_buyout" || card.status === "listed")) card.status = "sold";
   if (buyoutPriceCcoin != null && card.status === "sold") card.status = "listed_buyout" as never;

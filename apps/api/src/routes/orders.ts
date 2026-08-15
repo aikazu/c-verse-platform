@@ -3,6 +3,7 @@ import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import { z } from "zod";
 import { requireUser } from "../lib/auth.js";
+import { isDbEnabled, RpcError, rpcCheckout, userDb } from "../lib/db.js";
 import { addTx, awardBadgeIfNeeded, ensureSeed, ensureWallet, logAudit, nowIso, store, uid } from "../lib/store.js";
 
 const app = new Hono();
@@ -34,6 +35,29 @@ app.post(
 
     const body = c.req.valid("json");
     const dropId = body.dropId;
+    // Postgres wired: atomic RPC (docs/13) — single transaction, no read-check-write JS.
+    if (isDbEnabled()) {
+      const db = userDb(authRes.token);
+      if (db) {
+        const pool = body.variant === "signed" ? "premium" : "regular";
+        try {
+          const order = await rpcCheckout(db, {
+            dropId,
+            pool,
+            delivery: body.deliveryOption ?? "vault",
+            address: body.shippingAddress ?? null,
+            shippingFee: body.shippingFeeCcoin ?? null,
+          });
+          return c.json({ order, wallet: null, dbPath: "rpc" }, 201);
+        } catch (err) {
+          if (err instanceof RpcError) {
+            const status = err.code === "INSUFFICIENT" ? 402 : err.code === "AUTH_REQUIRED" ? 401 : 400;
+            return c.json({ error: err.message, code: err.code }, status);
+          }
+          throw err;
+        }
+      }
+    }
     // docs/07 C-10 FINAL: vault is DEFAULT — keep schema default; do not override to shipping
     const deliveryOption = body.deliveryOption ?? "vault";
     const shippingAddress = body.shippingAddress ?? null;

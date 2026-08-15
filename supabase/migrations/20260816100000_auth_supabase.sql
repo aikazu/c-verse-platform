@@ -27,6 +27,7 @@ alter table public.disputes drop constraint if exists disputes_reporter_id_fkey;
 alter table public.admin_audit_log drop constraint if exists admin_audit_log_admin_user_id_fkey;
 alter table public.notifications drop constraint if exists notifications_user_id_fkey;
 alter table public.payouts drop constraint if exists payouts_user_id_fkey;
+alter table public.creator_page_views drop constraint if exists creator_page_views_user_id_fkey;
 
 -- 3) users: uuid PK + drop password
 alter table public.users drop constraint if exists users_pkey;
@@ -52,6 +53,7 @@ alter table public.disputes alter column reporter_id type uuid using reporter_id
 alter table public.admin_audit_log alter column admin_user_id type uuid using admin_user_id::uuid;
 alter table public.notifications alter column user_id type uuid using user_id::uuid;
 alter table public.payouts alter column user_id type uuid using user_id::uuid;
+alter table public.creator_page_views alter column user_id type uuid using user_id::uuid;
 
 -- 5) Pasang ulang FK (on delete serupa skema awal)
 alter table public.wallets add constraint wallets_user_id_fkey foreign key (user_id) references public.users(id) on delete cascade;
@@ -71,6 +73,7 @@ alter table public.disputes add constraint disputes_reporter_id_fkey foreign key
 alter table public.admin_audit_log add constraint admin_audit_log_admin_user_id_fkey foreign key (admin_user_id) references public.users(id) on delete cascade;
 alter table public.notifications add constraint notifications_user_id_fkey foreign key (user_id) references public.users(id) on delete cascade;
 alter table public.payouts add constraint payouts_user_id_fkey foreign key (user_id) references public.users(id) on delete cascade;
+alter table public.creator_page_views add constraint creator_page_views_user_id_fkey foreign key (user_id) references public.users(id) on delete set null;
 
 -- 6) Sessions in-memory legacy dihapus (JWT stateless)
 drop table if exists public.sessions;

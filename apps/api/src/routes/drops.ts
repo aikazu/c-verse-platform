@@ -3,8 +3,10 @@ import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import { z } from "zod";
 import { requireUser } from "../lib/auth.js";
+import { isDbEnabled, RpcError, rpcDropEntry, userDb } from "../lib/db.js";
 import type { DropStatus } from "../lib/store.js";
 import { ensureSeed, logAudit, store } from "../lib/store.js";
+import { getSupabase } from "../lib/supabase.js";
 
 const app = new Hono();
 app.use("*", async (_c, next) => {
@@ -208,3 +210,35 @@ app.patch(
 );
 
 export default app;
+
+// ── Raffle (C-15 hybrid, docs/13 §2.1b) ──────────────────────────────────────
+app.post("/:id/entry", zValidator("json", z.object({ pool: z.enum(["regular", "premium", "both"]) })), async (c) => {
+  const authRes = await requireUser(c);
+  if ("error" in authRes) return c.json({ error: authRes.error === 403 ? "Akun disuspend" : "Unauthorized" }, authRes.error);
+  const { pool } = c.req.valid("json");
+  if (!isDbEnabled()) return c.json({ error: "Raffle membutuhkan database (RPC drop_entry)" }, 503);
+  const db = userDb(authRes.token);
+  if (!db) return c.json({ error: "Database tidak terkonfigurasi" }, 503);
+  try {
+    const entry = await rpcDropEntry(db, c.req.param("id"), pool);
+    return c.json({ entry }, 201);
+  } catch (err) {
+    if (err instanceof RpcError) {
+      const status = err.code === "INSUFFICIENT" ? 402 : err.code === "AUTH_REQUIRED" ? 401 : 400;
+      return c.json({ error: err.message, code: err.code }, status);
+    }
+    throw err;
+  }
+});
+
+// Draw raffle (admin/cron) — idempotent via drops.drawn_at
+app.post("/:id/draw", async (c) => {
+  const authRes = await requireUser(c);
+  if ("error" in authRes) return c.json({ error: authRes.error === 403 ? "Akun disuspend" : "Unauthorized" }, authRes.error);
+  if (authRes.user.role !== "admin") return c.json({ error: "Hanya admin" }, 403);
+  const supabase = getSupabase();
+  if (!supabase) return c.json({ error: "Database tidak terkonfigurasi" }, 503);
+  const { data, error } = await supabase.rpc("draw_drop", { p_drop_id: c.req.param("id") });
+  if (error) return c.json({ error: error.message }, 400);
+  return c.json({ winners: data });
+});
