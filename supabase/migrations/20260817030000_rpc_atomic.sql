@@ -1,43 +1,17 @@
--- C.Verse — Atomic RPC (docs/13_atomic_checkout_rpc.md)
+-- C.Verse — Atomic RPC + idempotency + badge triggers (squashed phase 4/6)
 -- Semua aksi uang & stok lewat RPC single-transaction (security definer).
--- XP (spend 1 C-Coin = 1 XP) tercatat dalam transaksi yang sama.
--- Badge event-driven via trigger (docs/13 §4 — tanpa cron).
+-- Setiap fungsi TULIS SATU KALI dalam versi FINAL (semua bug-fix patch
+-- 16500000–16560000 sudah dilebur ke sini). XP = 1 C-Coin spend = 1 XP.
 
 -- ══════════════════════════════════════════════════════════════════════════
--- Schema: raffle (C-15 hybrid) + orders.source
+-- Idempotency ledger: UNIQUE functional index (ON CONFLICT dipakai RPC wallet)
 -- ══════════════════════════════════════════════════════════════════════════
-alter table public.drops add column if not exists raffle_end_at timestamptz;
-alter table public.drops add column if not exists drawn_at timestamptz;
-alter table public.orders add column if not exists source text not null default 'fcfs' check (source in ('fcfs','raffle'));
-
-create table if not exists public.drop_entries (
-  id text primary key default gen_random_uuid()::text,
-  drop_id text not null references public.drops(id) on delete cascade,
-  user_id uuid not null references public.users(id) on delete cascade,
-  pool text not null check (pool in ('regular','premium','both')),
-  hold_ccoin integer not null check (hold_ccoin >= 1),
-  status text not null default 'held' check (status in ('held','won_premium','won_regular','lost','refunded')),
-  created_at timestamptz not null default now()
-);
-create unique index if not exists idx_drop_entries_unique on public.drop_entries(drop_id, user_id);
-create index if not exists idx_drop_entries_drop on public.drop_entries(drop_id, status);
-alter table public.drop_entries enable row level security;
-create policy drop_entries_select_own on public.drop_entries for select using (user_id = auth.uid());
-
--- Idempotency ledger: functional unique index diperkuat jadi UNIQUE (ON CONFLICT di wallet RPC)
-create unique index if not exists uq_wtx_idempotency_key
+create unique index uq_wtx_idempotency_key
   on public.wallet_transactions((metadata->>'idempotency_key'))
   where metadata->>'idempotency_key' is not null;
 
--- Guard helper: security definer (owner postgres) juga dianggap service
-create or replace function public.is_service_role() returns boolean
-language sql stable as $$
-  select coalesce(current_setting('role', true), '') in ('service_role','supabase_admin','postgres')
-     or current_user in ('postgres','supabase_admin','service_role');
-$$;
-
 -- ══════════════════════════════════════════════════════════════════════════
--- wallet_debit / wallet_credit
+-- wallet_debit (versi FINAL: guard self-only untuk pemanggil non-service via GUC role)
 -- ══════════════════════════════════════════════════════════════════════════
 create or replace function public.wallet_debit(
   p_user uuid,
@@ -53,6 +27,9 @@ declare
   v_tx public.wallet_transactions;
 begin
   if p_amount is null or p_amount < 1 then raise exception 'INVALID_AMOUNT'; end if;
+  if coalesce(current_setting('role', true), '') in ('authenticated', 'anon') and p_user is distinct from auth.uid() then
+    raise exception 'FORBIDDEN';
+  end if;
   if p_idem is not null then
     select * into v_tx from wallet_transactions where metadata->>'idempotency_key' = p_idem;
     if found then return v_tx; end if; -- idempotent replay
@@ -84,6 +61,9 @@ begin
   return v_tx;
 end $$;
 
+-- ══════════════════════════════════════════════════════════════════════════
+-- wallet_credit
+-- ══════════════════════════════════════════════════════════════════════════
 create or replace function public.wallet_credit(
   p_user uuid,
   p_amount integer,
@@ -135,7 +115,6 @@ begin
   return true;
 end $$;
 
--- ownership baru -> first_drop / collector_5
 create or replace function public.badge_on_ownership() returns trigger
 language plpgsql security definer set search_path = public as $$
 declare n int;
@@ -145,11 +124,9 @@ begin
   if n >= 5 then perform public.award_badge_if_eligible(new.owner_id, 'collector_5'); end if;
   return new;
 end $$;
-drop trigger if exists trg_badge_ownership on public.ownership_history;
 create trigger trg_badge_ownership after insert on public.ownership_history
   for each row execute function public.badge_on_ownership();
 
--- bid baru -> first_bid / whale
 create or replace function public.badge_on_bid() returns trigger
 language plpgsql security definer set search_path = public as $$
 begin
@@ -157,11 +134,9 @@ begin
   if new.amount_ccoin > 100 then perform public.award_badge_if_eligible(new.bidder_id, 'whale'); end if;
   return new;
 end $$;
-drop trigger if exists trg_badge_bid on public.bids;
 create trigger trg_badge_bid after insert on public.bids
   for each row execute function public.badge_on_bid();
 
--- KYC approve -> verified
 create or replace function public.badge_on_kyc() returns trigger
 language plpgsql security definer set search_path = public as $$
 begin
@@ -170,12 +145,11 @@ begin
   end if;
   return new;
 end $$;
-drop trigger if exists trg_badge_kyc on public.kyc_records;
 create trigger trg_badge_kyc after update on public.kyc_records
   for each row execute function public.badge_on_kyc();
 
 -- ══════════════════════════════════════════════════════════════════════════
--- checkout — FCFS pasca-draw (C-15 fase 3)
+-- checkout — versi FINAL (FCFS pasca-draw, gate SOLD_OUT sebelum LIVE)
 -- ══════════════════════════════════════════════════════════════════════════
 create or replace function public.checkout(
   p_drop_id text,
@@ -196,14 +170,17 @@ declare
 begin
   if v_user is null then raise exception 'AUTH_REQUIRED'; end if;
 
-  -- Gate: drop live. FCFS = hanya setelah draw (jika drop memakai raffle).
-  select * into v_drop from drops
-  where id = p_drop_id and status = 'live'
-    and drop_start_at <= now() and (drop_end_at is null or drop_end_at > now())
-    and (raffle_end_at is null or drawn_at is not null)
-  for update;
+  -- Gate: lock drop row dulu; sold_out/habis dicek SEBELUM cek live
+  select * into v_drop from drops where id = p_drop_id for update;
   if not found then raise exception 'DROP_NOT_LIVE'; end if;
-  if v_drop.sold_count >= v_drop.total_units then raise exception 'SOLD_OUT'; end if;
+  if v_drop.status = 'sold_out'::drop_status or v_drop.sold_count >= v_drop.total_units then
+    raise exception 'SOLD_OUT';
+  end if;
+  if v_drop.status <> 'live'::drop_status
+     or not (v_drop.drop_start_at <= now() and (v_drop.drop_end_at is null or v_drop.drop_end_at > now()))
+     or not (v_drop.raffle_end_at is null or v_drop.drawn_at is not null) then
+    raise exception 'DROP_NOT_LIVE';
+  end if;
 
   -- Limit 1 kartu/user/drop
   if exists (select 1 from orders o where o.user_id = v_user and o.drop_id = p_drop_id and o.status <> 'refunded'::order_status)
@@ -264,7 +241,7 @@ begin
 end $$;
 
 -- ══════════════════════════════════════════════════════════════════════════
--- Raffle: drop_entry + draw_drop (C-15 fase 1-2)
+-- Raffle: drop_entry + record_spend_conversion + draw_drop (versi FINAL)
 -- ══════════════════════════════════════════════════════════════════════════
 create or replace function public.drop_entry(
   p_drop_id text,
@@ -275,6 +252,7 @@ declare
   v_user uuid := auth.uid();
   v_drop public.drops;
   v_hold integer;
+  v_entry public.drop_entries;
 begin
   if v_user is null then raise exception 'AUTH_REQUIRED'; end if;
   if p_pool not in ('regular','premium','both') then raise exception 'INVALID_POOL'; end if;
@@ -301,13 +279,13 @@ begin
 
   insert into drop_entries (id, drop_id, user_id, pool, hold_ccoin, status)
   values (gen_random_uuid()::text, p_drop_id, v_user, p_pool, v_hold, 'held')
-  returning *;
+  returning * into v_entry;
+
+  return v_entry;
 exception when unique_violation then
   raise exception 'ENTRY_EXISTS';
 end $$;
 
--- Konversi hold raffle -> pembayaran: ledger row amount 0 (dana sudah didebit saat entry)
--- + XP spend (1 C-Coin = 1 XP) dalam transaksi yang sama.
 create or replace function public.record_spend_conversion(
   p_user uuid,
   p_amount integer,
@@ -377,8 +355,8 @@ begin
       perform public.record_spend_conversion(v_entry.user_id, v_price, v_order.id);
 
       -- revenue share 70/30 ke creator
-      if floor(v_price * 0.3) >= 1 then
-        perform public.wallet_credit(v_drop.creator_id, floor(v_price * 0.3), 'royalty', 'order', v_order.id, 'royalty-' || v_order.id);
+      if (floor(v_price * 0.3))::integer >= 1 then
+        perform public.wallet_credit(v_drop.creator_id, (floor(v_price * 0.3))::integer, 'royalty', 'order', v_order.id, 'royalty-' || v_order.id);
       end if;
 
       update drop_entries set status = 'won_premium' where id = v_entry.id;
@@ -417,8 +395,8 @@ begin
 
     perform public.record_spend_conversion(v_entry.user_id, v_price, v_order.id);
 
-    if floor(v_price * 0.3) >= 1 then
-      perform public.wallet_credit(v_drop.creator_id, floor(v_price * 0.3), 'royalty', 'order', v_order.id, 'royalty-' || v_order.id);
+    if (floor(v_price * 0.3))::integer >= 1 then
+      perform public.wallet_credit(v_drop.creator_id, (floor(v_price * 0.3))::integer, 'royalty', 'order', v_order.id, 'royalty-' || v_order.id);
     end if;
 
     -- pool 'both' yang menang reguler: refund selisih hold - price
@@ -443,9 +421,19 @@ begin
   return v_winners;
 end $$;
 
+create or replace function public.draw_pending_drops() returns integer
+language plpgsql security definer set search_path = public as $$
+declare n int := 0; d record;
+begin
+  for d in select id from drops where raffle_end_at is not null and drawn_at is null and raffle_end_at <= now() loop
+    n := n + public.draw_drop(d.id);
+  end loop;
+  return n;
+end $$;
+
 -- ══════════════════════════════════════════════════════════════════════════
 -- Secondary: place_bid / cancel_bid / accept_bid / set_buyout / buyout_card
--- Fee split 7,5 / 7,5 / 85 (round half up; seller ambil sisa — jumlah = harga)
+-- Fee split 7,5 / 7,5 / 85 (round half up; seller ambil sisa)
 -- ══════════════════════════════════════════════════════════════════════════
 create or replace function public.place_bid(
   p_card_id text,
@@ -456,6 +444,8 @@ declare
   v_user uuid := auth.uid();
   v_card public.cards;
   v_active public.bids;
+  v_new public.bids;
+  v_has_active boolean := false;
 begin
   if v_user is null then raise exception 'AUTH_REQUIRED'; end if;
   if p_amount is null or p_amount < 1 then raise exception 'INVALID_AMOUNT'; end if;
@@ -464,12 +454,13 @@ begin
   if v_card.owner_id = v_user then raise exception 'OWN_CARD'; end if;
 
   select * into v_active from bids where card_id = p_card_id and status = 'active' for update;
-  if found and p_amount <= v_active.amount_ccoin then raise exception 'BID_TOO_LOW'; end if;
+  v_has_active := found;
+  if v_has_active and p_amount <= v_active.amount_ccoin then raise exception 'BID_TOO_LOW'; end if;
 
   perform public.wallet_debit(v_user, p_amount, 'escrow_hold', 'bid', p_card_id,
           'bid-' || v_user || '-' || p_card_id || '-' || gen_random_uuid()::text);
 
-  if found then
+  if v_has_active then
     perform public.wallet_credit(v_active.bidder_id, v_active.amount_ccoin, 'escrow_release', 'bid', v_active.id,
             'release-' || v_active.id);
     update bids set status = 'outbid', outbid_at = now() where id = v_active.id;
@@ -479,7 +470,8 @@ begin
   values (gen_random_uuid()::text, p_card_id, v_user,
           coalesce((select display_name from users where id = v_user), 'Bidder'),
           p_amount, 'active')
-  returning *;
+  returning * into v_new;
+  return v_new;
 end $$;
 
 create or replace function public.cancel_bid(p_bid_id text) returns public.bids
@@ -616,12 +608,13 @@ begin
   v_seller_ccoin := v_price - round(v_price * 0.075) - round(v_price * 0.075);
   v_royalty_ccoin := round(v_price * 0.075);
 
+  -- Idem key unik per transaksi (bukan per kartu) — aman saat re-sale
   perform public.wallet_debit(v_user, v_price, 'platform_buy', 'card', p_card_id,
-          'buyout-' || v_user || '-' || p_card_id);
-  perform public.wallet_credit(v_seller, v_seller_ccoin, 'settlement', 'card', p_card_id, 'settle-' || p_card_id);
+          'buyout-' || gen_random_uuid()::text);
+  perform public.wallet_credit(v_seller, v_seller_ccoin, 'settlement', 'card', p_card_id, 'settle-' || gen_random_uuid()::text);
   if v_royalty_ccoin >= 1 then
     perform public.wallet_credit((select creator_id from drops where id = v_card.drop_id), v_royalty_ccoin,
-            'royalty', 'card', p_card_id, 'royalty-' || p_card_id);
+            'royalty', 'card', p_card_id, 'royalty-' || gen_random_uuid()::text);
   end if;
 
   -- release bid aktif
@@ -640,7 +633,7 @@ begin
 end $$;
 
 -- ══════════════════════════════════════════════════════════════════════════
--- Cron (Workers trigger; logika di SQL)
+-- Cron RPC: escrow auto-release (versi FINAL: shipping + delivered_at)
 -- ══════════════════════════════════════════════════════════════════════════
 create or replace function public.escrow_auto_release() returns integer
 language plpgsql security definer set search_path = public as $$
@@ -648,18 +641,9 @@ declare n int;
 begin
   update orders set escrow_status = 'released'::escrow_status, status = 'settled'::order_status
   where escrow_status = 'held'::escrow_status
-    and delivery_option = 'vault'::delivery_option
-    and created_at < now() - interval '7 days';
+    and delivery_option = 'shipping'::delivery_option
+    and delivered_at is not null
+    and delivered_at < now() - interval '7 days';
   get diagnostics n = row_count;
-  return n;
-end $$;
-
-create or replace function public.draw_pending_drops() returns integer
-language plpgsql security definer set search_path = public as $$
-declare n int := 0; d record;
-begin
-  for d in select id from drops where raffle_end_at is not null and drawn_at is null and raffle_end_at <= now() loop
-    n := n + public.draw_drop(d.id);
-  end loop;
   return n;
 end $$;
