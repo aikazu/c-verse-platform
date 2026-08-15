@@ -1,3 +1,4 @@
+import { timingSafeEqual } from "node:crypto";
 import { C_COIN_RATE_IDR } from "@c-verse/shared";
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
@@ -110,7 +111,10 @@ app.post("/midtrans/payout-webhook", async (c) => {
   if (!signingKey) return c.json({ error: "Not configured" }, 503);
 
   const signature = c.req.header("x-signature-key");
-  if (!signature || signature !== signingKey) {
+  // Constant-time compare (anti timing-attack), konsisten dengan verifyNotificationSignature.
+  const sigBuf = signature ? Buffer.from(signature, "utf8") : null;
+  const keyBuf = Buffer.from(signingKey, "utf8");
+  if (!sigBuf || sigBuf.length !== keyBuf.length || !timingSafeEqual(sigBuf, keyBuf)) {
     return c.json({ error: "Invalid signature" }, 401);
   }
   const supabase = getSupabase();
