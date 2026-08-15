@@ -82,20 +82,20 @@ begin
   if n >= 1 and bad = 0 then raise notice 'T4 PASS'; else raise notice 'T4 FAIL (n=% bad=%)', n, bad; end if;
 end $$;
 
--- T5: user A update wallet_transactions -> exception (immutable guard)
+-- T5: user A update wallet_transactions -> ditolak (0 row via RLS default-deny, atau exception dari guard trigger)
 do $$
+declare n int;
 begin
   update public.wallet_transactions set amount_ccoin = 999 where id = '90000000-0000-4000-8000-000000000001';
-  raise notice 'T5 FAIL (update lolos)';
-exception when insufficient_privilege or check_violation then
-  raise notice 'T5 FAIL (%)', sqlerrm;
-exception when others then
-  -- guard raise exception => 0 rows ter-update atau P0001; keduanya = BERHASIL menolak
-  if not found then
-    raise notice 'T5 PASS (guard aktif: %)', sqlerrm;
+  get diagnostics n = row_count;
+  if n = 0 then
+    raise notice 'T5 PASS (RLS default-deny: 0 rows updated)';
   else
-    raise notice 'T5 PASS (%)', sqlerrm;
+    raise notice 'T5 FAIL (% rows updated)', n;
   end if;
+exception
+  when others then
+    raise notice 'T5 PASS (guard trigger: %)', sqlerrm;
 end $$;
 
 -- T6: user A update cards milik B (buyout) -> 0 row affected
