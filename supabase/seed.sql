@@ -89,7 +89,7 @@ begin
  end if;
  _card_id := 'card-' || d.id || '-' || lpad(i::text, 2, '0');
  insert into public.cards (id, drop_id, unit_number, variant, status, owner_id, nfc_uid, nfc_short_id, verify_status, location, buyout_price_ccoin, nfc_configured, qc_status)
- values (_card_id, d.id, i, case when i <= d.signed_count then 'signed'::card_variant else 'unsigned'::card_variant end, _status::card_status, _owner, _uid, _short, 'verified'::verify_status, _loc::card_location, _buyout, true, case when _status='available' then 'pending' else 'passed' end)
+ values (_card_id, d.id, i, case when i <= d.signed_count then 'signed'::card_variant else 'unsigned'::card_variant end, _status::card_status, _owner, _uid, _short, 'registered'::verify_status, _loc::card_location, _buyout, true, case when _status='available' then 'pending' else 'passed' end)
  on conflict (id) do nothing;
  end loop;
  end loop;

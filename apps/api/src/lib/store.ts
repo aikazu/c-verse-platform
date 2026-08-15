@@ -118,6 +118,7 @@ export interface Card {
   nfcUid: string;
   nfcShortId: string;
   verifyStatus: VerifyStatus;
+  lastCtr: number; // NTAG 424 DNA SUN read counter (anti-replay)
   createdAt?: string;
 }
 
@@ -640,6 +641,7 @@ export function ensureSeed() {
         nfcUid: uidHex,
         nfcShortId: shortId,
         verifyStatus: "verified",
+        lastCtr: 0,
       };
       store.cards.set(card.id, card);
     }

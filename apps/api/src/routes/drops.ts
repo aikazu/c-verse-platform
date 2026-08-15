@@ -150,6 +150,7 @@ app.post(
         nfcUid,
         nfcShortId: shortId,
         verifyStatus: "verified",
+        lastCtr: 0,
       });
     }
     logAudit(user.id, "create", "drops", id, { title: body.title }, c.req.header("x-forwarded-for") ?? null, token ?? null);

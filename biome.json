@@ -6,14 +6,7 @@
     "useIgnoreFile": true
   },
   "files": {
-    "includes": [
-      "**/*.ts",
-      "**/*.tsx",
-      "**/*.mts",
-      "**/*.js",
-      "**/*.mjs",
-      "**/*.json"
-    ]
+    "includes": ["**/*.ts", "**/*.tsx", "**/*.mts", "**/*.js", "**/*.mjs", "**/*.json"]
   },
   "formatter": {
     "enabled": true,
@@ -39,10 +32,7 @@
   },
   "overrides": [
     {
-      "includes": [
-        "apps/web/**",
-        "apps/admin/**"
-      ],
+      "includes": ["apps/web/**", "apps/admin/**"],
       "linter": {
         "rules": {
           "suspicious": {
