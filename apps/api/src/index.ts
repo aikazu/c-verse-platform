@@ -11,6 +11,7 @@ import kyc from "./routes/kyc.js";
 import marketplace from "./routes/marketplace.js";
 import nfc from "./routes/nfc.js";
 import orders from "./routes/orders.js";
+import payments from "./routes/payments.js";
 import profile from "./routes/profile.js";
 import publicProfile from "./routes/publicProfile.js";
 import seo from "./routes/seo.js";
@@ -67,6 +68,7 @@ app.route("/api/creators", creators);
 app.route("/api/kyc", kyc);
 app.route("/api/shipments", shipments);
 app.route("/api/seo", seo);
+app.route("/api/payments", payments);
 app.get("/sitemap.xml", async (c) => {
   // delegate to seo handler so both /sitemap.xml and /api/seo/sitemap.xml work (SEO Worker fetches either)
   const r = await seo.fetch(new Request(new URL("/sitemap.xml", c.req.url).toString()), c.env as never, c.executionCtx as never);
