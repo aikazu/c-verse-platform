@@ -6,7 +6,7 @@ import { isSupabaseEnabled, supabase } from "./supabase";
 // Auth (docs/10): Supabase Auth — Google OAuth + email OTP 6 digit + captcha Turnstile.
 // DB wajib — demo-login in-memory dihapus bersama fallback store di API.
 
-type User = { id: string; email: string; displayName: string; role: string; xp?: number } | null;
+type User = { id: string; email: string; displayName: string; role: string; username?: string | null; xp?: number } | null;
 
 interface AuthContextValue {
   user: User;
@@ -40,7 +40,7 @@ async function loadProfile(setUser: (u: User) => void, token: string | null) {
   }
   try {
     const u = await api.me();
-    setUser({ id: u.id, email: u.email, displayName: u.displayName, role: u.role, xp: u.xp });
+    setUser({ id: u.id, email: u.email, displayName: u.displayName, role: u.role, username: u.username ?? null, xp: u.xp });
   } catch {
     setUser(null);
   }

@@ -3,6 +3,7 @@ import React, { lazy, Suspense } from "react";
 import { BrowserRouter, NavLink, Route, Routes, useNavigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./lib/auth";
 import { ToastProvider } from "./lib/toast";
+import UsernameSetupModal from "./pages/UsernameSetupModal";
 import "./styles.css";
 
 // Code-splitting: tiap halaman jadi chunk terpisah — visitor landing tidak
@@ -284,6 +285,7 @@ export default function App() {
         <AuthProvider>
           <ToastProvider>
             <AppRoutes />
+            <UsernameSetupModal />
           </ToastProvider>
         </AuthProvider>
       </BrowserRouter>
