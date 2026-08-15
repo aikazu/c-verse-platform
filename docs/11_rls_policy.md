@@ -65,9 +65,11 @@ pembacaan lewat API service-role (agregat ke kreator).
 
 ## 3. Langkah Eksekusi
 
-1. Migration 5 (`20260816xxxx_rls.sql`): `enable row level security` ulang
-   semua tabel (idempotent), `drop policy` semua `allow all ...`, buat policy
-   matriks di atas.
+1. Migration RLS (`20260817020000_rls_policies.sql`, fase 3 dari rantai
+   6 fase): `enable row level security` ulang semua tabel, `force row level
+   security` pada `cards`, buat policy matriks di atas + 5 guard function
+   (`users_fields_guard`, `cards_buyout_guard`, `wallet_tx_immutable_guard`,
+   `audit_log_immutable_guard`, `kyc_status_guard`) + trigger-nya.
 2. Hapus akses tulis langsung web: semua tulis via RPC (`13_atomic_checkout_rpc.md`)
    atau API endpoint yang pakai JWT user.
 3. Grant minimal: `anon` hanya SELECT tabel publik; `authenticated` select/insert
@@ -112,6 +114,7 @@ SQL test per kombinasi (jalankan sebagai `anon`, `authenticated` dgn
 ## 7. Sumber
 
 - `dev-strategy/05_data_model.md` section RLS (matriks asli).
-- Audit Platform 2026-08-15: `migrations/20260813000000_rework_align_docs.sql`
-  line 239 & `20260814000000_build_time_implications.sql` (allow-all).
+- Audit Platform 2026-08-15: kebocoran allow-all pada migration lama di-squash;
+  kini dijaga di fase 3 (`20260817020000_rls_policies.sql`) + EXECUTE lockdown
+  di fase 5 (`20260817040000_grants_payout.sql`).
 - Supabase docs: Row Level Security, `auth.uid()`, JWT claims.

@@ -65,12 +65,16 @@ Auth saat ini custom in-memory — tidak bisa dibawa ke produksi:
 4. Ganti semua `getUserByToken(...)` di 15 route → `requireUser(c)`.
 
 ### 3,4 Database
-1. Migration 4 (`20260816xxxx_auth.sql`):
+1. Struktur auth di-squash ke fase migration `20260817010000_auth.sql`
+   (bagian dari rantai 6 fase; `20260817000000_foundation.sql` sudah
+   mendefinisikan `users.id` uuid, tanpa `password_hash` dan tanpa tabel `sessions`):
    - `users.id` → `uuid not null references auth.users(id) on delete cascade`.
-   - `drop column password_hash` (setelah data migrasi).
-   - `drop table sessions`.
+   - Username default manusiawi + flag `username_is_auto`: `generate_default_username()`
+     (prefix-email + 4 digit acak, anti-duplikat).
+   - Dedup akun per email kanonik: `canonical_email()` + unique index
+     `users_canonical_email_uidx` (buang titik & `+tag` di gmail/googlemail).
    - Insert row `users` otomatis saat signup: **trigger** `on_auth_user_created`
-     (`auth.users insert → insert public.users (id, email, display_name)`).
+     (`auth.users insert → insert public.users (id, email, display_name, username, ...)`).
 2. Migrasi akun demo/seed: service-role `authAdmin.createUser({ email, password })`
    per akun seed → update `users.id` ke UUID baru. Seed `karina@creator.id`
    dan demo jadi akun nyata (password disimpan di `.env` lokal saja).

@@ -69,9 +69,9 @@ verifySun({ uidHex, ctrHex, cmacHex, tamperBit }, master): {
 - HAPUS: `POST /simulate-tamper/:cardId` dari route publik (pindah ke
   admin service-role untuk demo/QC).
 
-### 2,3 Migration 6 (`20260816xxxx_nfc.sql`)
-- `alter table cards add column last_ctr integer not null default 0;`
-- Index `(nfc_uid)`, `(nfc_short_id)` (sudah unique — pastikan dipakai).
+### 2,3 Schema NFC (di fase 1 `20260817000000_foundation.sql`)
+- `cards.last_ctr integer not null default 0` (anti-replay).
+- `cards.nfc_uid` & `cards.nfc_short_id` (sudah unique — dipakai lookup).
 - `cards.verify_status` enum: `unknown | registered | verified |
   tamper_detected` — QR path set `registered` (tanpa CMAC), tap path set
   `verified`.

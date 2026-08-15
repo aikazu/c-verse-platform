@@ -14,8 +14,9 @@
   `deliveryOptionSchema.default("shipping")` → `.default("vault")`.
 - `apps/api/src/routes/orders.ts`: default parameter checkout ke
   `vault`; shipping = opt-in eksplisit.
-- Migration: `alter table orders alter column delivery_option
-  set default 'vault'`.
+- Migration: `orders.delivery_option` default `'vault'` sudah jadi bagian
+  defiisi tabel di fase 1 (`20260817000000_foundation.sql`), bukan migration
+  terpisah.
 - UI `/drops/:id/checkout`: opsi terpilih default = "Simpan di vault
   (gratis)"; kirim fisik = pilihan kedua.
 
@@ -24,8 +25,9 @@
   `expired`), `listingTypeSchema`, `createListingSchema`,
   `bidSchema` (versi listingId), interface `Listing`.
 - Hapus route `apps/api/src/routes/listings.ts` (mount di index juga).
-- Migration (setelah gelombang 13.3): `drop table if exists listings;`
-- `bids.listing_id` nullable → drop kolom setelah tidak ada referensi.
+- Migration: tabel `listings` & enum `listing_status`/`listing_type` tidak
+  pernah dibuat — dihilangkan langsung di fase 1 (`20260817000000_foundation.sql`);
+  `bids` dibuat langsung ke `card_id` (tanpa `listing_id`).
 - UI `Marketplace.tsx`/`Browse.tsx`: pastikan tidak ada sisa
   "duration/endsAt/expired".
 
