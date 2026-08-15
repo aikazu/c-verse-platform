@@ -4,6 +4,11 @@ import { Hono } from "hono";
 import { z } from "zod";
 import { requireUser } from "../lib/auth.js";
 import { isDbEnabled, RpcError, rpcCheckout, userDb } from "../lib/db.js";
+import { getDropById } from "../lib/reads/drops.js";
+import { getCardById, getOrderById, listOrdersByUser, listShipmentsByCards } from "../lib/reads/orders.js";
+import { getWalletByUser } from "../lib/reads/profile.js";
+import { mapOrderRow, mapShipmentRow, type Row, readDb } from "../lib/reads.js";
+import type { Card } from "../lib/store.js";
 import { addTx, awardBadgeIfNeeded, ensureSeed, ensureWallet, logAudit, nowIso, store, uid } from "../lib/store.js";
 
 const app = new Hono();
@@ -224,9 +229,7 @@ app.get("/", async (c) => {
   const authRes = await requireUser(c);
   if ("error" in authRes) return c.json({ error: authRes.error === 403 ? "Akun disuspend" : "Unauthorized" }, authRes.error);
   const user = authRes.user;
-  const orders = [...store.orders.values()]
-    .filter((o) => o.userId === user.id)
-    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  const orders = await listOrdersByUser(user.id);
   return c.json({ orders });
 });
 
@@ -234,23 +237,35 @@ app.get("/:id", async (c) => {
   const authRes = await requireUser(c);
   if ("error" in authRes) return c.json({ error: authRes.error === 403 ? "Akun disuspend" : "Unauthorized" }, authRes.error);
   const user = authRes.user;
-  const o = store.orders.get(c.req.param("id")) as unknown as { userId: string; dropId: string; cardIds: string[] } & Record<
-    string,
-    unknown
-  >;
+  const o = await getOrderById(c.req.param("id"));
   if (!o) return c.json({ error: "Order tidak ditemukan" }, 404);
-  if ((o as unknown as { userId: string }).userId !== user.id && (user.role as string) !== "admin")
-    return c.json({ error: "Forbidden" }, 403);
-  const drop = store.drops.get((o as unknown as { dropId: string }).dropId);
-  const cards = ((o as unknown as { cardIds: string[] }).cardIds ?? []).map((id) => store.cards.get(id)).filter(Boolean);
-  const shipments = [...store.shipments.values()].filter((s) => (o as unknown as { cardIds: string[] }).cardIds?.includes(s.cardId));
-  return c.json({ order: o, drop, cards, shipments });
+  if (o.userId !== user.id && (user.role as string) !== "admin") return c.json({ error: "Forbidden" }, 403);
+  const drop = await getDropById(o.dropId);
+  const cards = (await Promise.all((o.cardIds ?? []).map((id) => getCardById(id)))).filter((ca): ca is Card => ca != null);
+  const shipments = await listShipmentsByCards(o.cardIds ?? []);
+  return c.json({ order: o, drop: drop ?? undefined, cards, shipments });
 });
 
 app.post("/:id/confirm-delivered", async (c) => {
   const authRes = await requireUser(c);
   if ("error" in authRes) return c.json({ error: authRes.error === 403 ? "Akun disuspend" : "Unauthorized" }, authRes.error);
   const user = authRes.user;
+  // DB path: direct table write (non-money columns only)
+  if (isDbEnabled()) {
+    const db = readDb();
+    if (db) {
+      const { data, error } = await db
+        .from("orders")
+        .update({ status: "delivered", delivered_at: nowIso(), escrow_status: "released" }) // MVP immediate; real is DELIVERED + H+7
+        .eq("id", c.req.param("id"))
+        .eq("user_id", user.id)
+        .select("*")
+        .maybeSingle();
+      if (error) throw new Error(error.message);
+      if (!data) return c.json({ error: "Order tidak ditemukan" }, 404);
+      return c.json({ order: mapOrderRow(data as Row) });
+    }
+  }
   const o = store.orders.get(c.req.param("id")) as unknown as Record<string, unknown> & { userId: string; status: string };
   if (!o || o.userId !== user.id) return c.json({ error: "Order tidak ditemukan" }, 404);
   (o as unknown as Record<string, unknown>).status = "delivered";
@@ -277,6 +292,69 @@ app.post(
     if ("error" in authRes) return c.json({ error: authRes.error === 403 ? "Akun disuspend" : "Unauthorized" }, authRes.error);
     const user = authRes.user;
     const { cardId, address, feeCcoin } = c.req.valid("json");
+    // DB path: cards + shipments via direct table writes (non-money); ongkir debit stays RPC (wallet_debit).
+    if (isDbEnabled()) {
+      const db = readDb();
+      if (db) {
+        const card = await getCardById(cardId);
+        if (!card) return c.json({ error: "Kartu tidak ditemukan" }, 404);
+        if (card.ownerId !== user.id) return c.json({ error: "Kamu bukan pemilik kartu ini" }, 403);
+        if (card.location !== "platform_vault") return c.json({ error: "Kartu tidak di vault — tidak perlu ship-from-vault" }, 400);
+        const wallet = await getWalletByUser(user.id);
+        if (wallet.balanceCCoin < feeCcoin)
+          return c.json({ error: "Saldo C-Coin tidak cukup untuk ongkir", needCCoin: feeCcoin, haveCCoin: wallet.balanceCCoin }, 402);
+        // Money rule (docs/13): saldo C-Coin only via RPC — wallet_debit is the existing atomic RPC.
+        const rpcClient = userDb(authRes.token);
+        if (!rpcClient) throw new Error("Supabase RPC client unavailable");
+        const { error: debitError } = await rpcClient.rpc("wallet_debit", {
+          p_user: user.id,
+          p_amount: feeCcoin,
+          p_type: "checkout",
+          p_ref_type: "shipment",
+          p_ref_id: cardId,
+          p_idem: `vault-shipout-${cardId}-${Date.now()}`,
+        });
+        if (debitError) {
+          const code = debitError.message.trim().split("\n")[0];
+          if (code === "INSUFFICIENT")
+            return c.json({ error: "Saldo C-Coin tidak cukup untuk ongkir", needCCoin: feeCcoin, haveCCoin: wallet.balanceCCoin }, 402);
+          throw new Error(debitError.message);
+        }
+        const shipId = uid("ship-");
+        const tracking = `JNE-${Math.floor(Math.random() * 1e12)
+          .toString()
+          .padStart(12, "0")}`;
+        const { data: shipRow, error: shipError } = await db
+          .from("shipments")
+          .insert({
+            id: shipId,
+            card_id: cardId,
+            requester_id: user.id,
+            type: "vault_shipout",
+            from_location: "platform",
+            to_dest: "buyer_address",
+            address: { street: address },
+            fee_ccoin: feeCcoin,
+            status: "shipped",
+            tracking_number: tracking,
+            platform_check: null,
+          })
+          .select("*")
+          .maybeSingle();
+        if (shipError) throw new Error(shipError.message);
+        if (!shipRow) throw new Error("Shipment insert returned no row");
+        // Mirror store semantics: only qc flips; location stays platform_vault until delivered.
+        const { error: cardError } = await db.from("cards").update({ qc_status: "passed" }).eq("id", cardId);
+        if (cardError) throw new Error(cardError.message);
+        const walletAfter = await getWalletByUser(user.id);
+        return c.json({
+          ok: true,
+          shipment: mapShipmentRow(shipRow as Row),
+          card: { ...card, qcStatus: "passed" as const },
+          wallet: { ...walletAfter, balanceIdrEquiv: walletAfter.balanceCCoin * C_COIN_RATE_IDR },
+        });
+      }
+    }
     const card = store.cards.get(cardId);
     if (!card) return c.json({ error: "Kartu tidak ditemukan" }, 404);
     if (card.ownerId !== user.id) return c.json({ error: "Kamu bukan pemilik kartu ini" }, 403);
