@@ -1,17 +1,17 @@
 -- C.Verse — Seed (auth rework 2026-08-15) — fixed UUID ids = auth.users.id (docs/10)
 -- Idempotent: ON CONFLICT DO NOTHING.
--- Akun demo dibuat di auth.users (password bcrypt) supaya login OTP/Google dev bisa dipakai.
+-- Akun demo dibuat di auth.users TANPA password (login platform = OTP/Google, admin = OTP magic link).
 
 -- ── auth.users (jalankan sebelum public.users — FK) ──
 -- Token columns WAJIB string kosong (bukan NULL): GoTrue gagal scan NULL
 -- ("converting NULL to string is unsupported") sehingga login lokal 500.
 insert into auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, created_at, updated_at, raw_app_meta_data, raw_user_meta_data, confirmation_token, recovery_token, email_change, email_change_token_new)
 values
- ('00000000-0000-4000-8000-000000000001', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'demo@cverse.id', crypt('demo123', gen_salt('bf')), now(), now(), now(), '{}'::jsonb, '{}'::jsonb, '', '', '', ''),
- ('00000000-0000-4000-8000-000000000002', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'admin@cverse.id', crypt('admin123', gen_salt('bf')), now(), now(), now(), '{}'::jsonb, '{}'::jsonb, '', '', '', ''),
- ('00000000-0000-4000-8000-000000000003', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'karina@creator.id', crypt('karina123', gen_salt('bf')), now(), now(), now(), '{}'::jsonb, '{}'::jsonb, '', '', '', ''),
- ('00000000-0000-4000-8000-000000000004', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'hype@creator.id', crypt('hype123', gen_salt('bf')), now(), now(), now(), '{}'::jsonb, '{}'::jsonb, '', '', '', ''),
- ('00000000-0000-4000-8000-000000000005', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'nova@creator.id', crypt('nova123', gen_salt('bf')), now(), now(), now(), '{}'::jsonb, '{}'::jsonb, '', '', '', '')
+ ('00000000-0000-4000-8000-000000000001', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'demo@cverse.id', null, now(), now(), now(), '{}'::jsonb, '{}'::jsonb, '', '', '', ''),
+ ('00000000-0000-4000-8000-000000000002', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'admin@cverse.id', null, now(), now(), now(), '{}'::jsonb, '{}'::jsonb, '', '', '', ''),
+ ('00000000-0000-4000-8000-000000000003', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'karina@creator.id', null, now(), now(), now(), '{}'::jsonb, '{}'::jsonb, '', '', '', ''),
+ ('00000000-0000-4000-8000-000000000004', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'hype@creator.id', null, now(), now(), now(), '{}'::jsonb, '{}'::jsonb, '', '', '', ''),
+ ('00000000-0000-4000-8000-000000000005', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'nova@creator.id', null, now(), now(), now(), '{}'::jsonb, '{}'::jsonb, '', '', '', '')
 on conflict (id) do nothing;
 
 -- ── public.users (mirror profile; trigger on_auth_user_created menangani signup baru) ──
@@ -26,6 +26,7 @@ insert into public.users (id, email, display_name, username, role, xp, is_anonym
 on conflict (id) do update set
   display_name = excluded.display_name,
   username = excluded.username,
+  username_is_auto = false,
   role = excluded.role,
   xp = excluded.xp,
   is_anonymous = excluded.is_anonymous,

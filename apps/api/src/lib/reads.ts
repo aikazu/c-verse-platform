@@ -72,9 +72,9 @@ export function mapUserRow(r: Row): User {
   return {
     id: str(r.id),
     email: str(r.email),
-    passwordHash: "", // DB path: auth via Supabase Auth, bukan password lokal
     displayName: str(r.display_name),
     username: nstr(r.username),
+    usernameIsAuto: bool(r.username_is_auto),
     role: str(r.role) as User["role"],
     avatarUrl: nstr(r.avatar_url),
     xp: num(r.total_xp ?? r.xp), // total_xp canonical (docs/05)

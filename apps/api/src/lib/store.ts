@@ -52,9 +52,9 @@ export type ListingStatus = never; // legacy auction/listing removed (C-07 FINAL
 export interface User {
   id: string;
   email: string;
-  passwordHash: string;
   displayName: string;
   username?: string | null;
+  usernameIsAuto?: boolean; // true = username masih hasil generate default
   role: AnyRole;
   avatarUrl: string | null;
   xp: number; // legacy

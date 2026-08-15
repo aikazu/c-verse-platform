@@ -17,6 +17,7 @@ app.get("/me", async (c) => {
     email: user.email,
     displayName: user.displayName,
     username: user.username ?? null,
+    usernameIsAuto: user.usernameIsAuto ?? false,
     role: user.role,
     xp: user.totalXp,
     totalXp: user.totalXp,

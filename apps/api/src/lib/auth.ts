@@ -59,6 +59,7 @@ function dbUserToStoreUser(row: Record<string, unknown>): User {
     email: String(row.email ?? ""),
     displayName: String(row.display_name ?? row.display_name ?? "Pengguna"),
     username: (row.username as string | null) ?? null,
+    usernameIsAuto: Boolean(row.username_is_auto ?? false),
     role: (row.role as User["role"]) ?? "user",
     avatarUrl: (row.avatar_url as string | null) ?? null,
     xp: Number(row.total_xp ?? 0),
@@ -70,7 +71,6 @@ function dbUserToStoreUser(row: Record<string, unknown>): User {
     consentAnalyticsDetail: Boolean(row.consent_analytics_detail ?? false),
     consentDataMarket: Boolean(row.consent_data_market ?? false),
     createdAt: String(row.created_at ?? new Date().toISOString()),
-    passwordHash: "",
   };
 }
 

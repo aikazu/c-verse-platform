@@ -13,8 +13,8 @@ export default function UsernameSetupModal() {
   const [busy, setBusy] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
-  // Hanya tampil untuk user dengan username default (hasil generate trigger)
-  const isDefault = user && user.username?.startsWith("user_");
+  // Hanya tampil untuk user yang usernamenya masih hasil generate default (username_is_auto)
+  const isDefault = !!user?.usernameIsAuto;
   if (!isDefault) return null;
 
   useEffect(() => {

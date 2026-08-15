@@ -8,8 +8,8 @@ begin;
 -- Fixture: user A & B (auth.users trigger membuat public.users row otomatis)
 insert into auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, created_at, updated_at)
 values
-  ('10000000-0000-4000-8000-00000000000a', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'a@test.local', crypt('x', gen_salt('bf')), now(), now(), now()),
-  ('10000000-0000-4000-8000-00000000000b', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'b@test.local', crypt('x', gen_salt('bf')), now(), now(), now())
+  ('10000000-0000-4000-8000-00000000000a', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'a@test.local', null, now(), now(), now()),
+  ('10000000-0000-4000-8000-00000000000b', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'b@test.local', null, now(), now(), now())
 on conflict (id) do nothing;
 
 insert into public.users (id, email, display_name) values

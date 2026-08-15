@@ -153,6 +153,7 @@ app.patch("/", async (c) => {
   const patch: Record<string, unknown> = {};
   let displayName = user.displayName;
   let username = user.username ?? null;
+  let usernameIsAuto = user.usernameIsAuto ?? false;
   if (body.displayName != null) {
     const s = String(body.displayName).trim();
     if (s.length >= 2 && s.length <= 40) {
@@ -164,7 +165,9 @@ app.patch("/", async (c) => {
     const s = String(body.username).trim().toLowerCase();
     if (/^[a-z0-9_]{3,20}$/.test(s) && !(await isUsernameTaken(s, user.id))) {
       patch.username = s;
+      patch.username_is_auto = false;
       username = s;
+      usernameIsAuto = false;
     }
   }
   // direct users update (non-money columns)
@@ -173,7 +176,7 @@ app.patch("/", async (c) => {
     const { error } = await db.from("users").update(patch).eq("id", user.id);
     if (error) throw new Error(error.message);
   }
-  return c.json({ user: { id: user.id, displayName, username } });
+  return c.json({ user: { id: user.id, displayName, username, usernameIsAuto } });
 });
 
 /** Username uniqueness; true when another user already claims it. */

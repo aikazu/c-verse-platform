@@ -47,9 +47,7 @@ function useAdminAuth() {
 
 // ── Login ──────────────────────────────────────────────────────────────────
 function LoginPage() {
-  const nav = useNavigate();
-  const [email, setEmail] = useState("admin@cverse.id");
-  const [password, setPassword] = useState("admin123");
+  const [email, setEmail] = useState("");
   const [msg, setMsg] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -58,28 +56,13 @@ function LoginPage() {
     setBusy(true);
     setMsg(null);
     try {
-      if (!hasSupabase) {
-        const r = await fetch("http://localhost:8787/api/auth/login", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email, password }),
-        });
-        const j = await r.json().catch(() => ({}));
-        if (!r.ok) {
-          setMsg(j.error ?? "Login gagal");
-          return;
-        }
-        if ((j.user?.role ?? "user") !== "admin") {
-          setMsg("Akun ini bukan admin");
-          return;
-        }
-        localStorage.setItem("admin_demo_session", JSON.stringify({ user: j.user, token: j.token }));
-        location.reload();
-        return;
-      }
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      // Tanpa password — email OTP (magic link), konsisten dengan platform.
+      const { error } = await supabase.auth.signInWithOtp({
+        email,
+        options: { shouldCreateUser: false, emailRedirectTo: window.location.origin },
+      });
       if (error) setMsg(error.message);
-      else nav("/");
+      else setMsg("Tautan masuk terkirim — cek email (Inbucket di dev).");
     } finally {
       setBusy(false);
     }
@@ -125,23 +108,6 @@ function LoginPage() {
           Hanya untuk pengelola platform
         </p>
 
-        {!hasSupabase && (
-          <div
-            style={{
-              background: "rgba(234,179,8,0.08)",
-              border: "1px solid rgba(234,179,8,0.2)",
-              borderRadius: 10,
-              padding: "10px 12px",
-              fontSize: 11,
-              color: "var(--muted)",
-              marginBottom: 14,
-              textAlign: "center",
-            }}
-          >
-            Mode demo — login via API lokal (admin@cverse.id / admin123)
-          </div>
-        )}
-
         <form onSubmit={onLogin} style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           <div>
             <label className="label">Email</label>
@@ -153,19 +119,8 @@ function LoginPage() {
               autoComplete="email"
             />
           </div>
-          <div>
-            <label className="label">Password</label>
-            <input
-              className="input"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
-              autoComplete="current-password"
-            />
-          </div>
           <button className="btn-gold" type="submit" disabled={busy} style={{ marginTop: 6, padding: "11px", width: "100%" }}>
-            {busy ? "Memproses…" : "Masuk"}
+            {busy ? "Mengirim…" : "Kirim Tautan Masuk"}
           </button>
         </form>
 
@@ -183,7 +138,7 @@ function LoginPage() {
         {msg && <div className="admin-msg">{msg}</div>}
 
         <div style={{ fontSize: 11, color: "var(--dim)", textAlign: "center", marginTop: 16 }}>
-          {hasSupabase ? "Butuh bantuan? Hubungi super admin untuk reset." : "Demo tanpa Supabase — data baca saja via API publik."}
+          Butuh bantuan? Hubungi super admin untuk reset.
         </div>
       </div>
     </div>

@@ -59,8 +59,8 @@ Dokumen perencanaan **canonical = `docs/`** (`00_readme` → `09_recommendations
 - Gamifikasi: `level = floor(total_xp/10)`, `spend 1 C = 1 XP` (+ badge `xp_reward`), top-up tidak menambah XP. Badge di `apps/admin` (ADM-07).
 - Profil: `/u/:username` & `/c/:username`; `is_anonymous` hide koleksi/level/badge. Domain `c-verse.co` + `c-verse.id` redirect — LOCK sebelum NFC.
 - KYC: hanya payout + top-up besar. Tidak untuk pasang buyout/accept bid. `hold_payout_until` untuk fraud hold.
-- Admin: terpisah, `service-role` + Cloudflare Access + 2FA TOTP (`aal2`) + `admin_audit_log` append-only. Tidak ada route admin di API publik.
-- Demo (seed `auth.users`): `demo@cverse.id`/`demo123` (120 C-Coin), `admin@cverse.id`/`admin123`; creator `karina@creator.id` dll. Role `user` (legacy `collector`), `creator`, `admin`.
+- Admin: terpisah, `service-role` + Cloudflare Access + 2FA TOTP (`aal2`) + `admin_audit_log` append-only. Login admin = email OTP (magic link), tanpa password. Tidak ada route admin di API publik.
+- Demo (seed `auth.users`, tanpa password — login via OTP/Google): `demo@cverse.id` (120 C-Coin), `admin@cverse.id`; creator `karina@creator.id` dll. Role `user` (legacy `collector`), `creator`, `admin`.
 
 ## Pitfalls
 
