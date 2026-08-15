@@ -55,11 +55,6 @@ async function verifyTap(card: Card, input: TapInput): Promise<TapOutcome> {
   if (card.verifyStatus === "tamper_detected") {
     return { verifyStatus: "tamper_detected", message: "Tamper terdeteksi — kartu pernah dibuka" };
   }
-  if (input.tamperFlag) {
-    card.verifyStatus = "tamper_detected"; // irreversible per docs/12 §2.2 p4
-    await persistVerification(card);
-    return { verifyStatus: "tamper_detected", message: "TagTamper aktif — kartu terindikasi dibuka" };
-  }
 
   const master = masterKeyBytes();
   if (!master) {
@@ -76,6 +71,15 @@ async function verifyTap(card: Card, input: TapInput): Promise<TapOutcome> {
   if (!result.valid) {
     logAudit("system", "view_sensitive", "cards", card.id, { fraud: "nfc_cmac_invalid", reason: result.reason }, null, null);
     return { verifyStatus: "unknown", message: "Verifikasi kripto gagal", reason: result.reason };
+  }
+
+  // Tamper bit hanya dipercaya setelah CMAC valid — bit ini bagian dari pesan SUN
+  // yang ter-autentikasi (docs/12 §2.2 p4). Menerimanya sebelum verifikasi
+  // membuat siapa pun bisa men-tamper-flag kartu orang lain via ?t=1 tanpa bukti.
+  if (input.tamperFlag) {
+    card.verifyStatus = "tamper_detected"; // irreversible
+    await persistVerification(card);
+    return { verifyStatus: "tamper_detected", message: "TagTamper aktif — kartu terindikasi dibuka" };
   }
 
   // Anti-replay: counter must strictly advance
