@@ -12,7 +12,8 @@
 --     violation → seluruh auth.users insert ikut di-rollback → GoTrue
 --     menolak → TIDAK ada akun duplikat.
 
--- Email kanonik: lowercase + untuk gmail/googlemail buang titik & "+tag".
+-- Email kanonik: lowercase + untuk gmail/googlemail buang titik & "+tag",
+-- dan normalisasi suffix googlemail.com → gmail.com (dua-duanya inbox sama).
 -- Harus IMMUTABLE (deterministik) supaya bisa jadi basis unique index.
 create or replace function public.canonical_email(p_email text)
 returns text
@@ -22,9 +23,10 @@ parallel safe
 as $$
   select
     case
-      -- gmail / googlemail: local-part tanpa titik dan tanpa '+...'
+      -- gmail / googlemail: local-part tanpa titik dan tanpa '+...',
+      -- domain di-normalisasi jadi canonical 'gmail.com'
       when lower(split_part(p_email, '@', 2)) in ('gmail.com', 'googlemail.com') then
-        lower(replace(split_part(split_part(p_email, '+', 1), '@', 1), '.', '') || '@' || split_part(p_email, '@', 2))
+        lower(replace(split_part(split_part(p_email, '+', 1), '@', 1), '.', '') || '@gmail.com')
       else
         lower(p_email)
     end
