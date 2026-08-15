@@ -2,7 +2,7 @@
 -- users.id -> uuid references auth.users(id); password_hash & sessions dropped;
 -- signup creates public.users row automatically via trigger.
 --
--- NOTE (prod data): pada database dengan data existing, jalankan dulu migrasi akun
+-- NOTE (prod data; idempotent via `supabase db reset`): pada database dengan data existing, jalankan dulu migrasi akun
 -- via service-role authAdmin.createUser lalu remap id (docs/10 §3.4.2).
 -- Migration ini bersih untuk `supabase db reset` (fresh DB).
 
@@ -10,6 +10,8 @@
 do $$ begin alter type public.user_role add value if not exists 'user'; exception when others then null; end $$;
 
 -- 2) Drop FK constraints menuju users(id) sebelum ubah tipe kolom
+alter table public.sessions drop constraint if exists sessions_user_id_fkey;
+drop table if exists public.sessions;
 alter table public.wallets drop constraint if exists wallets_user_id_fkey;
 alter table public.drops drop constraint if exists drops_creator_id_fkey;
 alter table public.drops drop constraint if exists drops_created_by_fkey;
@@ -75,10 +77,7 @@ alter table public.notifications add constraint notifications_user_id_fkey forei
 alter table public.payouts add constraint payouts_user_id_fkey foreign key (user_id) references public.users(id) on delete cascade;
 alter table public.creator_page_views add constraint creator_page_views_user_id_fkey foreign key (user_id) references public.users(id) on delete set null;
 
--- 6) Sessions in-memory legacy dihapus (JWT stateless)
-drop table if exists public.sessions;
-
--- 7) Trigger: signup Supabase Auth -> row public.users otomatis
+-- 6) Trigger: signup Supabase Auth -> row public.users otomatis
 create or replace function public.handle_new_auth_user()
 returns trigger
 language plpgsql
