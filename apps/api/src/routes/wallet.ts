@@ -3,7 +3,9 @@ import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import { z } from "zod";
 import { requireUser } from "../lib/auth.js";
-import { addTx, ensureSeed, ensureWallet, isPayoutHeld, store } from "../lib/store.js";
+import { getWallet, isPayoutHeld, listWalletTxs } from "../lib/reads/wallet.js";
+import { readDb } from "../lib/reads.js";
+import { addTx, ensureSeed, ensureWallet, store } from "../lib/store.js";
 
 const app = new Hono();
 app.use("*", async (_c, next) => {
@@ -17,14 +19,12 @@ app.get("/", async (c) => {
   const authRes = await requireUser(c);
   if ("error" in authRes) return c.json({ error: authRes.error === 403 ? "Akun disuspend" : "Unauthorized" }, authRes.error);
   const user = authRes.user;
-  const w = ensureWallet(user.id);
-  const txs = store.walletTx
-    .filter((t) => t.userId === user.id)
-    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-  const held = isPayoutHeld(user.id);
+  const w = await getWallet(user.id);
+  const txs = await listWalletTxs(user.id, 100);
+  const held = await isPayoutHeld(user.id);
   return c.json({
     wallet: { ...w, balanceIdrEquiv: w.balanceCCoin * C_COIN_RATE_IDR },
-    transactions: txs.slice(0, 100),
+    transactions: txs,
     rate: C_COIN_RATE_IDR,
     thresholdKyc: KYC_THRESHOLD,
     balanceCap: BALANCE_CAP_CCOIN,
@@ -51,6 +51,9 @@ app.post(
     const authRes = await requireUser(c);
     if ("error" in authRes) return c.json({ error: authRes.error === 403 ? "Akun disuspend" : "Unauthorized" }, authRes.error);
     const user = authRes.user;
+    // Real-money path (docs/14): with Supabase active, manual top-up is demo-only and must
+    // be rejected — balance credit happens exclusively via Midtrans webhook.
+    if (readDb()) return c.json({ error: "Top-up via Midtrans (/api/payments/topup)" }, 503);
     const raw = c.req.valid("json") as { amountCCoin?: number; amountCcoin?: number; amount_ccoin?: number; method: string };
     const amountCCoin = raw.amountCcoin ?? raw.amountCCoin ?? raw.amount_ccoin;
     if (amountCCoin == null) return c.json({ error: "amountCCoin wajib" }, 400);
@@ -124,6 +127,9 @@ app.post(
     const authRes = await requireUser(c);
     if ("error" in authRes) return c.json({ error: authRes.error === 403 ? "Akun disuspend" : "Unauthorized" }, authRes.error);
     const user = authRes.user;
+    // Real-money path (docs/14): with Supabase active, payouts run via admin batch —
+    // self-service debit here is demo-only and must be rejected.
+    if (readDb()) return c.json({ error: "Payout via admin batch" }, 503);
     const raw = c.req.valid("json") as { amountCCoin?: number; amountCcoin?: number; bankAccount?: string };
     const amountCCoin = raw.amountCcoin ?? raw.amountCCoin;
     if (amountCCoin == null) return c.json({ error: "amountCCoin wajib" }, 400);
@@ -138,7 +144,7 @@ app.post(
     const kyc = [...store.kyc.values()].find((k) => k.userId === user.id && k.status === "approved");
     if (!kyc) return c.json({ error: "KYC approved wajib untuk payout", needKyc: true }, 400);
     // payout hold (fraud 30d per docs 07 C-13 creator self-dealing & flag_reason)
-    const held = isPayoutHeld(user.id);
+    const held = await isPayoutHeld(user.id);
     if (held.held) return c.json({ error: `Payout ditahan sampai ${held.until} (fraud hold)`, holdUntil: held.until }, 403);
     const feeCCoin = Math.max(1, Math.ceil(amountCCoin * 0.01));
     addTx(
@@ -151,12 +157,13 @@ app.post(
       { fee_rate_payout: 0.01, fee_ccoin: feeCCoin, idempotency_key: `payout-${user.id}-${Date.now()}` },
     );
     const netIdr = (amountCCoin - feeCCoin) * C_COIN_RATE_IDR;
+    const after = await getWallet(user.id);
     return c.json({
       ok: true,
       netCCoin: amountCCoin - feeCCoin,
       feeCCoin,
       netIdr,
-      wallet: { ...ensureWallet(user.id), balanceIdrEquiv: ensureWallet(user.id).balanceCCoin * C_COIN_RATE_IDR },
+      wallet: { ...after, balanceIdrEquiv: after.balanceCCoin * C_COIN_RATE_IDR },
     });
   },
 );
