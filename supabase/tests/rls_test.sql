@@ -25,21 +25,25 @@ insert into public.wallet_transactions (id, user_id, type, amount_ccoin, balance
 values ('90000000-0000-4000-8000-000000000001', '10000000-0000-4000-8000-00000000000a', 'top_up', 100, 100)
 on conflict (id) do nothing;
 
--- T1: anon select wallets -> 0 rows
+-- T1: anon select wallets -> ditolak (permission denied tanpa grant, atau 0 rows via default-deny)
 set local role anon;
 do $$
 declare n int;
 begin
   select count(*) into n from public.wallets;
   if n = 0 then raise notice 'T1 PASS'; else raise notice 'T1 FAIL (% rows)', n; end if;
+exception when insufficient_privilege then
+  raise notice 'T1 PASS (privilege denied — tanpa grant anon)';
 end $$;
 
--- T2: anon select kyc_records -> 0 rows
+-- T2: anon select kyc_records -> ditolak (permission denied atau 0 rows)
 do $$
 declare n int;
 begin
   select count(*) into n from public.kyc_records;
   if n = 0 then raise notice 'T2 PASS'; else raise notice 'T2 FAIL (% rows)', n; end if;
+exception when insufficient_privilege then
+  raise notice 'T2 PASS (privilege denied — tanpa grant anon)';
 end $$;
 
 -- T3: anon select drops where status='draft' -> 0 rows (seed tidak punya draft; cek policy menyaring)
@@ -59,12 +63,14 @@ exception when others then
   raise notice 'T8 FAIL (%)', sqlerrm;
 end $$;
 
--- T9: anon select creator_page_views -> 0 rows
+-- T9: anon select creator_page_views -> ditolak (permission denied atau 0 rows)
 do $$
 declare n int;
 begin
   select count(*) into n from public.creator_page_views;
   if n = 0 then raise notice 'T9 PASS'; else raise notice 'T9 FAIL (% rows)', n; end if;
+exception when insufficient_privilege then
+  raise notice 'T9 PASS (privilege denied — tanpa grant anon)';
 end $$;
 
 reset role;
