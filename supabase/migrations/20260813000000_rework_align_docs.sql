@@ -280,23 +280,4 @@ alter table public.notifications enable row level security;
 alter table public.payout_batches enable row level security;
 alter table public.payouts enable row level security;
 
-do $$ begin
-  drop policy if exists "allow all creators" on public.creators;
-  create policy "allow all creators" on public.creators for all using (true) with check (true);
-  drop policy if exists "allow all shipments" on public.shipments;
-  create policy "allow all shipments" on public.shipments for all using (true) with check (true);
-  drop policy if exists "allow all ownership_history" on public.ownership_history;
-  create policy "allow all ownership_history" on public.ownership_history for all using (true) with check (true);
-  drop policy if exists "allow all nfc_batches" on public.nfc_batches;
-  create policy "allow all nfc_batches" on public.nfc_batches for all using (true) with check (true);
-  drop policy if exists "allow all disputes" on public.disputes;
-  create policy "allow all disputes" on public.disputes for all using (true) with check (true);
-  drop policy if exists "allow all admin_audit_log" on public.admin_audit_log;
-  create policy "allow all admin_audit_log" on public.admin_audit_log for all using (true) with check (true);
-  drop policy if exists "allow all notifications" on public.notifications;
-  create policy "allow all notifications" on public.notifications for all using (true) with check (true);
-  drop policy if exists "allow all payout_batches" on public.payout_batches;
-  create policy "allow all payout_batches" on public.payout_batches for all using (true) with check (true);
-  drop policy if exists "allow all payouts" on public.payouts;
-  create policy "allow all payouts" on public.payouts for all using (true) with check (true);
-end $$;
+-- Policies: dikelola di 20260816200000_rls_policies.sql (default deny)

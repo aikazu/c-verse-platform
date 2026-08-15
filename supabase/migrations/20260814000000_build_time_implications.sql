@@ -54,9 +54,4 @@ create index if not exists idx_cards_unit on public.cards(drop_id, unit_number);
 -- ── RLS ────────────────────────────────────────────────────────────
 alter table public.creator_page_views enable row level security;
 alter table public.qc_defects enable row level security;
-do $$ begin
-  drop policy if exists "allow all creator_page_views" on public.creator_page_views;
-  create policy "allow all creator_page_views" on public.creator_page_views for all using (true) with check (true);
-  drop policy if exists "allow all qc_defects" on public.qc_defects;
-  create policy "allow all qc_defects" on public.qc_defects for all using (true) with check (true);
-end $$;
+-- Policies: dikelola di 20260816200000_rls_policies.sql (default deny)

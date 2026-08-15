@@ -232,42 +232,4 @@ alter table public.user_badges enable row level security;
 alter table public.kyc_records enable row level security;
 alter table public.sessions enable row level security;
 
--- Drop & recreate permissive policies (idempotent via DO)
-do $$ begin
-  -- users
-  drop policy if exists "allow all users" on public.users;
-  create policy "allow all users" on public.users for all using (true) with check (true);
-  -- wallets
-  drop policy if exists "allow all wallets" on public.wallets;
-  create policy "allow all wallets" on public.wallets for all using (true) with check (true);
-  -- drops
-  drop policy if exists "allow all drops" on public.drops;
-  create policy "allow all drops" on public.drops for all using (true) with check (true);
-  -- cards
-  drop policy if exists "allow all cards" on public.cards;
-  create policy "allow all cards" on public.cards for all using (true) with check (true);
-  -- wallet_transactions
-  drop policy if exists "allow all wtx" on public.wallet_transactions;
-  create policy "allow all wtx" on public.wallet_transactions for all using (true) with check (true);
-  -- orders
-  drop policy if exists "allow all orders" on public.orders;
-  create policy "allow all orders" on public.orders for all using (true) with check (true);
-  -- listings
-  drop policy if exists "allow all listings" on public.listings;
-  create policy "allow all listings" on public.listings for all using (true) with check (true);
-  -- bids
-  drop policy if exists "allow all bids" on public.bids;
-  create policy "allow all bids" on public.bids for all using (true) with check (true);
-  -- badges
-  drop policy if exists "allow all badges" on public.badges;
-  create policy "allow all badges" on public.badges for all using (true) with check (true);
-  -- user_badges
-  drop policy if exists "allow all user_badges" on public.user_badges;
-  create policy "allow all user_badges" on public.user_badges for all using (true) with check (true);
-  -- kyc
-  drop policy if exists "allow all kyc" on public.kyc_records;
-  create policy "allow all kyc" on public.kyc_records for all using (true) with check (true);
-  -- sessions
-  drop policy if exists "allow all sessions" on public.sessions;
-  create policy "allow all sessions" on public.sessions for all using (true) with check (true);
-end $$;
+-- Policies: dikelola di 20260816200000_rls_policies.sql (default deny)
