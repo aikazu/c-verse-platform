@@ -202,6 +202,12 @@
   (`05_data_model.md`), RPC `drop_entry`/`draw_drop`
   (`13_atomic_checkout_rpc.md`).
 
+### C-16 [FINAL 2026-08-15] Bahasa Platform = Indonesia (Casual-Profesional) + Istilah English
+- **UI/UX Utama**: Bahasa Indonesia casual-profesional (sesuai UU No. 24/2009 & UU PDP).
+- **Istilah Domain/Fandom**: Tetap Bahasa Inggris (*Raffle*, *Drop*, *Pool*, *Vault*, *Collectible*, *C.Card*, *Marketplace*, *Bid*, *Buyout*, *Tap & Verify*).
+- **Codebase/Comments**: 100% Bahasa Inggris.
+- **i18n Readiness**: Default locale `id`, disiapkan arsitektur i18n untuk `en` pada ekspansi Y2+.
+
 ## 4. Batasan Teknis yang Diterima
 
 | # | Batasan | Konsekuensi |
@@ -252,6 +258,7 @@
 | Secondary: buyer pilih kirim ke alamat ATAU kirim/rawat di platform; ship-from-vault kapan saja (ongkir C-Coin) | FINAL (2026-08-12) |
 | Semua nominal C-Coin integer ≥ 1 (tanpa desimal) | FINAL (2026-08-12) |
 | Chip NTAG 424 DNA TagTamper | FINAL (2026-08-03) |
+| UI Bahasa Indonesia Casual-Profesional + Istilah Domain English (C-16) | FINAL (2026-08-15) |
 
 ## Sumber
 

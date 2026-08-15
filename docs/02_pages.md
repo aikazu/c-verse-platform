@@ -7,7 +7,7 @@
 > top-up di area user; profil publik + privacy anonymous;
 > badge dikelola admin)
 > Code (route/komponen) pakai Bahasa Inggris; prose pakai
-> Bahasa Indonesia.
+> Bahasa Indonesia casual-profesional (dengan istilah domain/fandom Bahasa Inggris seperti Raffle, Drop, Vault, Collectible, Bid, Buyout tetap dipertahankan — C-16). Arsitektur i18n disiapkan sejak awal (default locale `id`).
 
 ## 1. Arsitektur App
 

@@ -84,8 +84,7 @@ semua dok sekaligus (mubazir token, AI kehilangan fokus):
 5. **Migration idempotent + backward compatible** (add nullable
    dulu, drop belakangan; jangan deploy Worker + migrate dalam
    satu commit).
-6. Istilah & bahasa: UI Bahasa Indonesia, code/comments English,
-   glossary §5-6 dipatuhi.
+6. Istilah & bahasa: UI Bahasa Indonesia casual-profesional (dengan istilah domain/fandom Bahasa Inggris tetap dipertahankan: Raffle, Drop, Pool, Vault, Collectible, Bid, Marketplace), code/comments English, glossary §5-6 dipatuhi (C-16).
 7. Kalau spec bentrok dengan realita codebase: STOP, laporkan,
    jangan improve sendiri (user yang memutuskan update spec).
 
