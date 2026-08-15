@@ -3,13 +3,15 @@
 -- Akun demo dibuat di auth.users (password bcrypt) supaya login OTP/Google dev bisa dipakai.
 
 -- ── auth.users (jalankan sebelum public.users — FK) ──
-insert into auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, created_at, updated_at, raw_app_meta_data, raw_user_meta_data)
+-- Token columns WAJIB string kosong (bukan NULL): GoTrue gagal scan NULL
+-- ("converting NULL to string is unsupported") sehingga login lokal 500.
+insert into auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, created_at, updated_at, raw_app_meta_data, raw_user_meta_data, confirmation_token, recovery_token, email_change, email_change_token_new)
 values
- ('00000000-0000-4000-8000-000000000001', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'demo@cverse.id', crypt('demo123', gen_salt('bf')), now(), now(), now(), '{}'::jsonb, '{}'::jsonb),
- ('00000000-0000-4000-8000-000000000002', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'admin@cverse.id', crypt('admin123', gen_salt('bf')), now(), now(), now(), '{}'::jsonb, '{}'::jsonb),
- ('00000000-0000-4000-8000-000000000003', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'karina@creator.id', crypt('karina123', gen_salt('bf')), now(), now(), now(), '{}'::jsonb, '{}'::jsonb),
- ('00000000-0000-4000-8000-000000000004', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'hype@creator.id', crypt('hype123', gen_salt('bf')), now(), now(), now(), '{}'::jsonb, '{}'::jsonb),
- ('00000000-0000-4000-8000-000000000005', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'nova@creator.id', crypt('nova123', gen_salt('bf')), now(), now(), now(), '{}'::jsonb, '{}'::jsonb)
+ ('00000000-0000-4000-8000-000000000001', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'demo@cverse.id', crypt('demo123', gen_salt('bf')), now(), now(), now(), '{}'::jsonb, '{}'::jsonb, '', '', '', ''),
+ ('00000000-0000-4000-8000-000000000002', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'admin@cverse.id', crypt('admin123', gen_salt('bf')), now(), now(), now(), '{}'::jsonb, '{}'::jsonb, '', '', '', ''),
+ ('00000000-0000-4000-8000-000000000003', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'karina@creator.id', crypt('karina123', gen_salt('bf')), now(), now(), now(), '{}'::jsonb, '{}'::jsonb, '', '', '', ''),
+ ('00000000-0000-4000-8000-000000000004', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'hype@creator.id', crypt('hype123', gen_salt('bf')), now(), now(), now(), '{}'::jsonb, '{}'::jsonb, '', '', '', ''),
+ ('00000000-0000-4000-8000-000000000005', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'nova@creator.id', crypt('nova123', gen_salt('bf')), now(), now(), now(), '{}'::jsonb, '{}'::jsonb, '', '', '', '')
 on conflict (id) do nothing;
 
 -- ── public.users (mirror profile; trigger on_auth_user_created menangani signup baru) ──
