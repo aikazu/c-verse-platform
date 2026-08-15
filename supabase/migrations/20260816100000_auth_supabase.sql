@@ -31,6 +31,299 @@ alter table public.notifications drop constraint if exists notifications_user_id
 alter table public.payouts drop constraint if exists payouts_user_id_fkey;
 alter table public.creator_page_views drop constraint if exists creator_page_views_user_id_fkey;
 
+-- 2b) Normalize legacy text ids (e.g. "u_demo") to deterministic UUID strings
+--     before the type cast. Known seed ids map to the fixed UUIDs in seed.sql;
+--     unknown ids get an md5-derived UUID so all FKs stay consistent.
+do $$
+begin
+  -- users.id
+  update public.users set id = (
+    select case id
+      when 'u_demo'    then '00000000-0000-4000-8000-000000000001'
+      when 'u_admin'   then '00000000-0000-4000-8000-000000000002'
+      when 'cr_karina' then '00000000-0000-4000-8000-000000000003'
+      when 'cr_hype'   then '00000000-0000-4000-8000-000000000004'
+      when 'cr_nova'   then '00000000-0000-4000-8000-000000000005'
+      else substring(md5(id) from 1 for 8) || '-' ||
+           substring(md5(id) from 9 for 4) || '-' ||
+           substring(md5(id) from 13 for 4) || '-' ||
+           substring(md5(id) from 17 for 4) || '-' ||
+           substring(md5(id) from 21 for 12)
+    end
+  ) where id !~ '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$';
+
+  -- all FK columns that reference users(id) — same deterministic mapping
+  update public.wallets set user_id = (
+    select case user_id
+      when 'u_demo'    then '00000000-0000-4000-8000-000000000001'
+      when 'u_admin'   then '00000000-0000-4000-8000-000000000002'
+      when 'cr_karina' then '00000000-0000-4000-8000-000000000003'
+      when 'cr_hype'   then '00000000-0000-4000-8000-000000000004'
+      when 'cr_nova'   then '00000000-0000-4000-8000-000000000005'
+      else substring(md5(user_id) from 1 for 8) || '-' ||
+           substring(md5(user_id) from 9 for 4) || '-' ||
+           substring(md5(user_id) from 13 for 4) || '-' ||
+           substring(md5(user_id) from 17 for 4) || '-' ||
+           substring(md5(user_id) from 21 for 12)
+    end
+  ) where user_id !~ '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$';
+
+  update public.drops set creator_id = (
+    select case creator_id
+      when 'u_demo'    then '00000000-0000-4000-8000-000000000001'
+      when 'u_admin'   then '00000000-0000-4000-8000-000000000002'
+      when 'cr_karina' then '00000000-0000-4000-8000-000000000003'
+      when 'cr_hype'   then '00000000-0000-4000-8000-000000000004'
+      when 'cr_nova'   then '00000000-0000-4000-8000-000000000005'
+      else substring(md5(creator_id) from 1 for 8) || '-' ||
+           substring(md5(creator_id) from 9 for 4) || '-' ||
+           substring(md5(creator_id) from 13 for 4) || '-' ||
+           substring(md5(creator_id) from 17 for 4) || '-' ||
+           substring(md5(creator_id) from 21 for 12)
+    end
+  ) where creator_id !~ '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$';
+
+  update public.drops set created_by = (
+    select case created_by
+      when 'u_demo'    then '00000000-0000-4000-8000-000000000001'
+      when 'u_admin'   then '00000000-0000-4000-8000-000000000002'
+      when 'cr_karina' then '00000000-0000-4000-8000-000000000003'
+      when 'cr_hype'   then '00000000-0000-4000-8000-000000000004'
+      when 'cr_nova'   then '00000000-0000-4000-8000-000000000005'
+      else substring(md5(created_by) from 1 for 8) || '-' ||
+           substring(md5(created_by) from 9 for 4) || '-' ||
+           substring(md5(created_by) from 13 for 4) || '-' ||
+           substring(md5(created_by) from 17 for 4) || '-' ||
+           substring(md5(created_by) from 21 for 12)
+    end
+  ) where created_by is not null and created_by !~ '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$';
+
+  update public.cards set owner_id = (
+    select case owner_id
+      when 'u_demo'    then '00000000-0000-4000-8000-000000000001'
+      when 'u_admin'   then '00000000-0000-4000-8000-000000000002'
+      when 'cr_karina' then '00000000-0000-4000-8000-000000000003'
+      when 'cr_hype'   then '00000000-0000-4000-8000-000000000004'
+      when 'cr_nova'   then '00000000-0000-4000-8000-000000000005'
+      else substring(md5(owner_id) from 1 for 8) || '-' ||
+           substring(md5(owner_id) from 9 for 4) || '-' ||
+           substring(md5(owner_id) from 13 for 4) || '-' ||
+           substring(md5(owner_id) from 17 for 4) || '-' ||
+           substring(md5(owner_id) from 21 for 12)
+    end
+  ) where owner_id is not null and owner_id !~ '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$';
+
+  update public.wallet_transactions set user_id = (
+    select case user_id
+      when 'u_demo'    then '00000000-0000-4000-8000-000000000001'
+      when 'u_admin'   then '00000000-0000-4000-8000-000000000002'
+      when 'cr_karina' then '00000000-0000-4000-8000-000000000003'
+      when 'cr_hype'   then '00000000-0000-4000-8000-000000000004'
+      when 'cr_nova'   then '00000000-0000-4000-8000-000000000005'
+      else substring(md5(user_id) from 1 for 8) || '-' ||
+           substring(md5(user_id) from 9 for 4) || '-' ||
+           substring(md5(user_id) from 13 for 4) || '-' ||
+           substring(md5(user_id) from 17 for 4) || '-' ||
+           substring(md5(user_id) from 21 for 12)
+    end
+  ) where user_id !~ '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$';
+
+  update public.orders set user_id = (
+    select case user_id
+      when 'u_demo'    then '00000000-0000-4000-8000-000000000001'
+      when 'u_admin'   then '00000000-0000-4000-8000-000000000002'
+      when 'cr_karina' then '00000000-0000-4000-8000-000000000003'
+      when 'cr_hype'   then '00000000-0000-4000-8000-000000000004'
+      when 'cr_nova'   then '00000000-0000-4000-8000-000000000005'
+      else substring(md5(user_id) from 1 for 8) || '-' ||
+           substring(md5(user_id) from 9 for 4) || '-' ||
+           substring(md5(user_id) from 13 for 4) || '-' ||
+           substring(md5(user_id) from 17 for 4) || '-' ||
+           substring(md5(user_id) from 21 for 12)
+    end
+  ) where user_id !~ '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$';
+
+  update public.bids set bidder_id = (
+    select case bidder_id
+      when 'u_demo'    then '00000000-0000-4000-8000-000000000001'
+      when 'u_admin'   then '00000000-0000-4000-8000-000000000002'
+      when 'cr_karina' then '00000000-0000-4000-8000-000000000003'
+      when 'cr_hype'   then '00000000-0000-4000-8000-000000000004'
+      when 'cr_nova'   then '00000000-0000-4000-8000-000000000005'
+      else substring(md5(bidder_id) from 1 for 8) || '-' ||
+           substring(md5(bidder_id) from 9 for 4) || '-' ||
+           substring(md5(bidder_id) from 13 for 4) || '-' ||
+           substring(md5(bidder_id) from 17 for 4) || '-' ||
+           substring(md5(bidder_id) from 21 for 12)
+    end
+  ) where bidder_id !~ '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$';
+
+  update public.badges set created_by = (
+    select case created_by
+      when 'u_demo'    then '00000000-0000-4000-8000-000000000001'
+      when 'u_admin'   then '00000000-0000-4000-8000-000000000002'
+      when 'cr_karina' then '00000000-0000-4000-8000-000000000003'
+      when 'cr_hype'   then '00000000-0000-4000-8000-000000000004'
+      when 'cr_nova'   then '00000000-0000-4000-8000-000000000005'
+      else substring(md5(created_by) from 1 for 8) || '-' ||
+           substring(md5(created_by) from 9 for 4) || '-' ||
+           substring(md5(created_by) from 13 for 4) || '-' ||
+           substring(md5(created_by) from 17 for 4) || '-' ||
+           substring(md5(created_by) from 21 for 12)
+    end
+  ) where created_by is not null and created_by !~ '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$';
+
+  update public.user_badges set user_id = (
+    select case user_id
+      when 'u_demo'    then '00000000-0000-4000-8000-000000000001'
+      when 'u_admin'   then '00000000-0000-4000-8000-000000000002'
+      when 'cr_karina' then '00000000-0000-4000-8000-000000000003'
+      when 'cr_hype'   then '00000000-0000-4000-8000-000000000004'
+      when 'cr_nova'   then '00000000-0000-4000-8000-000000000005'
+      else substring(md5(user_id) from 1 for 8) || '-' ||
+           substring(md5(user_id) from 9 for 4) || '-' ||
+           substring(md5(user_id) from 13 for 4) || '-' ||
+           substring(md5(user_id) from 17 for 4) || '-' ||
+           substring(md5(user_id) from 21 for 12)
+    end
+  ) where user_id !~ '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$';
+
+  update public.kyc_records set user_id = (
+    select case user_id
+      when 'u_demo'    then '00000000-0000-4000-8000-000000000001'
+      when 'u_admin'   then '00000000-0000-4000-8000-000000000002'
+      when 'cr_karina' then '00000000-0000-4000-8000-000000000003'
+      when 'cr_hype'   then '00000000-0000-4000-8000-000000000004'
+      when 'cr_nova'   then '00000000-0000-4000-8000-000000000005'
+      else substring(md5(user_id) from 1 for 8) || '-' ||
+           substring(md5(user_id) from 9 for 4) || '-' ||
+           substring(md5(user_id) from 13 for 4) || '-' ||
+           substring(md5(user_id) from 17 for 4) || '-' ||
+           substring(md5(user_id) from 21 for 12)
+    end
+  ) where user_id !~ '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$';
+
+  update public.creators set user_id = (
+    select case user_id
+      when 'u_demo'    then '00000000-0000-4000-8000-000000000001'
+      when 'u_admin'   then '00000000-0000-4000-8000-000000000002'
+      when 'cr_karina' then '00000000-0000-4000-8000-000000000003'
+      when 'cr_hype'   then '00000000-0000-4000-8000-000000000004'
+      when 'cr_nova'   then '00000000-0000-4000-8000-000000000005'
+      else substring(md5(user_id) from 1 for 8) || '-' ||
+           substring(md5(user_id) from 9 for 4) || '-' ||
+           substring(md5(user_id) from 13 for 4) || '-' ||
+           substring(md5(user_id) from 17 for 4) || '-' ||
+           substring(md5(user_id) from 21 for 12)
+    end
+  ) where user_id is not null and user_id !~ '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$';
+
+  update public.shipments set requester_id = (
+    select case requester_id
+      when 'u_demo'    then '00000000-0000-4000-8000-000000000001'
+      when 'u_admin'   then '00000000-0000-4000-8000-000000000002'
+      when 'cr_karina' then '00000000-0000-4000-8000-000000000003'
+      when 'cr_hype'   then '00000000-0000-4000-8000-000000000004'
+      when 'cr_nova'   then '00000000-0000-4000-8000-000000000005'
+      else substring(md5(requester_id) from 1 for 8) || '-' ||
+           substring(md5(requester_id) from 9 for 4) || '-' ||
+           substring(md5(requester_id) from 13 for 4) || '-' ||
+           substring(md5(requester_id) from 17 for 4) || '-' ||
+           substring(md5(requester_id) from 21 for 12)
+    end
+  ) where requester_id !~ '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$';
+
+  update public.ownership_history set owner_id = (
+    select case owner_id
+      when 'u_demo'    then '00000000-0000-4000-8000-000000000001'
+      when 'u_admin'   then '00000000-0000-4000-8000-000000000002'
+      when 'cr_karina' then '00000000-0000-4000-8000-000000000003'
+      when 'cr_hype'   then '00000000-0000-4000-8000-000000000004'
+      when 'cr_nova'   then '00000000-0000-4000-8000-000000000005'
+      else substring(md5(owner_id) from 1 for 8) || '-' ||
+           substring(md5(owner_id) from 9 for 4) || '-' ||
+           substring(md5(owner_id) from 13 for 4) || '-' ||
+           substring(md5(owner_id) from 17 for 4) || '-' ||
+           substring(md5(owner_id) from 21 for 12)
+    end
+  ) where owner_id !~ '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$';
+
+  update public.disputes set reporter_id = (
+    select case reporter_id
+      when 'u_demo'    then '00000000-0000-4000-8000-000000000001'
+      when 'u_admin'   then '00000000-0000-4000-8000-000000000002'
+      when 'cr_karina' then '00000000-0000-4000-8000-000000000003'
+      when 'cr_hype'   then '00000000-0000-4000-8000-000000000004'
+      when 'cr_nova'   then '00000000-0000-4000-8000-000000000005'
+      else substring(md5(reporter_id) from 1 for 8) || '-' ||
+           substring(md5(reporter_id) from 9 for 4) || '-' ||
+           substring(md5(reporter_id) from 13 for 4) || '-' ||
+           substring(md5(reporter_id) from 17 for 4) || '-' ||
+           substring(md5(reporter_id) from 21 for 12)
+    end
+  ) where reporter_id !~ '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$';
+
+  update public.admin_audit_log set admin_user_id = (
+    select case admin_user_id
+      when 'u_demo'    then '00000000-0000-4000-8000-000000000001'
+      when 'u_admin'   then '00000000-0000-4000-8000-000000000002'
+      when 'cr_karina' then '00000000-0000-4000-8000-000000000003'
+      when 'cr_hype'   then '00000000-0000-4000-8000-000000000004'
+      when 'cr_nova'   then '00000000-0000-4000-8000-000000000005'
+      else substring(md5(admin_user_id) from 1 for 8) || '-' ||
+           substring(md5(admin_user_id) from 9 for 4) || '-' ||
+           substring(md5(admin_user_id) from 13 for 4) || '-' ||
+           substring(md5(admin_user_id) from 17 for 4) || '-' ||
+           substring(md5(admin_user_id) from 21 for 12)
+    end
+  ) where admin_user_id !~ '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$';
+
+  update public.notifications set user_id = (
+    select case user_id
+      when 'u_demo'    then '00000000-0000-4000-8000-000000000001'
+      when 'u_admin'   then '00000000-0000-4000-8000-000000000002'
+      when 'cr_karina' then '00000000-0000-4000-8000-000000000003'
+      when 'cr_hype'   then '00000000-0000-4000-8000-000000000004'
+      when 'cr_nova'   then '00000000-0000-4000-8000-000000000005'
+      else substring(md5(user_id) from 1 for 8) || '-' ||
+           substring(md5(user_id) from 9 for 4) || '-' ||
+           substring(md5(user_id) from 13 for 4) || '-' ||
+           substring(md5(user_id) from 17 for 4) || '-' ||
+           substring(md5(user_id) from 21 for 12)
+    end
+  ) where user_id !~ '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$';
+
+  update public.payouts set user_id = (
+    select case user_id
+      when 'u_demo'    then '00000000-0000-4000-8000-000000000001'
+      when 'u_admin'   then '00000000-0000-4000-8000-000000000002'
+      when 'cr_karina' then '00000000-0000-4000-8000-000000000003'
+      when 'cr_hype'   then '00000000-0000-4000-8000-000000000004'
+      when 'cr_nova'   then '00000000-0000-4000-8000-000000000005'
+      else substring(md5(user_id) from 1 for 8) || '-' ||
+           substring(md5(user_id) from 9 for 4) || '-' ||
+           substring(md5(user_id) from 13 for 4) || '-' ||
+           substring(md5(user_id) from 17 for 4) || '-' ||
+           substring(md5(user_id) from 21 for 12)
+    end
+  ) where user_id !~ '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$';
+
+  update public.creator_page_views set user_id = (
+    select case user_id
+      when 'u_demo'    then '00000000-0000-4000-8000-000000000001'
+      when 'u_admin'   then '00000000-0000-4000-8000-000000000002'
+      when 'cr_karina' then '00000000-0000-4000-8000-000000000003'
+      when 'cr_hype'   then '00000000-0000-4000-8000-000000000004'
+      when 'cr_nova'   then '00000000-0000-4000-8000-000000000005'
+      else substring(md5(user_id) from 1 for 8) || '-' ||
+           substring(md5(user_id) from 9 for 4) || '-' ||
+           substring(md5(user_id) from 13 for 4) || '-' ||
+           substring(md5(user_id) from 17 for 4) || '-' ||
+           substring(md5(user_id) from 21 for 12)
+    end
+  ) where user_id is not null and user_id !~ '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$';
+end $$;
+
 -- 3) users: uuid PK + drop password
 alter table public.users drop constraint if exists users_pkey;
 alter table public.users alter column id type uuid using id::uuid;
