@@ -1,7 +1,9 @@
 # 04 — User Stories MVP
 
-> Status: [DRAFT]
-> Last updated: 2026-08-12
+> Status: [VALIDATED]
+> Last updated: 2026-08-15 (audit konsistensi: F020→F037; header
+> naik VALIDATED — semua stories sudah encode keputusan final
+> termasuk KYC validasi lawyer 2026-08-13)
 > Format: Given / When / Then. ID: US-{AREA}-{NNN}.
 > Mapping ke halaman: `02_pages.md`. Mapping ke fitur:
 > `01_scope.md`.
@@ -21,14 +23,18 @@ And setiap kartu drop menampilkan kreator, harga (C-Coin),
 ```
 Given visitor membuka /drops/:dropId
 When drop masih berlangsung
-Then tampil countdown real-time, artwork, harga, unit tersisa
-And tombol beli aktif jika unit tersisa > 0
-And tombol beli menuntun ke login jika belum login
+Then tampil countdown real-time, artwork, harga per pool
+   (reguler/premium), unit tersisa per pool
+And saat FASE RAFFLE (24 jam pertama): jumlah entry live per
+   pool + tombol "Ikuti" (pilih pool) — menuntun ke login
+   jika belum login
+And saat FASE FCFS (setelah draw): tombol "Beli" aktif jika
+   unit tersisa > 0
 ```
 
 ### US-PUB-003 — Halaman kartu (info) tanpa login
 ```
-Given visitor membuka /cards/:cardId (via QR di dus / link)
+Given visitor membuka /cards/:shortId (via QR di dus / link)
 When halaman dimuat
 Then tampil info kartu: kreator, drop, unit number (#X dari Y),
    jejak ownership, bid tertinggi, harga buyout (jika ada),
@@ -110,23 +116,46 @@ And drop yang belum publish tidak tampil
 
 ## B. User / Kolektor (login)
 
-### US-USR-001 — Checkout "siapa cepat"
+### US-USR-001 — Ikuti drop: raffle entry (fase 1)
 ```
-Given user membuka detail drop dengan unit tersisa > 0
-When mengklik "Beli" dan saldo C-Coin cukup
+Given user membuka detail drop saat fase raffle (window 24 jam)
+When memilih pool (reguler / premium / keduanya) dan saldo cukup
+Then C-Coin di-hold (escrow): reguler = harga unsigned (30),
+   premium/keduanya = harga signed (50)
+And entry tercatat — limit 1 entry/user/drop, tidak bisa
+   dibatalkan (dana otomatis kembali saat draw jika kalah)
+And notifikasi email konfirmasi entry terkirim
+```
+
+### US-USR-001a — Hasil draw raffle (fase 2)
+```
+Given window raffle tutup dan draw selesai (otomatis, batch)
+When hasil diumumkan (notif email/FCM)
+Then winner: order dibuat (PAID, default vault), hold
+   dikonversi menjadi pembayaran — winner reguler dari pool
+   "keduanya" mendapat kembali selisih (mis. 20)
+And loser: hold di-release penuh otomatis
+And loser boleh ikut fase FCFS; winner tidak (limit 1
+   kartu/drop)
+```
+
+### US-USR-001b — Beli sisa unit FCFS (fase 3)
+```
+Given user membuka detail drop setelah draw dan unit tersisa > 0
+When mengklik "Beli" (pilih pool yang masih ada stok) dan
+   saldo C-Coin cukup
 Then DEFAULT: kartu disimpan di inventory (vault) —
    tanpa alamat/ongkir, fisik dipegang platform
 And OPSIONAL: user bisa memilih kirim fisik sekarang —
    isi alamat + bayar ongkir C-Coin
-And saldo di-debit atomik (harga + ongkir bila kirim fisik)
+And saldo di-debit atomik (harga pool + ongkir bila kirim fisik)
 And order dibuat dengan status PAID
-And notifikasi email terkirim
 And user tidak bisa checkout drop yang sama > 1 kartu
 ```
 
-### US-USR-001b — Simpan di inventory (vault, DEFAULT)
+### US-USR-001c — Simpan di inventory (vault, DEFAULT — berlaku winner raffle & FCFS)
 ```
-Given user checkout drop
+Given user mendapat kartu dari drop (winner raffle / FCFS)
 When memilih "simpan di inventory" (default)
 Then kartu ter-bind ke koleksi user secara virtual
 And TIDAK ada alamat pengiriman, ongkir, atau tracking
@@ -135,18 +164,19 @@ And user bisa minta kirim kapan saja via "Kirim dari vault"
    (bayar ongkir saat itu, bukan saat checkout)
 ```
 
-### US-USR-002 — Gagal checkout karena saldo kurang
+### US-USR-002 — Gagal entry/checkout karena saldo kurang
 ```
-Given user membuka checkout dengan saldo C-Coin tidak cukup
-When mengklik "Beli"
+Given user membuka entry raffle / checkout FCFS dengan saldo
+   C-Coin tidak cukup
+When mengklik "Ikuti"/"Beli"
 Then checkout digagalkan
 And user diarahkan ke halaman top-up (dengan disclosure
    "saldo tidak dapat diuangkan")
 ```
 
-### US-USR-003 — Race kondisi unit terakhir
+### US-USR-003 — Race kondisi unit terakhir (fase FCFS)
 ```
-Given dua user checkout bersamaan pada unit terakhir
+Given dua user checkout bersamaan pada unit terakhir (fase FCFS)
 When transaksi di-proses
 Then hanya satu order yang berhasil dibuat
 And user kedua menerima pesan "Unit sudah habis"
@@ -353,8 +383,9 @@ And kreator dapat login dan melihat /creator
 ```
 Given artwork final sudah di-approve off-platform
 When admin membuka /drops dan membuat drop baru
-Then set artwork, harga (C-Coin), jumlah unit, signed_count
-   (ceil(total/10)), jadwal drop
+Then set artwork, harga (C-Coin), jumlah unit, signed_units
+   (ceil(total/10)), jadwal drop + raffle_end_at
+   (default +24 jam, C-15)
 And drop bisa di-publish (H-7) atau di-schedule
 ```
 
@@ -435,7 +466,7 @@ And catatan TIDAK bisa di-edit atau dihapus (retensi ≥ 1 tahun)
 | EDGE-03 | Tamper terdeteksi | Flag irreversibel + dokumentasi foto |
 | EDGE-04 | HP/browser tanpa NFC | Fallback QR |
 | EDGE-05 | Verify tanpa akun | Halaman kartu (3D/info) publik terbuka tanpa login — data minim (UU PDP) |
-| EDGE-06 | Order rusak/hilang saat pengiriman | Buyer foto bukti -> dispute (F020) -> admin review -> refund ke metode asal / replace / kompensasi C-Coin. Kartu tetap di vault platform, tidak dikembalikan ke seller. |
+| EDGE-06 | Order rusak/hilang saat pengiriman | Buyer foto bukti -> dispute (F037) -> admin review -> refund ke metode asal / replace / kompensasi C-Coin. Kartu tetap di vault platform, tidak dikembalikan ke seller. |
 | EDGE-07 | Top-up dibuka? | Bisa setelah T&C final + cap saldo; wallet/ledger sudah live di dev/staging |
 
 ## Sumber

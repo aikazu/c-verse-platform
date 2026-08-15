@@ -12,12 +12,12 @@
 |----------|------|---------|
 | P0 | **Domain + Cloudflare setup** (08_deployment.md) | NFC provisioning butuh domain final. Beli/transfer domain, setup zone, DNS, Pages, Workers |
 | P0 | **Auth + Wallet engine** (F001, F036) | Semua fitur bergantung pada auth (Google OAuth + email OTP) dan wallet C-Coin (ledger immutable, top-up, escrow) |
-| P0 | **SEO Worker + HTMLRewriter** | Halaman kreator `/c/:username` dan kartu `/cards/:cardId/3d` harus ter-index Google sejak launch. Build 2-3 hari, Worker di depan SPA inject OG meta + JSON-LD + sitemap |
-| P1 | **Drop + Checkout** (F004, F005) | Core loop: admin bikin drop -> user beli -> vault default -> ship-out opsional |
+| P0 | **SEO Worker + HTMLRewriter** | Halaman kreator `/c/:username` dan kartu `/cards/:shortId/3d` harus ter-index Google sejak launch. Build 2-3 hari, Worker di depan SPA inject OG meta + JSON-LD + sitemap |
+| P1 | **Drop + Checkout raffle hybrid** (F004, F005) | Core loop: admin bikin drop -> raffle entry 24 jam (pool + hold) -> draw otomatis -> FCFS sisa -> vault default, ship-out opsional |
 | P1 | **Admin app dasar** (ADM-01..04) | Founder harus bisa operasi tanpa DB: kelola kreator, drop, order, NFC batch |
 | P2 | **NFC verify** (F007) + Halaman kartu (PG-CARD-01/02) | Provenance = value prop utama. Tapi butuh kartu fisik dulu |
 | P2 | **Secondary: Marketplace + Browse** (F011, F012) | Bisa dibangun setelah primary loop stabil |
-| P2 | **Anti-fraud rules** (14-day cooling, creator self-dealing, multiple account detection) | Proteksi platform dari abuse. Build bersamaan dengan secondary |
+| P2 | **Anti-fraud rules** (1-day rebuy block, creator self-dealing, multiple account detection) | Proteksi platform dari abuse. Build bersamaan dengan secondary |
 | P2 | **Creator analytics** (F016 — insight kolektor) | Traffic, repeat rate, avg spending — nilai jual ke kreator |
 | P3 | **Gamifikasi** (F017-F019) | Level, badge, leaderboard — nice-to-have, tidak mengganggu transaksi |
 
@@ -26,7 +26,7 @@
 ### 2.1 Wallet Engine (C-Coin)
 - **Semua transaksi = integer**, tanpa float/desimal. Konversi IDR→C-Coin ceiling.
 - **Ledger append-only**: `wallet_transactions` tidak bisa UPDATE/DELETE.
-  Saldo = SUM transaksi. Kolom `balance` di `wallets` hanya cache.
+  Saldo = SUM transaksi. Kolom `balance_ccoin` di `wallets` hanya cache.
 - **Escrow**: status di ledger (`escrow_status enum('held','released')`).
   Vault: release saat SETTLED. Shipping: release DELIVERED + H+7.
 - **Idempotency key**: wajib di semua webhook (top-up, payout callback).
@@ -54,8 +54,9 @@
 - **Sprint 0**: prototype dengan 5 tag + manual verify.
 
 ### 2.4 Badge System
-- **Evaluasi event-driven**: saat transaksi/level-up, bukan cron.
-  Hindari delay award.
+- **Evaluasi event-driven**: trigger Postgres dalam transaksi yang
+  sama dengan event kualifikasi (transaksi/level-up) — award instan,
+  tanpa cron (keputusan user 2026-08-15).
 - **Criteria JSON** fleksibel: `{type, min, ...}`.
   Contoh: `{type: 'collect_count', min: 1}`,
   `{type: 'level', min: 5}`,
@@ -77,7 +78,7 @@
 | Rate limit bid | Max 10 bid aktif/user, max 50 bid/hari |
 | Strike system | 3 strike = suspend 30 hari |
 | Shill detection | Cross-check IP + device fingerprint + payment method |
-| Wash trading | Cooling period 14 hari: kartu tidak bisa dibeli kembali oleh owner |
+| Wash trading | Diterima (fee 15% tetap kena) — hanya blok rebuy seller 1 hari; listing ulang bebas |
 | Creator self-dealing | 30 hari setelah drop: kreator dilarang beli kartu drop sendiri di secondary |
 | Max buyout aktif | 20 kartu/user |
 
@@ -212,7 +213,7 @@ tetap manual:
 ### 6.2 Anti-Fraud — Build Bersamaan Secondary
 - Jangan tunda anti-fraud ke post-launch. Begitu secondary live,
   insentif fraud langsung aktif.
-- Minimum: 14-day cooling period + creator self-dealing 30 hari +
+- Minimum: blok rebuy seller 1 hari + creator self-dealing 30 hari +
   rate limit bid + multiple account detection.
 
 ## Sumber

@@ -41,10 +41,10 @@ loyalty (semua post-MVP).
 | ID | Fitur | RICE | Catatan |
 |----|-------|------|---------|
 | F001 | Registrasi (Google OAuth + email OTP) — **email OTP wajib captcha anti-spam** | 240 | Supabase Auth |
-| F002 | Onboarding & kurasi kreator | 80 | **Off-platform**: ops input data kreator hasil rekrutan manual. TIDAK ada form aplikasi publik. **Quality gate**: engagement rate ≥ 5% dari 10 post terakhir (per platform) wajib sebelum deal memo — filter manual oleh founder |
+| F002 | Onboarding & kurasi kreator | 80 | **Off-platform**: ops input data kreator hasil rekrutan manual. TIDAK ada form aplikasi publik. **Quality gate**: engagement rate dari 10 post terakhir — IG/Twitter ≥ 5%, TikTok ≥ 10%; ER < 3% = skip (detail `07_constraints.md` C-05) — filter manual oleh founder |
 | F003 | Upload artwork + narasi | 60 | Ops/designer upload atas nama kreator (artwork sudah di-approve off-platform) |
-| F004 | Drop scheduling & listing | 200 | Admin bikin drop; publik lihat di catalog. **Harga per tier kreator**: emerging (100-300k) = 20 C-Coin, established (300k-1jt) = 30 C-Coin, top (1jt+) = 50 C-Coin, hype = 40-60 C-Coin. Signed variant 1,67× base. Primary = flat price (tanpa numbering premium) |
-| F005 | Checkout "siapa cepat" | 250 | Race condition, limit 1 kartu/user, potong saldo C-Coin; **default simpan di inventory (vault) — tanpa alamat/ongkir; OPSIONAL kirim fisik sekarang (isi alamat + ongkir C-Coin); signed card random alokasi 1:10** |
+| F004 | Drop scheduling & listing | 200 | Admin bikin drop (set `raffle_end_at`, default +24 jam); publik lihat di catalog. **Harga per tier kreator**: emerging (100-300k) = 20 C-Coin, established (300k-1jt) = 30 C-Coin, top (1jt+) = 50 C-Coin, hype = 40-60 C-Coin. Signed variant 1,67× base (pool premium). Primary = flat price per pool |
+| F005 | Drop purchase: raffle hybrid + FCFS sisa | 250 | **Raffle 24 jam pertama**: pilih pool reguler/premium/keduanya + hold C-Coin (escrow) → draw otomatis idempotent; **sisa unit FCFS race-safe**; limit 1 entry + 1 kartu/user; **default simpan di inventory (vault) — tanpa alamat/ongkir; OPSIONAL kirim fisik sekarang (isi alamat + ongkir C-Coin)** (C-15) |
 | F006 | Payment gateway top-up + disbursement | 200 | Midtrans/Xendit. **Top-up uang riil bisa diterima setelah T&C final + cap saldo diimplementasi** (legal resolved 2026-08-13) |
 | F036 | Wallet C-Coin: saldo closed-loop, ledger immutable, payout fee 1% | 200 | Tanpa withdraw buyer; seller/kreator auto-disburse IDR |
 | F007 | NFC NTAG 424 tap & verify | 180 | CMAC server-side; fallback QR di dus |
@@ -58,7 +58,7 @@ loyalty (semua post-MVP).
 |----|-------|------|---------|
 | F011 | Secondary: Marketplace (buyout) + Browse (bid langsung di kartu) | 180 | Marketplace = owner pasang buyout price; Browse = cari + bid walau tanpa harga. **Pilihan kirim**: ke alamat buyer ATAU kirim/rawat di platform (vault) |
 | F012 | Bid flow: active 1 tertinggi/kartu; outbid & cancel release C-Coin; owner accept only (tanpa reject) | 150 | Bidder bisa cancel; bid lebih tinggi invalidate bid lama |
-| F013 | Notifikasi bid & buyout (anti-snipe manual) | 80 | Notif ke owner saat bid masuk; ke buyer saat buyout terambil |
+| F013 | Notifikasi bid & buyout | 80 | Notif ke owner saat bid masuk; ke buyer saat buyout terambil |
 | F014 | KYC | 60 | **Trigger (diupdate 2026-08-13)**: payout/disbursement hasil seller/kreator ke IDR + akumulasi top-up besar. **Tidak ada KYC untuk pasang buyout atau terima bid**. Verifikasi manual Y1 |
 | F015 | Profile & collection view | 100 | Koleksi user + ownership history; **profil bisa publik** (koleksi, level, badge, ranking) kecuali privacy anonymous aktif |
 | F016 | Creator dashboard (analitik) | 70 | Traffic, pendapatan + insight kolektor anonim (visitor, repeat rate, avg spending, cross-creator buying, numbering analytics). BUKAN admin |
@@ -80,7 +80,7 @@ loyalty (semua post-MVP).
 | F026 | In-app chat | 30 | Defer |
 | F027 | Push personalisasi | 25 | Defer |
 
-### NEW — Admin/Ops Dashboard (app terpisah, 9 fitur)
+### NEW — Admin/Ops Dashboard (app terpisah, 10 fitur)
 
 > Admin dashboard = **app terpisah** (bukan di edge), akses
 > langsung ke Supabase via service-role key. Tidak ada route
@@ -121,7 +121,7 @@ F034 AR, F035 loyalty.
    primary sale + verifikasi di halaman kartu + buyout.
 
 Titik NOL (tidak bisa dipangkas tanpa mengganti definisi MVP):
-F001-F007, F009-F011, F013-F015, F017-F019, F036, ADM-01..09.
+F001-F007, F009-F011, F013-F015, F017-F019, F036, ADM-01..10.
 
 ## 4. Definition of Done (Release MVP)
 
@@ -141,7 +141,7 @@ F001-F007, F009-F011, F013-F015, F017-F019, F036, ADM-01..09.
       di admin page.
 - [ ] Profil publik tampil (koleksi, level, badge, ranking)
       kecuali privacy anonymous aktif.
-- [ ] Admin: ADM-01..09 bisa menjalankan operasi tanpa DB
+- [ ] Admin: ADM-01..10 bisa menjalankan operasi tanpa DB
       manual.
 - [ ] Top-up & wallet dibangun penuh (ledger immutable);
       **top-up uang riil bisa diterima setelah T&C final + cap
@@ -156,8 +156,9 @@ F001-F007, F009-F011, F013-F015, F017-F019, F036, ADM-01..09.
 | Blok 1 (11 fitur) | 30-32 (+4-5 F008, +2-3 F036) |
 | Blok 2 (11 fitur) | 17 |
 | Blok 3 (7 fitur) | 6 |
-| Admin (ADM-01..09) | 8-10 (termasuk badge definition, audit log, 2FA) |
-| **Total** | **61-66** |
+| Admin (ADM-01..10) | 8-10 (termasuk badge definition, audit log, 2FA, investor pack) |
+| **Total inti** (tanpa ekstra F008 3D / F036 wallet) | **61-65** |
+| **Total penuh** (+6-8 PW ekstra F008 + F036) | **67-73** |
 
 Dengan tim 1-2 developer + AI-assisted: **6-8 bulan** (bukan
 5 bulan — jujur, bukan asumsi optimistik). Cut lines di

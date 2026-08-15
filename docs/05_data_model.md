@@ -67,15 +67,42 @@ drops
   description text
   artwork_2d_url text        -- upload by ops (approved off-platform)
   artwork_3d_url text nullable -- F008 (cut line)
-  price_ccoin int            -- e.g. 30 (Rp 300.000)
+  price_ccoin int            -- e.g. 30 (Rp 300.000) — harga unsigned
+  price_signed_ccoin int nullable -- harga signed, default auto
+                              -- ceil(price_ccoin x 1,67) e.g. 30 -> 50
+                              -- (Rp 500.000); nullable utk drop lama
   total_units int
   signed_units int           -- ceil(total_units / 10)
   drop_start_at timestamptz
   drop_end_at timestamptz
+  raffle_end_at timestamptz    -- default drop_start_at + 24 jam
+                               -- (entry window, C-15)
+  drawn_at timestamptz nullable -- idempotency marker draw raffle
+                               -- (null = belum drawn)
   status enum('draft','scheduled','published','live','sold_out','closed','cancelled')
   created_by uuid FK users.id (admin)
   created_at, updated_at
 ```
+
+### drop_entries (raffle entry — Flow 1 Phase 1, C-15)
+```
+drop_entries
+  id uuid PK
+  drop_id uuid FK drops.id
+  user_id uuid FK users.id
+  pool enum('regular','premium','both')  -- reguler/premium/keduanya
+  hold_ccoin int              -- 30 / 50 (max pool yang diikuti)
+  status enum('held','won_premium','won_regular','lost')
+  entry_at timestamptz
+  drawn_at timestamptz nullable
+  UNIQUE (drop_id, user_id)   -- limit 1 entry/user/drop
+```
+> Entry tidak bisa dibatalkan; hold = escrow (`wallet_transactions`
+> type `drop_entry_hold`). Draw: winner premium/keduanya →
+> `won_premium` (bayar `price_signed_ccoin`), winner reguler →
+> `won_regular` (bayar `price_ccoin`; pool "both" release selisih),
+> sisanya `lost` (release penuh). Order winner dibuat default vault,
+> `orders.source = 'raffle'`. Detail mekanik: `03_flows.md` Flow 1.
 
 ### cards (unit fisik)
 ```
@@ -147,7 +174,10 @@ orders
   card_id uuid FK cards.id UNIQUE   -- 1 order = 1 kartu
   status enum('paid','qc','shipped','delivered','settled','refunded','disputed')
   delivery_option enum('shipping','vault')  -- kirim fisik vs simpan di inventory
-  price_ccoin int
+  source enum('raffle','fcfs')  -- asal order: pemenang draw vs FCFS sisa
+  price_ccoin int            -- snapshot harga KARTU yang teralokasi:
+                              -- signed -> drops.price_signed_ccoin,
+                              -- unsigned -> drops.price_ccoin
   shipping_fee_ccoin int nullable   -- hanya jika delivery_option='shipping'
   shipping_address jsonb nullable   -- hanya jika delivery_option='shipping'
   escrow_status enum('held','released')
@@ -346,8 +376,10 @@ user_badges
 ```
 > **Rule**: Badge sekali diraih, tetap di profil selamanya — tidak
 > dicabut meskipun criteria tidak lagi terpenuhi (misal sudah
-> menjual kartunya). Evaluasi badge: event-driven (saat transaksi/
-> level-up), bukan cron — untuk menghindari keterlambatan award.
+> menjual kartunya). Evaluasi badge: event-driven via trigger
+> Postgres DALAM transaksi yang sama dengan event kualifikasi
+> (transaksi/level-up) — award instan + atomic (tidak ada window
+> event hilang), TANPA cron catch-up (keputusan user 2026-08-15).
 
 ### admin_audit_log (append-only, tidak bisa edit/hapus)
 ```
@@ -428,7 +460,7 @@ profiles 1─N user_badges
 |---|-----------|------------|
 | I1 | Balance C-Coin tidak pernah negatif | DB check/transaction |
 | I2 | wallet_transactions append-only | RLS + trigger |
-| I3 | Max 1 kartu/drop per buyer | App + partial unique index |
+| I3 | Max 1 entry + 1 kartu/drop per user — pemenang raffle diblok dari FCFS drop yang sama; user kalah boleh FCFS | App + partial unique index + UNIQUE(drop_id,user_id) di drop_entries |
 | I4 | Buyout price hanya bisa dipasang/cabut oleh OWNER | RLS + app check |
 | I5 | Checkout atomik pada unit terakhir (race) | `SELECT ... FOR UPDATE` / RPC transaction |
 | I6 | Escrow vault release saat SETTLED; escrow shipping release DELIVERED + H+7 | App logic + cron |
@@ -438,7 +470,7 @@ profiles 1─N user_badges
 | I10 | Max 20 kartu buyout aktif per user | App check |
 | I11 | Level = floor(total_xp / 10); total_xp = spend C-Coin (1 C-Coin = 1 XP) + reward badge; top-up tidak menambah XP | Trigger/app logic |
 | I12 | Profil publik hanya jika `is_anonymous = false` | RLS/query filter |
-| I13 | Wash trading cooling period 14 hari — kartu tidak bisa dibeli kembali oleh owner sebelumnya dalam 14 hari | App logic |
+| I13 | Blok rebuy seller 1 hari — kartu tidak bisa dibeli kembali oleh owner sebelumnya dalam 1x24 jam; pembeli bebas listing ulang kapan saja; wash trading diterima (fee 15% tetap kena) | App logic |
 | I14 | Creator self-dealing — kreator dilarang membeli kartu drop sendiri di secondary untuk 30 hari pertama | App logic + flag |
 
 ## 5. RLS (Row Level Security) — Ringkas

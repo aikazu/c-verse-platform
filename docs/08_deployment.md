@@ -19,7 +19,7 @@ Infra pendukung:
 - Supabase (Postgres + Auth + Realtime + Supavisor)
 - Cloudflare R2 (artwork, model 3D, KYC private)
 - Cloudflare Queues (email, notifikasi, payout)
-- Cloudflare Cron Triggers (settlement, payout batch, badge)
+- Cloudflare Cron Triggers (escrow settlement, raffle draw, payout batch)
 - SumoPod SMTP (email), FCM (push), Midtrans/Xendit (sandbox → prod)
 ```
 
@@ -47,8 +47,8 @@ Kredensial yang disimpan rahasia (tidak pernah di repo):
 `CF_ACCOUNT_ID`, `CF_API_TOKEN`, `SUPABASE_SERVICE_ROLE_KEY`,
 `SMTP_HOST` (smtp.sumopod.com), `SMTP_PORT` (465, SSL enabled),
 `SMTP_USER`, `SMTP_PASS`, `MIDTRANS_SERVER_KEY`,
-`FCM_SERVICE_ACCOUNT`, `NFC_MASTER_KEY`, `NEXT_PUBLIC_-like`
-public vars (anon keys) boleh di bundle.
+`FCM_SERVICE_ACCOUNT`, `NFC_MASTER_KEY`. Public vars boleh di
+bundle dengan konvensi **Vite `PUBLIC_*`** (anon keys).
 
 ## 3. Setup Cloudflare (sekali, Sprint 0)
 
@@ -87,9 +87,8 @@ public vars (anon keys) boleh di bundle.
 3. Cron Triggers:
    | Cron | Fungsi |
    |------|--------|
-   | setiap 5 menit | escrow auto-release check (DELIVERED + H+7) |
+   | setiap 5 menit | escrow auto-release check (DELIVERED + H+7) + raffle draw (drops lewat `raffle_end_at` & belum `drawn_at` — idempotent, C-15) |
    | Selasa 06:00 WIB | payout batch (settlement) |
-   | harian 03:00 WIB | badge evaluation (criteria check) |
    | harian 04:00 WIB | housekeeping (TIDAK ada bid expire — bid berakhir via accept/cancel/outbid) |
 4. Queues: `email-queue`, `notification-queue`, `payout-queue`
    → bind ke Worker via `wrangler.toml` (prod).
@@ -244,7 +243,7 @@ Secrets CI yang wajib diset (GitHub Settings → Secrets):
 - [ ] Email (SumoPod SMTP) terkirim: order, payout, notifikasi.
 - [ ] Monitoring aktif: Sentry (error) + BetterStack (uptime) +
       PostHog/Plausible (analitik). Alert ke #ops channel.
-- [ ] Cron OK: settlement release, payout Selasa, badge evaluation.
+- [ ] Cron OK: settlement release, raffle draw, payout Selasa.
 - [ ] Rekonsiliasi harian ledger vs top-up (ADM-05) jalan.
 - [ ] QC: DF test — `curl` API dengan auth salah → 401, tanpa
       leak stack trace.
@@ -271,4 +270,7 @@ Secrets CI yang wajib diset (GitHub Settings → Secrets):
 - `90_research/20_tech_stack_decision.md` (monorepo,
   free tier).
 - `05_data_model.md` (RLS → step 4.5).
-- Konvensi angka: A024 build time 6 bulan, bootstrap Rp 20 jt/bulan opex Y1.
+- Konvensi angka: A024 build time **6-8 bulan** (`01_scope.md`
+  §5); opex Y1 **Rp 135 jt/thn (~Rp 11 jt/bulan)** per financial
+  model — burn kas bootstrap ~Rp 10-15 jt/bulan (termasuk
+  kebutuhan founder di luar opex tercatat).

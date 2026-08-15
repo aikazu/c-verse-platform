@@ -37,11 +37,11 @@ langsung via service-role key. Detail: `06_tech_decisions.md`.
 |----|-------|---------|----------------|
 | PG-LAND-01 | `/` | Landing page | Hero, drop terbaru, cara kerja, CTA register |
 | PG-DROP-01 | `/drops` | Daftar drop (primary) | Grid drop aktif + upcoming, filter kreator |
-| PG-DROP-02 | `/drops/:dropId` | Detail drop | Countdown, artwork, harga (C-Coin), unit tersisa, tombol beli (login gate) |
+| PG-DROP-02 | `/drops/:dropId` | Detail drop | Countdown fase (raffle entry window / FCFS), artwork, harga per pool (reguler/premium), jumlah entry live per pool + unit tersisa; fase raffle: tombol "Ikuti" (pilih pool, login gate); fase FCFS (setelah draw): tombol "Beli" (login gate) |
 | PG-MARKET-01 | `/marketplace` | Marketplace (secondary buyout) | Kartu dengan buyout price, filter, beli langsung |
 | PG-BROWSE-01 | `/browse` | Browse (cari kartu) | **Search by kartu/kreator**, bid langsung di kartu walau tanpa harga |
-| PG-CARD-01 | `/cards/:cardId` | Halaman kartu (info) | Sertifikat, **jejak ownership**, bid tertinggi, harga buyout (jika ada), QR fallback |
-| PG-CARD-02 | `/cards/:cardId/3d` | Halaman kartu (3D view) — **simple** | 3D viewer + info singkat: **Series** (link ke detail drop), **Unit number** (#X dari Y), **Kreator** (link ke halaman kreator), **Release date**, **Owner** (link ke halaman owner) + **verified badge "Verified Card"** (hanya muncul lewat tap NFC). Ownership history TIDAK di halaman 3D — ada di halaman info (`PG-CARD-01`) |
+| PG-CARD-01 | `/cards/:shortId` | Halaman kartu (info) | Sertifikat, **jejak ownership**, bid tertinggi, harga buyout (jika ada), QR fallback |
+| PG-CARD-02 | `/cards/:shortId/3d` | Halaman kartu (3D view) — **simple** | 3D viewer + info singkat: **Series** (link ke detail drop), **Unit number** (#X dari Y), **Kreator** (link ke halaman kreator), **Release date**, **Owner** (link ke halaman owner) + **verified badge "Verified Card"** (hanya muncul lewat tap NFC). Ownership history TIDAK di halaman 3D — ada di halaman info (`PG-CARD-01`) |
 | PG-LB-01 | `/leaderboard` | Leaderboard | Peringkat kolektor (F019) |
 | PG-CRT-PUB-01 | `/c/:username` | Halaman kreator (publik) | **Handle, bio, link media sosial** + **list drop** (published/live/upcoming, klik ke detail drop). TANPA jumlah follower. Privasi creator TIDAK di-hide (kreator = identitas publik) |
 | PG-PROF-01 | `/u/:username` | Profil kolektor (publik) | Koleksi, level, badge, ranking leaderboard — **kecuali user mengaktifkan privacy anonymous** |
@@ -52,8 +52,8 @@ langsung via service-role key. Detail: `06_tech_decisions.md`.
 `/verify/:shortId` DITIADAKAN. Verifikasi melekat di halaman kartu:
 
 - **Tap NFC** → SUN URL langsung menuju halaman 3D kartu
-  (`/cards/:cardId/3d`) dengan status verified (CMAC match).
-- **QR di dus** → halaman info kartu (`/cards/:cardId`) dengan
+  (`/cards/:shortId/3d`) dengan status verified (CMAC match).
+- **QR di dus** → halaman info kartu (`/cards/:shortId`) dengan
   status "Registered" (tanpa CMAC, label lebih lemah).
 - Satu kartu = satu halaman publik (info + 3D), tanpa halaman
   verifikasi terpisah dan tanpa input serial manual.
@@ -65,13 +65,13 @@ langsung via service-role key. Detail: `06_tech_decisions.md`.
 | ID | Route | Halaman | Komponen kunci |
 |----|-------|---------|----------------|
 | PG-USR-01 | `/home` | Home user | Drop trending, notif, saldo C-Coin |
-| PG-USR-02 | `/drops/:dropId/checkout` | Checkout drop | Ringkasan, potong saldo, race handling; **DEFAULT simpan di inventory (vault) — tanpa alamat/ongkir; OPSIONAL kirim fisik sekarang (alamat + ongkir C-Coin)** |
+| PG-USR-02 | `/drops/:dropId/checkout` | Entry raffle / checkout drop | Fase raffle: pilih pool (reguler/premium/keduanya) + hold C-Coin (escrow); fase FCFS: ringkasan, potong saldo, race handling, pilih pool yang ada stok; **DEFAULT simpan di inventory (vault) — tanpa alamat/ongkir; OPSIONAL kirim fisik sekarang (alamat + ongkir C-Coin)** |
 | PG-USR-03 | `/orders` | Daftar order | List order + status (label kirim fisik vs inventory) |
 | PG-USR-04 | `/orders/:orderId` | Detail order | Tracking, no resi, timeline — **hanya order kirim fisik**; order inventory tanpa tracking/alamat |
 | PG-USR-05 | `/wallet` | Wallet C-Coin | Saldo, mutasi (ledger), histori top-up, status payout; **top-up di sini (bukan halaman publik)** |
 | PG-USR-06 | `/me` | Profile & collection | Profil, koleksi kartu, ownership history, level & badge |
 | PG-USR-07 | `/me/manage` | Kelola kartu (sell) | Set/ubah/cabut **buyout price**, lihat bid active, accept bid (tanpa reject); **lihat lokasi kartu** (dengan owner / di vault platform) + tombol **"Kirim dari vault"** (ongkir C-Coin) untuk kartu yang dipegang platform — vault adalah default, ship-out kapan saja |
-| PG-USR-07b | `/me/manage/verify-shipment` | Verifikasi kiriman secondary | Admin/seller upload bukti kirim; platform input hasil verify NFC + QC; release payout |
+| PG-USR-07b | `/me/manage/verify-shipment` | Verifikasi kiriman secondary | Halaman USER untuk SELLER secondary input resi pengiriman kartu ke platform (jalur vault). Input hasil verifikasi NFC + QC dilakukan di ADMIN app (ADM-04), BUKAN di web publik — release payout otomatis setelah verifikasi admin |
 | PG-USR-08 | `/notifications` | Notifikasi | List notif (email/FCM) |
 | PG-USR-09 | `/me/kyc` | KYC | Upload KTP/selfie/NPWP (trigger: payout/disbursement ke IDR + akumulasi top-up besar; tidak perlu KYC untuk pasang buyout atau accept bid) |
 | PG-USR-10 | `/me/privacy` | Privacy settings | Toggle **privacy anonymous** (profil tidak tampil publik) |
@@ -121,7 +121,7 @@ resmi koleksi.
 | Halaman | Route | SEO Target | Teknik |
 |---------|-------|-----------|--------|
 | **Profil kreator** | `/c/:username` | Page 1 untuk "nama kreator" + "nama kreator card" | OG meta (title, desc, image) + JSON-LD `Person` + link sosial media kreator |
-| **Halaman kartu** | `/cards/:cardId/3d` | Page 1 untuk "nama kreator card" / "nama kreator C.Card" | OG meta + JSON-LD `Product` + `ImageObject` |
+| **Halaman kartu** | `/cards/:shortId/3d` | Page 1 untuk "nama kreator card" / "nama kreator C.Card" | OG meta + JSON-LD `Product` + `ImageObject` |
 | **Detail drop** | `/drops/:dropId` | Page 2+ untuk "nama kreator drop" | OG meta + JSON-LD `Event` |
 | **Landing page** | `/` | Brand search "C.Verse" "C.Card" | Standar meta tags |
 
@@ -138,7 +138,7 @@ Request → Cloudflare Worker → HTMLRewriter inject meta tags →
 
 Worker aktif hanya untuk halaman publik yang butuh SEO:
 - `GET /c/:username` — inject Person schema + OG
-- `GET /cards/:cardId/3d` — inject Product schema + OG
+- `GET /cards/:shortId/3d` — inject Product schema + OG
 - `GET /drops/:dropId` — inject OG + Event schema
 - `GET /sitemap.xml` — sitemap dinamis
 

@@ -1,0 +1,117 @@
+# 11 — RLS Policy Matrix (ganti `allow all using(true)`)
+
+> Status: [DRAFT — SPEC SIAP EKSEKUSI]
+> Created: 2026-08-15
+> Basis audit: semua policy di `supabase/migrations/` saat ini
+> `for all using (true) with check (true)` — anon key bisa baca-tulis semua.
+> Estimasi: 2-3 hari AI-assisted. Dependency: `10_auth_migration.md`
+> selesai (butuh `auth.uid()`).
+
+## 1. Prinsip
+
+1. **Enable RLS di SEMUA tabel** + **default deny** (tabel tanpa policy =
+   tidak bisa diakses role non-service).
+2. **service-role bypass otomatis** — admin app + provisioning tool pakai
+   `SUPABASE_SERVICE_ROLE_KEY` (di belakang Cloudflare Access), tidak perlu
+   policy.
+3. Web pakai **anon key** (read publik) + **user JWT** (data milik sendiri).
+   API Workers meneruskan user JWT untuk aksi tulis.
+4. Satu tabel boleh punya beberapa policy per operation — jangan satu
+   policy `for all`.
+
+## 2. Matriks Policy (SQL target)
+
+Helper: `create policy ... for select using (...)`, dst.
+`auth.uid()` return `uuid` = `users.id` (setelah migrasi 10).
+
+| Tabel | anon SELECT | user SELECT (owner) | INSERT | UPDATE | DELETE | Catatan |
+|---|---|---|---|---|---|---|
+| `users` (profiles) | baris `not is_anonymous` | own row | trigger only | own (non-role field) | tidak | role & flag_reason: service only |
+| `creators` | publish (handle/bio) | own | service | service | service | `status='active'` saja anon |
+| `drops` | `status in ('live','published','sold_out','closed')` | - | service | service | service | draft tidak bocor |
+| `cards` | baris ter-own ATAU status terjual publik | own cards | service | owner kolom buyout saja | service | lihat policy khusus |
+| `orders` | - | `user_id = auth.uid()` | RPC only | RPC/status only | tidak | |
+| `wallets` | - | `user_id = auth.uid()` | service | RPC only | tidak | |
+| `wallet_transactions` | - | `user_id = auth.uid()` | RPC only | **TIDAK ADA (immutable)** | **TIDAK ADA** | append-only |
+| `bids` | 90 hari terakhir + accepted | own bids | `bidder_id = auth.uid()` | status transition via RPC | tidak | |
+| `shipments` | - | requester own | RPC | service | tidak | |
+| `ownership_history` | read publik (provenance) | - | RPC only | tidak | tidak | |
+| `badges` (definitions) | all active | - | service | service | service | |
+| `user_badges` | - | `user_id = auth.uid()` | service (event) | tidak | tidak | |
+| `kyc_records` | - | own (mask NIK) | own (submit) | service (approve/reject) | tidak | **tidak pernah anon** |
+| `payout_batches` / `payouts` | - | own payouts | service | service | tidak | |
+| `disputes` | - | reporter own | own | service | tidak | |
+| `notifications` | - | `user_id = auth.uid()` | service | own (read flag) | tidak | |
+| `nfc_batches` | - | - | service | service | service | service only |
+| `qc_defects` | - | - | service | service | service | service only |
+| `creator_page_views` | - | - | service/anon insert** | - | - | **lihat catatan |
+| `admin_audit_log` | - | - | service | **TIDAK ADA** | **TIDAK ADA** | append-only, tidak ada update/delete |
+
+`creator_page_views` insert dari web anonim (log kunjungan): policy INSERT
+`with check (true)` TANPA select policy — data tidak bisa dibaca anon;
+pembacaan lewat API service-role (agregat ke kreator).
+
+### Policy khusus `cards`
+- SELECT publik: kartu yang sudah sold/bind (`status <> 'inventory'`)
+  atau yang di-miliki user — `inventory` (belum terjual) tidak tampil.
+- UPDATE buyout: `current_owner_id = auth.uid()` hanya boleh SET
+  kolom `buyout_price_ccoin` — pakai trigger guard kolom lain ditolak
+  (`raise exception` jika `cards.*` lain berubah dari sesi non-service).
+
+### Policy khusus `users.is_anonymous`
+- SELECT: `(id = auth.uid()) or (not is_anonymous)`.
+- Profil anonymous tetap bisa muncul sebagai "owner kartu" via API
+  service-role yang strip display name — jangan bocorkan username di RLS.
+
+## 3. Langkah Eksekusi
+
+1. Migration 5 (`20260816xxxx_rls.sql`): `enable row level security` ulang
+   semua tabel (idempotent), `drop policy` semua `allow all ...`, buat policy
+   matriks di atas.
+2. Hapus akses tulis langsung web: semua tulis via RPC (`13_atomic_checkout_rpc.md`)
+   atau API endpoint yang pakai JWT user.
+3. Grant minimal: `anon` hanya SELECT tabel publik; `authenticated` select/insert
+   sesuai matriks. Jangan `grant all`.
+4. Trigger guard: `cards_buyout_guard`, `wallet_tx_immutable_guard`
+   (`before update or delete on wallet_transactions → raise exception`).
+
+## 4. Test Verifikasi (wajib sebelum merge)
+
+SQL test per kombinasi (jalankan sebagai `anon`, `authenticated` dgn
+`request.jwt.claims`, dan service):
+
+| # | Percobaan | Harus |
+|---|---|---|
+| T1 | anon `select * from wallets` | 0 rows |
+| T2 | anon `select * from kyc_records` | 0 rows |
+| T3 | anon `select * from drops where status='draft'` | 0 rows |
+| T4 | user A `select * from wallet_transactions` | hanya row A |
+| T5 | user A `update wallet_transactions set amount_ccoin=999` | exception |
+| T6 | user A `update cards set buyout_price_ccoin=50` milik B | 0 row affected |
+| T7 | user A `update cards set status='sold'` milik A | exception (guard kolom) |
+| T8 | anon `insert into creator_page_views` | OK (insert-only) |
+| T9 | anon `select * from creator_page_views` | 0 rows |
+| T10 | service-role insert user_badges | OK |
+
+## 5. Jangan Dilakukan
+
+- Jangan tinggalkan SATU policy `using(true)` pun di tabel user data.
+- Jangan pakai service-role di web/api untuk aksi user biasa
+  (hanya admin app + provisioning + agregat publik).
+- Jangan rely pada API-layer check saja — RLS adalah lapis terakhir.
+
+## 6. Acceptance Criteria
+
+- [ ] Migration jalan bersih di `supabase db reset` + seed tetap load.
+- [ ] 10 test T1-T10 pass (simpan sebagai `supabase/tests/rls_test.sql`).
+- [ ] Web demo flow (browse → login → top-up sandbox → checkout) tetap jalan
+      pasca policy (tidak ada regression read publik).
+- [ ] `grep -r "using (true)" supabase/migrations/` hanya menyisakan
+      `creator_page_views` INSERT (bukan select).
+
+## 7. Sumber
+
+- `dev-strategy/05_data_model.md` section RLS (matriks asli).
+- Audit Platform 2026-08-15: `migrations/20260813000000_rework_align_docs.sql`
+  line 239 & `20260814000000_build_time_implications.sql` (allow-all).
+- Supabase docs: Row Level Security, `auth.uid()`, JWT claims.

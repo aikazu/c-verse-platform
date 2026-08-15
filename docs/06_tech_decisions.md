@@ -7,6 +7,34 @@
 
 ## 1. Stack Ringkas (Full-Edge, Zero Server Management)
 
+```
+repo-root (pnpm workspace + Turborepo)
+├── apps/web/      → Cloudflare Pages (SPA publik, statik) — anon key + RLS
+├── apps/admin/    → LOKAL / VPS + Cloudflare Tunnel + Access — service-role key (bypass RLS)
+├── apps/api/      → Cloudflare Workers (Hono) — verify JWT via Supabase JWKS
+└── packages/shared → Zod schema (DTO dipakai web + admin + api)
+
+Infra pendukung:
+  Supabase (Postgres + Auth + Realtime + Supavisor)
+  Cloudflare R2 (artwork, 3D, KYC private) + Queues (email, payout) + Cron Triggers (escrow settlement, raffle draw, payout batch — badge murni event-driven tanpa cron, lihat `05_data_model.md`)
+  SumoPod SMTP (email), FCM (push), Midtrans/Xendit (top-up + disbursement)
+  Domain FINAL: c-verse.co (primary), c-verse.id → 301 redirect
+  NDEF URL final: https://c-verse.co/cards/{shortId}/3d (LOCK sebelum provisioning)
+```
+
+```
+Request flow (public):
+  User ──► Wrangler WORKER ──► Supabase (RLS + RPC) ──► R2 / Queues
+              │                    ▲
+              │  verify JWT         │ Realtime broadcast
+              └────────────────────┘ (drop_countdown, bid_events)
+
+Admin flow (terpisah):
+  Founder ──► Cloudflare Access ──► Admin app (localhost/VPS) ──► Supabase (service-role)
+                                        │
+                                        └─ direct: NFC tool → Supabase REST
+```
+
 | Layer | Pilihan |
 |-------|---------|
 | Frontend | React 19 + Vite SPA (apps/web) di Cloudflare Pages |
@@ -64,7 +92,7 @@ akun admin, dua lapis:
   QR authenticator (Google Auth/dll) + simpan **recovery codes**
   saat pertama login; tiap login berikutnya: login biasa = sesi
   aal1 (menu non-sensitive tetap bisa diakses, mis. dashboard
-  ringkas), UI privileged (semua CRUD ADM-01..09) terkunci
+  ringkas), UI privileged (semua CRUD ADM-01..10) terkunci
   sampai `supabase.auth.mfa.challenge()` + `verify()` upgrade
   sesi ke **aal2**.
 - **Break-glass**: admin lain (sudah aal2) bisa reset enrollment

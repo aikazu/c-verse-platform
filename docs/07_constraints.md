@@ -75,17 +75,6 @@
   atau top-up rutin di bawah threshold. Cukup verifikasi akun
   standar (email OTP).
 
-### C-05e Flow bid (keputusan 2026-08-12)
-- TANPA reject — owner hanya accept (current active) atau diam.
-- Bidder bisa cancel bidnya sendiri → C-Coin release.
-- Bid lebih tinggi → bid lama `outbid`, C-Coin balik otomatis
-  ke bidder lama.
-- History bid per kartu: 90 hari terakhir; bid `accepted` (complete)
-  permanen selamanya.
-   > **Cancel vs outbid**: keduanya melepas C-Coin ke saldo bidder.
-   > Cancel = inisiatif bidder. Outbid = otomatis saat bid lebih
-   > tinggi masuk. Efek ke saldo sama (release).
-
 ### C-05c Level & badge (XP, bukan masa berlaku)
 - Level = floor(total_xp / 10). Sumber XP: spend C-Coin
   (1 C-Coin = 1 XP) + xp_reward badge. Top-up tidak menambah.
@@ -98,12 +87,23 @@
   tampil; user bisa mengaktifkan **privacy anonymous** untuk
   menyembunyikan.
 
+### C-05e Flow bid (keputusan 2026-08-12)
+- TANPA reject — owner hanya accept (current active) atau diam.
+- Bidder bisa cancel bidnya sendiri → C-Coin release.
+- Bid lebih tinggi → bid lama `outbid`, C-Coin balik otomatis
+  ke bidder lama.
+- History bid per kartu: 90 hari terakhir; bid `accepted` (complete)
+  permanen selamanya.
+ > **Cancel vs outbid**: keduanya melepas C-Coin ke saldo bidder.
+ > Cancel = inisiatif bidder. Outbid = otomatis saat bid lebih
+ > tinggi masuk. Efek ke saldo sama (release).
+
 ### C-06 [DEFERRED] Deposit secondary high-value (R6)
 - Hold deposit untuk bid/buyout high-value di-defer sampai
   secondary live & ada data volume. Tidak di-build di MVP.
   Keputusan: hold C-Coin jika diimplementasi nanti.
 
-### C-07 [DRAFT] Secondary = Marketplace + Browse (tanpa auction)
+### C-07 [FINAL 2026-08-12] Secondary = Marketplace + Browse (tanpa auction)
 - Marketplace: owner pasang buyout price. Browse: bid langsung
   di kartu walau tanpa harga (owner **accept only — TANPA
   reject**; bidder bisa cancel; bid TIDAK ada expire). TIDAK ada
@@ -151,10 +151,23 @@
   dilarang). Kolom sudah `int` (`CHECK x >= 1`);
   konversi IDR → C-Coin dibulatkan ke atas (ceiling).
 
-### C-12 [FINAL] Wash trading cooling period 14 hari
-- Kartu yang baru dibeli tidak bisa di-listing ulang di secondary
-  sebelum 14 hari. Berlaku untuk seller yang sama (current_owner).
-  Menggantikan aturan 7 hari sebelumnya.
+### C-12 [FINAL — revisi 2026-08-15] Blok rebuy seller 1 hari
+- Owner yang menjual kartu di secondary TIDAK BISA membeli kembali
+  kartu yang sama dalam 1x24 jam (blok rebuy oleh seller sebelumnya —
+  hanya memutus loop A→B→A di hari yang sama).
+- Pembeli BOLEH langsung listing ulang kapan saja setelah beli —
+  TIDAK ada hold/cooling period untuk listing.
+- **Wash trading / jual-beli berulang untuk menaikkan harga
+  DITERIMA** sebagai aktivitas pasar (keputusan user 2026-08-15):
+  setiap transaksi tetap kena fee 15% — kenaikan volume/harga
+  justru menguntungkan platform (7,5%) dan kreator (7,5% royalti
+  lifetime). Transparansi tetap jalan: price history + ownership
+  history publik per kartu — pembeli menilai sendiri pola transaksi.
+- XP farming via transaksi diterima — kriteria leaderboard akan
+  diperluas (bukan hanya level).
+- Konsisten invariant I13 (`05_data_model.md`) dan Flow 7
+  (`03_flows.md`). Menggantikan cooling 14 hari (dan 7 hari
+  sebelumnya).
 
 ### C-13 [FINAL] Creator self-dealing dilarang 30 hari
 - Kreator (dan akun terafiliasi yang terdeteksi) dilarang membeli
@@ -166,6 +179,28 @@
 - Quarter: Q1=0 (build), Q2=5-10 (pilot), Q3=15-25, Q4=20-30.
 - Konsekuensi: revenue model, COGS, dan unit economics perlu
   direvisi dengan volume realistis ini.
+
+### C-15 [FINAL 2026-08-15] Primary sale = raffle hybrid + pilihan pool
+- **Entry window 24 jam pertama** setelah drop live (default,
+  bisa diatur admin per drop via `drops.raffle_end_at`).
+- Buyer pilih pool EKSPLISIT: **reguler** (hold harga unsigned,
+  mis. 30), **premium** (hold harga signed, mis. 50), atau
+  **keduanya** (hold maksimum; premium diundi dulu, kalah →
+  masuk pool reguler; dapat reguler → selisih di-release).
+- Draw otomatis batch (cron 5-menit, idempotent via
+  `drops.drawn_at`) — winner langsung jadi order (default vault),
+  loser hold kembali otomatis. Pemenang tidak mungkin gagal bayar
+  (dana sudah di-hold saat entry).
+- **Sisa unit setelah draw → FCFS** "siapa cepat dia dapat"
+  (RPC checkout race-safe) sampai sold out / `drop_end_at`.
+- Alasan: drop Y1 kecil (10-15 unit, limit 1 kartu/user) — FCFS
+  murni dimenangkan bot/scalper dalam hitungan detik; raffle
+  memberi keadilan + 2 momentum hype (buka entry + hasil draw).
+- Signed = pool premium (`signed_units = ceil(total/10)`) —
+  menggantikan random alokasi 1:10 (tidak ada random surprise
+  harga). Konsisten Flow 1 (`03_flows.md`), `drop_entries`
+  (`05_data_model.md`), RPC `drop_entry`/`draw_drop`
+  (`13_atomic_checkout_rpc.md`).
 
 ## 4. Batasan Teknis yang Diterima
 
@@ -194,7 +229,7 @@
 |-----------|--------|
 | C-Coin medium tunggal, rate Rp 10.000 | FINAL (2026-08-11) |
 | Opsi A closed-loop tanpa withdraw buyer | FINAL (2026-08-11) — **DIVALIDASI lawyer 2026-08-13** |
-| C-Coin bukan e-money; "Gamified Point Redemption" (bukan lelang); KYC cash-only | FINAL (2026-08-13, validasi lawyer) |
+| C-Coin bukan e-money; "Gamified Point Redemption" (bukan lelang); KYC hanya untuk cash-out (payout/disbursement ke IDR) | FINAL (2026-08-13, validasi lawyer) |
 | Threshold kreator 100rb+ combined | FINAL (2026-08-12) |
 | Onboarding off-platform tanpa approval in-platform | FINAL (2026-08-12) |
 | Admin app terpisah, tidak di edge | FINAL (2026-08-12) |
@@ -210,7 +245,7 @@
 | Bid flow: tanpa reject; bidder cancel; outbid release C-Coin; history 90 hari (complete selamanya) | FINAL (2026-08-12) |
 | Domain: `c-verse.co` primary, `c-verse.id` redirect — LOCK sebelum provisioning NFC | FINAL (2026-08-13) |
 | Halaman kreator PUBLIK `/c/:username` (list drop); profil kolektor `/u/:username` + privacy anonymous | FINAL (2026-08-12) |
-| Revenue split 70/30 primary + 7,5/7,5/85 secondary | FINAL (2026-08-04) |
+| Revenue split 70/30 primary + 7,5/7,5/85 secondary (default; seasonal event bisa turunkan platform share ke 2,5% via fee_rate snapshot — lihat `09_recommendations.md` build-time; royalti kreator 7,5% TIDAK pernah turun) | FINAL (2026-08-04) |
 | Tech stack full-edge | FINAL (2026-08-11) |
 | Form factor kartu 63x88mm + holo + signed 1:10 | FINAL |
 | Pengiriman = pilihan (kirim fisik vs simpan di inventory; ongkir C-Coin) | FINAL (2026-08-12) |

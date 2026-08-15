@@ -1,45 +1,88 @@
 # 03 — Flow End-to-End MVP
 
-> Status: [VALIDATED]
-> Last updated: 2026-08-13 (Q026 resolved — semua gate legal
-> dihapus; KYC trigger di-simplify)
+> Status: [VALIDATED — partial: open items payout (SLA, disbursement,
+> cap Rp 5-10 jt) & validasi C-03 iPhone masih [DRAFT] — lihat
+> `07_constraints.md`]
+> Last updated: 2026-08-15 (Flow 1 → raffle hybrid + pilihan pool;
+> audit konsistensi: harga signed eksplisit di decision point SALDO)
+> Previous: 2026-08-13 (Q026 resolved — semua gate legal dihapus;
+> KYC trigger di-simplify)
 > Semua fitur dibangun penuh. Top-up uang riil bisa diterima
 > setelah T&C final + cap saldo diimplementasi.
 
-## Flow 1: Primary Sale Drop (user)
+## Flow 1: Primary Sale Drop — Raffle Hybrid (user)
+
+MEKANISME FINAL 2026-08-15 (keputusan user): raffle hybrid —
+entry window 24 jam pertama + draw otomatis, sisa unit FCFS
+"siapa cepat dia dapat". Menggantikan FCFS murni.
 
 ```
-[PUBLIC] katalog drop -> detail drop (countdown, unit tersisa)
-   -> klik Beli -> [LOGIN GATE] -> checkout
-   -> SALDO C-Coin cukup?
-        |-- YA -> DEFAULT: SIMPAN DI INVENTORY (vault)
-        |        -> kartu ter-bind virtual, fisik dipegang platform
-        |        -> tanpa alamat/ongkir/tracking
-        |        -> OPSIONAL: kirim fisik sekarang (isi alamat +
-        |           bayar ongkir C-Coin, misal 2 C-Coin)
-        |-- TIDAK -> arahkan ke top-up (area user /wallet)
-   -> debit saldo C-Coin (race: 1 kartu/user limit)
-   -> escrow hold -> order created (status: PAID)
-   -> notifikasi email
+Phase 1 — RAFFLE ENTRY (drop live s/d raffle_end_at, default 24 jam)
+[PUBLIC] katalog drop -> detail drop (countdown window, jumlah
+   entry live per pool, harga per pool)
+   -> klik "Ikuti" -> [LOGIN GATE] -> PILIH POOL:
+        - REGULER  : hold drops.price_ccoin (mis. 30) — pool unsigned
+        - PREMIUM  : hold drops.price_signed_ccoin (mis. 50) — pool signed
+        - KEDUANYA : hold maksimum (50) — premium diundi dulu,
+          kalah -> masuk pool reguler; dapat reguler ->
+          selisih (20) otomatis dikembalikan
+   -> SALDO cukup? YA -> hold C-Coin (escrow) -> entry recorded
+      TIDAK -> arahkan ke top-up (area user /wallet)
+   -> limit 1 entry/user/drop; entry TIDAK bisa dibatalkan
+      (dana otomatis kembali saat draw, maksimal H+24)
 
-Signed card allocation:
-- Drop punya signed_count = ceil(total_units / 10).
-- Buyer checkout: sistem random assign signed/unsigned saat debit.
-- Signed card = limited (1:10). Race berlaku seperti unit biasa —
-  signed habis lebih dulu, sisa unsigned tetap bisa dibeli.
-- Tidak ada pilihan explicit "saya mau signed" — sistem yang
-  mengalokasikan.
+Phase 2 — DRAW (otomatis, batch job saat window tutup)
+raffle_end_at tercapai -> cron 5-menit trigger RPC draw_drop()
+   (idempotent via drops.drawn_at) -> SATU transaksi:
+   1. Pool PREMIUM diundi dulu (entrants premium + keduanya)
+      -> winners sebanyak signed_units tersedia
+   2. Pool REGULER diundi (entrants reguler + entrants "keduanya"
+      yang kalah premium) -> winners sebanyak unit unsigned tersisa
+   3. Winners -> order dibuat (PAID, DEFAULT vault), kartu dialokasi
+      random per pool, hold dikonversi menjadi pembayaran
+   4. Losers -> hold di-release penuh otomatis
+   5. Notifikasi hasil (email/FCM) ke semua entrants
+
+Phase 3 — FCFS SISA UNIT (setelah draw s/d drop_end_at / sold out)
+unit tersisa per pool (peminat < stok) -> checkout biasa
+   "siapa cepat dia dapat" (RPC checkout, race-safe):
+   -> pilih pool yang masih ada stok; harga mengikuti pool
+   -> user yang KALAH raffle boleh ikut (belum punya kartu drop ini)
+   -> user yang MENANG tidak boleh (limit 1 kartu/drop)
+   -> DEFAULT: SIMPAN DI INVENTORY (vault) — kartu ter-bind
+      virtual, fisik dipegang platform, tanpa alamat/ongkir/tracking
+   -> OPSIONAL: kirim fisik sekarang (isi alamat + bayar ongkir
+      C-Coin, misal 2 C-Coin)
+   Winner raffle juga bisa minta kirim kapan saja setelah order
+   via "Kirim dari vault" (PG-USR-07) — ongkir dibayar saat itu.
+
+Signed card pool:
+- Drop punya signed_units = ceil(total_units / 10) di pool PREMIUM;
+  sisanya pool REGULER.
+- Buyer memilih pool secara EKSPLISIT saat entry/checkout —
+  tidak ada lagi random surprise 1:10, harga yang dibayar selalu
+  sesuai pilihan pool (reguler = harga unsigned, premium = harga
+  signed 1,67x base).
 
 Decision points:
-- **AVAILABILITY**: unit tersisa = 0 → disable tombol beli.
-- **LIMIT**: user sudah punya 1 kartu dari drop yang sama →
-  blok checkout.
-- **RACE**: dua user checkout bersamaan pada unit terakhir →
+- **WINDOW**: raffle_end_at = drop_start_at + 24 jam (default,
+  bisa diatur admin per drop). Sebelum window tutup: hanya entry.
+  Setelah draw: hanya FCFS.
+- **ENTRY LIMIT**: 1 entry per user per drop (unique constraint);
+  user yang sudah MENANG diblok dari FCFS drop itu (limit 1
+  kartu/drop), user yang kalah boleh ikut FCFS.
+- **RACE**: raffle phase TIDAK ada race (draw = satu batch job
+  atomik). FCFS: dua user checkout bersamaan pada unit terakhir →
   satu berhasil, satu gagal (transaksi atomik di DB).
-- **SALDO**: debit C-Coin cukup (harga + ongkir bila kirim
-  sekarang) → sukses; tidak cukup → prompt top-up.
+- **SALDO**: entry = hold sesuai pool: reguler =
+  `drops.price_ccoin` (30), premium/keduanya =
+  `drops.price_signed_ccoin` (default ceil(price × 1,67) = 50).
+  Harga final di-snapshot ke `orders.price_ccoin`; selisih hold
+  winner reguler (pool "keduanya") di-release otomatis. FCFS:
+  debit langsung + ongkir bila kirim sekarang.
 - **DELIVERY**: vault = default, tanpa alamat/ongkir. Kirim fisik
-  = opsional saat checkout (isi alamat + `shipping_fee_ccoin`).
+  = opsional saat checkout FCFS (isi alamat + `shipping_fee_ccoin`).
+  Winner raffle: order dibuat default vault.
 - **SHIP-FROM-VAULT**: setelah order settled, owner bisa minta
   kirim kapan saja via PG-USR-07 (bayar ongkir saat itu, bukan
   saat checkout).
@@ -89,7 +132,7 @@ checkout -> debit WalletTransaction (immutable, append-only)
 
 ```
 tap kartu -> Web NFC API baca NDEF (URL SUN + UID + counter + CMAC)
-   -> URL langsung menuju /cards/:cardId/3d?uid=..&ctr=..&c=CMAC
+   -> URL langsung menuju /cards/:shortId/3d?uid=..&ctr=..&c=CMAC
    -> backend derive expected CMAC (AES-128, master key KMS)
    -> compare + cek counter (anti-replay)
    -> parse TagTamper flag
@@ -114,7 +157,7 @@ dari URL (tanpa Web NFC API) -> halaman 3D tampil verified.
    ^-- DIPERLUKAN VALIDASI DEVICE NYATA (C-03, 07_constraints)
 
 Non-NFC / gagal: scan QR di dus
-   -> halaman INFO kartu (/cards/:cardId) -> status "Registered"
+   -> halaman INFO kartu (/cards/:shortId) -> status "Registered"
       (tanpa CMAC, lebih lemah)
 ```
 
@@ -206,8 +249,11 @@ Anti-fraud Y1 (rule-based, bukan ML):
 - Strike system: 3 strike = suspend 30 hari.
 - Shill detection: cross-check IP + device fingerprint + payment
   method. Flag jika bidder dan owner punya pola sama.
-- **Wash trading cooling period: 14 hari** setelah terjual, kartu tidak
-  bisa dibeli kembali oleh owner sebelumnya.
+- **Blok rebuy seller 1 hari**: owner sebelumnya tidak bisa membeli
+  kembali kartu yang sama dalam 1x24 jam (putus loop same-day
+  A→B→A). Pembeli bebas listing ulang kapan saja. Wash trading
+  diterima — setiap transaksi tetap kena fee 15%, price history
+  tetap publik (keputusan user 2026-08-15).
 - **Creator self-dealing**: kreator (dan akun terafiliasi) dilarang
   membeli kartu drop mereka sendiri di secondary untuk 30 hari pertama
   setelah drop. Jika terdeteksi: suspend 14 hari + hold payout 30 hari.
@@ -239,7 +285,8 @@ Open items payout: SLA, mekanisme disbursement final, cap saldo
 
 ```
 ADM-02: buat drop -> set artwork final, harga (C-Coin), unit,
-   signed_count = ceil(total/10), waktu drop -> publish (H-7)
+   signed_units = ceil(total/10), raffle_end_at (default
+   drop_start + 24 jam), waktu drop -> publish (H-7)
 ADM-01: register kreator baru (hasil rekrutan off-platform)
    -> profile + payment info -> aktif
 ADM-05: rekonsiliasi harian -> cocokkan top-up webhook vs ledger
@@ -257,8 +304,7 @@ ADM-06: dispute masuk -> review bukti -> keputusan
 
 ## Sumber
 
-- `40_operations/05_mvp_flow.md` (Flow 1-9 orisinal).
-- `20_product/06_auction_mechanics.md` (rules auction).
-- `20_product/05_nfc_ux.md` (edge cases tap).
-- `40_operations/03_operations_playbook.md` (SOP).
-- `40_operations/02_legal_compliance.md` 2,2 (C-Coin validasi).
+- `05_data_model.md` (tabel & relasi).
+- `06_tech_decisions.md` (arsitektur).
+- `07_constraints.md` (gate & aturan).
+- `02_pages.md` (halaman user & admin).
