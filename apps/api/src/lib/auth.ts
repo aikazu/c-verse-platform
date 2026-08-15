@@ -20,14 +20,19 @@ function getEnv(name: string): string | undefined {
   return g[name] ?? processEnv?.[name];
 }
 
+/** GoTrue iss = <SUPABASE_URL>/auth/v1 — issuer tanpa suffix akan ditolak jwtVerify. */
+export function supabaseIssuerFromUrl(url: string | undefined): string | null {
+  if (!url?.startsWith("http")) return null;
+  return `${url.replace(/\/+$/, "")}/auth/v1`;
+}
+
 function supabaseIssuer(): string | null {
-  const url = getEnv("SUPABASE_URL");
-  return url?.startsWith("http") ? url : null;
+  return supabaseIssuerFromUrl(getEnv("SUPABASE_URL"));
 }
 
 function getRemoteJwks(issuer: string) {
   if (!cachedRemoteJwks) {
-    cachedRemoteJwks = createRemoteJWKSet(new URL(`${issuer}/auth/v1/.well-known/jwks.json`));
+    cachedRemoteJwks = createRemoteJWKSet(new URL(`${issuer}/.well-known/jwks.json`));
   }
   return cachedRemoteJwks;
 }

@@ -61,3 +61,17 @@ describe("verifySupabaseJwt", () => {
     expect(await verifySupabaseJwt("", config)).toBeNull();
   });
 });
+
+describe("supabaseIssuerFromUrl", () => {
+  it("appends /auth/v1 — GoTrue iss includes the auth path (regression: base URL was rejected by jwtVerify)", async () => {
+    const { supabaseIssuerFromUrl } = await import("./auth");
+    expect(supabaseIssuerFromUrl("https://x.supabase.co")).toBe("https://x.supabase.co/auth/v1");
+    expect(supabaseIssuerFromUrl("http://127.0.0.1:54321/")).toBe("http://127.0.0.1:54321/auth/v1");
+  });
+
+  it("returns null for missing or non-http URL", async () => {
+    const { supabaseIssuerFromUrl } = await import("./auth");
+    expect(supabaseIssuerFromUrl(undefined)).toBeNull();
+    expect(supabaseIssuerFromUrl("not-a-url")).toBeNull();
+  });
+});
