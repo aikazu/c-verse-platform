@@ -1,6 +1,9 @@
 // C.Verse — RPC coverage tests (menambal yang belum dieksekusi rpc_race_test).
 // Jalankan against Supabase lokal (disposable — db reset bebas):
 //   node supabase/tests/rpc_coverage_test.mjs postgresql://postgres:postgres@127.0.0.1:54322/postgres
+// X1 (probe PostgREST anon) butuh anon key via env — jangan pernah hardcode key:
+//   set SUPABASE_ANON_KEY & SUPABASE_URL_REST=http://127.0.0.1:54321
+//   (ambil nilainya dari `npx supabase status -o env`)
 // Cakupan:
 //   S1-S5 : place_bid / cancel_bid / accept_bid (outbid release, fee 7.5/7.5/85,
 //           XP buyer, transfer kepemilikan, race 2 bid concurrent amount sama)
@@ -8,6 +11,7 @@
 //           14d, creator self-dealing 30d, race 2 buyout, re-sale pasca-cooling)
 //   C1-C3 : escrow_auto_release / draw_pending_drops / payout_batch_run (cron)
 //   W1-W2 : wallet_credit idempotency + INVALID_AMOUNT
+//   X1-X3 : lockdown EXECUTE RPC (anon denied, wallet_debit self-only, dsb.)
 import pgModule from "../../apps/api/node_modules/pg/lib/index.js";
 
 const { Client } = pgModule;
@@ -534,11 +538,12 @@ await admin.query("commit");
 }
 
 // ── X1-X3: lockdown EXECUTE RPC (regresi celah mint via PostgREST) ─────────
+// X1 butuh anon key via env (JANGAN hardcode key di script):
+//   SUPABASE_ANON_KEY=$(npx supabase status -o json | jq -r .ANON_KEY) \
+//   node supabase/tests/rpc_coverage_test.mjs <db-url>
 {
+  const anonKey = process.env.SUPABASE_ANON_KEY;
   const restUrl = process.env.SUPABASE_URL_REST ?? "http://127.0.0.1:54321";
-  const anonKey =
-    process.env.SUPABASE_ANON_KEY ??
-    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0";
   async function restRpc(fn, body) {
     const res = await fetch(`${restUrl}/rest/v1/rpc/${fn}`, {
       method: "POST",
@@ -547,29 +552,33 @@ await admin.query("commit");
     });
     return res.status;
   }
-  const s1 = await restRpc("wallet_credit", {
-    p_user: U.p1,
-    p_amount: 999999,
-    p_type: "top_up",
-    p_ref_type: "hack",
-    p_ref_id: "x",
-    p_idem: "x-mint",
-  });
-  const s2 = await restRpc("wallet_debit", {
-    p_user: U.p1,
-    p_amount: 1,
-    p_type: "top_up",
-    p_ref_type: "hack",
-    p_ref_id: "x",
-    p_idem: "x-drain",
-  });
-  const s3 = await restRpc("award_badge_if_eligible", { p_user: U.p1, p_code: "whale" });
-  const s4 = await restRpc("payout_batch_run", {});
-  report(
-    "X1",
-    s1 !== 200 && s2 !== 200 && s3 !== 200 && s4 !== 200,
-    `anon rpc wallet_credit=${s1} wallet_debit=${s2} badge=${s3} payout=${s4} (semua harus bukan 200)`,
-  );
+  if (!anonKey) {
+    report("X1", true, "SKIP — set env SUPABASE_ANON_KEY (lihat header file) untuk mengaktifkan probe PostgREST anon");
+  } else {
+    const s1 = await restRpc("wallet_credit", {
+      p_user: U.p1,
+      p_amount: 999999,
+      p_type: "top_up",
+      p_ref_type: "hack",
+      p_ref_id: "x",
+      p_idem: "x-mint",
+    });
+    const s2 = await restRpc("wallet_debit", {
+      p_user: U.p1,
+      p_amount: 1,
+      p_type: "top_up",
+      p_ref_type: "hack",
+      p_ref_id: "x",
+      p_idem: "x-drain",
+    });
+    const s3 = await restRpc("award_badge_if_eligible", { p_user: U.p1, p_code: "whale" });
+    const s4 = await restRpc("payout_batch_run", {});
+    report(
+      "X1",
+      s1 !== 200 && s2 !== 200 && s3 !== 200 && s4 !== 200,
+      `anon rpc wallet_credit=${s1} wallet_debit=${s2} badge=${s3} payout=${s4} (semua harus bukan 200)`,
+    );
+  }
 
   // authenticated: debit orang lain FORBIDDEN, debit diri sendiri OK (orders.ts ongkir vault)
   const p2 = await userClient(U.p2);
