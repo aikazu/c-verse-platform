@@ -43,7 +43,7 @@ export async function listUserBadges(userId: string): Promise<UserBadgeWithDef[]
 }
 
 /** Rank = number of users with strictly higher XP, +1. */
-export async function getUserRank(userId: string, xp: number): Promise<number> {
+export async function getUserRank(xp: number): Promise<number> {
   const db = readDb();
   const { count, error } = await db.from("users").select("id", { count: "exact", head: true }).gt("total_xp", xp);
   if (error) throw new Error(error.message);

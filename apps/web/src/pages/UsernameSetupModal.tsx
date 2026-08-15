@@ -15,7 +15,6 @@ export default function UsernameSetupModal() {
 
   // Hanya tampil untuk user yang usernamenya masih hasil generate default (username_is_auto)
   const isDefault = !!user?.usernameIsAuto;
-  if (!isDefault) return null;
 
   useEffect(() => {
     if (!value || value === user?.username) {
@@ -43,6 +42,9 @@ export default function UsernameSetupModal() {
     }, 400);
     return () => clearTimeout(debounceRef.current);
   }, [value, user?.username]);
+
+  // early return seteleh semua hook agar urutan hook tetap konsisten tiap render
+  if (!isDefault) return null;
 
   async function onSubmit() {
     if (status !== "available" && status !== "idle") return;

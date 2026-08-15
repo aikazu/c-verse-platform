@@ -25,7 +25,7 @@ app.get("/u/:username", async (c) => {
     listDrops(),
     listCards({ ownerId: user.id }),
     listUserBadges(user.id),
-    getUserRank(user.id, totalXp),
+    getUserRank(totalXp),
   ]);
   const dropById = new Map<string, Drop>(drops.map((d) => [d.id, d]));
   const cards = myCards.map((ca) => {

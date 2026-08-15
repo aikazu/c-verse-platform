@@ -7,8 +7,8 @@ import { getCardByIdOrNfc, getDropById } from "../lib/reads/drops.js";
 import { logAuditDb } from "../lib/reads/kyc.js";
 import { getCardByNfcShortId, getCardByNfcUid, listOwnershipByCard } from "../lib/reads/nfc.js";
 import { getUserById, listUsersByIds } from "../lib/reads/users.js";
-import { getSupabase } from "../lib/supabase.js";
 import type { Card } from "../lib/store.js";
+import { getSupabase } from "../lib/supabase.js";
 
 // NFC verification (docs/12): SUN/CMAC real verification — never "verified" without crypto match.
 
