@@ -92,21 +92,15 @@ pnpm run lint        # no-op
 
 ### Environment
 
-```bash
-# apps/web/.env.local  +  apps/admin/.env.local
-VITE_SUPABASE_URL=
-VITE_SUPABASE_ANON_KEY=          # anon only + RLS, never service-role
+Template per app — copy `<folder>/.env.example` jadi file lokal masing-masing:
 
-# apps/api/.dev.vars  (Wrangler)  /  .env.local (Node)
-SUPABASE_URL=
-SUPABASE_ANON_KEY=
-SUPABASE_SERVICE_ROLE_KEY=       # HANYA di server/admin — jangan bundle ke web
+| App | Copy dari | Jadi | Isi |
+|---|---|---|---|
+| `apps/web` | `apps/web/.env.example` | `.env.local` | `VITE_SUPABASE_*` (anon only), `VITE_TURNSTILE_SITE_KEY`, `VITE_ENABLE_DEMO_LOGIN` |
+| `apps/admin` | `apps/admin/.env.example` | `.env.local` | `VITE_SUPABASE_*` (anon + MFA, di belakang Access) |
+| `apps/api` | `apps/api/.env.example` | `.dev.vars` (dipakai Wrangler **dan** Node) | `SUPABASE_*`, `TURNSTILE_SECRET_KEY`, `NFC_MASTER_KEY`, `MIDTRANS_*`, `PAYOUT_WEBHOOK_SIGNING_KEY`, SMTP |
 
-# Secrets prod (tidak di repo)
-CF_ACCOUNT_ID / CF_API_TOKEN
-SMTP_HOST=smtp.sumopod.com  SMTP_PORT=465  SMTP_USER  SMTP_PASS
-MIDTRANS_SERVER_KEY  NFC_MASTER_KEY  PAYOUT_WEBHOOK_SIGNING_KEY
-```
+Secrets prod via `wrangler secret put` — tidak pernah di repo (CF_ACCOUNT_ID, CF_API_TOKEN, SMTP, Midtrans, NFC, payout key).
 
 Tanpa Supabase: API otomatis pakai store in-memory + `ensureSeed()`.
 

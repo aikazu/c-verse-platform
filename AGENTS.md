@@ -8,10 +8,11 @@ Dokumen perencanaan **canonical = `docs/`** (`00_readme` → `09_recommendations
 
 - Requires Node >=20 and `pnpm@9.12.3` — do not use npm/yarn. Lockfile `pnpm-lock.yaml` v9.
 - `pnpm install` at repo root (workspaces: `apps/*` + `packages/*`).
-- Env:
-  - `apps/web/.env.local` + `apps/admin/.env.local`: `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` (anon only, RLS).
-  - `apps/api/.dev.vars` (Wrangler) / `.env.local` (Node): `SUPABASE_URL` / `SUPABASE_ANON_KEY` / `SUPABASE_SERVICE_ROLE_KEY` — **service-role HANYA di `apps/admin` / server, tidak pernah di-bundle `apps/web`**.
-  - Secrets prod (tidak di repo): `CF_ACCOUNT_ID`, `CF_API_TOKEN`, `SMTP_HOST=smtp.sumopod.com:465 SSL`, `SMTP_USER/PASS`, `MIDTRANS_SERVER_KEY`, `NFC_MASTER_KEY`, `PAYOUT_WEBHOOK_SIGNING_KEY`. Public vars `VITE_*` boleh di-bundle.
+- Env — template per app (copy dari `.env.example` di masing-masing folder):
+  - `apps/web/.env.local` ← `apps/web/.env.example`: `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY`, `VITE_TURNSTILE_SITE_KEY`, `VITE_ENABLE_DEMO_LOGIN`. Anon only — service-role DILARANG di web bundle.
+  - `apps/admin/.env.local` ← `apps/admin/.env.example`: `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` (anon + MFA aal2, di belakang Cloudflare Access).
+  - `apps/api/.dev.vars` ← `apps/api/.env.example` (satu file untuk Wrangler & Node): `SUPABASE_URL`/`SUPABASE_ANON_KEY`/`SUPABASE_SERVICE_ROLE_KEY`, `TURNSTILE_SECRET_KEY`, `NFC_MASTER_KEY`, `MIDTRANS_*`, `PAYOUT_WEBHOOK_SIGNING_KEY`, SMTP.
+  - Secrets prod (tidak di repo): sama seperti di atas + `CF_ACCOUNT_ID`, `CF_API_TOKEN` via `wrangler secret put`.
 - Tanpa Supabase, API jalan in-memory via `apps/api/src/lib/store.ts` (`ensureSeed()`).
 - Supabase local (optional): `npx supabase start` (API :54321, DB :54322, Studio :54323), `npx supabase db reset` → `supabase/migrations/*.sql` + `supabase/seed.sql`.
 
