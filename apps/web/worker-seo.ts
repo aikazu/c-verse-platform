@@ -3,7 +3,9 @@
 // Build 2-3d effort; runtime free tier. Update wrangler.toml routes to put this worker in front of Pages if deployed.
 // For SPA preview, also served via API /api/seo/meta by the Hono worker — this file is the edge proxy layer.
 
-interface Env { API_ORIGIN: string }
+interface Env {
+  API_ORIGIN: string;
+}
 
 export default {
   async fetch(req: Request, env: Env): Promise<Response> {
@@ -37,15 +39,14 @@ export default {
 
     if (!meta?.og && !meta?.jsonLd) return originRes;
 
-    const rewriter = new HTMLRewriter()
-      .on("head", {
-        element(el) {
-          if (meta?.og?.title) el.append(`<meta property="og:title" content="${esc(meta.og.title)}" />`, { html: true });
-          if (meta?.og?.description) el.append(`<meta property="og:description" content="${esc(meta.og.description)}" />`, { html: true });
-          if (meta?.og?.image) el.append(`<meta property="og:image" content="${esc(meta.og.image)}" />`, { html: true });
-          if (meta?.jsonLd) el.append(`<script type="application/ld+json">${JSON.stringify(meta.jsonLd)}</script>`, { html: true });
-        },
-      });
+    const rewriter = new HTMLRewriter().on("head", {
+      element(el) {
+        if (meta?.og?.title) el.append(`<meta property="og:title" content="${esc(meta.og.title)}" />`, { html: true });
+        if (meta?.og?.description) el.append(`<meta property="og:description" content="${esc(meta.og.description)}" />`, { html: true });
+        if (meta?.og?.image) el.append(`<meta property="og:image" content="${esc(meta.og.image)}" />`, { html: true });
+        if (meta?.jsonLd) el.append(`<script type="application/ld+json">${JSON.stringify(meta.jsonLd)}</script>`, { html: true });
+      },
+    });
     return rewriter.transform(originRes);
   },
 } satisfies ExportedHandler<Env>;

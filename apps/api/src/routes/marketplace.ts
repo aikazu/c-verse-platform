@@ -1,13 +1,16 @@
-import { Hono } from "hono";
-import { zValidator } from "@hono/zod-validator";
-import { z } from "zod";
-import { store, ensureSeed, getUserByToken, authHeaderToToken, ensureWallet, addTx, uid, nowIso, logAudit } from "../lib/store.js";
 import { C_COIN_RATE_IDR, MAX_BUYOUT_ACTIVE_PER_USER, splitSecondaryFeeCcoin } from "@c-verse/shared";
+import { zValidator } from "@hono/zod-validator";
+import { Hono } from "hono";
+import { z } from "zod";
+import { addTx, authHeaderToToken, ensureSeed, ensureWallet, getUserByToken, logAudit, nowIso, store, uid } from "../lib/store.js";
 
 // Marketplace = buyout langsung di kartu (C-07 FINAL — legacy auction/listing dihapus, spec 16 F-02).
 
 const app = new Hono();
-app.use("*", async (c, next) => { ensureSeed(); await next(); });
+app.use("*", async (_c, next) => {
+  ensureSeed();
+  await next();
+});
 
 function requireAuth(c: { req: { header: (k: string) => string | undefined } }): ReturnType<typeof getUserByToken> {
   return getUserByToken(authHeaderToToken(c.req.header("authorization")));
@@ -38,14 +41,16 @@ app.get("/", async (c) => {
   }
 
   const marketplace = cards
-    .sort((a, b) => (a.buyoutPriceCcoin! - b.buyoutPriceCcoin!))
+    .sort((a, b) => (a.buyoutPriceCcoin ?? 0) - (b.buyoutPriceCcoin ?? 0))
     .map((card) => {
       const drop = store.drops.get(card.dropId);
       const seller = card.ownerId ? store.users.get(card.ownerId) : null;
       return {
         kind: "buyout" as const,
         card,
-        drop: drop ? { id: drop.id, title: drop.title, series: drop.series, artworkUrl: drop.artworkUrl, creatorName: drop.creatorName } : null,
+        drop: drop
+          ? { id: drop.id, title: drop.title, series: drop.series, artworkUrl: drop.artworkUrl, creatorName: drop.creatorName }
+          : null,
         seller: seller ? { id: seller.id, displayName: seller.displayName } : null,
         buyoutPriceCcoin: card.buyoutPriceCcoin,
         idrPrice: (card.buyoutPriceCcoin ?? 0) * C_COIN_RATE_IDR,
@@ -102,28 +107,52 @@ app.post("/buyout", zValidator("json", z.object({ cardId: z.string().min(1) })),
 
   // anti-fraud: wash 14d & creator self-dealing 30d
   const nowBuy = Date.now();
-  const lastOwnBuy = store.ownershipHistory.filter((h) => h.cardId === cardId && h.ownerId === user.id).sort((a, b) => new Date(b.transferredAt).getTime() - new Date(a.transferredAt).getTime())[0];
+  const lastOwnBuy = store.ownershipHistory
+    .filter((h) => h.cardId === cardId && h.ownerId === user.id)
+    .sort((a, b) => new Date(b.transferredAt).getTime() - new Date(a.transferredAt).getTime())[0];
   if (lastOwnBuy && nowBuy - new Date(lastOwnBuy.transferredAt).getTime() < 14 * 24 * 3600 * 1000) {
     return c.json({ error: "Cooling period 14 hari — tidak bisa membeli kembali kartu yang baru kamu jual", coolingDays: 14 }, 400);
   }
   const dropBuy = store.drops.get(card.dropId);
   if (dropBuy) {
-    const isCreatorSelf = dropBuy.creatorId === user.id || [...store.creators.values()].some((cr) => cr.userId === user.id && cr.id === dropBuy.creatorId);
+    const isCreatorSelf =
+      dropBuy.creatorId === user.id || [...store.creators.values()].some((cr) => cr.userId === user.id && cr.id === dropBuy.creatorId);
     if (isCreatorSelf) {
       const dStart = new Date(dropBuy.dropStartAt ?? dropBuy.dropAt ?? dropBuy.createdAt).getTime();
-      if (nowBuy - dStart < 30 * 24 * 3600 * 1000) return c.json({ error: "Creator self-dealing dilarang 30 hari — kreator tidak bisa membeli kartu drop sendiri", cooldownDays: 30 }, 400);
+      if (nowBuy - dStart < 30 * 24 * 3600 * 1000)
+        return c.json(
+          { error: "Creator self-dealing dilarang 30 hari — kreator tidak bisa membeli kartu drop sendiri", cooldownDays: 30 },
+          400,
+        );
     }
   }
 
   const w = ensureWallet(user.id);
   if (w.balanceCCoin < price) return c.json({ error: "Saldo C-Coin tidak cukup", needCCoin: price, haveCCoin: w.balanceCCoin }, 402);
 
-  const prevOwner = card.ownerId!;
-  const drop = store.drops.get(card.dropId)!;
+  const prevOwner = card.ownerId;
+  if (!prevOwner) return c.json({ error: "Kartu tidak punya pemilik" }, 400);
+  const drop = store.drops.get(card.dropId);
+  if (!drop) return c.json({ error: "Drop kartu tidak ditemukan" }, 404);
   const { platformCcoin, royaltyCcoin, sellerCcoin } = splitSecondaryFeeCcoin(price);
-  addTx(user.id, "platform_buy", -price, "card", card.id, `Buyout ${card.nfcShortId} — ${price} C-Coin`, { fee_rate_platform: 0.075, fee_rate_royalty: 0.075, fee_rate_seller: 0.85, price });
-  addTx(prevOwner, "settlement", sellerCcoin, "card", card.id, `Hasil buyout 85% — ${price} C-Coin`, { fee_rate_platform: 0.075, fee_rate_royalty: 0.075, fee_rate_seller: 0.85, price });
-  addTx(drop.creatorId, "royalty", royaltyCcoin, "card", card.id, `Royalty buyout 7,5% — ${drop.title}`, { fee_rate_platform: 0.075, fee_rate_royalty: 0.075, platformCcoin, price });
+  addTx(user.id, "platform_buy", -price, "card", card.id, `Buyout ${card.nfcShortId} — ${price} C-Coin`, {
+    fee_rate_platform: 0.075,
+    fee_rate_royalty: 0.075,
+    fee_rate_seller: 0.85,
+    price,
+  });
+  addTx(prevOwner, "settlement", sellerCcoin, "card", card.id, `Hasil buyout 85% — ${price} C-Coin`, {
+    fee_rate_platform: 0.075,
+    fee_rate_royalty: 0.075,
+    fee_rate_seller: 0.85,
+    price,
+  });
+  addTx(drop.creatorId, "royalty", royaltyCcoin, "card", card.id, `Royalty buyout 7,5% — ${drop.title}`, {
+    fee_rate_platform: 0.075,
+    fee_rate_royalty: 0.075,
+    platformCcoin,
+    price,
+  });
 
   card.ownerId = user.id;
   card.buyoutPriceCcoin = null;
@@ -135,8 +164,21 @@ app.post("/buyout", zValidator("json", z.object({ cardId: z.string().min(1) })),
     b.status = "outbid";
     b.outbidAt = nowIso();
   }
-  store.ownershipHistory.push({ id: uid("oh-"), cardId, ownerId: user.id, acquiredVia: "secondary_buyout", orderId: null, bidId: null, transferredAt: nowIso() });
-  return c.json({ ok: true, card, needShipmentChoice: true, hint: "Pilih tujuan kirim: ke alamat buyer (ongkir C-Coin) atau kirim/rawat di platform (vault)." });
+  store.ownershipHistory.push({
+    id: uid("oh-"),
+    cardId,
+    ownerId: user.id,
+    acquiredVia: "secondary_buyout",
+    orderId: null,
+    bidId: null,
+    transferredAt: nowIso(),
+  });
+  return c.json({
+    ok: true,
+    card,
+    needShipmentChoice: true,
+    hint: "Pilih tujuan kirim: ke alamat buyer (ongkir C-Coin) atau kirim/rawat di platform (vault).",
+  });
 });
 
 // PATCH /cards/:id/buyout — ubah/hapus harga buyout

@@ -1,75 +1,177 @@
-import React from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { api } from "../lib/api";
 
-function LevelBar({ level, tier, progressPct, hint }:{ level:number; tier:string; progressPct:number; hint:string }){
+function LevelBar({ level, tier, progressPct, hint }: { level: number; tier: string; progressPct: number; hint: string }) {
   return (
-    <div style={{display:"flex", flexDirection:"column", gap:8}}>
-      <div style={{display:"flex", justifyContent:"space-between", alignItems:"baseline"}}>
-        <div style={{fontFamily:"var(--font-display)", fontSize:16, fontWeight:500}}>Level {level} <span style={{fontWeight:400, fontSize:12, color:"var(--text-muted)", fontFamily:"var(--font-mono)"}}>· {tier}</span></div>
-        <div style={{fontFamily:"var(--font-mono)", fontSize:11, color:"var(--text-muted)"}}>{hint}</div>
+    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+        <div style={{ fontFamily: "var(--font-display)", fontSize: 16, fontWeight: 500 }}>
+          Level {level}{" "}
+          <span style={{ fontWeight: 400, fontSize: 12, color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>· {tier}</span>
+        </div>
+        <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--text-muted)" }}>{hint}</div>
       </div>
-      <div className="progress" style={{height:6}}><div className="progress-fill" style={{width: progressPct+"%"}} /></div>
+      <div className="progress" style={{ height: 6 }}>
+        <div className="progress-fill" style={{ width: `${progressPct}%` }} />
+      </div>
     </div>
   );
 }
 
-export default function Collection(){
+export default function Collection() {
   const { user } = useAuth();
-  const { data, refetch, isLoading } = useQuery({ queryKey:["profile"], queryFn:()=> api.profile(), enabled: !!user });
+  const { data, refetch, isLoading } = useQuery({ queryKey: ["profile"], queryFn: () => api.profile(), enabled: !!user });
   // eslint-disable-next-line react-hooks/rules-of-hooks
-  const _u = user; void _u;
-  if(!user) return <div className="card card-pad" style={{textAlign:"center", padding:32}}><span className="eyebrow">Koleksi</span><p className="muted" style={{marginTop:8}}>Masuk untuk melihat koleksi</p><a href="/login" style={{color:"var(--gold)", fontSize:13, fontWeight:600, marginTop:10, display:"inline-block"}}>Masuk →</a></div>;
-  if(isLoading) return <div className="muted" style={{padding:24, textAlign:"center"}}>Memuat…</div>;
-  const p:any = data as any;
-  const cards:any[] = p.cards ?? [];
-  const badges:any[] = p.badges ?? [];
-  const level:number = p.user?.level ?? p.level ?? 1;
-  const tier:string = p.user?.tier ?? p.tier ?? "bronze";
-  const progressPct:number = typeof p.user?.levelProgressPct === "number" ? p.user.levelProgressPct : typeof p.levelProgressPct === "number" ? p.levelProgressPct : 0;
-  const progressLabel:string = p.user?.levelProgressLabel ?? p.levelProgressLabel ?? "Progress level berikutnya";
-  return <div style={{display:"flex",flexDirection:"column",gap:20}}>
-    <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-end",flexWrap:"wrap",gap:12}}>
-      <div style={{flex:"1 1 320px"}}>
+  const _u = user;
+  void _u;
+  if (!user)
+    return (
+      <div className="card card-pad" style={{ textAlign: "center", padding: 32 }}>
         <span className="eyebrow">Koleksi</span>
-        <h1 className="h2" style={{marginTop:4}}>{p.user?.displayName ?? "Koleksi"} <em style={{fontStyle:"italic", fontWeight:300, color:"var(--gold)"}}>· {p.stats?.totalCards ?? cards.length} kartu</em></h1>
-        <div className="card card-pad" style={{marginTop:14, background:"var(--surface-2)"}}>
-          <LevelBar level={level} tier={tier} progressPct={progressPct} hint={progressLabel} />
+        <p className="muted" style={{ marginTop: 8 }}>
+          Masuk untuk melihat koleksi
+        </p>
+        <a href="/login" style={{ color: "var(--gold)", fontSize: 13, fontWeight: 600, marginTop: 10, display: "inline-block" }}>
+          Masuk →
+        </a>
+      </div>
+    );
+  if (isLoading)
+    return (
+      <div className="muted" style={{ padding: 24, textAlign: "center" }}>
+        Memuat…
+      </div>
+    );
+  const p: any = data as any;
+  const cards: any[] = p.cards ?? [];
+  const badges: any[] = p.badges ?? [];
+  const level: number = p.user?.level ?? p.level ?? 1;
+  const tier: string = p.user?.tier ?? p.tier ?? "bronze";
+  const progressPct: number =
+    typeof p.user?.levelProgressPct === "number"
+      ? p.user.levelProgressPct
+      : typeof p.levelProgressPct === "number"
+        ? p.levelProgressPct
+        : 0;
+  const progressLabel: string = p.user?.levelProgressLabel ?? p.levelProgressLabel ?? "Progress level berikutnya";
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: 12 }}>
+        <div style={{ flex: "1 1 320px" }}>
+          <span className="eyebrow">Koleksi</span>
+          <h1 className="h2" style={{ marginTop: 4 }}>
+            {p.user?.displayName ?? "Koleksi"}{" "}
+            <em style={{ fontStyle: "italic", fontWeight: 300, color: "var(--gold)" }}>· {p.stats?.totalCards ?? cards.length} kartu</em>
+          </h1>
+          <div className="card card-pad" style={{ marginTop: 14, background: "var(--surface-2)" }}>
+            <LevelBar level={level} tier={tier} progressPct={progressPct} hint={progressLabel} />
+          </div>
+        </div>
+        <div style={{ display: "flex", gap: 8 }}>
+          <Link to="/me/manage" className="btn-gold">
+            Kelola Kartu →
+          </Link>
+          <button className="btn-ghost" onClick={() => refetch()} style={{ fontFamily: "var(--font-mono)", fontSize: 12 }}>
+            Refresh
+          </button>
         </div>
       </div>
-      <div style={{display:"flex", gap:8}}>
-        <Link to="/me/manage" className="btn-gold">Kelola Kartu →</Link>
-        <button className="btn-ghost" onClick={()=> refetch()} style={{fontFamily:"var(--font-mono)", fontSize:12}}>Refresh</button>
-      </div>
-    </div>
-    {badges.length>0 && <div className="card card-pad">
-      <div style={{fontFamily:"var(--font-mono)", fontSize:11, fontWeight:500, letterSpacing:"0.08em", textTransform:"uppercase", color:"var(--text-dim)", marginBottom:10}}>Lencana — {badges.length}</div>
-      <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-        {badges.map((ub:any)=> <span key={ub.badgeId} className="pill pill-warn" title={ub.badge?.description} style={{padding:"6px 12px",fontSize:12}}>{ub.badge?.icon} {ub.badge?.name}</span>)}
-      </div>
-    </div>}
-    <div className="card">
-      <div style={{padding:"14px 16px", display:"flex", justifyContent:"space-between", alignItems:"center", borderBottom:"1px solid var(--border)"}}>
-        <span style={{fontWeight:600, fontSize:13}}>Kartu — {cards.length}</span>
-        <Link to="/me/manage" style={{fontFamily:"var(--font-mono)", fontSize:11, color:"var(--gold)", fontWeight:500}}>Kelola →</Link>
-      </div>
-      {cards.length===0 ? <div style={{padding:32,textAlign:"center",color:"var(--text-muted)", fontSize:13}}>Belum punya kartu. <Link to="/drops" style={{color:"var(--gold)", fontWeight:600}}>Jelajahi Drops →</Link></div> :
-      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(220px,1fr))",gap:14,padding:14}}>
-        {cards.map((ca:any)=> <Link key={ca.id} to={"/cards/"+ca.id} className="card" style={{overflow:"hidden", textDecoration:"none", color:"inherit"}}>
-          <div style={{height:140, background:"linear-gradient(135deg,#14141a,#1e1e34)", display:"flex",alignItems:"center",justifyContent:"center",fontSize:36}}>🎴</div>
-          <div style={{padding:12,display:"flex",flexDirection:"column",gap:6}}>
-            <div style={{fontWeight:600,fontSize:13}}>{ca.drop?.title ?? ca.dropId} · #{ca.unitNumber}</div>
-            <div style={{fontFamily:"var(--font-mono)", fontSize:11,color:"var(--text-muted)"}}>{ca.drop?.series} {ca.buyoutPriceCcoin ? "· "+ca.buyoutPriceCcoin+" C" : ""}</div>
-            <div style={{display:"flex",gap:6,flexWrap:"wrap", marginTop:2}}>
-              <span className={"pill "+(ca.location==="platform_vault"?"pill-warn": ca.location==="with_owner"?"pill-success":"pill-info")} style={{fontSize:10}}>{ca.location ?? ca.status}</span>
-              {ca.activeBid ? <span className="pill pill-success" style={{fontSize:10}}>Bid {ca.activeBid.amountCCoin} C</span> : null}
-            </div>
+      {badges.length > 0 && (
+        <div className="card card-pad">
+          <div
+            style={{
+              fontFamily: "var(--font-mono)",
+              fontSize: 11,
+              fontWeight: 500,
+              letterSpacing: "0.08em",
+              textTransform: "uppercase",
+              color: "var(--text-dim)",
+              marginBottom: 10,
+            }}
+          >
+            Lencana — {badges.length}
           </div>
-        </Link>)}
-      </div>}
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            {badges.map((ub: any) => (
+              <span key={ub.badgeId} className="pill pill-warn" title={ub.badge?.description} style={{ padding: "6px 12px", fontSize: 12 }}>
+                {ub.badge?.icon} {ub.badge?.name}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+      <div className="card">
+        <div
+          style={{
+            padding: "14px 16px",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            borderBottom: "1px solid var(--border)",
+          }}
+        >
+          <span style={{ fontWeight: 600, fontSize: 13 }}>Kartu — {cards.length}</span>
+          <Link to="/me/manage" style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--gold)", fontWeight: 500 }}>
+            Kelola →
+          </Link>
+        </div>
+        {cards.length === 0 ? (
+          <div style={{ padding: 32, textAlign: "center", color: "var(--text-muted)", fontSize: 13 }}>
+            Belum punya kartu.{" "}
+            <Link to="/drops" style={{ color: "var(--gold)", fontWeight: 600 }}>
+              Jelajahi Drops →
+            </Link>
+          </div>
+        ) : (
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(220px,1fr))", gap: 14, padding: 14 }}>
+            {cards.map((ca: any) => (
+              <Link
+                key={ca.id}
+                to={`/cards/${ca.id}`}
+                className="card"
+                style={{ overflow: "hidden", textDecoration: "none", color: "inherit" }}
+              >
+                <div
+                  style={{
+                    height: 140,
+                    background: "linear-gradient(135deg,#14141a,#1e1e34)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: 36,
+                  }}
+                >
+                  🎴
+                </div>
+                <div style={{ padding: 12, display: "flex", flexDirection: "column", gap: 6 }}>
+                  <div style={{ fontWeight: 600, fontSize: 13 }}>
+                    {ca.drop?.title ?? ca.dropId} · #{ca.unitNumber}
+                  </div>
+                  <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--text-muted)" }}>
+                    {ca.drop?.series} {ca.buyoutPriceCcoin ? `· ${ca.buyoutPriceCcoin} C` : ""}
+                  </div>
+                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 2 }}>
+                    <span
+                      className={`pill ${ca.location === "platform_vault" ? "pill-warn" : ca.location === "with_owner" ? "pill-success" : "pill-info"}`}
+                      style={{ fontSize: 10 }}
+                    >
+                      {ca.location ?? ca.status}
+                    </span>
+                    {ca.activeBid ? (
+                      <span className="pill pill-success" style={{ fontSize: 10 }}>
+                        Bid {ca.activeBid.amountCCoin} C
+                      </span>
+                    ) : null}
+                  </div>
+                </div>
+              </Link>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
-  </div>;
+  );
 }
 
 // keep useAuth import — moved below to avoid hoist issue

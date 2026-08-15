@@ -1,11 +1,25 @@
-import { Hono } from "hono";
-import { zValidator } from "@hono/zod-validator";
-import { z } from "zod";
-import { store, ensureSeed, getUserByToken, authHeaderToToken, ensureWallet, addTx, uid, nowIso, awardBadgeIfNeeded, logAudit } from "../lib/store.js";
 import { C_COIN_RATE_IDR } from "@c-verse/shared";
+import { zValidator } from "@hono/zod-validator";
+import { Hono } from "hono";
+import { z } from "zod";
+import {
+  addTx,
+  authHeaderToToken,
+  awardBadgeIfNeeded,
+  ensureSeed,
+  ensureWallet,
+  getUserByToken,
+  logAudit,
+  nowIso,
+  store,
+  uid,
+} from "../lib/store.js";
 
 const app = new Hono();
-app.use("*", async (c, next) => { ensureSeed(); await next(); });
+app.use("*", async (_c, next) => {
+  ensureSeed();
+  await next();
+});
 
 function requireAuth(c: { req: { header: (k: string) => string | undefined } }): ReturnType<typeof getUserByToken> {
   return getUserByToken(authHeaderToToken(c.req.header("authorization")));
@@ -62,7 +76,13 @@ app.post(
     const w = ensureWallet(user.id);
     if (w.balanceCCoin < totalCcoin) {
       return c.json(
-        { error: "Saldo C-Coin tidak cukup", needCCoin: totalCcoin, haveCCoin: w.balanceCCoin, needIdr: totalCcoin * C_COIN_RATE_IDR, topupHint: `Top-up minimal ${totalCcoin - w.balanceCCoin} C-Coin` },
+        {
+          error: "Saldo C-Coin tidak cukup",
+          needCCoin: totalCcoin,
+          haveCCoin: w.balanceCCoin,
+          needIdr: totalCcoin * C_COIN_RATE_IDR,
+          topupHint: `Top-up minimal ${totalCcoin - w.balanceCCoin} C-Coin`,
+        },
         402,
       );
     }
@@ -76,9 +96,12 @@ app.post(
     // Random pick: if both variant pools remain, ~10% chance prefer signed pool else unsigned; fallthrough to available
     const signedAvail = available.filter((c) => c.variant === "signed");
     const unsignedAvail = available.filter((c) => c.variant === "unsigned");
-    let card: typeof available[number];
+    let card: (typeof available)[number];
     if (signedAvail.length > 0 && unsignedAvail.length > 0) {
-      card = Math.random() < 0.1 ? signedAvail[Math.floor(Math.random() * signedAvail.length)] : unsignedAvail[Math.floor(Math.random() * unsignedAvail.length)];
+      card =
+        Math.random() < 0.1
+          ? signedAvail[Math.floor(Math.random() * signedAvail.length)]
+          : unsignedAvail[Math.floor(Math.random() * unsignedAvail.length)];
     } else {
       card = available[Math.floor(Math.random() * available.length)];
     }
@@ -107,7 +130,12 @@ app.post(
     }
 
     const orderId = uid("ord-");
-    const trackingNumber = deliveryOption === "shipping" ? `JNE-${Math.floor(Math.random() * 1e12).toString().padStart(12, "0")}` : null;
+    const trackingNumber =
+      deliveryOption === "shipping"
+        ? `JNE-${Math.floor(Math.random() * 1e12)
+            .toString()
+            .padStart(12, "0")}`
+        : null;
     const order = {
       id: orderId,
       userId: user.id,
@@ -116,7 +144,11 @@ app.post(
       cardId: card.id,
       totalCCoin: totalCcoin,
       totalIdr: totalCcoin * C_COIN_RATE_IDR,
-      status: (deliveryOption === "vault" ? "settled" : "paid") as typeof store.orders extends Map<string, infer V> ? V extends { status: infer S } ? S : never : never,
+      status: (deliveryOption === "vault" ? "settled" : "paid") as typeof store.orders extends Map<string, infer V>
+        ? V extends { status: infer S }
+          ? S
+          : never
+        : never,
       deliveryOption,
       shippingFeeCcoin: deliveryOption === "shipping" ? (shippingFeeCcoin as number) : null,
       escrowStatus: deliveryOption === "vault" ? "released" : "held",
@@ -189,9 +221,13 @@ app.get("/", async (c) => {
 app.get("/:id", async (c) => {
   const user = requireAuth(c as unknown as { req: { header: (k: string) => string | undefined } });
   if (!user) return c.json({ error: "Unauthorized" }, 401);
-  const o = store.orders.get(c.req.param("id")) as unknown as { userId: string; dropId: string; cardIds: string[] } & Record<string, unknown>;
+  const o = store.orders.get(c.req.param("id")) as unknown as { userId: string; dropId: string; cardIds: string[] } & Record<
+    string,
+    unknown
+  >;
   if (!o) return c.json({ error: "Order tidak ditemukan" }, 404);
-  if ((o as unknown as { userId: string }).userId !== user.id && (user.role as string) !== "admin") return c.json({ error: "Forbidden" }, 403);
+  if ((o as unknown as { userId: string }).userId !== user.id && (user.role as string) !== "admin")
+    return c.json({ error: "Forbidden" }, 403);
   const drop = store.drops.get((o as unknown as { dropId: string }).dropId);
   const cards = ((o as unknown as { cardIds: string[] }).cardIds ?? []).map((id) => store.cards.get(id)).filter(Boolean);
   const shipments = [...store.shipments.values()].filter((s) => (o as unknown as { cardIds: string[] }).cardIds?.includes(s.cardId));
@@ -206,7 +242,15 @@ app.post("/:id/confirm-delivered", async (c) => {
   (o as unknown as Record<string, unknown>).status = "delivered";
   (o as unknown as Record<string, unknown>).deliveredAt = nowIso();
   (o as unknown as Record<string, unknown>).escrowStatus = "released"; // MVP immediate; real is DELIVERED + H+7
-  logAudit(user.id, "update", "orders", o.id as string, { status: "delivered" }, c.req.header("x-forwarded-for") ?? null, authHeaderToToken(c.req.header("authorization")) ?? null);
+  logAudit(
+    user.id,
+    "update",
+    "orders",
+    o.id as string,
+    { status: "delivered" },
+    c.req.header("x-forwarded-for") ?? null,
+    authHeaderToToken(c.req.header("authorization")) ?? null,
+  );
   return c.json({ order: o });
 });
 
@@ -223,10 +267,13 @@ app.post(
     if (card.ownerId !== user.id) return c.json({ error: "Kamu bukan pemilik kartu ini" }, 403);
     if (card.location !== "platform_vault") return c.json({ error: "Kartu tidak di vault — tidak perlu ship-from-vault" }, 400);
     const w = ensureWallet(user.id);
-    if (w.balanceCCoin < feeCcoin) return c.json({ error: "Saldo C-Coin tidak cukup untuk ongkir", needCCoin: feeCcoin, haveCCoin: w.balanceCCoin }, 402);
+    if (w.balanceCCoin < feeCcoin)
+      return c.json({ error: "Saldo C-Coin tidak cukup untuk ongkir", needCCoin: feeCcoin, haveCCoin: w.balanceCCoin }, 402);
     addTx(user.id, "checkout", -feeCcoin, "shipment", cardId, `Ongkir vault shipout ${card.nfcShortId} — ${feeCcoin} C-Coin`);
     const shipId = uid("ship-");
-    const tracking = `JNE-${Math.floor(Math.random() * 1e12).toString().padStart(12, "0")}`;
+    const tracking = `JNE-${Math.floor(Math.random() * 1e12)
+      .toString()
+      .padStart(12, "0")}`;
     store.shipments.set(shipId, {
       id: shipId,
       cardId,
@@ -243,8 +290,21 @@ app.post(
     });
     // Don't flip location until delivered; mark pending ship
     card.qcStatus = "passed";
-    logAudit(user.id, "create", "shipments", shipId, { cardId, feeCcoin }, c.req.header("x-forwarded-for") ?? null, authHeaderToToken(c.req.header("authorization")) ?? null);
-    return c.json({ ok: true, shipment: store.shipments.get(shipId), card, wallet: { ...ensureWallet(user.id), balanceIdrEquiv: w.balanceCCoin * C_COIN_RATE_IDR } });
+    logAudit(
+      user.id,
+      "create",
+      "shipments",
+      shipId,
+      { cardId, feeCcoin },
+      c.req.header("x-forwarded-for") ?? null,
+      authHeaderToToken(c.req.header("authorization")) ?? null,
+    );
+    return c.json({
+      ok: true,
+      shipment: store.shipments.get(shipId),
+      card,
+      wallet: { ...ensureWallet(user.id), balanceIdrEquiv: w.balanceCCoin * C_COIN_RATE_IDR },
+    });
   },
 );
 

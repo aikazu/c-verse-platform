@@ -4,12 +4,10 @@ let _client: SupabaseClient | null | undefined; // undefined = not yet checked
 
 function getEnv(name: string): string | undefined {
   // Wrangler / Workers: `globalThis` may have env injected; also check process.env for Node
-  const g: any = globalThis as any;
-  return (
-    g?.[name] ??
-    (typeof process !== "undefined" ? (process as any).env?.[name] : undefined) ??
-    undefined
-  );
+  const g = globalThis as unknown as Record<string, string | undefined>;
+  const processEnv =
+    typeof process !== "undefined" ? (process as unknown as Record<string, Record<string, string | undefined> | undefined>).env : undefined;
+  return g[name] ?? processEnv?.[name];
 }
 
 /**

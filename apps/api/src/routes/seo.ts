@@ -1,12 +1,15 @@
-import { Hono } from "hono";
-import { store, ensureSeed } from "../lib/store.js";
 import { PRIMARY_DOMAIN } from "@c-verse/shared";
+import { Hono } from "hono";
+import { ensureSeed, store } from "../lib/store.js";
 
 const app = new Hono();
-app.use("*", async (c, next) => { ensureSeed(); await next(); });
+app.use("*", async (_c, next) => {
+  ensureSeed();
+  await next();
+});
 
 // GET /sitemap.xml — dynamic sitemap for SEO (docs 02 s.8: SPA + Worker HTMLRewriter + sitemap generator)
-app.get("/sitemap.xml", async (c) => {
+app.get("/sitemap.xml", async (_c) => {
   const base = `https://${PRIMARY_DOMAIN}`;
   const drops = [...store.drops.values()].filter((d) => ["published", "live", "sold_out", "scheduled"].includes(d.status));
   const creators = [...store.users.values()].filter((u) => (u.role as string) === "creator");
@@ -37,12 +40,24 @@ app.get("/meta", async (c) => {
   if (path.startsWith("/c/")) {
     const slug = path.slice(3).split("?")[0].split("/")[0];
     const rec = [...store.creators.values()].find((cr) => cr.handle.toLowerCase() === slug.toLowerCase());
-    const user = rec ? store.users.get(rec.userId!) : [...store.users.values()].find((u) => ((u as unknown as { username?: string }).username ?? "").toLowerCase() === slug.toLowerCase());
+    const user = rec
+      ? rec.userId
+        ? store.users.get(rec.userId)
+        : undefined
+      : [...store.users.values()].find(
+          (u) => ((u as unknown as { username?: string }).username ?? "").toLowerCase() === slug.toLowerCase(),
+        );
     if (!user) return c.json({ error: "Not found" }, 404);
     const rec2 = [...store.creators.values()].find((cr) => cr.userId === user.id);
     return c.json({
       og: { title: `${user.displayName} — C.Verse`, description: `Koleksi kreator ${user.displayName} di C.Verse`, image: null },
-      jsonLd: { "@context": "https://schema.org", "@type": "Person", name: user.displayName, url: `https://${PRIMARY_DOMAIN}/c/${rec2?.handle ?? slug}`, sameAs: [] },
+      jsonLd: {
+        "@context": "https://schema.org",
+        "@type": "Person",
+        name: user.displayName,
+        url: `https://${PRIMARY_DOMAIN}/c/${rec2?.handle ?? slug}`,
+        sameAs: [],
+      },
     });
   }
   if (path.startsWith("/cards/")) {
@@ -51,8 +66,19 @@ app.get("/meta", async (c) => {
     if (!card) return c.json({ error: "Not found" }, 404);
     const drop = store.drops.get(card.dropId);
     return c.json({
-      og: { title: `${drop?.title ?? "Kartu"} #${card.unitNumber} — C.Verse`, description: drop?.narrative?.slice(0, 160) ?? "Kartu koleksi C.Verse", image: drop?.artworkUrl ?? null },
-      jsonLd: { "@context": "https://schema.org", "@type": "Product", name: `${drop?.title ?? "Kartu"} #${card.unitNumber}`, image: drop?.artworkUrl, brand: drop?.creatorName, sku: card.nfcShortId },
+      og: {
+        title: `${drop?.title ?? "Kartu"} #${card.unitNumber} — C.Verse`,
+        description: drop?.narrative?.slice(0, 160) ?? "Kartu koleksi C.Verse",
+        image: drop?.artworkUrl ?? null,
+      },
+      jsonLd: {
+        "@context": "https://schema.org",
+        "@type": "Product",
+        name: `${drop?.title ?? "Kartu"} #${card.unitNumber}`,
+        image: drop?.artworkUrl,
+        brand: drop?.creatorName,
+        sku: card.nfcShortId,
+      },
     });
   }
   if (path.startsWith("/drops/")) {
@@ -61,10 +87,24 @@ app.get("/meta", async (c) => {
     if (!drop) return c.json({ error: "Not found" }, 404);
     return c.json({
       og: { title: `${drop.title} — Drop C.Verse`, description: drop.narrative?.slice(0, 160) ?? "", image: drop.artworkUrl },
-      jsonLd: { "@context": "https://schema.org", "@type": "Event", name: drop.title, image: drop.artworkUrl, startDate: (drop as unknown as { dropStartAt?: string }).dropStartAt ?? (drop as unknown as { dropAt?: string }).dropAt ?? undefined },
+      jsonLd: {
+        "@context": "https://schema.org",
+        "@type": "Event",
+        name: drop.title,
+        image: drop.artworkUrl,
+        startDate:
+          (drop as unknown as { dropStartAt?: string }).dropStartAt ?? (drop as unknown as { dropAt?: string }).dropAt ?? undefined,
+      },
     });
   }
-  return c.json({ og: { title: "C.Verse — Koleksi Kreator Edisi Terbatas", description: "Platform kartu kolaborasi kreator Indonesia — collectible fisik + provenance NFC.", image: null }, jsonLd: null });
+  return c.json({
+    og: {
+      title: "C.Verse — Koleksi Kreator Edisi Terbatas",
+      description: "Platform kartu kolaborasi kreator Indonesia — collectible fisik + provenance NFC.",
+      image: null,
+    },
+    jsonLd: null,
+  });
 });
 
 export default app;

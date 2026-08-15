@@ -15,7 +15,8 @@ export function useCardViewer(containerRef: React.RefObject<HTMLDivElement | nul
       const THREE = await import("three");
       if (disposed || !containerRef.current) return;
       const el = containerRef.current!;
-      const w = el.clientWidth, h = el.clientHeight;
+      const w = el.clientWidth,
+        h = el.clientHeight;
 
       scene = new THREE.Scene();
       scene.background = new THREE.Color(0x08080c);
@@ -32,12 +33,16 @@ export function useCardViewer(containerRef: React.RefObject<HTMLDivElement | nul
 
       // Lights
       const amb = new THREE.AmbientLight(0xffffff, 0.9);
-      const dir = new THREE.DirectionalLight(0xffffff, 0.8); dir.position.set(2, 3, 2);
-      const rim = new THREE.DirectionalLight(0xd4a843, 0.25); rim.position.set(-2, 1, -1);
+      const dir = new THREE.DirectionalLight(0xffffff, 0.8);
+      dir.position.set(2, 3, 2);
+      const rim = new THREE.DirectionalLight(0xd4a843, 0.25);
+      rim.position.set(-2, 1, -1);
       scene.add(amb, dir, rim);
 
       // Card geometry: rounded-ish box
-      const cardW = 0.63, cardH = 0.88, thick = 0.03;
+      const cardW = 0.63,
+        cardH = 0.88,
+        thick = 0.03;
       const geom = new THREE.BoxGeometry(cardW, cardH, thick);
       const loader = new THREE.TextureLoader();
 
@@ -74,18 +79,34 @@ export function useCardViewer(containerRef: React.RefObject<HTMLDivElement | nul
       scene.add(glow);
 
       let t = 0;
-      let dragging = false, lastX = 0, rotY = 0, autoRot = 0.003;
-      const onPointerDown = (e: PointerEvent) => { dragging = true; lastX = e.clientX; (e.target as Element).setPointerCapture?.(e.pointerId); };
-      const onPointerMove = (e: PointerEvent) => { if (!dragging) return; const dx = e.clientX - lastX; rotY += dx * 0.008; lastX = e.clientX; };
-      const onPointerUp = () => { dragging = false; };
+      let dragging = false,
+        lastX = 0,
+        rotY = 0,
+        autoRot = 0.003;
+      const onPointerDown = (e: PointerEvent) => {
+        dragging = true;
+        lastX = e.clientX;
+        (e.target as Element).setPointerCapture?.(e.pointerId);
+      };
+      const onPointerMove = (e: PointerEvent) => {
+        if (!dragging) return;
+        const dx = e.clientX - lastX;
+        rotY += dx * 0.008;
+        lastX = e.clientX;
+      };
+      const onPointerUp = () => {
+        dragging = false;
+      };
       renderer.domElement.addEventListener("pointerdown", onPointerDown);
       window.addEventListener("pointermove", onPointerMove);
       window.addEventListener("pointerup", onPointerUp);
 
       const onResize = () => {
         if (!el) return;
-        const nw = el.clientWidth, nh = el.clientHeight;
-        camera.aspect = nw / nh; camera.updateProjectionMatrix();
+        const nw = el.clientWidth,
+          nh = el.clientHeight;
+        camera.aspect = nw / nh;
+        camera.updateProjectionMatrix();
         renderer.setSize(nw, nh);
       };
       window.addEventListener("resize", onResize);
@@ -94,7 +115,11 @@ export function useCardViewer(containerRef: React.RefObject<HTMLDivElement | nul
         rafRef.current = requestAnimationFrame(animate);
         t += 0.016;
         if (!dragging) rotY += autoRot;
-        if (mesh) { mesh.rotation.y = rotY; mesh.rotation.x = Math.sin(t * 0.3) * 0.06; mesh.position.y = Math.sin(t * 0.6) * 0.02; }
+        if (mesh) {
+          mesh.rotation.y = rotY;
+          mesh.rotation.x = Math.sin(t * 0.3) * 0.06;
+          mesh.position.y = Math.sin(t * 0.6) * 0.02;
+        }
         renderer.render(scene, camera);
       };
       animate();
@@ -103,7 +128,9 @@ export function useCardViewer(containerRef: React.RefObject<HTMLDivElement | nul
     return () => {
       disposed = true;
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
-      try { renderer?.dispose?.(); } catch {}
+      try {
+        renderer?.dispose?.();
+      } catch {}
       if (containerRef.current) containerRef.current.innerHTML = "";
     };
   }, [artworkUrl]);

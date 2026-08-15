@@ -14,11 +14,15 @@
     "build": "pnpm -r build",
     "build:web": "pnpm --filter @c-verse/web build",
     "build:api": "pnpm --filter @c-verse/api build",
-    "lint": "echo \"no lint configured\"",
+    "lint": "biome check .",
     "typecheck": "pnpm -r typecheck",
     "dev:admin": "pnpm --filter @c-verse/admin dev",
     "build:admin": "pnpm --filter @c-verse/admin build",
-    "dev:all": "pnpm dev"
+    "dev:all": "pnpm dev",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "format": "biome format --write .",
+    "lint:fix": "biome check --write ."
   },
   "packageManager": "pnpm@9.12.3",
   "engines": {
@@ -26,5 +30,9 @@
   },
   "dependencies": {
     "pg": "^8.23.0"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.5.8",
+    "vitest": "^4.1.10"
   }
 }

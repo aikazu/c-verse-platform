@@ -1,9 +1,12 @@
-import { Hono } from "hono";
-import { store, ensureSeed, getUserByToken, authHeaderToToken, ensureWallet } from "../lib/store.js";
 import { C_COIN_RATE_IDR } from "@c-verse/shared";
+import { Hono } from "hono";
+import { authHeaderToToken, ensureSeed, ensureWallet, getUserByToken, store } from "../lib/store.js";
 
 const app = new Hono();
-app.use("*", async (c, next) => { ensureSeed(); await next(); });
+app.use("*", async (_c, next) => {
+  ensureSeed();
+  await next();
+});
 
 function requireAuth(c: { req: { header: (k: string) => string | undefined } }): ReturnType<typeof getUserByToken> {
   return getUserByToken(authHeaderToToken(c.req.header("authorization")));
@@ -14,19 +17,27 @@ app.get("/", async (c) => {
   const user = requireAuth(c as unknown as { req: { header: (k: string) => string | undefined } });
   if (!user) return c.json({ error: "Unauthorized" }, 401);
   const myCards = [...store.cards.values()].filter((ca) => ca.ownerId === user.id);
-  const myOrders = [...store.orders.values()].filter((o) => o.userId === user.id).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-  const myShipments = [...store.shipments.values()].filter((s) => s.requesterId === user.id).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-  const myBids = store.bids.filter((b) => b.bidderId === user.id).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  const myOrders = [...store.orders.values()]
+    .filter((o) => o.userId === user.id)
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  const myShipments = [...store.shipments.values()]
+    .filter((s) => s.requesterId === user.id)
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  const myBids = store.bids
+    .filter((b) => b.bidderId === user.id)
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   const enrichedCards = myCards.map((ca) => {
     const drop = store.drops.get(ca.dropId);
     const activeBid = store.bids.find((b) => b.cardId === ca.id && b.status === "active") ?? null;
     return { ...ca, drop: drop ? { id: drop.id, title: drop.title, series: drop.series, artworkUrl: drop.artworkUrl } : null, activeBid };
   });
   const wallet = ensureWallet(user.id);
-  const badges = store.userBadges.filter((ub) => ub.userId === user.id).map((ub) => {
-    const def = store.badges.find((b) => b.id === ub.badgeId);
-    return { ...ub, badge: def };
-  });
+  const badges = store.userBadges
+    .filter((ub) => ub.userId === user.id)
+    .map((ub) => {
+      const def = store.badges.find((b) => b.id === ub.badgeId);
+      return { ...ub, badge: def };
+    });
   const kyc = [...store.kyc.values()].find((k) => k.userId === user.id) ?? null;
   const totalXp = (user as unknown as { totalXp?: number }).totalXp ?? (user as unknown as { xp?: number }).xp ?? 0;
   const { calcLevel } = await import("@c-verse/shared");
@@ -100,10 +111,17 @@ app.patch("/consent", async (c) => {
   const user = requireAuth(c as unknown as { req: { header: (k: string) => string | undefined } });
   if (!user) return c.json({ error: "Unauthorized" }, 401);
   let body: { consentAnalyticsDetail?: boolean; consentDataMarket?: boolean } = {};
-  try { body = (await c.req.json()) as typeof body; } catch {}
-  if (typeof body.consentAnalyticsDetail === "boolean") (user as unknown as Record<string, unknown>).consentAnalyticsDetail = body.consentAnalyticsDetail;
+  try {
+    body = (await c.req.json()) as typeof body;
+  } catch {}
+  if (typeof body.consentAnalyticsDetail === "boolean")
+    (user as unknown as Record<string, unknown>).consentAnalyticsDetail = body.consentAnalyticsDetail;
   if (typeof body.consentDataMarket === "boolean") (user as unknown as Record<string, unknown>).consentDataMarket = body.consentDataMarket;
-  return c.json({ ok: true, consentAnalyticsDetail: (user as unknown as { consentAnalyticsDetail?: boolean }).consentAnalyticsDetail ?? false, consentDataMarket: (user as unknown as { consentDataMarket?: boolean }).consentDataMarket ?? false });
+  return c.json({
+    ok: true,
+    consentAnalyticsDetail: (user as unknown as { consentAnalyticsDetail?: boolean }).consentAnalyticsDetail ?? false,
+    consentDataMarket: (user as unknown as { consentDataMarket?: boolean }).consentDataMarket ?? false,
+  });
 });
 
 // PATCH / — update displayName / avatar / username
@@ -120,11 +138,16 @@ app.patch("/", async (c) => {
   }
   if (body.username != null) {
     const s = String(body.username).trim().toLowerCase();
-    if (/^[a-z0-9_]{3,20}$/.test(s) && ![...store.users.values()].some((u) => (u as unknown as { username?: string }).username === s && u.id !== user.id)) {
+    if (
+      /^[a-z0-9_]{3,20}$/.test(s) &&
+      ![...store.users.values()].some((u) => (u as unknown as { username?: string }).username === s && u.id !== user.id)
+    ) {
       (user as unknown as Record<string, unknown>).username = s;
     }
   }
-  return c.json({ user: { id: user.id, displayName: user.displayName, username: (user as unknown as { username?: string }).username ?? null } });
+  return c.json({
+    user: { id: user.id, displayName: user.displayName, username: (user as unknown as { username?: string }).username ?? null },
+  });
 });
 
 export default app;

@@ -1,21 +1,21 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
-import drops from "./routes/drops.js";
-import wallet from "./routes/wallet.js";
-import orders from "./routes/orders.js";
-import nfc from "./routes/nfc.js";
-import marketplace from "./routes/marketplace.js";
+import auth from "./routes/auth.js";
 import bids from "./routes/bids.js";
 import browse from "./routes/browse.js";
-import auth from "./routes/auth.js";
+import creators from "./routes/creators.js";
+import drops from "./routes/drops.js";
+import gamification from "./routes/gamification.js";
+import kyc from "./routes/kyc.js";
+import marketplace from "./routes/marketplace.js";
+import nfc from "./routes/nfc.js";
+import orders from "./routes/orders.js";
 import profile from "./routes/profile.js";
 import publicProfile from "./routes/publicProfile.js";
-import gamification from "./routes/gamification.js";
-import creators from "./routes/creators.js";
-import kyc from "./routes/kyc.js";
-import shipments from "./routes/shipments.js";
 import seo from "./routes/seo.js";
+import shipments from "./routes/shipments.js";
+import wallet from "./routes/wallet.js";
 
 export type Bindings = {
   ENV?: string;
@@ -23,7 +23,7 @@ export type Bindings = {
 
 // Fail-fast: in-memory store fallback is dev/demo only — production MUST have Supabase (spec 16 F-08).
 const g = globalThis as unknown as Record<string, string | undefined>;
-const envMode = (g.ENV ?? (typeof process !== "undefined" ? process.env.NODE_ENV : undefined)) ?? "";
+const envMode = g.ENV ?? (typeof process !== "undefined" ? process.env.NODE_ENV : undefined) ?? "";
 const supabaseUrl = g.SUPABASE_URL ?? (typeof process !== "undefined" ? process.env.SUPABASE_URL : undefined);
 if (envMode === "production" && !supabaseUrl) {
   throw new Error("SUPABASE_URL required in production");
@@ -32,18 +32,21 @@ if (envMode === "production" && !supabaseUrl) {
 const app = new Hono<{ Bindings: Bindings }>();
 
 app.use("*", logger());
-app.use("*", cors({
-  origin: (origin) => {
-    if (!origin) return "https://c-verse.co";
-    if (origin.includes("localhost") || origin.includes("127.0.0.1") || origin.includes("pages.dev")) return origin;
-    if (origin === "https://c-verse.co" || origin === "https://www.c-verse.co") return origin;
-    if (origin === "https://api.c-verse.co" || origin.endsWith(".c-verse.co")) return origin;
-    if (origin === "https://c-verse.id" || origin === "https://www.c-verse.id") return origin;
-    return origin;
-  },
-  allowHeaders: ["Content-Type", "Authorization", "x-forwarded-for"],
-  allowMethods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-}));
+app.use(
+  "*",
+  cors({
+    origin: (origin) => {
+      if (!origin) return "https://c-verse.co";
+      if (origin.includes("localhost") || origin.includes("127.0.0.1") || origin.includes("pages.dev")) return origin;
+      if (origin === "https://c-verse.co" || origin === "https://www.c-verse.co") return origin;
+      if (origin === "https://api.c-verse.co" || origin.endsWith(".c-verse.co")) return origin;
+      if (origin === "https://c-verse.id" || origin === "https://www.c-verse.id") return origin;
+      return origin;
+    },
+    allowHeaders: ["Content-Type", "Authorization", "x-forwarded-for"],
+    allowMethods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  }),
+);
 
 app.get("/", (c) => c.json({ name: "C.Verse API", version: "0.1.0", tagline: "Revolusi Ekonomi Kreator", status: "ok" }));
 app.get("/health", (c) => c.json({ ok: true, ts: new Date().toISOString() }));

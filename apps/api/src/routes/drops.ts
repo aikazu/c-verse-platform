@@ -1,12 +1,15 @@
-import { Hono } from "hono";
-import { zValidator } from "@hono/zod-validator";
-import { z } from "zod";
-import { store, ensureSeed, getUserByToken, authHeaderToToken, logAudit } from "../lib/store.js";
 import { C_COIN_RATE_IDR } from "@c-verse/shared";
+import { zValidator } from "@hono/zod-validator";
+import { Hono } from "hono";
+import { z } from "zod";
 import type { DropStatus } from "../lib/store.js";
+import { authHeaderToToken, ensureSeed, getUserByToken, logAudit, store } from "../lib/store.js";
 
 const app = new Hono();
-app.use("*", async (c, next) => { ensureSeed(); await next(); });
+app.use("*", async (_c, next) => {
+  ensureSeed();
+  await next();
+});
 
 app.get("/", async (c) => {
   const q = c.req.query();
@@ -14,9 +17,27 @@ app.get("/", async (c) => {
   const search = (q.search as string | undefined)?.toLowerCase();
   let drops = [...store.drops.values()];
   if (status && status !== "all") drops = drops.filter((d) => d.status === status);
-  if (search) drops = drops.filter((d) => d.title.toLowerCase().includes(search) || d.series.toLowerCase().includes(search) || d.creatorName.toLowerCase().includes(search));
-  const order: Record<string, number> = { live: 0, published: 0, scheduled: 1, draft: 2, review: 2, approved: 2, production: 2, ended: 3, sold_out: 3, closed: 4, cancelled: 4 };
-  drops.sort((a, b) => (order[a.status] ?? 9) - (order[b.status] ?? 9) || new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  if (search)
+    drops = drops.filter(
+      (d) =>
+        d.title.toLowerCase().includes(search) || d.series.toLowerCase().includes(search) || d.creatorName.toLowerCase().includes(search),
+    );
+  const order: Record<string, number> = {
+    live: 0,
+    published: 0,
+    scheduled: 1,
+    draft: 2,
+    review: 2,
+    approved: 2,
+    production: 2,
+    ended: 3,
+    sold_out: 3,
+    closed: 4,
+    cancelled: 4,
+  };
+  drops.sort(
+    (a, b) => (order[a.status] ?? 9) - (order[b.status] ?? 9) || new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+  );
   return c.json({
     drops: drops.map((d) => ({
       ...d,
@@ -71,7 +92,8 @@ app.post(
     const token = authHeaderToToken(c.req.header("authorization"));
     const user = getUserByToken(token);
     if (!user) return c.json({ error: "Unauthorized" }, 401);
-    if ((user.role as string) !== "creator" && (user.role as string) !== "admin") return c.json({ error: "Hanya kreator/admin yang bisa membuat drop" }, 403);
+    if ((user.role as string) !== "creator" && (user.role as string) !== "admin")
+      return c.json({ error: "Hanya kreator/admin yang bisa membuat drop" }, 403);
     const body = c.req.valid("json");
     const { calcSignedCount, calcUnsignedCount } = await import("@c-verse/shared");
     const signedCount = calcSignedCount(body.totalUnits);
@@ -81,8 +103,8 @@ app.post(
     const priceUnsigned = body.priceUnsignedCCoin ?? priceCcoin;
     const priceSigned = body.priceSignedCCoin ?? Math.ceil(priceCcoin * 1.67); // docs 01 F004 / 09 2.7: signed = 1.67× base (20→34, 30→50, 50→84 ceil)
     // Canonical status per docs/05-data-model drops.status = draft/scheduled/published/live/sold_out/closed/cancelled
-    const allowedStatuses: DropStatus[] = ["draft", "scheduled", "published", "live", "sold_out", "closed", "cancelled"];
-    const legacyMap: Record<string, DropStatus> = { review: "draft", approved: "scheduled", production: "scheduled", ended: "closed" };
+    const _allowedStatuses: DropStatus[] = ["draft", "scheduled", "published", "live", "sold_out", "closed", "cancelled"];
+    const _legacyMap: Record<string, DropStatus> = { review: "draft", approved: "scheduled", production: "scheduled", ended: "closed" };
     const id = `drop-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 5)}`;
     const dropStartAt = body.dropStartAt ?? body.dropAt ?? null;
     const drop = {
@@ -137,7 +159,24 @@ app.post(
 
 app.patch(
   "/:id/status",
-  zValidator("json", z.object({ status: z.enum(["draft", "scheduled", "published", "live", "sold_out", "closed", "cancelled", "review", "approved", "production", "ended"]) })),
+  zValidator(
+    "json",
+    z.object({
+      status: z.enum([
+        "draft",
+        "scheduled",
+        "published",
+        "live",
+        "sold_out",
+        "closed",
+        "cancelled",
+        "review",
+        "approved",
+        "production",
+        "ended",
+      ]),
+    }),
+  ),
   async (c) => {
     const token = authHeaderToToken(c.req.header("authorization"));
     const user = getUserByToken(token);

@@ -1,10 +1,13 @@
-import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
+import { Hono } from "hono";
 import { z } from "zod";
-import { store, ensureSeed, getUserByToken, authHeaderToToken, uid, nowIso, awardBadgeIfNeeded, logAudit } from "../lib/store.js";
+import { authHeaderToToken, awardBadgeIfNeeded, ensureSeed, getUserByToken, logAudit, nowIso, store, uid } from "../lib/store.js";
 
 const app = new Hono();
-app.use("*", async (c, next) => { ensureSeed(); await next(); });
+app.use("*", async (_c, next) => {
+  ensureSeed();
+  await next();
+});
 
 function requireAuth(c: { req: { header: (k: string) => string | undefined } }): ReturnType<typeof getUserByToken> {
   return getUserByToken(authHeaderToToken(c.req.header("authorization")));
@@ -60,7 +63,15 @@ app.post("/:id/approve", async (c) => {
   (rec as unknown as Record<string, unknown>).status = "approved";
   const owner = store.users.get((rec as unknown as { userId: string }).userId);
   if (owner) awardBadgeIfNeeded(owner.id, "b6");
-  logAudit(user.id, "update", "kyc_records", c.req.param("id"), { status: "approved" }, c.req.header("x-forwarded-for") ?? null, authHeaderToToken(c.req.header("authorization")) ?? null);
+  logAudit(
+    user.id,
+    "update",
+    "kyc_records",
+    c.req.param("id"),
+    { status: "approved" },
+    c.req.header("x-forwarded-for") ?? null,
+    authHeaderToToken(c.req.header("authorization")) ?? null,
+  );
   return c.json({ kyc: rec });
 });
 
@@ -70,7 +81,15 @@ app.post("/:id/reject", async (c) => {
   const rec = store.kyc.get(c.req.param("id")) as unknown as Record<string, unknown> | undefined;
   if (!rec) return c.json({ error: "Not found" }, 404);
   (rec as Record<string, unknown>).status = "rejected";
-  logAudit(user.id, "update", "kyc_records", c.req.param("id"), { status: "rejected" }, c.req.header("x-forwarded-for") ?? null, authHeaderToToken(c.req.header("authorization")) ?? null);
+  logAudit(
+    user.id,
+    "update",
+    "kyc_records",
+    c.req.param("id"),
+    { status: "rejected" },
+    c.req.header("x-forwarded-for") ?? null,
+    authHeaderToToken(c.req.header("authorization")) ?? null,
+  );
   return c.json({ kyc: rec });
 });
 

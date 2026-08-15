@@ -15,6 +15,7 @@ export const AOV_SIGNED_CCOIN = AOV_SIGNED_IDR / C_COIN_RATE_IDR; // 50
 
 // integer >= 1, no decimals — all C-Coin nominals ceil from IDR
 export function idrToCCoin(idr: number): number {
+  if (!Number.isFinite(idr) || idr < 0) return Number.NaN; // guard: invalid nominal
   return Math.ceil(idr / C_COIN_RATE_IDR);
 }
 export function ccoinToIdr(ccoin: number): number {
@@ -85,7 +86,18 @@ export type ShipmentToDest = z.infer<typeof shipmentToDestSchema>;
 export const shipmentStatusSchema = z.enum(["requested", "packed", "shipped", "delivered", "cancelled"]);
 export type ShipmentStatus = z.infer<typeof shipmentStatusSchema>;
 
-export const walletTxTypeSchema = z.enum(["top_up", "checkout", "escrow_hold", "escrow_release", "settlement", "payout", "royalty", "refund", "adjustment", "platform_buy"]);
+export const walletTxTypeSchema = z.enum([
+  "top_up",
+  "checkout",
+  "escrow_hold",
+  "escrow_release",
+  "settlement",
+  "payout",
+  "royalty",
+  "refund",
+  "adjustment",
+  "platform_buy",
+]);
 export type WalletTxType = z.infer<typeof walletTxTypeSchema>;
 
 export const verifyStatusSchema = z.enum(["verified", "tamper_detected", "registered", "unknown"]);
