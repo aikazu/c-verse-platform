@@ -591,6 +591,55 @@ await admin.query("commit");
   await p1.end();
 }
 
+// ── X4-X5: guard tulis langsung via PostgREST (audit pass 2) ────────────────
+{
+  // X4: KYC self-approve via insert langsung harus diblokir trigger
+  const b2 = await userClient(U.b2);
+  const selfApprove = await expectCode(
+    b2.query(
+      "insert into public.kyc_records (id, user_id, full_name, nik, address, status) values ('cov-kyc-hack', $1, 'Hack', '1234567890123459', 'Jl. Hack 1', 'approved')",
+      [U.b2],
+    ),
+  );
+  const pendingOk = await b2
+    .query(
+      "insert into public.kyc_records (id, user_id, full_name, nik, address) values ('cov-kyc-pending', $1, 'Ok', '1234567890123460', 'Jl. Ok 1')",
+      [U.b2],
+    )
+    .then(() => true)
+    .catch((e) => errCode(e));
+  report(
+    "X4",
+    selfApprove.includes("service-role") && pendingOk === true,
+    `self_approve=${selfApprove} pending=${pendingOk === true ? "ok" : pendingOk}`,
+  );
+  await b2.end();
+
+  // X5: owner set verify_status/qc_status kartu langsung harus diblokir;
+  // listing via update langsung tetap terikat MAX 20
+  const s = await userClient(U.seller);
+  const cardHack = await expectCode(
+    s.query(
+      "update public.cards set verify_status = 'tamper_detected', qc_status = 'defect', nfc_configured = true where id = 'cov-card-m4'",
+    ),
+  );
+  let maxOk = true;
+  let max21 = "";
+  for (let i = 1; i <= 20; i++) {
+    const r = await expectCode(
+      s.query("update public.cards set buyout_price_ccoin = 10 where id = $1", [`cov-card-max-${String(i).padStart(2, "0")}`]),
+    );
+    if (r !== "UNEXPECTED_OK") maxOk = false;
+  }
+  max21 = await expectCode(s.query("update public.cards set buyout_price_ccoin = 10 where id = 'cov-card-max-21'"));
+  report(
+    "X5",
+    cardHack.includes("hanya buyout_price") && maxOk && max21 === "MAX_BUYOUT_ACTIVE",
+    `card_field_hack=${cardHack} list20=${maxOk ? "ok" : "GAGAL"} max21=${max21}`,
+  );
+  await s.end();
+}
+
 // ── Cleanup ────────────────────────────────────────────────────────────────
 await admin.query("begin");
 await admin.query("alter table public.wallet_transactions disable trigger trg_wtx_immutable");
