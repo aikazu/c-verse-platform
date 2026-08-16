@@ -55,8 +55,6 @@ export const CREATOR_THRESHOLD_FOLLOWERS = 100_000; // combined — off-platform
 
 // ── Enums (align docs/05-data-model) ──────────────────────────────────────
 export const userRoleSchema = z.enum(["user", "creator", "admin"]);
-// backwards alias for older code importing "collector"
-export const legacyCollectorRole = "user" as const;
 export type UserRole = z.infer<typeof userRoleSchema>;
 
 export const dropStatusSchema = z.enum(["draft", "scheduled", "published", "live", "sold_out", "closed", "cancelled"]);
@@ -370,15 +368,20 @@ export function xpForNextLevel(xp: number): number {
   return level * 10 - xp;
 }
 
-// KYC triggers per docs/07 C-05b.
-// TODO(founder): finalisasi sebelum launch (40_operations/10_kyc_policy) — jangan dipakai
-// untuk demo tanpa env override.
-export const KYC_TRIGGER_THRESHOLD_CCOIN = 1000; // 1.000 C-Coin = Rp 10 jt
-export const KYC_TOPUP_THRESHOLD_DEMO = 99; // khusus seed/demo (trigger rendah)
+// ── Pricing: signed price rule ────────────────────────────────────────────────
+// Founder 2026-08-16: priceSigned = priceUnsigned + 20 C-Coin (FLAT, bukan multiplier) — 20/40, 40/60, 50/70.
+export const SIGNED_PRICE_DELTA_CCOIN = 20;
+export function calcSignedPrice(priceCcoin: number): number {
+  return priceCcoin + SIGNED_PRICE_DELTA_CCOIN;
+}
+
+// ── Limits & thresholds (canonical — jangan hard-code di app/SQL) ──────────
+// KYC wajib untuk payout (docs 07 C-05b); top-up non-KYC dibatasi BALANCE_CAP_CCOIN.
 export const MAX_BUYOUT_ACTIVE_PER_USER = 20;
+export const MAX_ACTIVE_BIDS_PER_USER = 3; // keputusan founder 2026-08-16
 export const MIN_PAYOUT_CCOIN = 10; // docs/07 C-09b: minimum payout 10 C-Coin (Rp 100rb)
-export const BALANCE_CAP_CCOIN = 1000; // docs/07 C-08: cap saldo 500-1000 C-Coin (Rp 5-10jt) — default 1000
-export const BALANCE_CAP_CCOIN_SOFT = 500; // lower bound for warning
+export const BALANCE_CAP_CCOIN = 500; // cap saldo top-up non-KYC (docs 07 C-08, founder 2026-08-16); KYC approved = tanpa cap
+export const ESCROW_RELEASE_DELAY_DAYS = 7; // escrow shipping auto-release DELIVERED + H+7
 
 // Guards
 export function isCcoinInteger(n: number): boolean {

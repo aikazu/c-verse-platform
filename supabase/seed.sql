@@ -51,15 +51,17 @@ insert into public.creators (id, user_id, handle, total_followers_combined, stat
 on conflict (id) do nothing;
 
 -- ── drops (mirror store.ts: 70/30 platform-produced, priceCcoin canonical) ──
-insert into public.drops (id, title, series, narrative, artwork_url, total_units, signed_count, unsigned_count, price_unsigned_ccoin, price_signed_ccoin, price_ccoin, status, drop_at, drop_start_at, creator_id, creator_name, sold_count) values
- ('drop-aespa-2025', 'Karina — Limited Genesis', 'HypeCreator X Aespa (2025 Limited Series)', 'Kolaborasi eksklusif Karina Aespa dengan HypeCreator. Acrylic hardcase premium + NFC anti-tamper cryptographic. Hanya 15 unit di dunia.', '/textures/karina.jpg', 15, 2, 13, 30, 50, 30, 'live', now() - interval '1 hour', now() - interval '1 hour', '00000000-0000-4000-8000-000000000003', 'Karina Aespa', 6),
- ('drop-genesis-alpha', 'Genesis Alpha', 'Creator X — Alpha Series', 'Genesis drop dari Creator X. Desain bold, holo foil, acrylic tebal 3mm. Koleksi pembuka C.Verse.', '/textures/genesis.jpg', 20, 2, 18, 25, 45, 25, 'live', now() - interval '2 hours', now() - interval '2 hours', '00000000-0000-4000-8000-000000000004', 'HypeCreator', 12),
- ('drop-nova-01', 'Neon Bloom #01', 'Nova Studio — Neon Bloom', 'Neon Bloom mengeksplor gradien neon & organic shapes. Tiap kartu punya nomor seri & sertifikat digital.', '/textures/neon.jpg', 12, 2, 10, 20, 40, 20, 'scheduled', now() + interval '2 days', now() + interval '2 days', '00000000-0000-4000-8000-000000000005', 'Nova Studio', 0),
- ('drop-aespa-signed', 'Karina — Signed Vault', 'HypeCreator X Aespa — Signed Vault', 'Signed edition — ditandatangani kreator, insert premium, hanya 1 per 10 kartu.', '/textures/karina-signed.jpg', 10, 1, 9, 30, 55, 30, 'ended', now() - interval '7 days', now() - interval '7 days', '00000000-0000-4000-8000-000000000003', 'Karina Aespa', 10)
+-- raffle_end_at = drop_start_at + 24 jam (drop baru selalu raffle, docs 03 Flow 5).
+insert into public.drops (id, title, series, narrative, artwork_url, total_units, signed_count, unsigned_count, price_unsigned_ccoin, price_signed_ccoin, price_ccoin, status, drop_at, drop_start_at, raffle_end_at, drawn_at, creator_id, creator_name, sold_count) values
+ ('drop-aespa-2025', 'Karina — Limited Genesis', 'HypeCreator X Aespa (2025 Limited Series)', 'Kolaborasi eksklusif Karina Aespa dengan HypeCreator. Acrylic hardcase premium + NFC anti-tamper cryptographic. Hanya 15 unit di dunia.', '/textures/karina.jpg', 15, 2, 13, 30, 50, 30, 'live', now() - interval '1 hour', now() - interval '1 hour', now() + interval '23 hours', null, '00000000-0000-4000-8000-000000000003', 'Karina Aespa', 6),
+ ('drop-genesis-alpha', 'Genesis Alpha', 'Creator X — Alpha Series', 'Genesis drop dari Creator X. Desain bold, holo foil, acrylic tebal 3mm. Koleksi pembuka C.Verse.', '/textures/genesis.jpg', 20, 2, 18, 25, 45, 25, 'live', now() - interval '2 hours', now() - interval '2 hours', now() + interval '22 hours', null, '00000000-0000-4000-8000-000000000004', 'HypeCreator', 12),
+ ('drop-nova-01', 'Neon Bloom #01', 'Nova Studio — Neon Bloom', 'Neon Bloom mengeksplor gradien neon & organic shapes. Tiap kartu punya nomor seri & sertifikat digital.', '/textures/neon.jpg', 12, 2, 10, 20, 40, 20, 'scheduled', now() + interval '2 days', now() + interval '2 days', now() + interval '3 days', null, '00000000-0000-4000-8000-000000000005', 'Nova Studio', 0),
+ ('drop-aespa-signed', 'Karina — Signed Vault', 'HypeCreator X Aespa — Signed Vault', 'Signed edition — ditandatangani kreator, insert premium, hanya 1 per 10 kartu.', '/textures/karina-signed.jpg', 10, 1, 9, 30, 50, 30, 'ended', now() - interval '7 days', now() - interval '7 days', now() - interval '6 days', now() - interval '6 days', '00000000-0000-4000-8000-000000000003', 'Karina Aespa', 10)
 on conflict (id) do nothing;
 
 -- ── cards (generate_series mirror store.ts: unit <= sold_count terjual;
---    owner: i%3=0 demo, i%2=0 admin, selain itu hype; unit 3 aespa listed buyout 45) ──
+--    owner: i%3=0 demo, i%2=0 admin, selain itu hype; unit 3 aespa listed buyout 45)
+--    verify_status: 'verified' HANYA via tap CMAC — seed 'registered' (sold) / 'unknown'. ──
 insert into public.cards (id, drop_id, unit_number, variant, status, card_status_new, owner_id, nfc_uid, nfc_short_id, verify_status, location, buyout_price_ccoin, nfc_configured, qc_status)
 select
   'card-' || d.id || '-' || lpad(i::text, 2, '0'),
@@ -79,7 +81,7 @@ select
   else null end,
   upper(md5(d.id || i::text || random()::text)),
   right(regexp_replace(d.id, '[^a-z0-9]', '', 'g'), 4) || '-' || lpad(i::text, 3, '0'),
-  'verified',
+  case when i <= d.sold_count then 'registered' else 'unknown' end::verify_status,
   case when i <= d.sold_count then 'with_owner' else 'platform_stock' end::card_location,
   case when d.id = 'drop-aespa-2025' and i = 3 then 45 else null end,
   true,

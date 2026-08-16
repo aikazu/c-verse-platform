@@ -1,11 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
+  BALANCE_CAP_CCOIN,
   calcLevel,
   calcSignedCount,
+  calcSignedPrice,
   calcUnsignedCount,
   ccoinToIdr,
   idrToCCoin,
   isCcoinInteger,
+  MAX_ACTIVE_BIDS_PER_USER,
   splitSecondaryFeeCcoin,
   xpForNextLevel,
 } from "./index";
@@ -45,6 +48,23 @@ describe("calcSignedCount (1 per 10)", () => {
   it("unsigned = total - signed", () => {
     expect(calcUnsignedCount(15)).toBe(13);
     expect(calcUnsignedCount(10)).toBe(9);
+  });
+});
+
+describe("calcSignedPrice (+20 flat, founder 2026-08-16)", () => {
+  it("signed = unsigned + 20 exactly", () => {
+    expect(calcSignedPrice(20)).toBe(40);
+    expect(calcSignedPrice(40)).toBe(60);
+    expect(calcSignedPrice(50)).toBe(70);
+    expect(calcSignedPrice(30)).toBe(50);
+    expect(calcSignedPrice(1)).toBe(21);
+  });
+});
+
+describe("limits (founder 2026-08-16)", () => {
+  it("top-up cap non-KYC = 500; max 3 active bids per user", () => {
+    expect(BALANCE_CAP_CCOIN).toBe(500);
+    expect(MAX_ACTIVE_BIDS_PER_USER).toBe(3);
   });
 });
 
