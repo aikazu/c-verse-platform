@@ -9,7 +9,7 @@ const CARD_THICK = 0.03;
 
 // Public assets — placeholder mesh + artwork for cards without their own.
 const PLACEHOLDER_OBJ_URL = "/placeholder.obj";
-const PLACEHOLDER_TEXTURE_URL = "/texture/karina.jpg";
+const PLACEHOLDER_TEXTURE_URL = "/textures/karina.jpg";
 
 // Load an image as a texture; rejects when it cannot be loaded or decoded.
 async function loadTexture(THREE: any, url: string): Promise<any> {
