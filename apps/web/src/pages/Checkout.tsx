@@ -32,7 +32,7 @@ export default function Checkout() {
     );
   const d: any = (data as any).title ? (data as any) : ((data as any).drop ?? data);
   const drop = d.title ? d : d;
-  const price = drop.priceCcoin ?? drop.priceCcoin ?? drop.priceUnsignedCCoin ?? 30;
+  const price = drop.priceCcoin ?? drop.priceUnsignedCCoin ?? 30;
   const total = price + (delivery === "shipping" ? fee : 0);
   async function onCheckout() {
     if (!user) {

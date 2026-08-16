@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { api } from "../lib/api";
 import { useToast } from "../lib/toast";
@@ -6,6 +7,9 @@ import { useToast } from "../lib/toast";
 export default function OrderDetail() {
   const { id } = useParams();
   const { push } = useToast();
+  const [busy, setBusy] = useState(false);
+  const [disputeOpen, setDisputeOpen] = useState(false);
+  const [disputeReason, setDisputeReason] = useState("");
   const { data, isLoading, refetch } = useQuery({ queryKey: ["order", id], queryFn: () => api.order(id!), enabled: !!id });
   if (isLoading)
     return (
@@ -24,13 +28,34 @@ export default function OrderDetail() {
   const cards: any[] = (data as any).cards ?? [];
   const shipments: any[] = (data as any).shipments ?? [];
   const isVault = o.deliveryOption === "vault" || (!o.shippingAddress && o.deliveryOption !== "shipping");
+  const isShipped = o.status === "shipped";
   async function onConfirm() {
+    setBusy(true);
     try {
       await api.confirmDelivered(o.id);
       push("Pesanan diterima — terima kasih!", "success");
       refetch();
     } catch (e: any) {
-      push(e.message, "error");
+      push((e as Error)?.message || String(e), "error");
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function onDispute() {
+    if (disputeReason.trim().length < 10) {
+      push("Alasan dispute minimal 10 karakter", "info");
+      return;
+    }
+    setBusy(true);
+    try {
+      await api.openDispute(o.id, disputeReason.trim());
+      push("Dispute dibuat — tim kami akan meninjau", "success");
+      setDisputeOpen(false);
+      refetch();
+    } catch (e: any) {
+      push((e as Error)?.message || String(e), "error");
+    } finally {
+      setBusy(false);
     }
   }
   return (
@@ -113,10 +138,15 @@ export default function OrderDetail() {
                 Alamat: {o.shippingAddress}
               </div>
             )}
-            {o.status === "shipped" && (
-              <button className="btn-gold" onClick={onConfirm} style={{ marginTop: 14 }}>
-                Konfirmasi Diterima
-              </button>
+            {isShipped && (
+              <>
+                <button className="btn-gold" onClick={onConfirm} disabled={busy} style={{ marginTop: 14 }}>
+                  {busy ? "Memproses…" : "Konfirmasi Diterima"}
+                </button>
+                <div className="muted" style={{ fontSize: 11, marginTop: 8 }}>
+                  Dana dilepas otomatis H+7 setelah diterima.
+                </div>
+              </>
             )}
           </div>
         ) : (
@@ -125,6 +155,39 @@ export default function OrderDetail() {
             <Link to="/me/manage" style={{ color: "var(--gold)", fontWeight: 600 }}>
               Kelola Kartu →
             </Link>
+          </div>
+        )}
+        {o.status !== "settled" && o.status !== "cancelled" && (
+          <div style={{ marginTop: 16, borderTop: "1px solid var(--border)", paddingTop: 14 }}>
+            {disputeOpen ? (
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                <label className="label">Alasan dispute (min 10 karakter)</label>
+                <textarea
+                  className="textarea"
+                  rows={3}
+                  value={disputeReason}
+                  onChange={(e) => setDisputeReason(e.target.value)}
+                  placeholder="Jelaskan masalah pada pesanan ini…"
+                />
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button
+                    className="btn-ghost"
+                    onClick={() => setDisputeOpen(false)}
+                    disabled={busy}
+                    style={{ padding: "8px 14px", fontSize: 12 }}
+                  >
+                    Batal
+                  </button>
+                  <button className="btn-gold" onClick={onDispute} disabled={busy} style={{ padding: "8px 14px", fontSize: 12 }}>
+                    {busy ? "Mengirim…" : "Kirim dispute"}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button className="btn-ghost" onClick={() => setDisputeOpen(true)} style={{ fontSize: 12, fontFamily: "var(--font-mono)" }}>
+                Lapor masalah (dispute)
+              </button>
+            )}
           </div>
         )}
         {cards.length > 0 && (

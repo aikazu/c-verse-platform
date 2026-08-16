@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import React, { lazy, Suspense } from "react";
+import React, { lazy, Suspense, useState } from "react";
 import { BrowserRouter, NavLink, Route, Routes, useNavigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./lib/auth";
 import { ToastProvider } from "./lib/toast";
@@ -21,11 +21,9 @@ const Home = lazy(() => import("./pages/Home"));
 const Kyc = lazy(() => import("./pages/Kyc"));
 const Landing = lazy(() => import("./pages/Landing"));
 const Leaderboard = lazy(() => import("./pages/Leaderboard"));
-const ListingDetail = lazy(() => import("./pages/ListingDetail"));
 const Login = lazy(() => import("./pages/Login"));
 const ManageCards = lazy(() => import("./pages/ManageCards"));
 const Marketplace = lazy(() => import("./pages/Marketplace"));
-const Notifications = lazy(() => import("./pages/Notifications"));
 const OrderDetail = lazy(() => import("./pages/OrderDetail"));
 const Orders = lazy(() => import("./pages/Orders"));
 const Privacy = lazy(() => import("./pages/Privacy"));
@@ -130,7 +128,6 @@ function UserMenu() {
             <MenuLink to="/collection" label="Koleksi" onClick={() => setOpen(false)} />
             <MenuLink to="/me/manage" label="Kelola kartu" onClick={() => setOpen(false)} />
             <MenuLink to="/wallet" label="Dompet" onClick={() => setOpen(false)} />
-            <MenuLink to="/notifications" label="Notifikasi" onClick={() => setOpen(false)} />
             <div style={{ height: 1, background: "var(--border)", margin: "4px 8px" }} />
             <MenuLink to="/me/kyc" label="Verifikasi" onClick={() => setOpen(false)} />
             <MenuLink to="/me/privacy" label="Privasi" onClick={() => setOpen(false)} />
@@ -242,14 +239,12 @@ function AppRoutes() {
             <Route path="/cards/:cardId" element={<CardInfo />} />
             <Route path="/cards/:cardId/3d" element={<Card3D />} />
             <Route path="/marketplace" element={<Marketplace />} />
-            <Route path="/marketplace/:id" element={<ListingDetail />} />
             <Route path="/browse" element={<Browse />} />
             <Route path="/collection" element={<Collection />} />
             <Route path="/me" element={<Collection />} />
             <Route path="/me/manage" element={<ManageCards />} />
             <Route path="/me/privacy" element={<Privacy />} />
             <Route path="/me/kyc" element={<Kyc />} />
-            <Route path="/notifications" element={<Notifications />} />
             <Route path="/leaderboard" element={<Leaderboard />} />
             <Route path="/c/:username" element={<CreatorPage />} />
             <Route path="/u/:username" element={<PublicProfile />} />
@@ -274,13 +269,21 @@ function AppRoutes() {
 }
 
 export default function App() {
+  // Flag "nanti" dari UsernameSetupModal — dibaca sekali saat mount.
+  const [usernameLater] = useState(() => {
+    try {
+      return localStorage.getItem("cverse_username_later") === "1";
+    } catch {
+      return false;
+    }
+  });
   return (
     <QueryClientProvider client={qc}>
       <BrowserRouter>
         <AuthProvider>
           <ToastProvider>
             <AppRoutes />
-            <UsernameSetupModal />
+            {!usernameLater && <UsernameSetupModal />}
           </ToastProvider>
         </AuthProvider>
       </BrowserRouter>

@@ -8,40 +8,33 @@ export interface PagedMeta {
   hasMore: boolean;
 }
 
+/** API error carrying HTTP status + machine-readable code (e.g. KYC_TOPUP_CAP). */
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    public status: number,
+    public code?: string,
+  ) {
+    super(message);
+  }
+}
+
 // Supabase Auth: access token di-push dari AuthProvider (session di-manage supabase-js).
-// Legacy dev (tanpa Supabase): token demo di localStorage.
 let sessionToken: string | null = null;
 
 export function setApiToken(token: string | null) {
   sessionToken = token;
 }
 
-function getToken(): string | null {
-  return (
-    sessionToken ??
-    (() => {
-      try {
-        return localStorage.getItem("cverse_token");
-      } catch {
-        return null;
-      }
-    })()
-  );
-}
-function authHeaders(): Record<string, string> {
-  const t = getToken();
-  return t ? { Authorization: `Bearer ${t}` } : {};
-}
-
 async function req<T>(path: string, opts: RequestInit = {}): Promise<T> {
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
-    ...authHeaders(),
+    ...(sessionToken ? { Authorization: `Bearer ${sessionToken}` } : {}),
     ...((opts.headers as Record<string, string>) || {}),
   };
   const res = await fetch(`${API_BASE}/api${path}`, { ...opts, headers });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.error || data.message || `HTTP ${res.status}`);
+  if (!res.ok) throw new ApiError(data.error || data.message || `HTTP ${res.status}`, res.status, data.code);
   return data as T;
 }
 
@@ -55,13 +48,31 @@ export const api = {
   },
   drop: (id: string) => req<any>(`/drops/${id}`),
   createDrop: (body: any) => req<{ drop: any }>("/drops", { method: "POST", body: JSON.stringify(body) }),
+  publishDrop: (id: string, status: string) => req<any>(`/drops/${id}/status`, { method: "PATCH", body: JSON.stringify({ status }) }),
   // wallet
-  wallet: () => req<{ wallet: any; transactions: any[]; rate: number }>("/wallet"),
-  topup: (amountCCoin: number, method: string) =>
-    req<{ wallet: any; transaction: any }>("/wallet/topup", { method: "POST", body: JSON.stringify({ amountCCoin, method }) }),
-  topupAlias: (body: { amountCCoin?: number; amountCcoin?: number; method?: string }) =>
-    req<{ wallet: any; transaction: any }>("/wallet/topup", { method: "POST", body: JSON.stringify(body) }),
-  payout: (amountCCoin: number) => req<any>("/wallet/payout", { method: "POST", body: JSON.stringify({ amountCCoin }) }),
+  wallet: () =>
+    req<{
+      wallet: any;
+      transactions: any[];
+      rate: number;
+      topupCapNoKyc: number;
+      minPayout: number;
+      payoutHeld: boolean;
+      payoutHoldUntil: string | null;
+      disclosureOpsiA: string;
+    }>("/wallet"),
+  // payments (Midtrans): topup returns payment instruction, payout creates weekly-batch request
+  topup: (amountCcoin: number) =>
+    req<{
+      orderId: string;
+      provider: string;
+      amountCcoin: number;
+      amountIdr: number;
+      snapToken?: string | null;
+      redirectUrl?: string | null;
+      expiresInMinutes?: number;
+    }>("/payments/topup", { method: "POST", body: JSON.stringify({ amountCcoin }) }),
+  payout: (amountCcoin: number) => req<{ payout: any }>("/payments/payout", { method: "POST", body: JSON.stringify({ amountCcoin }) }),
   // orders (primary)
   orders: () => req<{ orders: any[] }>("/orders"),
   order: (id: string) => req<{ order: any; drop: any; cards: any[]; shipments?: any[] }>(`/orders/${id}`),
@@ -74,6 +85,8 @@ export const api = {
     variant?: string;
   }) => req<{ order: any; cards: any[]; wallet: any }>("/orders/checkout", { method: "POST", body: JSON.stringify(body) }),
   confirmDelivered: (id: string) => req<{ order: any }>(`/orders/${id}/confirm-delivered`, { method: "POST" }),
+  openDispute: (orderId: string, reason: string) =>
+    req<any>(`/orders/${orderId}/dispute`, { method: "POST", body: JSON.stringify({ reason }) }),
   vaultShipout: (cardId: string, address: string, feeCcoin: number) =>
     req<any>("/orders/vault-shipout", { method: "POST", body: JSON.stringify({ cardId, address, feeCcoin }) }),
   // nfc / cards (merged verify per 02-pages: card info + 3D separate)
@@ -91,35 +104,33 @@ export const api = {
     const qs = params ? `?${new URLSearchParams(params).toString()}` : "";
     return req<{ listings: any[]; marketplace?: any[]; cards?: any[] } & PagedMeta>(`/listings${qs}` as string);
   },
-  listing: (id: string) => req<{ listing: any; card: any; drop: any; seller: any; bids: any[] }>(`/listings/${id}`),
   createListing: (body: any) => req<{ listing: any; card?: any }>("/listings", { method: "POST", body: JSON.stringify(body) }),
   setBuyout: (cardId: string, buyoutPriceCcoin: number | null) =>
     req<any>("/listings", { method: "POST", body: JSON.stringify({ cardId, buyoutPriceCcoin }) }),
-  buyout: (cardId: string) => req<any>("/listings/buyout", { method: "POST", body: JSON.stringify({ cardId }) }),
+  buyout: (cardId: string, destination: "buyer_address" | "platform_vault", shippingAddress?: string) =>
+    req<{ ok: boolean; card: any }>("/listings/buyout", {
+      method: "POST",
+      body: JSON.stringify({ cardId, destination, ...(shippingAddress ? { shippingAddress } : {}) }),
+    }),
   patchBuyout: (cardId: string, buyoutPriceCcoin: number | null) =>
     req<any>(`/listings/cards/${cardId}/buyout`, { method: "PATCH", body: JSON.stringify({ buyoutPriceCcoin }) }),
-  buyNow: (id: string) => req<any>(`/listings/${id}/buy-now`, { method: "POST" }),
-  cancelListing: (id: string) => req<any>(`/listings/${id}`, { method: "DELETE" }),
   // browse
   browse: (params?: Record<string, string>) => {
     const qs = params ? `?${new URLSearchParams(params).toString()}` : "";
     return req<{ cards: any[]; results: any[] } & PagedMeta>(`/browse${qs}`);
   },
-  browseCard: (cardId: string) => req<any>(`/browse/cards/${cardId}`),
   // bids (direct on card)
-  bids: (id: string) => req<{ bids: any[] }>(`/bids/${id}` as string),
-  bidsForCard: (cardId: string) => req<{ bids: any[] }>(`/bids/card/${cardId}`),
   placeBid: (cardId: string, amountCcoin: number, listingId?: string) =>
     req<{ bid: any; activeBid?: any; listing?: any }>(`/bids`, {
       method: "POST",
       body: JSON.stringify({ cardId, amountCCoin: amountCcoin, amountCcoin: amountCcoin, ...(listingId ? { listingId } : {}) }),
     }),
-  placeBidLegacy: (listingId: string, amountCCoin: number) =>
-    req<{ bid: any; listing: any }>("/bids", { method: "POST", body: JSON.stringify({ listingId, amountCCoin }) }),
   cancelBid: (bidId: string) => req<any>(`/bids/${bidId}/cancel`, { method: "POST" }),
-  acceptBidLegacy: (listingId: string) => req<any>(`/bids/${listingId}/accept`, { method: "POST" }),
-  acceptBidOnCard: (cardId: string, destination?: "buyer_address" | "platform_vault") =>
-    req<any>(`/bids/cards/${cardId}/accept`, { method: "POST", body: JSON.stringify(destination ? { destination } : {}) }),
+  acceptBidOnCard: (cardId: string, destination?: "buyer_address" | "platform_vault", shippingAddress?: string) =>
+    req<any>(`/bids/cards/${cardId}/accept`, {
+      method: "POST",
+      body: JSON.stringify({ destination, ...(shippingAddress ? { shippingAddress } : {}) }),
+    }),
   // profile
   profile: () => req<any>("/profile"),
   myCards: () => req<{ cards: any[] }>("/profile/cards"),
@@ -130,42 +141,17 @@ export const api = {
   // public profile / creator
   publicProfile: (username: string) => req<any>(`/public/u/${encodeURIComponent(username)}`),
   creatorPublic: (idOrHandle: string) => req<any>(`/creators/${encodeURIComponent(idOrHandle)}`),
-  // shipments
-  shipments: () => req<{ shipments: any[] }>("/shipments"),
-  shipment: (id: string) => req<any>(`/shipments/${id}`),
+  applyCreator: () => req<{ creator: { handle: string; status: string; message: string } }>("/creators/apply", { method: "POST" }),
   // gamification
   leaderboard: (limit = 20) => req<{ leaderboard: any[] }>(`/gamification/leaderboard?limit=${limit}`),
   badges: () => req<{ badges: any[] }>("/gamification/badges"),
-  badgesFor: (userId: string) => req<{ badges: any[] }>(`/gamification/badges/${userId}`),
-  // creators (list)
-  creators: () => req<{ creators: any[] }>("/creators"),
-  creator: (id: string) => req<any>(`/creators/${id}`),
   // kyc
   kyc: () => req<{ kyc: any }>("/kyc"),
-  kycAll: () => req<{ kyc: any[] }>("/kyc/admin/all"),
   submitKyc: (body: any) => req<{ kyc: any }>("/kyc", { method: "POST", body: JSON.stringify(body) }),
-  approveKyc: (id: string) => req<any>(`/kyc/${id}/approve`, { method: "POST" }),
-
-  // helpers
-  getToken,
-  authHeaders,
 };
-export function saveToken(t: string) {
-  try {
-    localStorage.setItem("cverse_token", t);
-  } catch {}
-}
-export function clearToken() {
-  try {
-    localStorage.removeItem("cverse_token");
-  } catch {}
-}
 export function ccoinToIdr(c: number, rate = 10000) {
   return c * rate;
 }
 export function formatIdr(n: number) {
   return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(n);
-}
-export function formatCCoin(c: number) {
-  return `${c} C-Coin`;
 }

@@ -1,6 +1,7 @@
+import { useQueryClient } from "@tanstack/react-query";
 import type React from "react";
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
-import { api, clearToken, setApiToken } from "./api";
+import { api, setApiToken } from "./api";
 import { isSupabaseEnabled, supabase } from "./supabase";
 
 // Auth (docs/10): Supabase Auth — Google OAuth + email OTP 6 digit + captcha Turnstile.
@@ -75,16 +76,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User>(null);
   const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
+  const isConfigured = isSupabaseEnabled && !!supabase;
 
   useEffect(() => {
-    if (!isSupabaseEnabled || !supabase) {
-      // dev fallback: demo token di localStorage
-      const t = api.getToken();
-      setToken(t);
-      loadProfile(setUser, t).finally(() => setLoading(false));
-      return;
-    }
-    supabase.auth
+    const sb = supabase;
+    if (!isSupabaseEnabled || !sb) return; // config error is rendered below — never fake a session
+    sb.auth
       .getSession()
       .then(async ({ data }) => {
         const t = data.session?.access_token ?? null;
@@ -92,7 +90,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         await loadProfile(setUser, t);
       })
       .finally(() => setLoading(false));
-    const { data: sub } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    const { data: sub } = sb.auth.onAuthStateChange(async (_event, session) => {
       const t = session?.access_token ?? null;
       setToken(t);
       await loadProfile(setUser, t);
@@ -132,10 +130,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (supabase) {
       await supabase.auth.signOut().catch(() => {});
     }
-    clearToken();
     setApiToken(null);
     setToken(null);
     setUser(null);
+    queryClient.clear(); // drop cached data of the signed-out user
   }
 
   async function refresh() {
@@ -147,6 +145,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     () => ({ user, token, loading, isSupabaseAuth: isSupabaseEnabled, loginGoogle, sendOtp, verifyOtp, logout, refresh }),
     [user, token, loading, loginGoogle, sendOtp, verifyOtp, logout, refresh],
   );
+
+  // Early return setelah semua hook — tanpa Supabase tidak ada sesi palsu (fail-fast).
+  if (!isConfigured) {
+    return (
+      <div className="card card-pad" style={{ textAlign: "center", padding: 32, margin: "0 auto", maxWidth: 480 }}>
+        <span className="eyebrow">Konfigurasi</span>
+        <p className="muted" style={{ marginTop: 8 }}>
+          Supabase belum terkonfigurasi — set <span style={{ fontFamily: "var(--font-mono)" }}>VITE_SUPABASE_URL</span> dan{" "}
+          <span style={{ fontFamily: "var(--font-mono)" }}>VITE_SUPABASE_ANON_KEY</span> di{" "}
+          <span style={{ fontFamily: "var(--font-mono)" }}>.env.local</span>.
+        </p>
+      </div>
+    );
+  }
 
   return <AuthCtx.Provider value={ctxValue}>{children}</AuthCtx.Provider>;
 }

@@ -44,7 +44,7 @@ export default {
         if (meta?.og?.title) el.append(`<meta property="og:title" content="${esc(meta.og.title)}" />`, { html: true });
         if (meta?.og?.description) el.append(`<meta property="og:description" content="${esc(meta.og.description)}" />`, { html: true });
         if (meta?.og?.image) el.append(`<meta property="og:image" content="${esc(meta.og.image)}" />`, { html: true });
-        if (meta?.jsonLd) el.append(`<script type="application/ld+json">${JSON.stringify(meta.jsonLd)}</script>`, { html: true });
+        if (meta?.jsonLd) el.append(`<script type="application/ld+json">${escapeJsonLd(meta.jsonLd)}</script>`, { html: true });
       },
     });
     return rewriter.transform(originRes);
@@ -53,4 +53,9 @@ export default {
 
 function esc(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+/** JSON-LD anti-`</script>` injection: escape every `<` so the payload can never close the tag. */
+function escapeJsonLd(data: unknown): string {
+  return JSON.stringify(data).replace(/</g, "\\u003c");
 }

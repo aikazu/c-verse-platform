@@ -8,9 +8,38 @@ import { useToast } from "../lib/toast";
 export default function CreatorDashboard() {
   const { user } = useAuth();
   const { push } = useToast();
-  const [form, setForm] = useState({ title: "", series: "", narrative: "", totalUnits: 15, priceCcoin: 30 });
+  const today = new Date().toISOString().slice(0, 10);
+  const [form, setForm] = useState({
+    title: "",
+    series: "",
+    narrative: "",
+    totalUnits: 15,
+    priceCcoin: 30,
+    releaseDate: today,
+    releaseTime: "12:00",
+  });
+  const [applyBusy, setApplyBusy] = useState(false);
+  const [applied, setApplied] = useState(false);
 
   const { data: dropsData, refetch } = useQuery({ queryKey: ["creator-drops"], queryFn: () => api.drops({}) });
+
+  async function onApplyCreator() {
+    setApplyBusy(true);
+    try {
+      const r = await api.applyCreator();
+      push(r.creator.message, "success");
+      setApplied(true);
+    } catch (err: any) {
+      if (err?.status === 409) {
+        push("Pendaftaran kreator sudah ada — menunggu review admin", "info");
+        setApplied(true);
+      } else {
+        push(err.message, "error");
+      }
+    } finally {
+      setApplyBusy(false);
+    }
+  }
 
   if (!user)
     return (
@@ -27,11 +56,32 @@ export default function CreatorDashboard() {
   if ((user.role as string) !== "creator" && (user.role as string) !== "admin")
     return (
       <div className="card card-pad" style={{ textAlign: "center", padding: 32 }}>
-        <p className="muted">Hanya kreator yang bisa mengakses halaman ini</p>
+        <span className="eyebrow">Kreator</span>
+        <p className="muted" style={{ marginTop: 8 }}>
+          Hanya kreator yang bisa mengakses dashboard ini.
+        </p>
+        {!applied && (
+          <button className="btn-gold" onClick={onApplyCreator} disabled={applyBusy} style={{ marginTop: 14, padding: "11px 24px" }}>
+            {applyBusy ? "Mengirim…" : "Ajukan jadi kreator"}
+          </button>
+        )}
       </div>
     );
 
   const myDrops: any[] = (dropsData as any)?.drops?.filter((d: any) => d.creatorId === user.id || (user.role as string) === "admin") ?? [];
+
+  async function onPublish(id: string, status: string) {
+    try {
+      await api.publishDrop(id, status);
+      push(
+        status === "scheduled" ? "Drop dijadwalkan rilis" : status === "draft" ? "Drop dikembalikan ke draft" : "Drop dibatalkan",
+        "success",
+      );
+      refetch();
+    } catch (err: any) {
+      push(err.message, "error");
+    }
+  }
 
   async function onCreate(e: React.FormEvent) {
     e.preventDefault();
@@ -42,10 +92,11 @@ export default function CreatorDashboard() {
         narrative: form.narrative,
         totalUnits: Number(form.totalUnits),
         priceCcoin: Number(form.priceCcoin),
+        dropStartAt: `${form.releaseDate}T${form.releaseTime}:00+07:00`,
       } as any);
       push("Drop dibuat", "success");
       refetch();
-      setForm({ title: "", series: "", narrative: "", totalUnits: 15, priceCcoin: 30 });
+      setForm({ title: "", series: "", narrative: "", totalUnits: 15, priceCcoin: 30, releaseDate: today, releaseTime: "12:00" });
     } catch (err: any) {
       push(err.message, "error");
     }
@@ -149,6 +200,29 @@ export default function CreatorDashboard() {
               />
             </div>
           </div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <div className="form-row" style={{ flex: 1, marginBottom: 0 }}>
+              <label className="label">Tanggal rilis</label>
+              <input
+                className="input"
+                type="date"
+                value={form.releaseDate}
+                onChange={(e) => setForm((s) => ({ ...s, releaseDate: e.target.value }))}
+              />
+            </div>
+            <div className="form-row" style={{ flex: 1, marginBottom: 0 }}>
+              <label className="label">Jam (WIB)</label>
+              <input
+                className="input"
+                type="time"
+                value={form.releaseTime}
+                onChange={(e) => setForm((s) => ({ ...s, releaseTime: e.target.value }))}
+              />
+            </div>
+          </div>
+          <div className="muted" style={{ fontSize: 11 }}>
+            Window raffle 24 jam otomatis setelah rilis; pembagian via draw.
+          </div>
           <button className="btn-gold" style={{ padding: "11px", width: "100%" }}>
             Buat Draft
           </button>
@@ -192,12 +266,32 @@ export default function CreatorDashboard() {
                       {d.series} · {d.soldCount}/{d.totalUnits} · {d.priceCcoin ?? d.priceUnsignedCCoin} C
                     </div>
                   </div>
-                  <span
-                    className={`pill ${d.status === "live" ? "pill-success" : d.status === "draft" ? "pill-warn" : "pill-info"}`}
-                    style={{ fontSize: 10 }}
-                  >
-                    {d.status}
-                  </span>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+                    {d.status === "draft" && (
+                      <button
+                        className="btn-gold"
+                        onClick={() => onPublish(d.id, "scheduled")}
+                        style={{ fontSize: 11, padding: "6px 12px" }}
+                      >
+                        Publish
+                      </button>
+                    )}
+                    {(d.status === "scheduled" || d.status === "live") && (
+                      <button
+                        className="btn-ghost"
+                        onClick={() => onPublish(d.id, d.status === "scheduled" ? "draft" : "cancelled")}
+                        style={{ fontSize: 11, padding: "6px 12px" }}
+                      >
+                        Batalkan
+                      </button>
+                    )}
+                    <span
+                      className={`pill ${d.status === "live" ? "pill-success" : d.status === "draft" ? "pill-warn" : "pill-info"}`}
+                      style={{ fontSize: 10 }}
+                    >
+                      {d.status}
+                    </span>
+                  </div>
                 </div>
               ))
             )}

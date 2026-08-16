@@ -57,7 +57,7 @@ export default function Marketplace() {
             return (
               <Link
                 key={card?.id ?? r.listingId}
-                to={card?.id ? `/cards/${card.id}` : `/marketplace/${r.listingId}`}
+                to={card?.id ? `/cards/${card.id}` : "/browse"}
                 className="card"
                 style={{ overflow: "hidden", textDecoration: "none", color: "inherit" }}
               >

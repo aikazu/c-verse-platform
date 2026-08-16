@@ -5,12 +5,15 @@ import { useToast } from "../lib/toast";
 
 const USERNAME_RE = /^[a-z0-9_]{3,20}$/;
 
+const LATER_FLAG_KEY = "cverse_username_later";
+
 export default function UsernameSetupModal() {
   const { user, refresh } = useAuth();
   const { push } = useToast();
   const [value, setValue] = useState("");
   const [status, setStatus] = useState<"idle" | "checking" | "available" | "taken" | "invalid">("idle");
   const [busy, setBusy] = useState(false);
+  const [skipped, setSkipped] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   // Hanya tampil untuk user yang usernamenya masih hasil generate default (username_is_auto)
@@ -44,7 +47,7 @@ export default function UsernameSetupModal() {
   }, [value, user?.username]);
 
   // early return seteleh semua hook agar urutan hook tetap konsisten tiap render
-  if (!isDefault) return null;
+  if (!isDefault || skipped) return null;
 
   async function onSubmit() {
     if (status !== "available" && status !== "idle") return;
@@ -61,7 +64,11 @@ export default function UsernameSetupModal() {
   }
 
   function onSkip() {
-    // Tidak apa-apa — user bisa ganti nanti di Pengaturan
+    // Ingat pilihan "nanti" supaya modal tidak muncul lagi di sesi berikutnya (App juga gate via flag ini).
+    try {
+      localStorage.setItem(LATER_FLAG_KEY, "1");
+    } catch {}
+    setSkipped(true);
   }
 
   const hint: Record<string, string> = {

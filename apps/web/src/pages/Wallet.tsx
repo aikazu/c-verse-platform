@@ -1,34 +1,84 @@
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
-import { api, formatIdr } from "../lib/api";
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { ApiError, api, formatIdr } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { useToast } from "../lib/toast";
 
 export default function Wallet() {
   const { user } = useAuth();
   const { push } = useToast();
+  const nav = useNavigate();
   const [amount, setAmount] = useState(50);
-  const [method, setMethod] = useState("qris");
   const [payoutAmt, setPayoutAmt] = useState(10);
+  const [busyTopup, setBusyTopup] = useState(false);
+  const [busyPayout, setBusyPayout] = useState(false);
+  // Midtrans Snap instruction untuk pembayaran yang tidak melempar redirect (fallback tampilkan token)
+  const [snapPanel, setSnapPanel] = useState<{ snapToken: string; amountCcoin: number; expiresLabel: string } | null>(null);
 
   const { data, refetch, isLoading } = useQuery({ queryKey: ["wallet"], queryFn: () => api.wallet(), enabled: !!user });
+  const isCreator = user?.role === "creator"; // payout self-service hanya untuk kreator
+
+  // Kembali dari Midtrans: ?order_id=...&status_code=... — saldo dikredit webhook, bukan redirect.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (!params.has("order_id")) return;
+    push("Menunggu konfirmasi pembayaran — saldo masuk otomatis", "info");
+    refetch();
+    params.delete("order_id");
+    params.delete("status_code");
+    params.delete("transaction_status");
+    const qs = params.toString();
+    window.history.replaceState(null, "", `${window.location.pathname}${qs ? `?${qs}` : ""}`);
+  }, []);
 
   async function onTopup() {
+    setBusyTopup(true);
     try {
-      const r = await api.topup(amount, method);
-      push(`Isi ${amount} C berhasil — saldo ${r.wallet.balanceCCoin} C`, "success");
-      refetch();
-    } catch (e: any) {
-      push(e.message || String(e), "error");
+      const r = await api.topup(amount);
+      if (r.redirectUrl) {
+        window.location.href = r.redirectUrl;
+        return;
+      }
+      setSnapPanel({
+        snapToken: r.snapToken ?? "",
+        amountCcoin: r.amountCcoin,
+        expiresLabel: r.expiresInMinutes ? `${r.expiresInMinutes} menit` : "60 menit",
+      });
+    } catch (e) {
+      const err = e instanceof ApiError ? e : null;
+      if (err && (err.status === 422 || err.code === "KYC_TOPUP_CAP")) {
+        push(`${err.message} — buka KYC sekarang`, "error");
+        nav("/me/kyc");
+      } else {
+        push((e as Error)?.message || String(e), "error");
+      }
+    } finally {
+      setBusyTopup(false);
     }
   }
   async function onPayout() {
+    setBusyPayout(true);
     try {
-      const r = await api.payout(payoutAmt);
-      push(`Tarik ${payoutAmt} C → ${r.netCCoin} C (${formatIdr(r.netIdr)})`, "success");
+      await api.payout(payoutAmt);
+      push("Permintaan payout dibuat — diproses batch mingguan", "success");
       refetch();
-    } catch (e: any) {
-      push(e.message || String(e), "error");
+    } catch (e) {
+      const err = e instanceof ApiError ? e : null;
+      if (err?.status === 403 && err.code === "KYC_REQUIRED") {
+        push(`${err.message} — buka KYC sekarang`, "error");
+        nav("/me/kyc");
+      } else if (err?.status === 400 && err.code === "MIN_PAYOUT") {
+        push("Payout minimum 10 C-Coin", "error");
+      } else if (err?.status === 402) {
+        push("Saldo tidak cukup", "error");
+      } else if (err?.status === 423) {
+        push("Payout ditahan admin", "error");
+      } else {
+        push((e as Error)?.message || String(e), "error");
+      }
+    } finally {
+      setBusyPayout(false);
     }
   }
 
@@ -53,6 +103,9 @@ export default function Wallet() {
   const w: any = (data as any).wallet;
   const txs: any[] = (data as any).transactions ?? [];
   const rate = (data as any).rate ?? 10000;
+  const topupCapNoKyc = (data as any)?.topupCapNoKyc ?? 500;
+  const payoutHeld = (data as any)?.payoutHeld ?? false;
+  const payoutHoldUntil: string | null = (data as any)?.payoutHoldUntil ?? null;
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
       <div>
@@ -64,6 +117,21 @@ export default function Wallet() {
           1 C = Rp 10.000
         </p>
       </div>
+
+      {payoutHeld && (
+        <div
+          className="card card-pad"
+          style={{
+            background: "rgba(239,68,68,0.08)",
+            border: "1px solid rgba(239,68,68,0.25)",
+            fontSize: 12,
+            color: "var(--text-muted)",
+          }}
+        >
+          <strong style={{ color: "var(--alert)" }}>Payout ditahan admin</strong>
+          {payoutHoldUntil ? ` sampai ${new Date(payoutHoldUntil).toLocaleString("id-ID")}` : ""}.
+        </div>
+      )}
 
       <div className="grid-2">
         {/* Balance — spec-sheet style */}
@@ -120,53 +188,88 @@ export default function Wallet() {
             }}
           >
             Saldo <strong style={{ color: "var(--text)" }}>tidak dapat diuangkan</strong> (Gamified Point — Opsi A). Refund hanya reversal
-            ke metode asal atau penutupan akun bersaldo ke top-up terakhir. Cap saldo {(data as any)?.balanceCap ?? 1000} C.
+            ke metode asal atau penutupan akun bersaldo ke top-up terakhir.
             <br />
             <span style={{ fontFamily: "var(--font-mono)", fontSize: 10 }}>Isi saldo = kamu setuju T&C C-Coin.</span>
           </div>
-          <div style={{ display: "flex", gap: 8 }}>
-            <select className="select" value={method} onChange={(e) => setMethod(e.target.value)} style={{ flex: 1 }}>
-              <option value="qris">QRIS</option>
-              <option value="va_bca">VA BCA</option>
-              <option value="va_mandiri">VA Mandiri</option>
-              <option value="ewallet_gopay">GoPay</option>
-              <option value="ewallet_ovo">OVO</option>
-            </select>
-            <select className="select" value={amount} onChange={(e) => setAmount(Number(e.target.value))} style={{ flex: 1 }}>
-              {[10, 20, 30, 50, 100, 200, 500].map((v) => (
-                <option key={v} value={v}>
-                  {v} C · {formatIdr(v * 10000)}
-                </option>
-              ))}
-            </select>
+          <div
+            style={{
+              background: "rgba(56,189,248,0.07)",
+              border: "1px solid rgba(56,189,248,0.18)",
+              borderRadius: 10,
+              padding: "10px 12px",
+              fontSize: 11,
+              lineHeight: 1.5,
+              color: "var(--text-muted)",
+            }}
+          >
+            Cap saldo non-KYC: <strong style={{ color: "var(--text)" }}>{topupCapNoKyc} C-Coin</strong> — KYC untuk tanpa cap.
           </div>
-          <button className="btn-gold" onClick={onTopup} style={{ padding: "11px", width: "100%" }}>
-            Isi {amount} C →
+          <select className="select" value={amount} onChange={(e) => setAmount(Number(e.target.value))}>
+            {[10, 20, 30, 50, 100, 200, 500].map((v) => (
+              <option key={v} value={v}>
+                {v} C · {formatIdr(v * rate)}
+              </option>
+            ))}
+          </select>
+          <button className="btn-gold" onClick={onTopup} disabled={busyTopup} style={{ padding: "11px", width: "100%" }}>
+            {busyTopup ? "Memproses…" : `Isi ${amount} C →`}
           </button>
+          {snapPanel && (
+            <div
+              style={{
+                background: "var(--surface-2)",
+                border: "1px solid var(--border)",
+                borderRadius: 10,
+                padding: "12px 14px",
+                display: "flex",
+                flexDirection: "column",
+                gap: 6,
+              }}
+            >
+              <div style={{ fontWeight: 600, fontSize: 12 }}>Pembayaran Midtrans — {snapPanel.amountCcoin} C</div>
+              <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, wordBreak: "break-all", color: "var(--gold)" }}>
+                {snapPanel.snapToken || "Token tidak tersedia"}
+              </div>
+              <div className="muted" style={{ fontSize: 11 }}>
+                Selesaikan pembayaran, saldo masuk otomatis setelah webhook (kedaluwarsa {snapPanel.expiresLabel}).
+              </div>
+            </div>
+          )}
 
           <div style={{ height: 1, background: "var(--border)", margin: "4px 0" }} />
 
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <span style={{ fontWeight: 600, fontSize: 13 }}>Tarik ke Rekening</span>
-            <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--text-dim)", letterSpacing: "0.06em" }}>
-              MIN 10 C
-            </span>
-          </div>
-          <div style={{ display: "flex", gap: 8 }}>
-            <input
-              className="input"
-              type="number"
-              min={10}
-              value={payoutAmt}
-              onChange={(e) => setPayoutAmt(Number(e.target.value))}
-              style={{ flex: 1 }}
-              placeholder="Jumlah C"
-            />
-            <button className="btn-ghost" onClick={onPayout}>
-              Tarik
-            </button>
-          </div>
-          <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--text-dim)" }}>Biaya 1% · minimal 10 C</div>
+          {isCreator ? (
+            <>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <span style={{ fontWeight: 600, fontSize: 13 }}>Tarik ke Rekening</span>
+                <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--text-dim)", letterSpacing: "0.06em" }}>
+                  MIN 10 C
+                </span>
+              </div>
+              <div style={{ display: "flex", gap: 8 }}>
+                <input
+                  className="input"
+                  type="number"
+                  min={10}
+                  value={payoutAmt}
+                  onChange={(e) => setPayoutAmt(Number(e.target.value))}
+                  style={{ flex: 1 }}
+                  placeholder="Jumlah C"
+                />
+                <button className="btn-ghost" onClick={onPayout} disabled={busyPayout}>
+                  {busyPayout ? "Memproses…" : "Tarik"}
+                </button>
+              </div>
+              <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--text-dim)" }}>
+                Dana dikunci sampai batch mingguan · minimal 10 C
+              </div>
+            </>
+          ) : (
+            <div className="muted" style={{ fontSize: 11 }}>
+              Penarikan hanya untuk kreator (hasil penjualan) — KYC wajib.
+            </div>
+          )}
         </div>
       </div>
 

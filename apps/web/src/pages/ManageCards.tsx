@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
@@ -8,10 +8,26 @@ import { useToast } from "../lib/toast";
 export default function ManageCards() {
   const { user } = useAuth();
   const { push } = useToast();
-  const [buyout, setBuyout] = useState<Record<string, number>>({});
+  const [buyout, setBuyout] = useState<Record<string, string>>({});
   const [vaultAddr, setVaultAddr] = useState<Record<string, string>>({});
   const [vaultFee, setVaultFee] = useState<Record<string, number>>({});
+  const [acceptDest, setAcceptDest] = useState<Record<string, "buyer_address" | "platform_vault">>({});
+  const [acceptAddr, setAcceptAddr] = useState<Record<string, string>>({});
   const { data, refetch } = useQuery({ queryKey: ["profile-manage"], queryFn: () => api.profile(), enabled: !!user });
+
+  // Seed input dari harga buyout aktif — string supaya kosong ("") terbedakan dari angka.
+  useEffect(() => {
+    const list: any[] = (data as any)?.cards ?? [];
+    if (list.length === 0) return;
+    setBuyout((prev) => {
+      const next = { ...prev };
+      for (const card of list) {
+        if (!(card.id in next)) next[card.id] = card.buyoutPriceCcoin != null ? String(card.buyoutPriceCcoin) : "";
+      }
+      return next;
+    });
+  }, [data]);
+
   if (!user)
     return (
       <div className="card card-pad" style={{ textAlign: "center", padding: 32 }}>
@@ -26,19 +42,28 @@ export default function ManageCards() {
     );
   const cards: any[] = (data as any)?.cards ?? [];
   async function onSetBuyout(card: any) {
-    const v = buyout[card.id];
-    if (v != null && (Number.isNaN(v) || v < 1)) {
+    const raw = (buyout[card.id] ?? "").trim();
+    const hasExisting = card.buyoutPriceCcoin != null;
+    if (raw === "") {
+      if (!hasExisting) return; // tidak ada perubahan — memang belum dijual
+      if (!window.confirm("Hapus harga buyout kartu ini?")) return;
+      try {
+        await api.patchBuyout(card.id, null);
+        push("Harga dihapus", "success");
+        refetch();
+      } catch (e: any) {
+        push(e.message, "error");
+      }
+      return;
+    }
+    const v = Number(raw);
+    if (Number.isNaN(v) || v < 1) {
       push("Minimal 1 C", "info");
       return;
     }
     try {
-      if (v == null || v === 0) {
-        await api.patchBuyout(card.id, null);
-        push("Harga dihapus", "success");
-      } else {
-        await api.setBuyout(card.id, v);
-        push(`Dijual ${v} C`, "success");
-      }
+      await api.setBuyout(card.id, v);
+      push(`Dijual ${v} C`, "success");
       refetch();
     } catch (e: any) {
       push(e.message, "error");
@@ -60,8 +85,14 @@ export default function ManageCards() {
     }
   }
   async function onAccept(card: any) {
+    const destination = acceptDest[card.id] ?? "buyer_address";
+    const addr = (acceptAddr[card.id] ?? "").trim();
+    if (destination === "buyer_address" && addr.length < 10) {
+      push("Alamat minimal 10 karakter", "info");
+      return;
+    }
     try {
-      await api.acceptBidOnCard(card.id);
+      await api.acceptBidOnCard(card.id, destination, destination === "buyer_address" ? addr : undefined);
       push("Penawaran diterima", "success");
       refetch();
     } catch (e: any) {
@@ -124,9 +155,9 @@ export default function ManageCards() {
                   className="input"
                   type="number"
                   min={1}
-                  placeholder="Harga C"
-                  value={buyout[card.id] ?? card.buyoutPriceCcoin ?? ""}
-                  onChange={(e) => setBuyout((s) => ({ ...s, [card.id]: e.target.value === "" ? (0 as any) : Number(e.target.value) }))}
+                  placeholder="Harga C (kosong = hapus)"
+                  value={buyout[card.id] ?? ""}
+                  onChange={(e) => setBuyout((s) => ({ ...s, [card.id]: e.target.value }))}
                   style={{ flex: 1, fontSize: 12, fontFamily: "var(--font-mono)" }}
                 />
                 <button className="btn-gold" onClick={() => onSetBuyout(card)} style={{ fontSize: 12, padding: "7px 14px" }}>
@@ -134,9 +165,42 @@ export default function ManageCards() {
                 </button>
               </div>
               {card.activeBid && (
-                <button className="btn-ghost" onClick={() => onAccept(card)} style={{ fontSize: 12, fontFamily: "var(--font-mono)" }}>
-                  Terima {card.activeBid.amountCCoin} C dari {card.activeBid.bidderName} →
-                </button>
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 8,
+                    padding: 10,
+                    border: "1px solid var(--border)",
+                    borderRadius: 8,
+                  }}
+                >
+                  <div style={{ fontSize: 12, fontWeight: 600 }}>
+                    Terima {card.activeBid.amountCCoin} C dari {card.activeBid.bidderName}
+                  </div>
+                  <select
+                    className="select"
+                    value={acceptDest[card.id] ?? "buyer_address"}
+                    onChange={(e) => setAcceptDest((s) => ({ ...s, [card.id]: e.target.value as "buyer_address" | "platform_vault" }))}
+                    style={{ fontSize: 12 }}
+                  >
+                    <option value="buyer_address">Kirim ke alamat pembeli</option>
+                    <option value="platform_vault">Simpan di vault</option>
+                  </select>
+                  {(acceptDest[card.id] ?? "buyer_address") === "buyer_address" && (
+                    <textarea
+                      className="textarea"
+                      rows={2}
+                      placeholder="Alamat pembeli (min 10 karakter)"
+                      value={acceptAddr[card.id] ?? ""}
+                      onChange={(e) => setAcceptAddr((s) => ({ ...s, [card.id]: e.target.value }))}
+                      style={{ fontSize: 12 }}
+                    />
+                  )}
+                  <button className="btn-gold" onClick={() => onAccept(card)} style={{ fontSize: 12, fontFamily: "var(--font-mono)" }}>
+                    Terima →
+                  </button>
+                </div>
               )}
               {card.location === "platform_vault" && (
                 <div style={{ borderTop: "1px solid var(--border)", paddingTop: 12, display: "flex", flexDirection: "column", gap: 8 }}>

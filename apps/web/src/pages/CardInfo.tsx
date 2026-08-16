@@ -1,10 +1,35 @@
 import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { api } from "../lib/api";
+import { ApiError, api } from "../lib/api";
+import { useAuth } from "../lib/auth";
+import { useToast } from "../lib/toast";
+
+const VERIFY_BADGES: Record<string, { label: string; cls: string }> = {
+  verified: { label: "✓ Verified", cls: "pill pill-success" },
+  registered: { label: "Registered", cls: "pill pill-info" },
+  tamper_detected: { label: "⚠ Tamper Detected", cls: "pill pill-warn" },
+  unknown: { label: "Belum terverifikasi", cls: "pill" },
+};
+
+const BUYOUT_ERRORS: Record<string, string> = {
+  INSUFFICIENT: "Saldo tidak cukup",
+  OWN_CARD: "Kartu ini milikmu sendiri",
+  COOLING_PERIOD_14D: "Kartu masih dalam cooling period 14 hari",
+  CREATOR_SELF_DEALING_30D: "Kreator tidak boleh membeli kartu sendiri (30 hari)",
+  CARD_NOT_TRADABLE: "Kartu ini tidak dapat diperdagangkan",
+  ADDRESS_REQUIRED: "Alamat wajib diisi (min 10 karakter)",
+};
 
 export default function CardInfo() {
   const { cardId } = useParams();
-  const { data, isLoading } = useQuery({ queryKey: ["card", cardId], queryFn: () => api.card(cardId!), enabled: !!cardId });
+  const { user } = useAuth();
+  const { push } = useToast();
+  const [buyoutOpen, setBuyoutOpen] = useState(false);
+  const [destination, setDestination] = useState<"buyer_address" | "platform_vault">("platform_vault");
+  const [address, setAddress] = useState("");
+  const [busy, setBusy] = useState(false);
+  const { data, isLoading, refetch } = useQuery({ queryKey: ["card", cardId], queryFn: () => api.card(cardId!), enabled: !!cardId });
   if (isLoading)
     return (
       <div className="muted" style={{ padding: 24, textAlign: "center" }}>
@@ -27,6 +52,45 @@ export default function CardInfo() {
   const activeBid = c.activeBid;
   const history: any[] = c.ownershipHistory ?? [];
   const bids: any[] = c.bids ?? [];
+  const verifyBadge = VERIFY_BADGES[card.verifyStatus] ?? VERIFY_BADGES.unknown;
+  const isOwner = !!user && owner?.id === user.id;
+  const canBuyout = card.buyoutPriceCcoin != null && !!user && !isOwner;
+  const myActiveBid = activeBid?.bidderId && user && activeBid.bidderId === user.id ? activeBid : null;
+
+  async function onBuyout() {
+    if (destination === "buyer_address" && address.trim().length < 10) {
+      push("Alamat minimal 10 karakter", "info");
+      return;
+    }
+    setBusy(true);
+    try {
+      await api.buyout(card.id, destination, destination === "buyer_address" ? address.trim() : undefined);
+      push(`Kartu dibeli ${card.buyoutPriceCcoin} C`, "success");
+      setBuyoutOpen(false);
+      refetch();
+    } catch (e) {
+      const err = e instanceof ApiError ? e : null;
+      const friendly = err?.code ? BUYOUT_ERRORS[err.code] : undefined;
+      push(friendly ?? (e as Error)?.message ?? String(e), "error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function onCancelBid() {
+    if (!myActiveBid) return;
+    setBusy(true);
+    try {
+      await api.cancelBid(myActiveBid.id);
+      push("Bid dibatalkan", "success");
+      refetch();
+    } catch (e) {
+      push((e as Error)?.message || String(e), "error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
       <Link to="/browse" style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--text-muted)", letterSpacing: "0.04em" }}>
@@ -48,8 +112,13 @@ export default function CardInfo() {
           </div>
           <div className="card-pad">
             <span className="eyebrow">{drop?.series ?? "Kartu"}</span>
-            <div style={{ fontFamily: "var(--font-display)", fontSize: 18, fontWeight: 500, marginTop: 4 }}>
-              #{card.unitNumber} <em style={{ fontStyle: "italic", fontWeight: 300, color: "var(--gold)" }}>· {card.variant}</em>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4 }}>
+              <div style={{ fontFamily: "var(--font-display)", fontSize: 18, fontWeight: 500 }}>
+                #{card.unitNumber} <em style={{ fontStyle: "italic", fontWeight: 300, color: "var(--gold)" }}>· {card.variant}</em>
+              </div>
+              <span className={verifyBadge.cls} style={{ fontSize: 10, flexShrink: 0 }}>
+                {verifyBadge.label}
+              </span>
             </div>
             <div className="muted" style={{ fontSize: 12, marginTop: 2 }}>
               {drop?.title ?? ""}
@@ -97,7 +166,7 @@ export default function CardInfo() {
                   </Link>
                 </div>
               )}
-              {card.buyoutPriceCcoin ? (
+              {card.buyoutPriceCcoin != null ? (
                 <div
                   style={{
                     marginTop: 6,
@@ -111,6 +180,50 @@ export default function CardInfo() {
                     HARGA
                   </span>
                   <div style={{ fontWeight: 700, fontSize: 15, marginTop: 2 }}>{card.buyoutPriceCcoin} C</div>
+                  {canBuyout && !buyoutOpen && (
+                    <button
+                      className="btn-gold"
+                      onClick={() => setBuyoutOpen(true)}
+                      style={{ width: "100%", marginTop: 10, padding: "9px" }}
+                    >
+                      Beli di harga buyout
+                    </button>
+                  )}
+                  {canBuyout && buyoutOpen && (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 10 }}>
+                      <select
+                        className="select"
+                        value={destination}
+                        onChange={(e) => setDestination(e.target.value as "buyer_address" | "platform_vault")}
+                      >
+                        <option value="platform_vault">Simpan di vault</option>
+                        <option value="buyer_address">Kirim ke alamat</option>
+                      </select>
+                      {destination === "buyer_address" && (
+                        <textarea
+                          className="textarea"
+                          rows={3}
+                          placeholder="Alamat lengkap (min 10 karakter)"
+                          value={address}
+                          onChange={(e) => setAddress(e.target.value)}
+                          style={{ fontSize: 12 }}
+                        />
+                      )}
+                      <div style={{ display: "flex", gap: 8 }}>
+                        <button
+                          className="btn-ghost"
+                          onClick={() => setBuyoutOpen(false)}
+                          disabled={busy}
+                          style={{ flex: 1, padding: "8px" }}
+                        >
+                          Batal
+                        </button>
+                        <button className="btn-gold" onClick={onBuyout} disabled={busy} style={{ flex: 1, padding: "8px" }}>
+                          {busy ? "Memproses…" : `Beli ${card.buyoutPriceCcoin} C`}
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               ) : null}
               {activeBid && (
@@ -130,6 +243,16 @@ export default function CardInfo() {
                     {activeBid.amountCCoin} C{" "}
                     <span style={{ fontWeight: 400, color: "var(--text-muted)", fontSize: 12 }}>oleh {activeBid.bidderName}</span>
                   </div>
+                  {myActiveBid && (
+                    <button
+                      className="btn-ghost"
+                      onClick={onCancelBid}
+                      disabled={busy}
+                      style={{ marginTop: 8, padding: "7px 12px", fontSize: 12 }}
+                    >
+                      {busy ? "Memproses…" : "Batalkan bid"}
+                    </button>
+                  )}
                 </div>
               )}
             </div>

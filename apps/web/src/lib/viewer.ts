@@ -10,6 +10,7 @@ export function useCardViewer(containerRef: React.RefObject<HTMLDivElement | nul
     if (!containerRef.current) return;
     let disposed = false;
     let scene: any, camera: any, renderer: any, mesh: any;
+    let detachWindowListeners: (() => void) | null = null;
 
     (async () => {
       const THREE = await import("three");
@@ -100,6 +101,11 @@ export function useCardViewer(containerRef: React.RefObject<HTMLDivElement | nul
       renderer.domElement.addEventListener("pointerdown", onPointerDown);
       window.addEventListener("pointermove", onPointerMove);
       window.addEventListener("pointerup", onPointerUp);
+      // Simpan handler window supaya cleanup bisa removeEventListener (bukan hanya GC passively).
+      detachWindowListeners = () => {
+        window.removeEventListener("pointermove", onPointerMove);
+        window.removeEventListener("pointerup", onPointerUp);
+      };
 
       const onResize = () => {
         if (!el) return;
@@ -128,6 +134,7 @@ export function useCardViewer(containerRef: React.RefObject<HTMLDivElement | nul
     return () => {
       disposed = true;
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      detachWindowListeners?.();
       try {
         renderer?.dispose?.();
       } catch {}
