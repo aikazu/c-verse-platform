@@ -8,8 +8,8 @@ export default function Card3D() {
   const { cardId } = useParams();
   const viewerRef = useRef<HTMLDivElement>(null);
   const { data, isLoading } = useQuery({ queryKey: ["card3d", cardId], queryFn: () => api.card3d(cardId!), enabled: !!cardId });
-  const artwork = (data as any)?.drop?.artwork3dUrl ?? (data as any)?.drop?.artworkUrl ?? null;
-  useCardViewer(viewerRef as any, artwork);
+  const drop = (data as any)?.drop ?? {};
+  useCardViewer(viewerRef as any, drop.artwork3dUrl ?? null, drop.artworkUrl ?? null);
   if (isLoading)
     return (
       <div className="muted" style={{ padding: 24, textAlign: "center" }}>

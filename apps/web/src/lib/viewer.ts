@@ -7,17 +7,60 @@ const CARD_W = 0.63;
 const CARD_H = 0.88;
 const CARD_THICK = 0.03;
 
-// Public asset — placeholder artwork for cards that have no texture yet.
+// Public assets — placeholder mesh + artwork for cards without their own.
+const PLACEHOLDER_OBJ_URL = "/placeholder.obj";
 const PLACEHOLDER_TEXTURE_URL = "/texture/karina.png";
 
-// Load a card OBJ and normalize it: unified material, centered, fitted to the
+// Load an image as a texture; rejects when it cannot be loaded or decoded.
+async function loadTexture(THREE: any, url: string): Promise<any> {
+  const tex = await new Promise<any>((resolve, reject) => {
+    new THREE.TextureLoader().load(url, resolve, undefined, reject);
+  });
+  tex.colorSpace = (THREE as any).SRGBColorSpace ?? undefined;
+  return tex;
+}
+
+// Flat card meshes exported without UVs get a planar projection from their
+// XY bounds so face artwork still maps across the whole card.
+function ensurePlanarUvs(THREE: any, geometry: any): void {
+  if (geometry.attributes.uv) return;
+  geometry.computeBoundingBox();
+  const bb = geometry.boundingBox;
+  const pos = geometry.attributes.position;
+  const spanX = Math.max(bb.max.x - bb.min.x, 1e-6);
+  const spanY = Math.max(bb.max.y - bb.min.y, 1e-6);
+  const uvs = new Float32Array(pos.count * 2);
+  for (let i = 0; i < pos.count; i++) {
+    uvs[i * 2] = (pos.getX(i) - bb.min.x) / spanX;
+    uvs[i * 2 + 1] = (pos.getY(i) - bb.min.y) / spanY;
+  }
+  geometry.setAttribute("uv", new THREE.BufferAttribute(uvs, 2));
+}
+
+// Load a card OBJ, apply faceUrl as its material map (placeholder artwork
+// when the face fails to load), and normalize it: centered, fitted to the
 // standard card height — export units vary per modeling tool.
-async function loadCardObj(THREE: any, url: string): Promise<any> {
+async function loadCardObj(THREE: any, objUrl: string, faceUrl: string): Promise<any> {
   const { OBJLoader } = await import("three/examples/jsm/loaders/OBJLoader.js");
-  const obj = await new OBJLoader().loadAsync(url);
-  const material = new THREE.MeshStandardMaterial({ color: 0x232338, roughness: 0.4, metalness: 0.18 });
+  const obj = await new OBJLoader().loadAsync(objUrl);
+  let map: any = null;
+  try {
+    map = await loadTexture(THREE, faceUrl);
+  } catch {
+    try {
+      map = await loadTexture(THREE, PLACEHOLDER_TEXTURE_URL);
+    } catch {
+      map = null;
+    }
+  }
   obj.traverse((child: any) => {
-    if (child.isMesh) child.material = material;
+    if (!child.isMesh) return;
+    ensurePlanarUvs(THREE, child.geometry);
+    child.material = new THREE.MeshStandardMaterial({
+      ...(map ? { map } : { color: 0x232338 }),
+      roughness: 0.4,
+      metalness: 0.18,
+    });
   });
   const bounds = new THREE.Box3().setFromObject(obj);
   const size = bounds.getSize(new THREE.Vector3());
@@ -28,22 +71,7 @@ async function loadCardObj(THREE: any, url: string): Promise<any> {
   return obj;
 }
 
-// Build a card box mesh with the given image as its face texture.
-// Rejects when the image cannot be loaded or decoded.
-async function texturedCardBox(THREE: any, url: string): Promise<any> {
-  const tex = await new Promise<any>((resolve, reject) => {
-    new THREE.TextureLoader().load(url, resolve, undefined, reject);
-  });
-  tex.colorSpace = (THREE as any).SRGBColorSpace ?? undefined;
-  const matFront = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.35, metalness: 0.05 });
-  const matBack = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.4, metalness: 0.05 });
-  const matSide = new THREE.MeshStandardMaterial({ color: 0x2a2a40, roughness: 0.6 });
-  const matTop = new THREE.MeshStandardMaterial({ color: 0x2a2a40, roughness: 0.6 });
-  // BoxGeometry materials order: +x, -x, +y, -y, +z, -z
-  return new THREE.Mesh(new THREE.BoxGeometry(CARD_W, CARD_H, CARD_THICK), [matSide, matSide, matTop, matTop, matFront, matBack]);
-}
-
-export function useCardViewer(containerRef: React.RefObject<HTMLDivElement | null>, artworkUrl: string | null) {
+export function useCardViewer(containerRef: React.RefObject<HTMLDivElement | null>, meshUrl: string | null, textureUrl: string | null) {
   const rafRef = useRef<number | null>(null);
   useEffect(() => {
     if (!containerRef.current) return;
@@ -79,24 +107,15 @@ export function useCardViewer(containerRef: React.RefObject<HTMLDivElement | nul
       rim.position.set(-2, 1, -1);
       scene.add(amb, dir, rim);
 
-      // Mesh resolution order: custom OBJ → artwork texture on box →
-      // placeholder texture → plain dark box. Seed/dev data may point at
-      // artwork files that do not exist; those cards show the placeholder.
-      const sourceUrl = artworkUrl || PLACEHOLDER_TEXTURE_URL;
+      // The 3D card is always an OBJ mesh — the drop's own when it has one,
+      // the bundled placeholder otherwise. The face artwork is the drop
+      // image, falling back to the placeholder texture. The plain box stays
+      // only as an emergency when mesh loading fails outright.
+      const wantsCustomObj = !!meshUrl && meshUrl.toLowerCase().endsWith(".obj");
+      const objUrl = wantsCustomObj ? meshUrl : PLACEHOLDER_OBJ_URL;
+      const faceUrl = wantsCustomObj ? textureUrl || PLACEHOLDER_TEXTURE_URL : textureUrl || meshUrl || PLACEHOLDER_TEXTURE_URL;
       try {
-        if (sourceUrl.toLowerCase().endsWith(".obj")) {
-          try {
-            mesh = await loadCardObj(THREE, sourceUrl);
-          } catch {
-            mesh = await texturedCardBox(THREE, PLACEHOLDER_TEXTURE_URL);
-          }
-        } else {
-          try {
-            mesh = await texturedCardBox(THREE, sourceUrl);
-          } catch {
-            mesh = await texturedCardBox(THREE, PLACEHOLDER_TEXTURE_URL);
-          }
-        }
+        mesh = await loadCardObj(THREE, objUrl, faceUrl);
       } catch {
         mesh = new THREE.Mesh(
           new THREE.BoxGeometry(CARD_W, CARD_H, CARD_THICK),
@@ -173,5 +192,5 @@ export function useCardViewer(containerRef: React.RefObject<HTMLDivElement | nul
       } catch {}
       if (containerRef.current) containerRef.current.innerHTML = "";
     };
-  }, [artworkUrl]);
+  }, [meshUrl, textureUrl]);
 }
