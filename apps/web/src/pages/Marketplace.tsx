@@ -30,7 +30,7 @@ export default function Marketplace() {
             Marketplace
           </h1>
           <p className="muted" style={{ marginTop: 6 }}>
-            Kartu yang dijual pemiliknya
+            C.Card yang dijual pemiliknya
           </p>
         </div>
         <button className="btn-ghost" onClick={() => refetch()} style={{ fontFamily: "var(--font-mono)", fontSize: 12 }}>
@@ -43,9 +43,9 @@ export default function Marketplace() {
         </div>
       ) : cards.length === 0 ? (
         <div className="card card-pad muted" style={{ textAlign: "center", padding: 32 }}>
-          Belum ada kartu dijual — pasang harga dari{" "}
+          Belum ada C.Card dijual — pasang harga dari{" "}
           <Link to="/me/manage" style={{ color: "var(--gold)", fontWeight: 600 }}>
-            Kelola Kartu
+            Kelola C.Card
           </Link>
         </div>
       ) : (

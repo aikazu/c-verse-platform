@@ -14,10 +14,10 @@ const VERIFY_BADGES: Record<string, { label: string; cls: string }> = {
 
 const BUYOUT_ERRORS: Record<string, string> = {
   INSUFFICIENT: "Saldo tidak cukup",
-  OWN_CARD: "Kartu ini milikmu sendiri",
-  COOLING_PERIOD_24H: "Blok rebuy 24 jam — kartu yang baru kamu jual belum bisa dibeli kembali",
-  CREATOR_SELF_DEALING_30D: "Kreator tidak boleh membeli kartu sendiri (30 hari)",
-  CARD_NOT_TRADABLE: "Kartu ini tidak dapat diperdagangkan",
+  OWN_CARD: "C.Card ini milikmu sendiri",
+  COOLING_PERIOD_24H: "Blok rebuy 24 jam — C.Card yang baru kamu jual belum bisa dibeli kembali",
+  CREATOR_SELF_DEALING_30D: "Kreator tidak boleh membeli C.Card sendiri (30 hari)",
+  CARD_NOT_TRADABLE: "C.Card ini tidak dapat diperdagangkan",
   ADDRESS_REQUIRED: "Alamat wajib diisi (min 10 karakter)",
 };
 
@@ -39,9 +39,9 @@ export default function CardInfo() {
   if (!data)
     return (
       <div className="card card-pad" style={{ textAlign: "center", padding: 32 }}>
-        <span className="eyebrow">Kartu</span>
+        <span className="eyebrow">C.Card</span>
         <p className="muted" style={{ marginTop: 8 }}>
-          Kartu tidak ditemukan
+          C.Card tidak ditemukan
         </p>
       </div>
     );
@@ -65,7 +65,7 @@ export default function CardInfo() {
     setBusy(true);
     try {
       await api.buyout(card.id, destination, destination === "buyer_address" ? address.trim() : undefined);
-      push(`Kartu dibeli ${card.buyoutPriceCcoin} C`, "success");
+      push(`C.Card dibeli — ${card.buyoutPriceCcoin} C`, "success");
       setBuyoutOpen(false);
       refetch();
     } catch (e) {
@@ -111,7 +111,7 @@ export default function CardInfo() {
             🎴
           </div>
           <div className="card-pad">
-            <span className="eyebrow">{drop?.series ?? "Kartu"}</span>
+            <span className="eyebrow">{drop?.series ?? "C.Card"}</span>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4 }}>
               <div style={{ fontFamily: "var(--font-display)", fontSize: 18, fontWeight: 500 }}>
                 #{card.unitNumber} <em style={{ fontStyle: "italic", fontWeight: 300, color: "var(--gold)" }}>· {card.variant}</em>

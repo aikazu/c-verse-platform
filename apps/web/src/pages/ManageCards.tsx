@@ -33,7 +33,7 @@ export default function ManageCards() {
       <div className="card card-pad" style={{ textAlign: "center", padding: 32 }}>
         <span className="eyebrow">Kelola</span>
         <p className="muted" style={{ marginTop: 8 }}>
-          Masuk untuk mengelola kartu
+          Masuk untuk mengelola C.Card
         </p>
         <a href="/login" style={{ color: "var(--gold)", fontSize: 13, fontWeight: 600, marginTop: 10, display: "inline-block" }}>
           Masuk →
@@ -46,7 +46,7 @@ export default function ManageCards() {
     const hasExisting = card.buyoutPriceCcoin != null;
     if (raw === "") {
       if (!hasExisting) return; // tidak ada perubahan — memang belum dijual
-      if (!window.confirm("Hapus harga buyout kartu ini?")) return;
+      if (!window.confirm("Hapus harga buyout C.Card ini?")) return;
       try {
         await api.patchBuyout(card.id, null);
         push("Harga dihapus", "success");
@@ -105,7 +105,7 @@ export default function ManageCards() {
         <div>
           <span className="eyebrow">Kelola</span>
           <h1 className="h2" style={{ marginTop: 4 }}>
-            Kelola <em style={{ fontStyle: "italic", fontWeight: 300, color: "var(--gold)" }}>Kartu</em> — {cards.length}
+            Kelola <em style={{ fontStyle: "italic", fontWeight: 300, color: "var(--gold)" }}>C.Card</em> — {cards.length}
           </h1>
         </div>
         <Link to="/collection" className="btn-ghost" style={{ fontFamily: "var(--font-mono)", fontSize: 12 }}>
@@ -114,7 +114,7 @@ export default function ManageCards() {
       </div>
       {cards.length === 0 ? (
         <div className="card card-pad muted" style={{ textAlign: "center", padding: 32 }}>
-          Belum punya kartu
+          Belum punya C.Card
         </div>
       ) : (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(300px,1fr))", gap: 14 }}>

@@ -128,10 +128,10 @@ export default function DropDetail() {
           <div>
             <span className="eyebrow">Checkout</span>
             <div style={{ fontFamily: "var(--font-display)", fontSize: 18, fontWeight: 500, marginTop: 4 }}>
-              Beli <em style={{ fontStyle: "italic", fontWeight: 300, color: "var(--gold)" }}>kartu</em>
+              Beli <em style={{ fontStyle: "italic", fontWeight: 300, color: "var(--gold)" }}>C.Card</em>
             </div>
             <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
-              Maksimal 1 kartu per drop
+              Maksimal 1 C.Card per drop
             </div>
           </div>
           <div

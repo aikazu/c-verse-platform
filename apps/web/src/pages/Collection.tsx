@@ -62,7 +62,7 @@ export default function Collection() {
           <span className="eyebrow">Koleksi</span>
           <h1 className="h2" style={{ marginTop: 4 }}>
             {p.user?.displayName ?? "Koleksi"}{" "}
-            <em style={{ fontStyle: "italic", fontWeight: 300, color: "var(--gold)" }}>· {p.stats?.totalCards ?? cards.length} kartu</em>
+            <em style={{ fontStyle: "italic", fontWeight: 300, color: "var(--gold)" }}>· {p.stats?.totalCards ?? cards.length} C.Card</em>
           </h1>
           <div className="card card-pad" style={{ marginTop: 14, background: "var(--surface-2)" }}>
             <LevelBar level={level} tier={tier} progressPct={progressPct} hint={progressLabel} />
@@ -70,7 +70,7 @@ export default function Collection() {
         </div>
         <div style={{ display: "flex", gap: 8 }}>
           <Link to="/me/manage" className="btn-gold">
-            Kelola Kartu →
+            Kelola C.Card →
           </Link>
           <button className="btn-ghost" onClick={() => refetch()} style={{ fontFamily: "var(--font-mono)", fontSize: 12 }}>
             Refresh
@@ -111,14 +111,14 @@ export default function Collection() {
             borderBottom: "1px solid var(--border)",
           }}
         >
-          <span style={{ fontWeight: 600, fontSize: 13 }}>Kartu — {cards.length}</span>
+          <span style={{ fontWeight: 600, fontSize: 13 }}>C.Card — {cards.length}</span>
           <Link to="/me/manage" style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--gold)", fontWeight: 500 }}>
             Kelola →
           </Link>
         </div>
         {cards.length === 0 ? (
           <div style={{ padding: 32, textAlign: "center", color: "var(--text-muted)", fontSize: 13 }}>
-            Belum punya kartu.{" "}
+            Belum punya C.Card.{" "}
             <Link to="/drops" style={{ color: "var(--gold)", fontWeight: 600 }}>
               Jelajahi Drops →
             </Link>

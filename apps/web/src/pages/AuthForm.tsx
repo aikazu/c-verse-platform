@@ -98,7 +98,7 @@ export default function AuthForm() {
               marginTop: 4,
             }}
           >
-            Masuk / Daftar — satu akun
+            Masuk / Daftar — C.Card pertamamu menanti
           </div>
         </div>
 

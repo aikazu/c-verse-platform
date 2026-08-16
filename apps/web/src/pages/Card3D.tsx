@@ -21,7 +21,7 @@ export default function Card3D() {
       <div className="card card-pad" style={{ textAlign: "center", padding: 32 }}>
         <span className="eyebrow">3D</span>
         <p className="muted" style={{ marginTop: 8 }}>
-          Kartu tidak ditemukan
+          C.Card tidak ditemukan
         </p>
       </div>
     );

@@ -40,7 +40,7 @@ export default function Leaderboard() {
                 <th>Kolektor</th>
                 <th>Tier</th>
                 <th>Level</th>
-                <th>Kartu</th>
+                <th>C.Card</th>
               </tr>
             </thead>
             <tbody>

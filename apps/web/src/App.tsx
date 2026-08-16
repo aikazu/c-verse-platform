@@ -128,7 +128,7 @@ function UserMenu() {
             <MenuLink to="/home" label="Home" onClick={() => setOpen(false)} />
             <MenuLink to="/orders" label="Pesanan" onClick={() => setOpen(false)} />
             <MenuLink to="/collection" label="Koleksi" onClick={() => setOpen(false)} />
-            <MenuLink to="/me/manage" label="Kelola kartu" onClick={() => setOpen(false)} />
+            <MenuLink to="/me/manage" label="Kelola C.Card" onClick={() => setOpen(false)} />
             <MenuLink to="/wallet" label="Dompet" onClick={() => setOpen(false)} />
             <div style={{ height: 1, background: "var(--border)", margin: "4px 8px" }} />
             <MenuLink to="/me/kyc" label="Verifikasi" onClick={() => setOpen(false)} />

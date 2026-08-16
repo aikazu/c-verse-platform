@@ -66,7 +66,7 @@ export default function PublicProfile() {
         </h1>
         <LevelBar level={user.level} tier={user.tier} pct={user.levelProgressPct ?? 0} />
         <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--text-muted)", marginTop: 10 }}>
-          #{user.rank} · {cards.length} kartu · {badges.length} lencana
+          #{user.rank} · {cards.length} C.Card · {badges.length} lencana
         </div>
         {badges.length > 0 && (
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 12 }}>
@@ -80,7 +80,7 @@ export default function PublicProfile() {
       </div>
       {cards.length === 0 ? (
         <div className="card card-pad muted" style={{ textAlign: "center", padding: 24, fontFamily: "var(--font-mono)", fontSize: 12 }}>
-          Belum ada kartu
+          Belum ada C.Card
         </div>
       ) : (
         <div className="grid-3">

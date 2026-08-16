@@ -40,16 +40,16 @@ export default function Browse() {
       <div>
         <span className="eyebrow">Jelajahi</span>
         <h1 className="h2" style={{ marginTop: 4 }}>
-          Jelajahi <em style={{ fontStyle: "italic", fontWeight: 300, color: "var(--gold)" }}>Kartu</em>
+          Jelajahi <em style={{ fontStyle: "italic", fontWeight: 300, color: "var(--gold)" }}>C.Card</em>
         </h1>
         <p className="muted" style={{ marginTop: 6 }}>
-          Temukan kartu dan ajukan penawaran
+          Temukan C.Card dan ajukan penawaran
         </p>
       </div>
       <div style={{ display: "flex", gap: 8 }}>
         <input
           className="input"
-          placeholder="Cari kartu, seri, kreator…"
+          placeholder="Cari C.Card, seri, kreator…"
           value={q}
           onChange={(e) => setQ(e.target.value)}
           style={{ flex: 1 }}

@@ -75,8 +75,8 @@ export function NotFoundPage() {
   return (
     <ErrorPage
       code={404}
-      title="Kartu Tidak Ditemukan di Deck"
-      message={`Halaman "${location.pathname}" tidak ada — mungkin link salah, drop sudah closed, atau kartu dipindahkan.`}
+      title="C.Card Tidak Ditemukan di Deck"
+      message={`Halaman "${location.pathname}" tidak ada — mungkin link salah, drop sudah closed, atau C.Card dipindahkan.`}
       hint="Cek kembali link dari seller/creator, atau kembali ke beranda dan telusuri drops yang sedang live."
       detail={`path: ${location.pathname}\nsearch: ${location.search || "-"}\nreferrer: ${document.referrer || "-"}`}
     />

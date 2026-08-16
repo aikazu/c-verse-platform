@@ -153,7 +153,7 @@ export default function OrderDetail() {
           <div className="muted" style={{ fontSize: 12, marginTop: 14, fontFamily: "var(--font-mono)", lineHeight: 1.6 }}>
             Disimpan di vault — tanpa tracking. Kelola di{" "}
             <Link to="/me/manage" style={{ color: "var(--gold)", fontWeight: 600 }}>
-              Kelola Kartu →
+              Kelola C.Card →
             </Link>
           </div>
         )}
@@ -203,7 +203,7 @@ export default function OrderDetail() {
                 marginBottom: 8,
               }}
             >
-              Kartu
+              C.Card
             </div>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
               {cards.map((c: any) => (
