@@ -14,11 +14,21 @@ import { getSupabase } from "../lib/supabase.js";
 
 const app = new Hono();
 
+// Status yang boleh dilihat publik (paritas RLS drops_select_public).
+const PUBLIC_DROP_STATUSES = ["live", "published", "sold_out", "closed", "ended", "scheduled"];
+
 app.get("/", async (c) => {
   const q = c.req.query();
   const status = q.status as string | undefined;
   const search = (q.search as string | undefined)?.toLowerCase();
+  // Viewer-aware: draft/review hanya terlihat oleh pemilik creatornya atau admin —
+  // tanpa ini drop unpublished bocor via panggilan API langsung (readDb = service-role).
+  const authRes = await requireUser(c);
+  const viewer = "error" in authRes ? null : authRes.user;
   let drops = await listDrops();
+  if (viewer?.role !== "admin") {
+    drops = drops.filter((d) => PUBLIC_DROP_STATUSES.includes(d.status) || d.creatorId === viewer?.id);
+  }
   if (status && status !== "all") drops = drops.filter((d) => d.status === status);
   if (search)
     drops = drops.filter(
@@ -82,6 +92,22 @@ app.get("/:id", async (c) => {
 
 const LEGACY_STATUS_MAP: Record<string, DropStatus> = { review: "draft", approved: "scheduled", production: "scheduled", ended: "closed" };
 
+/**
+ * Jadwal raffle drop (docs 03 Flow 5): rilis default HARI INI 12:00 WIB;
+ * input date-only juga di-normalisasi ke 12:00 WIB. Window entry = 24 jam.
+ */
+function resolveDropStartAt(raw: string | undefined): string | null {
+  if (!raw) {
+    const now = new Date();
+    const jakarta = new Date(now.getTime() + 7 * 3600 * 1000);
+    jakarta.setUTCHours(12, 0, 0, 0);
+    return jakarta.toISOString();
+  }
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return `${raw}T12:00:00+07:00`;
+  const parsed = new Date(raw);
+  return Number.isFinite(parsed.getTime()) ? parsed.toISOString() : null;
+}
+
 app.post(
   "/",
   zValidator(
@@ -109,15 +135,19 @@ app.post(
     const user = authRes.user;
     if (user.role !== "creator" && user.role !== "admin") return c.json({ error: "Hanya kreator/admin yang bisa membuat drop" }, 403);
     const body = c.req.valid("json");
-    const { calcSignedCount, calcUnsignedCount } = await import("@c-verse/shared");
+    const { calcSignedCount, calcUnsignedCount, calcSignedPrice } = await import("@c-verse/shared");
     const signedCount = calcSignedCount(body.totalUnits);
     const unsignedCount = calcUnsignedCount(body.totalUnits);
     // docs/01 + 05-data-model: drop adalah platform-produced (70/30) dengan SATU harga canonical priceCcoin
     const priceCcoin = body.priceCcoin ?? body.priceCCoin ?? body.priceUnsignedCCoin ?? 30;
     const priceUnsigned = body.priceUnsignedCCoin ?? priceCcoin;
-    const priceSigned = body.priceSignedCCoin ?? Math.ceil(priceCcoin * 1.67); // docs 01 F004 / 09 2.7: signed = 1.67× base (20→34, 30→50, 50→84 ceil)
+    // Founder 2026-08-16: signed = unsigned + 20 C-Coin flat (20/40, 40/60, 50/70)
+    const priceSigned = body.priceSignedCCoin ?? calcSignedPrice(priceCcoin);
+    const dropStartAt = resolveDropStartAt(body.dropStartAt ?? body.dropAt);
+    if (!dropStartAt) return c.json({ error: "dropStartAt tidak valid" }, 400);
+    // Drop selalu raffle: window entry 24 jam sejak rilis, draw otomatis via cron (docs 03 Flow 5)
+    const raffleEndAt = new Date(new Date(dropStartAt).getTime() + 24 * 3600 * 1000).toISOString();
     const id = `drop-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 5)}`;
-    const dropStartAt = body.dropStartAt ?? body.dropAt ?? null;
     const db = getSupabase();
     const { error: dropError } = await db.from("drops").insert({
       id,
@@ -135,6 +165,7 @@ app.post(
       status: "draft",
       drop_at: dropStartAt,
       drop_start_at: dropStartAt,
+      raffle_end_at: raffleEndAt,
       drop_end_at: body.dropEndAt ?? null,
       creator_id: user.id,
       creator_name: user.displayName,
@@ -157,7 +188,8 @@ app.post(
         owner_id: null,
         nfc_uid: `04A1${Math.random().toString(16).slice(2, 10).padEnd(8, "0").toUpperCase()}${String(unit).padStart(2, "0")}`,
         nfc_short_id: `${id.slice(0, 4)}-${String(unit).padStart(3, "0")}`,
-        verify_status: "verified",
+        // 'verified' HANYA via tap CMAC — kartu baru belum terverifikasi (docs 12)
+        verify_status: "unknown",
         last_ctr: 0,
       };
     });
@@ -169,7 +201,7 @@ app.post(
       "create",
       "drops",
       id,
-      { title: body.title },
+      { title: body.title, dropStartAt, raffleEndAt },
       c.req.header("x-forwarded-for") ?? null,
       c.req.header("authorization") ?? null,
     );
@@ -177,6 +209,14 @@ app.post(
     return c.json({ drop }, 201);
   },
 );
+
+// Transisi yang boleh dilakukan CREATOR untuk drop miliknya (publish/unpublish).
+// scheduled -> live dijalankan otomatis cron activate_scheduled_drops saat drop_start_at tiba.
+const CREATOR_STATUS_TRANSITIONS: Record<string, string[]> = {
+  draft: ["scheduled"],
+  scheduled: ["draft", "cancelled"],
+  live: ["cancelled"],
+};
 
 app.patch(
   "/:id/status",
@@ -202,9 +242,15 @@ app.patch(
     const authRes = await requireUser(c);
     if ("error" in authRes) return c.json({ error: authRes.error === 403 ? "Akun disuspend" : "Unauthorized" }, authRes.error);
     const user = authRes.user;
-    if (user.role !== "admin") return c.json({ error: "Hanya admin" }, 403);
     const raw = c.req.valid("json").status;
     const status = LEGACY_STATUS_MAP[raw] ?? raw;
+    const drop = await getDropById(c.req.param("id"));
+    if (!drop) return c.json({ error: "Drop tidak ditemukan" }, 404);
+    const isOwner = drop.creatorId === user.id;
+    const allowed = user.role === "admin" || (isOwner && (CREATOR_STATUS_TRANSITIONS[drop.status] ?? []).includes(status));
+    if (!allowed) {
+      return c.json({ error: user.role === "admin" ? "Hanya admin" : "Transisi status tidak diizinkan untuk drop ini" }, 403);
+    }
     const db = getSupabase();
     const { data, error } = await db.from("drops").update({ status }).eq("id", c.req.param("id")).select().maybeSingle();
     if (error) return c.json({ error: error.message }, 400);
@@ -214,12 +260,12 @@ app.patch(
       "update",
       "drops",
       String(data.id),
-      { status },
+      { status, prevStatus: drop.status },
       c.req.header("x-forwarded-for") ?? null,
       c.req.header("authorization") ?? null,
     );
-    const drop = await getDropById(String(data.id));
-    return c.json({ drop });
+    const updated = await getDropById(String(data.id));
+    return c.json({ drop: updated });
   },
 );
 

@@ -303,7 +303,7 @@ await admin.query("commit");
   await b2.end();
 }
 
-// ── M3: guard buyout (NOT_FOR_SALE / OWN_CARD / COOLING_14D / SELF_DEALING) ─
+// ── M3: guard buyout (NOT_FOR_SALE / OWN_CARD / COOLING_24H / SELF_DEALING) ─
 {
   const s = await userClient(U.seller);
   const b1 = await userClient(U.b1);
@@ -312,7 +312,7 @@ await admin.query("commit");
   const notForSale = await expectCode(b1.query("select public.buyout_card('cov-card-m1')"));
   await s.query("select public.set_buyout('cov-card-m5', 60)");
   const ownCard = await expectCode(s.query("select public.buyout_card('cov-card-m5')"));
-  // cooling 14d: b1 beli -> jual ke b2 -> b2 re-list -> b1 (pemilik lama <14 hari) coba beli lagi
+  // cooling 24h: b1 beli -> jual ke b2 -> b2 re-list -> b1 (pemilik lama <14 hari) coba beli lagi
   await b1.query("select public.buyout_card('cov-card-m5')");
   await b1.query("select public.set_buyout('cov-card-m5', 70)");
   await b2.query("select public.buyout_card('cov-card-m5')");
@@ -325,7 +325,7 @@ await admin.query("commit");
     "M3",
     notForSale === "NOT_FOR_SALE" &&
       ownCard === "OWN_CARD" &&
-      cooling === "COOLING_PERIOD_14D" &&
+      cooling === "COOLING_PERIOD_24H" &&
       selfDealing === "CREATOR_SELF_DEALING_30D",
     `${notForSale},${ownCard},${cooling},${selfDealing}`,
   );

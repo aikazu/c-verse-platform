@@ -84,13 +84,25 @@ app.post("/:id/confirm-delivered", async (c) => {
   const authRes = await requireUser(c);
   if ("error" in authRes) return c.json({ error: authRes.error === 403 ? "Akun disuspend" : "Unauthorized" }, authRes.error);
   const user = authRes.user;
-  // direct table write (non-money columns only)
+  const id = c.req.param("id");
+  // Hanya order shipping (vault settled saat checkout); escrow TETAP held dan
+  // di-release otomatis H+7 oleh cron escrow_auto_release (docs 03 Flow 2).
+  const existing = await getOrderById(id);
+  if (!existing) return c.json({ error: "Order tidak ditemukan" }, 404);
+  if (existing.userId !== user.id) return c.json({ error: "Forbidden" }, 403);
+  if (existing.deliveryOption !== "shipping") {
+    return c.json({ error: "Order vault tidak butuh konfirmasi pengiriman (settled saat checkout)" }, 400);
+  }
+  if (existing.status !== "shipped") {
+    return c.json({ error: `Order belum dikirim (status: ${existing.status}) — konfirmasi setelah kartu dikirim` }, 409);
+  }
   const db = readDb();
   const { data, error } = await db
     .from("orders")
-    .update({ status: "delivered", delivered_at: nowIso(), escrow_status: "released" }) // MVP immediate; real is DELIVERED + H+7
-    .eq("id", c.req.param("id"))
+    .update({ status: "delivered", delivered_at: nowIso() })
+    .eq("id", id)
     .eq("user_id", user.id)
+    .eq("status", "shipped")
     .select("*")
     .maybeSingle();
   if (error) throw new Error(error.message);
@@ -100,17 +112,56 @@ app.post("/:id/confirm-delivered", async (c) => {
     "update",
     "orders",
     String(data.id),
-    { status: "delivered" },
+    { status: "delivered", escrowNote: "release H+7 via cron" },
     c.req.header("x-forwarded-for") ?? null,
     c.req.header("authorization") ?? null,
   );
   return c.json({ order: mapOrderRow(data as Row) });
 });
 
+// POST /:id/dispute — buyer buka dispute untuk order miliknya (admin putuskan via /api/admin/disputes/:id)
+app.post("/:id/dispute", zValidator("json", z.object({ reason: z.string().min(10).max(2000) })), async (c) => {
+  const authRes = await requireUser(c);
+  if ("error" in authRes) return c.json({ error: authRes.error === 403 ? "Akun disuspend" : "Unauthorized" }, authRes.error);
+  const user = authRes.user;
+  const id = c.req.param("id");
+  const { reason } = c.req.valid("json");
+  const existing = await getOrderById(id);
+  if (!existing) return c.json({ error: "Order tidak ditemukan" }, 404);
+  if (existing.userId !== user.id) return c.json({ error: "Forbidden" }, 403);
+  if (existing.status === "refunded" || existing.status === "settled") {
+    return c.json({ error: `Order sudah ${existing.status} — tidak bisa dibuka dispute` }, 409);
+  }
+  const db = readDb();
+  const disputeId = uid("dsp-");
+  const { error } = await db.from("disputes").insert({
+    id: disputeId,
+    order_id: id,
+    card_id: existing.cardId ?? null,
+    reporter_id: user.id,
+    reason,
+    status: "open",
+  });
+  if (error) return c.json({ error: error.message }, 400);
+  await logAuditDb(
+    user.id,
+    "create",
+    "disputes",
+    disputeId,
+    { orderId: id },
+    c.req.header("x-forwarded-for") ?? null,
+    c.req.header("authorization") ?? null,
+  );
+  return c.json({ dispute: { id: disputeId, orderId: id, status: "open" } }, 201);
+});
+
 // Ship from vault (any vault-held card owned by caller, even without order context)
 app.post(
   "/vault-shipout",
-  zValidator("json", z.object({ cardId: z.string().min(1), address: z.string().min(10).max(500), feeCcoin: z.number().int().min(1) })),
+  zValidator(
+    "json",
+    z.object({ cardId: z.string().min(1), address: z.string().min(10).max(500), feeCcoin: z.number().int().min(1).max(100) }),
+  ),
   async (c) => {
     const authRes = await requireUser(c);
     if ("error" in authRes) return c.json({ error: authRes.error === 403 ? "Akun disuspend" : "Unauthorized" }, authRes.error);
@@ -122,6 +173,11 @@ app.post(
     if (!card) return c.json({ error: "Kartu tidak ditemukan" }, 404);
     if (card.ownerId !== user.id) return c.json({ error: "Kamu bukan pemilik kartu ini" }, 403);
     if (card.location !== "platform_vault") return c.json({ error: "Kartu tidak di vault — tidak perlu ship-from-vault" }, 400);
+    // Satu shipment aktif per kartu; idempotency key deterministik per percobaan (anti double-submit).
+    const priorShips = await listShipmentsByCards([cardId]);
+    if (priorShips.some((s) => s.status !== "delivered" && s.status !== "cancelled")) {
+      return c.json({ error: "Sudah ada pengiriman aktif untuk kartu ini" }, 409);
+    }
     const wallet = await getWalletByUser(user.id);
     if (wallet.balanceCCoin < feeCcoin)
       return c.json({ error: "Saldo C-Coin tidak cukup untuk ongkir", needCCoin: feeCcoin, haveCCoin: wallet.balanceCCoin }, 402);
@@ -133,7 +189,7 @@ app.post(
       p_type: "checkout",
       p_ref_type: "shipment",
       p_ref_id: cardId,
-      p_idem: `vault-shipout-${cardId}-${Date.now()}`,
+      p_idem: `vault-shipout-${cardId}-${priorShips.length + 1}`,
     });
     if (debitError) {
       const code = debitError.message.trim().split("\n")[0];
@@ -142,9 +198,7 @@ app.post(
       throw new Error(debitError.message);
     }
     const shipId = uid("ship-");
-    const tracking = `JNE-${Math.floor(Math.random() * 1e12)
-      .toString()
-      .padStart(12, "0")}`;
+    // Tracking number diisi admin via PATCH /api/shipments/:id/status saat benar-benar dikirim.
     const { data: shipRow, error: shipError } = await db
       .from("shipments")
       .insert({
@@ -156,15 +210,15 @@ app.post(
         to_dest: "buyer_address",
         address: { street: address },
         fee_ccoin: feeCcoin,
-        status: "shipped",
-        tracking_number: tracking,
+        status: "requested",
+        tracking_number: null,
         platform_check: null,
       })
       .select("*")
       .maybeSingle();
     if (shipError) throw new Error(shipError.message);
     if (!shipRow) throw new Error("Shipment insert returned no row");
-    // Mirror semantics: only qc flips; location stays platform_vault until delivered.
+    // QC flip: kartu keluar vault -> QC platform tercatat passed (docs 05 cards.qc_status).
     const { error: cardError } = await db.from("cards").update({ qc_status: "passed" }).eq("id", cardId);
     if (cardError) throw new Error(cardError.message);
     await logAuditDb(

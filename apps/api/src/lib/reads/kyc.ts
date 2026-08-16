@@ -88,51 +88,5 @@ export async function logAuditDb(
   if (error) throw new Error(error.message);
 }
 
-/**
- * Award a badge once: skip if already owned, insert user_badges with xp snapshot,
- * then add the badge XP reward to users.total_xp and recompute level. Resolves
- * the badge def by id OR code so seed ids ("b6") and DB codes ("verified") both work.
- */
-export async function awardBadgeIfNeededDb(userId: string, badgeIdOrCode: string): Promise<boolean> {
-  const db = readDb();
-  const { data: def, error: defError } = await db
-    .from("badges")
-    .select("id, xp_reward, xp, is_active")
-    .or(`id.eq.${badgeIdOrCode},code.eq.${badgeIdOrCode}`)
-    .maybeSingle();
-  if (defError) throw new Error(defError.message);
-  if (!def || def.is_active === false) return false;
-
-  const { data: owner, error: ownerError } = await db.from("users").select("id, total_xp, xp").eq("id", userId).maybeSingle();
-  if (ownerError) throw new Error(ownerError.message);
-  if (!owner) return false;
-
-  const { data: owned, error: ownedError } = await db
-    .from("user_badges")
-    .select("badge_id")
-    .eq("user_id", userId)
-    .eq("badge_id", String(def.id))
-    .maybeSingle();
-  if (ownedError) throw new Error(ownedError.message);
-  if (owned) return false;
-
-  const reward = Number(def.xp_reward ?? def.xp ?? 0);
-  const { error: insertError } = await db.from("user_badges").insert({
-    user_id: userId,
-    badge_id: String(def.id),
-    earned_at: nowIso(),
-    awarded_at: nowIso(),
-    xp_reward_snapshot: reward,
-  });
-  if (insertError) throw new Error(insertError.message);
-
-  if (reward > 0) {
-    const newTotalXp = Number(owner.total_xp ?? owner.xp ?? 0) + reward;
-    const { error: xpError } = await db
-      .from("users")
-      .update({ total_xp: newTotalXp, xp: newTotalXp, level: Math.max(1, Math.floor(newTotalXp / 10) + 1) })
-      .eq("id", userId);
-    if (xpError) throw new Error(xpError.message);
-  }
-  return true;
-}
+// Badge award + XP ada di SQL trigger badge_on_kyc (idempotent, sekali per user) —
+// path JS dihapus 2026-08-16 (pernah menyebabkan double XP saat approve KYC).

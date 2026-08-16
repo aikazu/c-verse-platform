@@ -10,6 +10,7 @@ app.get("/u/:username", async (c) => {
   const raw = c.req.param("username");
   const user = await getUserByUsernameOrId(raw);
   if (!user) return c.json({ error: "User tidak ditemukan" }, 404);
+  if (user.flagReason) return c.json({ error: "User tidak ditemukan" }, 404); // suspended: profil disembunyikan
   if (user.isAnonymous) {
     return c.json({
       user: { id: user.id, displayName: user.displayName, username: user.username ?? null, isAnonymous: true },

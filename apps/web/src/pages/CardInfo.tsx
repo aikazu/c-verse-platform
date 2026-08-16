@@ -15,7 +15,7 @@ const VERIFY_BADGES: Record<string, { label: string; cls: string }> = {
 const BUYOUT_ERRORS: Record<string, string> = {
   INSUFFICIENT: "Saldo tidak cukup",
   OWN_CARD: "Kartu ini milikmu sendiri",
-  COOLING_PERIOD_14D: "Kartu masih dalam cooling period 14 hari",
+  COOLING_PERIOD_24H: "Blok rebuy 24 jam — kartu yang baru kamu jual belum bisa dibeli kembali",
   CREATOR_SELF_DEALING_30D: "Kreator tidak boleh membeli kartu sendiri (30 hari)",
   CARD_NOT_TRADABLE: "Kartu ini tidak dapat diperdagangkan",
   ADDRESS_REQUIRED: "Alamat wajib diisi (min 10 karakter)",

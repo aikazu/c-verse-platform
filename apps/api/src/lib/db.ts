@@ -51,8 +51,14 @@ const ERROR_MESSAGES: Record<string, string> = {
   NO_ACTIVE_BID: "Tidak ada bid active untuk kartu ini",
   MAX_BUYOUT_ACTIVE: "Maksimum 20 kartu buyout aktif per user",
   NOT_FOR_SALE: "Kartu tidak dijual buyout",
-  COOLING_PERIOD_14D: "Cooling period 14 hari — tidak bisa membeli kembali kartu yang baru kamu jual",
+  COOLING_PERIOD_24H: "Blok rebuy 24 jam — tidak bisa membeli kembali kartu yang baru kamu jual",
   CREATOR_SELF_DEALING_30D: "Creator self-dealing dilarang 30 hari — kreator tidak bisa membeli kartu drop sendiri",
+  CARD_NOT_TRADABLE: "Kartu berstatus non-tradable (tampered/defect/lost) — tidak bisa ditransaksikan",
+  BID_LIMIT: "Maksimum 3 bid aktif — batalkan salah satu bid dulu",
+  KYC_REQUIRED: "KYC harus disetujui dulu sebelum payout",
+  MIN_PAYOUT: "Payout minimum 10 C-Coin",
+  PAYOUT_HELD: "Payout sedang ditahan admin (fraud hold)",
+  TOPUP_CAP_EXCEEDED: "Cap saldo top-up non-KYC tercapai (500 C-Coin) — selesaikan KYC untuk membuka tanpa cap",
 };
 
 async function callRpc<T>(db: SupabaseClient, fn: string, args: Record<string, unknown>): Promise<T> {
@@ -94,14 +100,24 @@ export function rpcCancelBid(db: SupabaseClient, bidId: string) {
   return callRpc<Record<string, unknown>>(db, "cancel_bid", { p_bid_id: bidId });
 }
 
-export function rpcAcceptBid(db: SupabaseClient, cardId: string, destination: "buyer_address" | "platform_vault") {
-  return callRpc<Record<string, unknown>>(db, "accept_bid", { p_card_id: cardId, p_destination: destination });
+export function rpcAcceptBid(
+  db: SupabaseClient,
+  cardId: string,
+  destination: "buyer_address" | "platform_vault",
+  address: string | null = null,
+) {
+  return callRpc<Record<string, unknown>>(db, "accept_bid", { p_card_id: cardId, p_destination: destination, p_address: address });
 }
 
 export function rpcSetBuyout(db: SupabaseClient, cardId: string, price: number | null) {
   return callRpc<Record<string, unknown>>(db, "set_buyout", { p_card_id: cardId, p_price: price });
 }
 
-export function rpcBuyoutCard(db: SupabaseClient, cardId: string) {
-  return callRpc<Record<string, unknown>>(db, "buyout_card", { p_card_id: cardId });
+export function rpcBuyoutCard(
+  db: SupabaseClient,
+  cardId: string,
+  destination: "buyer_address" | "platform_vault" = "buyer_address",
+  address: string | null = null,
+) {
+  return callRpc<Record<string, unknown>>(db, "buyout_card", { p_card_id: cardId, p_destination: destination, p_address: address });
 }

@@ -20,9 +20,12 @@ async function rpcOrNull(env: EnvLike, fn: string, args?: Record<string, unknown
 
 export async function runCron(cron: string, env: EnvLike): Promise<void> {
   if (cron === CRON_EVERY_5_MIN) {
+    const activated = await rpcOrNull(env, "activate_scheduled_drops");
     const released = await rpcOrNull(env, "escrow_auto_release");
     const drawn = await rpcOrNull(env, "draw_pending_drops");
-    console.log(`[cron] escrow_auto_release=${released ?? "skip"} draw_pending_drops=${drawn ?? "skip"}`);
+    console.log(
+      `[cron] activate_scheduled_drops=${activated ?? "skip"} escrow_auto_release=${released ?? "skip"} draw_pending_drops=${drawn ?? "skip"}`,
+    );
     return;
   }
   if (cron === CRON_PAYOUT_BATCH) {

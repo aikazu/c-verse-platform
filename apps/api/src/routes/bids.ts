@@ -77,7 +77,8 @@ app.post("/:id/cancel", async (c) => {
   }
 });
 
-// POST /cards/:cardId/accept — accept current active bid on card
+// POST /cards/:cardId/accept — accept current active bid on card.
+// dest buyer_address -> wajib alamat; RPC membuat shipment 'requested' otomatis.
 app.post(
   "/cards/:cardId/accept",
   zValidator(
@@ -85,7 +86,7 @@ app.post(
     z.object({
       bidId: z.string().optional(),
       destination: z.enum(["buyer_address", "platform_vault"]).optional().default("buyer_address"),
-      shippingAddress: z.string().optional(),
+      shippingAddress: z.string().min(10).max(500).optional(),
       shippingFeeCcoin: z.number().int().min(1).optional().nullable(),
     }),
   ),
@@ -93,14 +94,19 @@ app.post(
     const authRes = await requireUser(c);
     if ("error" in authRes) return c.json({ error: authRes.error === 403 ? "Akun disuspend" : "Unauthorized" }, authRes.error);
     const cardId = c.req.param("cardId");
+    const body = c.req.valid("json");
+    const destination = body.destination ?? "buyer_address";
+    if (destination === "buyer_address" && !body.shippingAddress) {
+      return c.json({ error: "Alamat pengiriman wajib (min 10 karakter) untuk kirim fisik" }, 400);
+    }
     const db = userDb(authRes.token);
     try {
-      const body = c.req.valid("json") as { destination?: "buyer_address" | "platform_vault" };
-      const bid = await rpcAcceptBid(db, cardId, body.destination ?? "buyer_address");
-      return c.json({ ok: true, bid, needShipmentChoice: true });
+      const bid = await rpcAcceptBid(db, cardId, destination, body.shippingAddress ?? null);
+      return c.json({ ok: true, bid });
     } catch (err) {
       if (err instanceof RpcError) {
-        return c.json({ error: err.message, code: err.code }, err.code === "FORBIDDEN" ? 403 : 400);
+        const status = err.code === "FORBIDDEN" || err.code === "CARD_NOT_TRADABLE" ? 403 : 400;
+        return c.json({ error: err.message, code: err.code }, status);
       }
       throw err;
     }

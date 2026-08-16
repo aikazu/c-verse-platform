@@ -58,6 +58,7 @@ app.get("/:id", async (c) => {
   let user = recByHandle?.userId ? await getUserById(recByHandle.userId) : null;
   if (!user && !recByHandle) user = await getUserByUsernameOrId(raw);
   if (!user || (user.role as string) !== "creator") return c.json({ error: "Creator tidak ditemukan" }, 404);
+  if (user.flagReason) return c.json({ error: "Creator tidak ditemukan" }, 404); // suspended: sembunyikan storefront
   const [rec] = await Promise.all([getCreatorByUserId(user.id), logCreatorView(user.id, c, recByHandle)]);
   const drops = (await listDrops())
     .filter((d) => d.creatorId === user?.id && ["published", "live", "sold_out", "scheduled", "ended", "closed"].includes(d.status))
@@ -107,14 +108,54 @@ app.get("/:id", async (c) => {
 });
 
 // GET /handle/:handle — explicit handle route (for /c/:username frontend)
+// HANYA field publik — bank_account/notes TIDAK ikut respons (PII leak fix 2026-08-16).
 app.get("/handle/:handle", async (c) => {
   const rec = await getCreatorByHandle(c.req.param("handle"));
   if (!rec) return c.json({ error: "Creator tidak ditemukan" }, 404);
   const user = rec.userId ? await getUserById(rec.userId) : null;
   if (!user) return c.json({ error: "Creator tidak ditemukan" }, 404);
+  if (user.flagReason) return c.json({ error: "Creator tidak ditemukan" }, 404);
   await logCreatorView(user.id, c, rec);
   const drops = (await listDrops()).filter((d) => d.creatorId === user.id);
-  return c.json({ creator: { id: user.id, displayName: user.displayName, handle: rec.handle }, drops, rec });
+  return c.json({
+    creator: {
+      id: user.id,
+      displayName: user.displayName,
+      username: user.username ?? null,
+      handle: rec.handle,
+      bio: null,
+      links: [],
+      totalFollowersCombined: rec.totalFollowersCombined ?? null,
+      xp: user.totalXp ?? user.xp ?? 0,
+    },
+    drops,
+  });
+});
+
+// POST /apply — user minta jadi creator (row creators status 'inactive' menunggu
+// approval admin; role di-flip admin via PATCH /api/admin/users/:id).
+app.post("/apply", async (c) => {
+  const authRes = await requireUser(c);
+  if ("error" in authRes) return c.json({ error: authRes.error === 403 ? "Akun disuspend" : "Unauthorized" }, authRes.error);
+  const user = authRes.user;
+  if ((user.role as string) === "creator") return c.json({ error: "Kamu sudah terdaftar sebagai kreator" }, 400);
+  const username = user.username;
+  if (!username) return c.json({ error: "Set username dulu di profil sebelum mendaftar kreator" }, 400);
+  const existing = await getCreatorByUserId(user.id);
+  if (existing) return c.json({ error: "Pendaftaran kreator sudah ada — menunggu review admin" }, 409);
+  const { getSupabase } = await import("../lib/supabase.js");
+  const { uid } = await import("../lib/store.js");
+  const db = getSupabase();
+  const id = uid("cr-");
+  const { error } = await db.from("creators").insert({
+    id,
+    user_id: user.id,
+    handle: username,
+    total_followers_combined: 0,
+    status: "inactive",
+  });
+  if (error) return c.json({ error: error.message }, 400);
+  return c.json({ creator: { id, handle: username, status: "inactive", message: "Pendaftaran diterima — menunggu review admin" } }, 201);
 });
 
 export default app;

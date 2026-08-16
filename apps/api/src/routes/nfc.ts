@@ -27,10 +27,53 @@ function masterKeyBytes(): Uint8Array | null {
   return new Uint8Array((hex.match(/.{2}/g) ?? []).map((b) => Number.parseInt(b, 16)));
 }
 
-/** Persist verification state to Postgres. */
-async function persistVerification(card: Card): Promise<void> {
+/**
+ * Persist verification state to Postgres — semua ATOMIC (docs/12 §4):
+ * - verified: UPDATE ... WHERE last_ctr < ctr (anti-replay di level DB, bukan read-modify-write JS)
+ * - tamper: permanen; counter tetap dimajukan (tap valid terjadi)
+ * - registered (QR-grade): hanya upgrade unknown/registered — TIDAK PERNAH menurunkan
+ *   verified/tamper_detected.
+ */
+async function persistVerified(cardId: string, ctr: number): Promise<boolean> {
   const supabase = getSupabase();
-  await supabase.from("cards").update({ verify_status: card.verifyStatus, last_ctr: card.lastCtr }).eq("id", card.id);
+  const { data, error } = await supabase
+    .from("cards")
+    .update({ verify_status: "verified", last_ctr: ctr })
+    .eq("id", cardId)
+    .lt("last_ctr", ctr)
+    .not("verify_status", "eq", "tamper_detected")
+    .select("id")
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  return data != null;
+}
+
+async function persistTampered(cardId: string, ctr: number | null): Promise<void> {
+  const supabase = getSupabase();
+  // Counter tetap dimajukan atomically bila tap valid; flag tamper permanen.
+  if (ctr != null) {
+    const { error: ctrError } = await supabase.from("cards").update({ last_ctr: ctr }).eq("id", cardId).lt("last_ctr", ctr).select("id");
+    if (ctrError) throw new Error(ctrError.message);
+  }
+  const { error } = await supabase.from("cards").update({ verify_status: "tamper_detected" }).eq("id", cardId);
+  if (error) throw new Error(error.message);
+}
+
+async function persistRegistered(cardId: string): Promise<void> {
+  const supabase = getSupabase();
+  const { error } = await supabase
+    .from("cards")
+    .update({ verify_status: "registered" })
+    .eq("id", cardId)
+    .in("verify_status", ["unknown", "registered"]);
+  if (error) throw new Error(error.message);
+}
+
+/** Display status untuk path QR: pertahankan status lebih kuat yang sudah ada. */
+function qrDisplayStatus(current: string): "verified" | "tamper_detected" | "registered" {
+  if (current === "tamper_detected") return "tamper_detected";
+  if (current === "verified") return "verified";
+  return "registered";
 }
 
 interface TapInput {
@@ -69,18 +112,30 @@ async function verifyTap(card: Card, input: TapInput): Promise<TapOutcome> {
     return { verifyStatus: "unknown", message: "Verifikasi kripto gagal", reason: result.reason };
   }
 
+  const ctrNum = Number.parseInt(input.ctrHex, 16);
+  if (!Number.isFinite(ctrNum)) {
+    return { verifyStatus: "unknown", message: "Counter tidak valid", reason: "bad_ctr" };
+  }
+
   // Tamper bit hanya dipercaya setelah CMAC valid — bit ini bagian dari pesan SUN
-  // yang ter-autentikasi (docs/12 §2.2 p4). Menerimanya sebelum verifikasi
-  // membuat siapa pun bisa men-tamper-flag kartu orang lain via ?t=1 tanpa bukti.
+  // yang ter-autentikasi (docs/12 §2.2 p4). Permanen + wajib meninggalkan audit trail.
   if (input.tamperFlag) {
-    card.verifyStatus = "tamper_detected"; // irreversible
-    await persistVerification(card);
+    await persistTampered(card.id, ctrNum > card.lastCtr ? ctrNum : null);
+    await logAuditDb(
+      "system",
+      "view_sensitive",
+      "cards",
+      card.id,
+      { fraud: "nfc_tamper_flagged", ctr: ctrNum, lastCtr: card.lastCtr },
+      null,
+      null,
+    );
     return { verifyStatus: "tamper_detected", message: "TagTamper aktif — kartu terindikasi dibuka" };
   }
 
-  // Anti-replay: counter must strictly advance
-  const ctrNum = Number.parseInt(input.ctrHex, 16);
-  if (!Number.isFinite(ctrNum) || ctrNum <= card.lastCtr) {
+  // Anti-replay: counter must strictly advance — enforced atomically di DB
+  // (UPDATE ... WHERE last_ctr < ctr), bukan read-check-write JS.
+  if (ctrNum <= card.lastCtr) {
     await logAuditDb(
       "system",
       "view_sensitive",
@@ -93,9 +148,20 @@ async function verifyTap(card: Card, input: TapInput): Promise<TapOutcome> {
     return { verifyStatus: "unknown", message: "Counter tidak bertambah (replay ditolak)", reason: "counter_replay" };
   }
 
-  card.lastCtr = ctrNum;
-  card.verifyStatus = "verified";
-  await persistVerification(card);
+  const persisted = await persistVerified(card.id, ctrNum);
+  if (!persisted) {
+    // Race: tap lain sudah memajukan counter lebih tinggi → replay.
+    await logAuditDb(
+      "system",
+      "view_sensitive",
+      "cards",
+      card.id,
+      { fraud: "nfc_counter_replay", ctr: ctrNum, lastCtr: card.lastCtr },
+      null,
+      null,
+    );
+    return { verifyStatus: "unknown", message: "Counter tidak bertambah (replay ditolak)", reason: "counter_replay" };
+  }
   return { verifyStatus: "verified", message: "Kartu terverifikasi — keaslian valid" };
 }
 
@@ -193,16 +259,15 @@ app.get("/cards/:cardId/3d", async (c) => {
   });
 });
 
-// GET /verify/:shortId — QR di dus → maksimal "registered" (tanpa CMAC per docs/03 Flow 4)
+// GET /verify/:shortId — QR di dus → maksimal "registered" (tanpa CMAC per docs/03 Flow 4).
+// TIDAK PERNAH menurunkan status verified/tamper_detected yang sudah diraih.
 app.get("/verify/:shortId", async (c) => {
   const card = await getCardByNfcShortId(c.req.param("shortId"));
   if (!card) return c.json({ status: "unknown", message: "Kartu tidak terdaftar di C.Verse" }, 404);
   const drop = await getDropById(card.dropId);
   const owner = card.ownerId ? await getUserById(card.ownerId) : null;
-  if (card.verifyStatus !== "tamper_detected") {
-    card.verifyStatus = "registered";
-    await persistVerification(card);
-  }
+  await persistRegistered(card.id);
+  const display = qrDisplayStatus(card.verifyStatus);
   return c.json({
     card: {
       id: card.id,
@@ -210,13 +275,13 @@ app.get("/verify/:shortId", async (c) => {
       variant: card.variant,
       status: card.status,
       nfcShortId: card.nfcShortId,
-      verifyStatus: card.verifyStatus,
+      verifyStatus: display,
     },
     drop: drop ? { id: drop.id, title: drop.title, series: drop.series, artworkUrl: drop.artworkUrl } : null,
     owner: owner ? { displayName: owner.displayName } : null,
-    verifyStatus: card.verifyStatus,
+    verifyStatus: display,
     verifyMethod: "qr_shortid",
-    tamperDetected: card.verifyStatus === "tamper_detected",
+    tamperDetected: display === "tamper_detected",
     redirectTo: `/cards/${card.id}`,
     hint: "QR = Registered (tanpa CMAC) — verifikasi lebih lemah daripada tap NFC.",
   });
@@ -241,12 +306,12 @@ app.post(
     if (!card) return c.json({ status: "unknown", message: "UID tidak terdaftar", verifyStatus: "unknown" as const }, 404);
 
     if (!counter || !cmac) {
-      // No crypto fields -> QR-grade only
-      if (card.verifyStatus !== "tamper_detected") card.verifyStatus = "registered";
-      await persistVerification(card);
+      // No crypto fields -> QR-grade only (tidak menurunkan verified/tamper)
+      await persistRegistered(card.id);
+      const display = qrDisplayStatus(card.verifyStatus);
       return c.json({
-        verifyStatus: card.verifyStatus,
-        message: card.verifyStatus === "tamper_detected" ? "Tamper terdeteksi" : "Registered (tanpa CMAC)",
+        verifyStatus: display,
+        message: display === "tamper_detected" ? "Tamper terdeteksi" : "Registered (tanpa CMAC)",
         card: { id: card.id, unitNumber: card.unitNumber, variant: card.variant },
         redirectTo: `/cards/${card.id}/3d`,
       });
@@ -276,6 +341,10 @@ app.get("/sun-verify", async (c) => {
   if (uidParam) card = await getCardByNfcUid(String(uidParam));
   if (!card && shortId) card = await getCardByNfcShortId(String(shortId));
   if (!card) return c.json({ verifyStatus: "unknown" as const, message: "Kartu tidak terdaftar" }, 404);
+  // Konsistensi param: bila kedua identifier dikirim, keduanya harus merujuk kartu yang sama.
+  if (uidParam && shortId && card.nfcShortId !== String(shortId)) {
+    return c.json({ verifyStatus: "unknown" as const, message: "Identifier kartu tidak konsisten" }, 404);
+  }
 
   const ctr = c.req.query("ctr");
   const cmac = c.req.query("c") ?? c.req.query("cmac");
@@ -289,9 +358,8 @@ app.get("/sun-verify", async (c) => {
       verifiedBadge: outcome.verifyStatus === "verified" ? "Verified Card" : null,
     });
   }
-  if (card.verifyStatus !== "tamper_detected") card.verifyStatus = "registered";
-  await persistVerification(card);
-  return c.json({ verifyStatus: card.verifyStatus, card: { id: card.id }, redirectTo: `/cards/${card.id}/3d` });
+  await persistRegistered(card.id);
+  return c.json({ verifyStatus: qrDisplayStatus(card.verifyStatus), card: { id: card.id }, redirectTo: `/cards/${card.id}/3d` });
 });
 
 export default app;

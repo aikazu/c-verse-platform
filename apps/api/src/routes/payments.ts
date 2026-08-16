@@ -1,11 +1,14 @@
 import { timingSafeEqual } from "node:crypto";
-import { C_COIN_RATE_IDR } from "@c-verse/shared";
+import { BALANCE_CAP_CCOIN, C_COIN_RATE_IDR } from "@c-verse/shared";
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import { z } from "zod";
 import { requireUser } from "../lib/auth.js";
+import { userDb } from "../lib/db.js";
 import { getProvider } from "../lib/payments/index.js";
 import { mapTransactionStatus } from "../lib/payments/midtrans.js";
+import { getKycByUser, logAuditDb } from "../lib/reads/kyc.js";
+import { getWalletByUser } from "../lib/reads/profile.js";
 import { getSupabase } from "../lib/supabase.js";
 
 // Payments (docs/14): uang masuk HANYA via webhook terverifikasi signature —
@@ -26,21 +29,79 @@ function parseTopupOrderId(orderId: string): { userId: string } | null {
 app.post("/topup", zValidator("json", z.object({ amountCcoin: z.number().int().min(1).max(10000) })), async (c) => {
   const authRes = await requireUser(c);
   if ("error" in authRes) return c.json({ error: authRes.error === 403 ? "Akun disuspend" : "Unauthorized" }, authRes.error);
+  const user = authRes.user;
   const { amountCcoin } = c.req.valid("json");
+
+  // Cap saldo non-KYC (docs 07 C-08, founder 2026-08-16): top-up akan melampaui
+  // 500 C-Coin ditolak sampai KYC approved (tanpa cap setelahnya).
+  const [wallet, kyc] = await Promise.all([getWalletByUser(user.id), getKycByUser(user.id)]);
+  if (kyc?.status !== "approved" && wallet.balanceCCoin + amountCcoin > BALANCE_CAP_CCOIN) {
+    return c.json(
+      {
+        error: `Cap saldo non-KYC ${BALANCE_CAP_CCOIN} C-Coin (saldo sekarang ${wallet.balanceCCoin}). Selesaikan KYC (/me/kyc) untuk membuka tanpa cap.`,
+        code: "KYC_TOPUP_CAP",
+        needKyc: true,
+      },
+      422,
+    );
+  }
 
   const provider = await getProvider();
   if (!provider) {
-    return c.json({ error: "Payment gateway belum terkonfigurasi (dev: gunakan /api/wallet/topup)" }, 503);
+    return c.json({ error: "Payment gateway belum terkonfigurasi (set MIDTRANS_SERVER_KEY)" }, 503);
   }
 
-  const orderId = newOrderId(authRes.user.id);
+  const orderId = newOrderId(user.id);
   const instruction = await provider.createTopup({
     orderId,
     amountIdr: amountCcoin * C_COIN_RATE_IDR,
     amountCcoin,
-    userId: authRes.user.id,
+    userId: user.id,
   });
   return c.json({ orderId, provider: provider.name, amountCcoin, amountIdr: amountCcoin * C_COIN_RATE_IDR, ...instruction }, 201);
+});
+
+// POST /payout — creator minta disbursement: dana dikunci (debit), row payouts
+// pending dibuat; batch mingguan (payout_batch_run) + webhook IRIS menyelesaikan.
+app.post("/payout", zValidator("json", z.object({ amountCcoin: z.number().int().min(1) })), async (c) => {
+  const authRes = await requireUser(c);
+  if ("error" in authRes) return c.json({ error: authRes.error === 403 ? "Akun disuspend" : "Unauthorized" }, authRes.error);
+  const { amountCcoin } = c.req.valid("json");
+  const db = userDb(authRes.token);
+  const { data, error } = await db.rpc("payout_request", { p_amount: amountCcoin });
+  if (error) {
+    const code = error.message.trim().split("\n")[0];
+    const status =
+      code === "KYC_REQUIRED" ? 403 : code === "PAYOUT_HELD" ? 423 : code === "INSUFFICIENT" ? 402 : code === "MIN_PAYOUT" ? 400 : 400;
+    const messages: Record<string, string> = {
+      KYC_REQUIRED: "KYC harus disetujui dulu sebelum payout (ajukan di /me/kyc)",
+      PAYOUT_HELD: "Payout sedang ditahan admin (fraud hold)",
+      INSUFFICIENT: "Saldo C-Coin tidak cukup",
+      MIN_PAYOUT: "Payout minimum 10 C-Coin",
+    };
+    return c.json({ error: messages[code] ?? error.message, code }, status);
+  }
+  return c.json({ payout: data }, 201);
+});
+
+// POST /admin/payout-run — admin trigger batch payout mingguan (manual override cron).
+app.post("/admin/payout-run", async (c) => {
+  const authRes = await requireUser(c);
+  const user = "error" in authRes ? null : authRes.user;
+  if (!user || (user.role as string) !== "admin") return c.json({ error: "Hanya admin" }, 403);
+  const supabase = getSupabase();
+  const { data, error } = await supabase.rpc("payout_batch_run");
+  if (error) return c.json({ error: error.message }, 500);
+  await logAuditDb(
+    user.id,
+    "payout_trigger",
+    "payout_batches",
+    String(data ?? "-"),
+    { batchId: data },
+    c.req.header("x-forwarded-for") ?? null,
+    c.req.header("authorization") ?? null,
+  );
+  return c.json({ batchId: data });
 });
 
 app.post("/midtrans/webhook", async (c) => {
@@ -86,7 +147,8 @@ app.post("/midtrans/webhook", async (c) => {
     return c.json({ ok: true, status: mapped }); // pending ditunggu; fail tidak kredit
   }
 
-  const amountCcoin = Math.round(Number(payload.grossAmount) / C_COIN_RATE_IDR);
+  // Konversi IDR -> C-Coin SELALU ceil (docs 07 C-11 — Math.round melanggar spek).
+  const amountCcoin = Math.ceil(Number(payload.grossAmount) / C_COIN_RATE_IDR);
   if (!Number.isInteger(amountCcoin) || amountCcoin < 1) {
     return c.json({ ok: true, ignored: true });
   }
@@ -99,7 +161,24 @@ app.post("/midtrans/webhook", async (c) => {
     p_ref_id: payload.orderId,
     p_idem: payload.orderId,
   });
-  if (error) return c.json({ error: error.message }, 500);
+  if (error) {
+    // Cap non-KYC tercapai (race double top-up): jangan bikin Midtrans retry selamanya —
+    // akui webhook + audit trail untuk rekonsiliasi manual (refund via Midtrans).
+    if (error.message.includes("TOPUP_CAP_EXCEEDED")) {
+      await logAuditDb(
+        "system",
+        "view_sensitive",
+        "wallet_transactions",
+        payload.orderId,
+        { fraud: "topup_cap_exceeded", userId: parsed.userId, amountCcoin },
+        null,
+        null,
+      );
+      console.error("[payments] topup melewati cap non-KYC (race) — kredit ditolak, perlu refund manual:", payload.orderId);
+      return c.json({ ok: true, ignored: true, reason: "topup_cap_exceeded" });
+    }
+    return c.json({ error: error.message }, 500);
+  }
   // duplicate notification -> RPC idempotent: saldo TIDAK dobel
   return c.json({ ok: true, credited: amountCcoin, idempotentReplay: (data as { amount_ccoin?: number } | null) === null });
 });

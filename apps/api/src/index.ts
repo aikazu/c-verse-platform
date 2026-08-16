@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
 import { runCron } from "./lib/cron.js";
+import admin from "./routes/admin.js";
 import auth from "./routes/auth.js";
 import bids from "./routes/bids.js";
 import browse from "./routes/browse.js";
@@ -70,6 +71,7 @@ app.route("/api/kyc", kyc);
 app.route("/api/shipments", shipments);
 app.route("/api/seo", seo);
 app.route("/api/payments", payments);
+app.route("/api/admin", admin);
 app.get("/sitemap.xml", async (c) => {
   // delegate to seo handler so both /sitemap.xml and /api/seo/sitemap.xml work (SEO Worker fetches either)
   const r = await seo.fetch(new Request(new URL("/sitemap.xml", c.req.url).toString()), c.env as never, c.executionCtx as never);

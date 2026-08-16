@@ -174,7 +174,13 @@ app.patch("/", async (c) => {
   if (Object.keys(patch).length > 0) {
     const db = readDb();
     const { error } = await db.from("users").update(patch).eq("id", user.id);
-    if (error) throw new Error(error.message);
+    if (error) {
+      // Race TOCTOU isUsernameTaken -> unique index idx_users_username menolak di sini.
+      if (/duplicate key|unique constraint/i.test(error.message)) {
+        return c.json({ error: "Username sudah dipakai — pilih yang lain" }, 409);
+      }
+      throw new Error(error.message);
+    }
   }
   return c.json({ user: { id: user.id, displayName, username, usernameIsAuto } });
 });

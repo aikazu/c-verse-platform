@@ -90,28 +90,45 @@ app.post(
   },
 );
 
-// POST /buyout — beli kartu di harga buyout (fee 7,5/7,5/85 via RPC)
-app.post("/buyout", zValidator("json", z.object({ cardId: z.string().min(1) })), async (c) => {
-  const authRes = await requireUser(c);
-  if ("error" in authRes) return c.json({ error: authRes.error === 403 ? "Akun disuspend" : "Unauthorized" }, authRes.error);
-  const { cardId } = c.req.valid("json");
-  const db = userDb(authRes.token);
-  try {
-    const card = await rpcBuyoutCard(db, cardId);
-    return c.json({ ok: true, card, needShipmentChoice: true, dbPath: "rpc" });
-  } catch (err) {
-    if (err instanceof RpcError) {
-      const status =
-        err.code === "INSUFFICIENT"
-          ? 402
-          : ["FORBIDDEN", "OWN_CARD", "COOLING_PERIOD_14D", "CREATOR_SELF_DEALING_30D"].includes(err.code)
-            ? 403
-            : 400;
-      return c.json({ error: err.message, code: err.code }, status);
+// POST /buyout — beli kartu di harga buyout (fee 7,5/7,5/85 via RPC).
+// dest buyer_address -> wajib alamat; RPC membuat shipment 'requested' otomatis.
+app.post(
+  "/buyout",
+  zValidator(
+    "json",
+    z.object({
+      cardId: z.string().min(1),
+      destination: z.enum(["buyer_address", "platform_vault"]).default("buyer_address"),
+      shippingAddress: z.string().min(10).max(500).optional(),
+    }),
+  ),
+  async (c) => {
+    const authRes = await requireUser(c);
+    if ("error" in authRes) return c.json({ error: authRes.error === 403 ? "Akun disuspend" : "Unauthorized" }, authRes.error);
+    const { cardId, destination, shippingAddress } = c.req.valid("json");
+    if (destination === "buyer_address" && !shippingAddress) {
+      return c.json({ error: "Alamat pengiriman wajib (min 10 karakter) untuk kirim fisik" }, 400);
     }
-    throw err;
-  }
-});
+    const db = userDb(authRes.token);
+    try {
+      const card = await rpcBuyoutCard(db, cardId, destination, shippingAddress ?? null);
+      return c.json({ ok: true, card, dbPath: "rpc" }, 201);
+    } catch (err) {
+      if (err instanceof RpcError) {
+        const status =
+          err.code === "INSUFFICIENT"
+            ? 402
+            : ["FORBIDDEN", "OWN_CARD", "COOLING_PERIOD_24H", "CREATOR_SELF_DEALING_30D", "CARD_NOT_TRADABLE"].includes(err.code)
+              ? 403
+              : ["ADDRESS_REQUIRED", "NOT_FOR_SALE"].includes(err.code)
+                ? 400
+                : 400;
+        return c.json({ error: err.message, code: err.code }, status);
+      }
+      throw err;
+    }
+  },
+);
 
 // PATCH /cards/:id/buyout — ubah/hapus harga buyout
 app.patch("/cards/:id/buyout", zValidator("json", z.object({ buyoutPriceCcoin: z.number().int().min(1).nullable() })), async (c) => {

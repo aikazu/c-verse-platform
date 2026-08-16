@@ -2,7 +2,7 @@ import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import { z } from "zod";
 import { requireUser } from "../lib/auth.js";
-import { awardBadgeIfNeededDb, getKycByUser, listKycRecords, logAuditDb, setKycStatus, upsertKycSubmission } from "../lib/reads/kyc.js";
+import { getKycByUser, listKycRecords, logAuditDb, setKycStatus, upsertKycSubmission } from "../lib/reads/kyc.js";
 
 const app = new Hono();
 
@@ -45,8 +45,8 @@ app.post("/:id/approve", async (c) => {
   if (!user || (user.role as string) !== "admin") return c.json({ error: "Hanya admin" }, 403);
   const rec = await setKycStatus(c.req.param("id"), "approved");
   if (!rec) return c.json({ error: "Not found" }, 404);
-  // Side effect: badge "verified" (store id b6) + XP reward, once per user
-  await awardBadgeIfNeededDb(rec.userId, "verified");
+  // Badge "verified" + XP di-award OLEH TRIGGER badge_on_kyc (sekali, idempotent) —
+  // jangan ulangi di JS (double XP fix 2026-08-16).
   await logAuditDb(
     user.id,
     "update",

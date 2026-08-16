@@ -1,4 +1,4 @@
-import { BALANCE_CAP_CCOIN, C_COIN_RATE_IDR, KYC_TRIGGER_THRESHOLD_CCOIN, MIN_PAYOUT_CCOIN } from "@c-verse/shared";
+import { BALANCE_CAP_CCOIN, C_COIN_RATE_IDR, MIN_PAYOUT_CCOIN } from "@c-verse/shared";
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import { z } from "zod";
@@ -6,8 +6,6 @@ import { requireUser } from "../lib/auth.js";
 import { getWallet, isPayoutHeld, listWalletTxs } from "../lib/reads/wallet.js";
 
 const app = new Hono();
-
-const KYC_THRESHOLD = KYC_TRIGGER_THRESHOLD_CCOIN; // 1.000 C-Coin (docs/16 F-03; demo pakai KYC_TOPUP_THRESHOLD_DEMO di seed)
 
 app.get("/", async (c) => {
   const authRes = await requireUser(c);
@@ -20,8 +18,7 @@ app.get("/", async (c) => {
     wallet: { ...w, balanceIdrEquiv: w.balanceCCoin * C_COIN_RATE_IDR },
     transactions: txs,
     rate: C_COIN_RATE_IDR,
-    thresholdKyc: KYC_THRESHOLD,
-    balanceCap: BALANCE_CAP_CCOIN,
+    topupCapNoKyc: BALANCE_CAP_CCOIN, // non-KYC cap 500; KYC approved = tanpa cap
     minPayout: MIN_PAYOUT_CCOIN,
     payoutHeld: held.held,
     payoutHoldUntil: held.until,
@@ -30,12 +27,15 @@ app.get("/", async (c) => {
   });
 });
 
-// Real-money path (docs/14): top-up hanya via Midtrans webhook — endpoint demo in-memory dihapus.
+// Real-money path (docs/14): top-up via Midtrans (/api/payments/topup + webhook) — uang
+// masuk HANYA lewat webhook terverifikasi signature. Stub ini menolak dengan arahan jelas.
 app.post("/topup", zValidator("json", z.object({}).passthrough()), async (_c) =>
-  _c.json({ error: "Top-up via Midtrans (/api/payments/topup)" }, 503),
+  _c.json({ error: "Top-up via Midtrans: POST /api/payments/topup" }, 503),
 );
 
-// Payout disbursement berjalan via admin batch — self-service debit demo in-memory dihapus.
-app.post("/payout", zValidator("json", z.object({}).passthrough()), async (_c) => _c.json({ error: "Payout via admin batch" }, 503));
+// Payout: creator minta disbursement via /api/payments/payout (request) — batch mingguan admin.
+app.post("/payout", zValidator("json", z.object({}).passthrough()), async (_c) =>
+  _c.json({ error: "Payout request via POST /api/payments/payout" }, 503),
+);
 
 export default app;
