@@ -5,7 +5,7 @@ const TICKER_ITEMS = [
   "EDISI TERBATAS DARI KREATOR FAVORIT",
   "KEASLIAN TERVERIFIKASI NFC",
   "1 C-COIN = RP 10.000",
-  "1 KARTU PER USER PER DROP",
+  "1 C.CARD PER USER PER DROP",
   "JUAL & BID DI MARKETPLACE",
 ];
 
@@ -13,12 +13,12 @@ const STEPS = [
   {
     num: "01",
     title: "PILIH DROP",
-    desc: "Masuk ke drop kreator favoritmu dan amankan kartu edisi terbatasnya. Satu kartu per user per drop — begitu habis, tidak ada cetak ulang.",
+    desc: "Masuk ke drop kreator favoritmu dan amankan C.Card edisi terbatas. Satu C.Card per user per drop — begitu habis, tidak ada cetak ulang.",
   },
   {
     num: "02",
     title: "TAP NFC",
-    desc: "Sentuh kartu ke ponselmu — keasliannya diverifikasi lewat NFC dalam hitungan detik. Kartu palsu tidak akan lolos.",
+    desc: "Sentuh C.Card-mu ke ponsel — keasliannya diverifikasi lewat NFC dalam hitungan detik. Bukan C.Card asli? Tidak akan lolos.",
   },
   {
     num: "03",
@@ -32,13 +32,13 @@ const POWER_UPS = [
     icon: "⬡",
     label: "POWER-UP 1",
     title: "FISIK PREMIUM",
-    desc: "Acrylic 63×88 mm dengan efek holo — koleksi yang benar-benar bisa dipegang, dipajang, dan dipamerkan.",
+    desc: "Bukan sekadar merch. C.Card hadir dalam acrylic 63×88 mm dengan efek holo — bisa dipegang, dipajang, dan dipamerkan.",
   },
   {
     icon: "◈",
     label: "POWER-UP 2",
     title: "NFC VERIFIED",
-    desc: "Satu tap ke ponsel, dan keaslian kartumu terkonfirmasi — instan, di mana saja, tanpa aplikasi tambahan.",
+    desc: "Satu tap ke ponsel, dan C.Card-mu terkonfirmasi asli — instan, di mana saja, tanpa aplikasi tambahan.",
   },
   {
     icon: "₵",
@@ -71,13 +71,13 @@ export default function Landing() {
         <div className="hero-grid-floor" />
         <div className="hero-inner">
           <div className="hero-copy">
-            <span className="hero-tag">Fisik · Edisi Terbatas · Terverifikasi</span>
+            <span className="hero-tag">Perkenalkan C.Card</span>
             <h1 className="hero-title">
               C<span className="dot">.</span>VERSE
             </h1>
-            <p className="hero-sub">Kartu kolaborasi kreator, dibuat untuk dikoleksi</p>
+            <p className="hero-sub">Hasil kolaborasi kreator — dicetak terbatas, dibuat untuk dikoleksi</p>
             <p className="hero-desc">
-              Setiap kartu tercetak dalam jumlah terbatas bersama kreatornya — acrylic premium dengan efek holo yang enak dipajang. Sentuh
+              Setiap C.Card tercetak dalam jumlah terbatas bersama kreatornya — acrylic premium dengan efek holo yang enak dipajang. Sentuh
               ke ponsel, keasliannya langsung terverifikasi lewat <strong>NFC</strong>. Kumpulkan, trade, dan naik level — semuanya di satu
               tempat.
             </p>
@@ -170,9 +170,9 @@ export default function Landing() {
             Game Start
           </span>
           <h2 className="attract-title" style={{ marginTop: 10 }}>
-            Kartu Pertamamu <em>Sudah Menunggu</em>
+            C.Card Pertamamu <em>Sudah Menunggu</em>
           </h2>
-          <p className="attract-desc">Buat akun gratis, klaim kartu dari drop berikutnya, dan mulai kumpulkan XP. Papan skor menantimu.</p>
+          <p className="attract-desc">Buat akun gratis, klaim C.Card dari drop berikutnya, dan mulai kumpulkan XP. Papan skor menantimu.</p>
           <div className="attract-cta">
             <Link to="/register" className="btn-gold btn-xl">
               ▶ Buat Akun Gratis
