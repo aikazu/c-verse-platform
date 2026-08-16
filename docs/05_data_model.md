@@ -221,14 +221,33 @@ wallet_transactions
   ref_id uuid nullable
   metadata jsonb nullable     -- idempotency key, gateway ref, fee_rate snapshot
   created_at timestamptz
+
+platform_revenue                                   [BARU 2026-08-16]
+  id text PK
+  source text                 -- 'primary' | 'secondary_buyout' | 'secondary_bid'
+  ref_type text               -- 'order' | 'bid' | 'buyout'
+  ref_id text                 -- UNIQUE (ref_type, ref_id): id order/bid/tx debit
+  gross_ccoin int
+  platform_ccoin int          -- bagian platform (70% primary / 7,5% secondary)
+  royalty_ccoin int
+  seller_ccoin int            -- 0 untuk primary
+  fee_snapshot jsonb          -- {platform_pct, royalty_pct, seller_pct, rate_idr}
+  created_at timestamptz
 ```
+> **Treasury platform** [BARU 2026-08-16]: user sistem fixed UUID
+> `00000000-0000-4000-8000-0000000000c0` (is_anonymous, bukan akun
+> login). Setiap settlement meng-credit bagian platform ke wallet
+> treasury via `record_platform_revenue` (idempotent per ref).
+> Rekonsiliasi: `SUM(platform_revenue.platform_ccoin)` ≡ saldo
+> wallet treasury — pendapatan platform TIDAK menguap.
 > **Append-only**: tidak ada UPDATE/DELETE. Idempotency:
 > webhook top-up pakai `metadata.idempotency_key` UNIQUE.
-> **Fee rate snapshot**: untuk secondary settlement, simpan
-> `metadata.fee_rate_platform` dan `metadata.fee_rate_royalty`
-> sebagai snapshot saat transaksi. Fee rate bisa berubah karena
-> seasonal event (normal 7,5%+7,5%, event 2,5%+7,5%). Jangan
-> hardcode fee rate di settlement logic — baca dari metadata.
+> **Fee rate snapshot** [IMPLEMENTED 2026-08-16]: setiap settlement
+> primary/secondary menulis row `platform_revenue` berisi snapshot
+> `fee_snapshot` (platform_pct/royalty_pct/seller_pct/rate_idr).
+> Fee rate bisa berubah karena seasonal event (normal 7,5%+7,5%,
+> event 2,5%+7,5%) — baca dari snapshot, jangan hardcode saat
+> settlement ulang.
 > **Partial failure handling**: webhook gateway -> system insert
 > wallet_transaction dalam transaksi DB. Jika insert gagal (DB error),
 > webhook return 500 -> gateway retry. Idempotency key mencegah

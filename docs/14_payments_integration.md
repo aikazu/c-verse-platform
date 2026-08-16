@@ -1,15 +1,11 @@
 # 14 — Payments Integration (Midtrans top-up + payout disbursement)
 
-> Status: [DRAFT — SPEC SIAP EKSEKUSI]
-> Created: 2026-08-15
-> Basis audit: `apps/api/src/routes/wallet.ts:60` — "Gateway mocked
-> (Midtrans/Xendit) — langsung credit". Top-up meng kredit saldo tanpa
-> uang masuk; payout tidak memanggil disbursement API. Transaksi riil
-> tidak mungkin.
-> Estimasi: 4-6 hari AI-assisted. Dependency: `13_atomic_checkout_rpc.md`
-> (RPC wallet_credit/debit harus jalan dulu).
-> Gate legal: integrasi sandbox BOLEH jalan kapan pun; **top-up uang riil
-> hanya setelah T&C final + cap saldo live** (`07_constraints.md` C-08).
+> Status: [IMPLEMENTED 2026-08-16 — top-up Snap + webhook idempotent +
+> cap saldo KYC-gated (C-08 FINAL) + payout_request self-service;
+> disbursement IRIS via ops (belum auto-call dari code)]
+> Created: 2026-08-15; updated: 2026-08-16.
+> Gate legal: integrasi sandbox BOLEH jalan kapan pun; **top-up uang
+> riil hanya setelah T&C final** — cap saldo sudah live (C-08).
 
 ## 1. Prinsip
 
@@ -28,9 +24,11 @@
 
 ### 2,1 Flow
 ```
-User pilih nominal C-Coin (min 1, max cap - saldo)
+User pilih nominal C-Coin (min 1, max 10000; cap saldo lihat C-08)
   -> POST /api/payments/topup { amountCcoin }
-     API: amount_idr = ccoin x 10.000
+     API: gate cap non-KYC 500 C-Coin (balance + amount > 500 dan
+          KYC belum approved -> 422 KYC_TOPUP_CAP, Snap TIDAK dibuat)
+          amount_idr = ccoin x 10.000
           order_id = "top-{userId}-{epoch}-{rand4}"   (unik, idempotent)
           Midtrans Snap API: POST /snap/v1/transactions
             (server_key Basic auth, item_details, gross_amount)
@@ -45,10 +43,11 @@ User pilih nominal C-Coin (min 1, max cap - saldo)
         settlement|capture  -> sukses
         pending             -> abaikan (tunggu notif berikut)
         deny|cancel|expire  -> gagal (tidak kredit)
-     4. Sukses -> RPC wallet_credit(userId, ccoin, type='top_up',
-        metadata={ gateway:'midtrans', order_id, payment_type,
-                    idempotency_key: order_id })
-        ON CONFLICT idempotency -> 409 duplicate, saldo TIDAK dobel
+     4. Sukses -> RPC wallet_credit(userId, ceil(idr/10.000),
+        type='top_up', idempotency_key = order_id)
+        ON CONFLICT idempotency -> replay, saldo TIDAK dobel
+        Cap non-KYC kena race -> TOPUP_CAP_EXCEEDED -> 200 ignored
+        + audit log (refund manual via Midtrans)
   -> Web poll / supabase realtime: saldo ter-update
 ```
 

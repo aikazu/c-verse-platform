@@ -62,12 +62,14 @@ Signed card pool:
 - Buyer memilih pool secara EKSPLISIT saat entry/checkout —
   tidak ada lagi random surprise 1:10, harga yang dibayar selalu
   sesuai pilihan pool (reguler = harga unsigned, premium = harga
-  signed 1,67x base).
+  signed = unsigned + 20 C-Coin FLAT — 20/40, 40/60, 50/70;
+  founder 2026-08-16, menggantikan multiplier 1,67x).
 
 Decision points:
 - **WINDOW**: raffle_end_at = drop_start_at + 24 jam (default,
   bisa diatur admin per drop). Sebelum window tutup: hanya entry.
-  Setelah draw: hanya FCFS.
+  Setelah draw: hanya FCFS. Waktu rilis default 12:00 WIB saat
+  create drop (founder 2026-08-16).
 - **ENTRY LIMIT**: 1 entry per user per drop (unique constraint);
   user yang sudah MENANG diblok dari FCFS drop itu (limit 1
   kartu/drop), user yang kalah boleh ikut FCFS.
@@ -76,13 +78,16 @@ Decision points:
   satu berhasil, satu gagal (transaksi atomik di DB).
 - **SALDO**: entry = hold sesuai pool: reguler =
   `drops.price_ccoin` (30), premium/keduanya =
-  `drops.price_signed_ccoin` (default ceil(price × 1,67) = 50).
-  Harga final di-snapshot ke `orders.price_ccoin`; selisih hold
-  winner reguler (pool "keduanya") di-release otomatis. FCFS:
-  debit langsung + ongkir bila kirim sekarang.
+  `drops.price_signed_ccoin` (default price + 20). Harga final
+  di-snapshot ke `orders.price_ccoin`; selisih hold winner reguler
+  — SEMUA pool yang hold-nya lebih besar dari harga (termasuk pool
+  premium yang jatuh ke reguler, FIX 2026-08-16) — di-release
+  otomatis. FCFS: debit langsung + ongkir bila kirim sekarang.
 - **DELIVERY**: vault = default, tanpa alamat/ongkir. Kirim fisik
-  = opsional saat checkout FCFS (isi alamat + `shipping_fee_ccoin`).
-  Winner raffle: order dibuat default vault.
+  = opsional saat checkout FCFS (isi alamat + `shipping_fee_ccoin`);
+  row `shipments` type='primary_shipping' status='requested'
+  dibuat OTOMATIS (queue fulfillment admin). Winner raffle: order
+  dibuat default vault.
 - **SHIP-FROM-VAULT**: setelah order settled, owner bisa minta
   kirim kapan saja via PG-USR-07 (bayar ongkir saat itu, bukan
   saat checkout).
@@ -116,17 +121,26 @@ SOP fulfillment: admin packing, panggil kurir, input no resi, update status orde
 ```
 checkout -> debit WalletTransaction (immutable, append-only)
    -> escrow hold state di ledger (vault: release saat SETTLED; shipping: release DELIVERED + H+7)
-   -> DELIVERED -> auto-release -> split dalam C-Coin:
+   -> DELIVERED (buyer confirm SETELAH status shipped — guard 409) -> auto-release H+7
+   -> split dalam C-Coin + LEDGER platform_revenue (FIX 2026-08-16):
        primary (platform-produced): 70% platform / 30% kreator
-   -> payout batch (Selasa, H+1) -> IDR kurs Rp 10.000
+       secondary (buyout/bid): 7,5% platform / 7,5% royalti / 85% seller
+       -> setiap event menulis row platform_revenue (snapshot fee rate)
+          + kredit wallet treasury platform (fixed UUID ...0c0)
+   -> payout: creator POST /api/payments/payout (request, dana dikunci)
+   -> payout batch mingguan (cron/admin) -> IDR kurs Rp 10.000
    -> withholding PPh 23 + PPN 11% -> payout fee 1% fixed
    -> seller/kreator: default disburse IDR, opsional tahan C-Coin
+   -> webhook IRIS menandai payouts.status = disbursed/failed
 ```
 
 - Ledger: `wallet_transactions` append-only, tidak ada UPDATE/
   DELETE. Saldo = SUM dari transaksi.
+- Cap saldo (founder 2026-08-16): top-up non-KYC maks 500 C-Coin
+  (ditolak 422 sebelum Snap dibuat); KYC approved = tanpa cap.
 - Rekonsiliasi harian: top-up webhook vs ledger vs float riil
-  (ADM-05).
+  (ADM-05). Pendapatan platform = SUM(platform_revenue) ≡ saldo
+  wallet treasury.
 
 ## Flow 4: NFC Tap → Halaman 3D Kartu (Android Chrome)
 
@@ -208,16 +222,15 @@ History bid per kartu: tampil 90 hari terakhir; bid `accepted`
 Settlement:
 ```
    -> split: 7,5% platform + 7,5% royalti kreator LIFETIME
-   + 85% owner
+   + 85% owner — ketiganya DIREKAM di platform_revenue
+     (snapshot fee rate) + wallet treasury (FIX 2026-08-16)
    -> buyer bayar C-Coin -> transfer ownership (Flow 6)
-   -> SELLER WAJIB kirim kartu ke platform vault untuk verifikasi:
-        seller kirim fisik ke platform -> platform verifikasi NFC
-        + QC ringan -> verified -> vault masuk inventory buyer
-   -> KALAU SUDAH DI VAULT (dari sebelumnya): langsung selesai,
-        ownership pindah, fisik tetap di vault
-   -> buyer bisa minta ship-out kapan saja (bayar ongkir C-Coin)
-   -> seller payout (Flow 3) — HANYA setelah kartu terverifikasi
-        di vault platform
+   -> dest 'buyer_address' (alamat wajib >= 10 char): row
+      shipments type='secondary_buyout'/'secondary_bid'
+      status='requested' dibuat OTOMATIS di RPC (queue admin)
+   -> dest 'platform_vault': ownership pindah, fisik tetap
+      / masuk vault — buyer bisa minta ship-out kapan saja
+   -> seller payout (Flow 3) — HANYA setelah KYC approved
 ```
 
 ### Kirim dari Vault (ship-from-custody, KEPUTUSAN USER 2026-08-12)
@@ -235,17 +248,20 @@ Aturan:
 ```
    - 1 kartu = 1 owner; hanya owner yang bisa set buyout/accept bid.
    - Owner bisa cabut buyout price kapan saja (selama belum dibeli).
-   - **KYC wajib SEBELUM payout/disbursement ke IDR + akumulasi
-     top-up besar.** Tidak perlu KYC untuk pasang buyout, accept
-     bid, atau top-up rutin di bawah threshold.
+   - **KYC wajib SEBELUM payout/disbursement ke IDR.** Cap saldo
+     top-up non-KYC 500 C-Coin; KYC approved = tanpa cap (founder
+     2026-08-16). Tidak perlu KYC untuk pasang buyout atau accept bid.
    - Hanya 1 bid active per kartu (tertinggi); outbid/cancel
      melepas C-Coin otomatis.
+   - **Maks 3 bid aktif per user** (founder 2026-08-16; RPC BID_LIMIT).
    - Bidder bisa cancel bidnya sendiri; owner tidak bisa reject.
    - Max 20 kartu buyout aktif per user (guard).
+   - Kartu tampered/defect/lost tidak tradable (RPC CARD_NOT_TRADABLE).
 ```
 
 Anti-fraud Y1 (rule-based, bukan ML):
-- Rate limit bid: max 10 bid aktif per user, max 50 bid/hari.
+- Rate limit bid: max 3 bid aktif per user (founder 2026-08-16,
+  dienforce RPC; max 50 bid/hari menyusul di layer API).
 - Strike system: 3 strike = suspend 30 hari.
 - Shill detection: cross-check IP + device fingerprint + payment
   method. Flag jika bidder dan owner punya pola sama.
@@ -265,21 +281,27 @@ Anti-fraud Y1 (rule-based, bukan ML):
 
 ```
 TOP-UP (di area user, /wallet):
-   -> Midtrans Snap -> webhook idempotent -> append WalletTransaction
+   -> POST /api/payments/topup (amountCcoin) -> Midtrans Snap
+      (redirectUrl/snapToken) -> bayar -> webhook idempotent
+      (signature + status via API getStatus + konversi CEIL)
+      -> append WalletTransaction type='top_up'
    -> disclosure "saldo tidak dapat diuangkan" sebelum bayar
-   -> top-up bisa diterima setelah T&C final + cap saldo
-      diimplementasi
+   -> CAP SALDO (founder 2026-08-16): non-KYC maks 500 C-Coin —
+      top-up yang melampaui ditolak 422 (KYC_TOPUP_CAP) SEBELUM
+      Snap dibuat; race double-webhook ditolak RPC TOPUP_CAP_EXCEEDED
+      (audit log + refund manual). KYC approved = TANPA cap.
 
-PAYOUT:
-   -> escrow release -> hitung porsi C-Coin -> pilih disburse IDR
-      (default, fee 1%) atau tahan C-Coin
-   -> KYC + verifikasi rekening WAJIB sebelum payout -> batch payout
-   -> **Minimum payout**: 10 C-Coin (Rp 100.000). Saldo menumpuk
-      sampai threshold terpenuhi. Payout fee 1% tetap dipotong.
+PAYOUT (self-service request + batch, FIX 2026-08-16):
+   -> creator POST /api/payments/payout {amountCcoin}
+      -> RPC payout_request: KYC approved WAJIB (KYC_REQUIRED),
+         min 10 C-Coin (MIN_PAYOUT), hold fraud dicek (PAYOUT_HELD),
+         saldo didebit (dikunci) + row payouts status='pending'
+   -> batch mingguan (cron Selasa 06:00 WIB / admin POST
+      /api/payments/admin/payout-run) -> payout_batch_run
+      (fee 1%, idr_amount diisi net)
+   -> disbursement IRIS (ops) -> webhook /midtrans/payout-webhook
+      -> payouts.status = disbursed/failed
 ```
-
-Open items payout: SLA, mekanisme disbursement final, cap saldo
-(Rp 5-10 juta) — [DRAFT].
 
 ## Flow 9: Admin Intra-day (ops)
 

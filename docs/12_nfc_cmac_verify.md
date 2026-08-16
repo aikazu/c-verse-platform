@@ -61,11 +61,19 @@ verifySun({ uidHex, ctrHex, cmacHex, tamperBit }, master): {
      log fraud signal (`cards.flag`/audit). JANGAN fallback jadi verified.
   3. Anti-replay: `UPDATE cards SET last_ctr = $ctr
      WHERE id = $id AND last_ctr < $ctr` — 0 row = counter mundur/ulang →
-     tolak + fraud signal.
+     tolak + fraud signal. [IMPLEMENTED 2026-08-16 — persist atomic
+     di `apps/api/src/routes/nfc.ts`, bukan read-modify-write JS]
   4. TagTamper bit set → set `cards.verify_status = 'tamper_detected'`
-     (permanen, irreversible) → tampil badge tamper.
+     (permanen, irreversible) → tampil badge tamper + WAJIB audit log
+     (`nfc_tamper_flagged`) — counter tetap dimajukan (tap valid).
   5. Semua lolos → tampil 3D + badge "Verified Card".
+- QR-grade (`/verify/:shortId`, `verify-nfc` tanpa crypto, `sun-verify`
+  tanpa param crypto) [IMPLEMENTED 2026-08-16]: hanya upgrade
+  `unknown|registered → registered` — TIDAK PERNAH menurunkan
+  `verified`/`tamper_detected` yang sudah diraih.
 - `POST /api/nfc/verify` — sama, untuk Web NFC programmatic read.
+- `last_ctr` TIDAK di-reset saat transfer kepemilikan — counter adalah
+  properti fisik tag; reset = membuka celah replay tap lama.
 - HAPUS: `POST /simulate-tamper/:cardId` dari route publik (pindah ke
   admin service-role untuk demo/QC).
 

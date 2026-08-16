@@ -109,13 +109,15 @@
   reject**; bidder bisa cancel; bid TIDAK ada expire). TIDAK ada
   auction timer/anti-sniping/deposit timebox di MVP.
 
-### C-08 [VALIDATED 2026-08-13] Cap saldo maksimum
+### C-08 [FINAL — founder 2026-08-16] Cap saldo top-up KYC-gated
 - Lawyer mengonfirmasi cap saldo sebagai faktor mitigasi yang
-  valid. Usulan awal Rp 5-10 juta (setara 500-1.000 C-Coin)
-  wajar untuk skala Y1.
-- **Action**: finalisasi threshold sebelum launch. Implementasi
-  di wallet engine: batasi saldo maksimum per user, tolak top-up
-  yang melampaui cap.
+  valid (2026-08-13).
+- **FINAL**: cap saldo top-up **500 C-Coin (Rp 5 juta)** untuk
+  user **non-KYC** — top-up yang melampaui ditolak (HTTP 422
+  `KYC_TOPUP_CAP`) sebelum Snap dibuat; race double-webhook
+  ditolak RPC (`TOPUP_CAP_EXCEEDED`, audit + refund manual).
+  **KYC approved = TANPA cap.** Enforced di RPC `wallet_credit`
+  (defense in depth) + gate di `POST /api/payments/topup`.
 
 ### C-09 [DRAFT] Detail payout
 - Minimum payout, verifikasi rekening, SLA, mekanisme

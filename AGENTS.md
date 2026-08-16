@@ -9,8 +9,8 @@ Dokumen perencanaan **canonical = `docs/`** (`00_readme` → `09_recommendations
 - Requires Node >=20 and `pnpm@9.12.3` — do not use npm/yarn. Lockfile `pnpm-lock.yaml` v9.
 - `pnpm install` at repo root (workspaces: `apps/*` + `packages/*`).
 - Env — template per app (copy dari `.env.example` di masing-masing folder):
-  - `apps/web/.env.local` ← `apps/web/.env.example`: `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY`, `VITE_TURNSTILE_SITE_KEY`, `VITE_ENABLE_DEMO_LOGIN`. Anon only — service-role DILARANG di web bundle.
-  - `apps/admin/.env.local` ← `apps/admin/.env.example`: `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` (anon + MFA aal2, di belakang Cloudflare Access).
+  - `apps/web/.env.local` ← `apps/web/.env.example`: `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY`, `VITE_TURNSTILE_SITE_KEY`. Anon only — service-role DILARANG di web bundle.
+  - `apps/admin/.env.local` ← `apps/admin/.env.example`: `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` (anon + MFA aal2, di belakang Cloudflare Access) + `VITE_API_URL` (dev `http://localhost:8787`, kosong = same-origin).
   - `apps/api/.dev.vars` ← `apps/api/.env.example` (satu file untuk Wrangler & Node): `SUPABASE_URL`/`SUPABASE_ANON_KEY`/`SUPABASE_SERVICE_ROLE_KEY`, `TURNSTILE_SECRET_KEY`, `NFC_MASTER_KEY`, `MIDTRANS_*`, `PAYOUT_WEBHOOK_SIGNING_KEY`, SMTP.
   - Secrets prod (tidak di repo): sama seperti di atas + `CF_ACCOUNT_ID`, `CF_API_TOKEN` via `wrangler secret put`.
 - Supabase WAJIB — tanpa `SUPABASE_URL` API gagal start (fail-fast, tidak ada fallback in-memory).
@@ -34,13 +34,13 @@ Dokumen perencanaan **canonical = `docs/`** (`00_readme` → `09_recommendations
 ## Project layout
 
 - `apps/api/src/index.ts` — Hono app (CORS + logger, mounts `/api/*`, JSON 404). `apps/api/src/server.ts` — Node entry lokal.
-- `apps/api/src/routes/` — `auth.ts`, `drops.ts`, `orders.ts`, `wallet.ts`, `nfc.ts`, `marketplace.ts` (buyout-on-card; alias `/api/listings`), `bids.ts`, `browse.ts`, `profile.ts`, `publicProfile.ts`, `shipments.ts`, `gamification.ts`, `creators.ts`, `kyc.ts`, `seo.ts`, `payments.ts` (Midtrans).
-- `apps/api/src/lib/` — `auth.ts` (Supabase JWT verify + `requireUser`), `cmac.ts` (AES-CMAC RFC 4493 + SUN AN12196), `db.ts` (RPC facade — klien pakai JWT user karena RPC baca `auth.uid()`), `reads.ts` + `reads/` (domain selectors — Supabase select + mapper snake_case→camelCase; semua route read lewat sini), `cron.ts` (scheduled handler → `escrow_auto_release`/`draw_pending_drops`/`payout_batch_run`), `payments/` (provider + midtrans), `supabase.ts` (klien wajib — throw saat env absen).
+- `apps/api/src/routes/` — `auth.ts`, `drops.ts`, `orders.ts`, `wallet.ts`, `nfc.ts`, `marketplace.ts` (buyout-on-card; alias `/api/listings`), `bids.ts`, `browse.ts`, `profile.ts`, `publicProfile.ts`, `shipments.ts`, `gamification.ts`, `creators.ts`, `kyc.ts`, `seo.ts`, `payments.ts` (Midtrans), `admin.ts` (mutasi admin role-gated: users/wallet-hold/disputes/audit).
+- `apps/api/src/lib/` — `auth.ts` (Supabase JWT verify + `requireUser`), `cmac.ts` (AES-CMAC RFC 4493 + SUN AN12196), `db.ts` (RPC facade — klien pakai JWT user karena RPC baca `auth.uid()`), `reads.ts` + `reads/` (domain selectors — Supabase select + mapper snake_case→camelCase; semua route read lewat sini), `cron.ts` (scheduled handler → `activate_scheduled_drops`/`escrow_auto_release`/`draw_pending_drops`/`payout_batch_run`), `payments/` (provider + midtrans), `supabase.ts` (klien wajib — throw saat env absen).
 - `apps/api/src/lib/store.ts` — domain types (dipakai mapper/route) + helper murni `uid`/`nowIso`. Tidak ada lagi data in-memory.
 - `apps/web/src/` — `App.tsx` (routes: `/`, `/drops`, `/drops/:id/checkout`, `/home`, `/cards/:cardId/3d`, `/marketplace`, `/browse`, `/collection`, `/me/manage`, `/me/privacy`, `/me/kyc`, `/wallet`, `/leaderboard`, `/c/:username`, `/u/:username`, `/creator`) + `pages/` + `lib/api.ts` + `worker-seo.ts`.
 - `apps/admin/src/` — Vite SPA terpisah (Guard `aal2` via Supabase MFA TOTP, nav ADM-01..10: dashboard/creators/drops/orders/nfc/payouts/badges/disputes/audit/investor).
-- `packages/shared/src/index.ts` — **single source** Zod schemas + constants (`C_COIN_RATE_IDR=10_000`, `SECONDARY_*`, `REVENUE_SHARE_*`, `calcLevel`, `KYC_TRIGGER 99`, `MAX_BUYOUT 20`). Import via `@c-verse/shared`.
-- `supabase/` — `config.toml`, `migrations/*.sql` (auth uuid + RLS matrix + RPC atomic), `seed.sql` (fixed UUID = `auth.users`), `tests/rls_test.sql`.
+- `packages/shared/src/index.ts` — **single source** Zod schemas + constants (`C_COIN_RATE_IDR=10_000`, `SECONDARY_*`, `REVENUE_SHARE_*`, `calcLevel`, `calcSignedPrice` (+20 flat), `BALANCE_CAP_CCOIN=500`, `MAX_ACTIVE_BIDS_PER_USER=3`, `MAX_BUYOUT 20`). Import via `@c-verse/shared`.
+- `supabase/` — `config.toml`, `migrations/*.sql` (7 phase: foundation → auth → RLS → RPC atomic → grants/payout → perf index → revenue flow hardening), `seed.sql` (fixed UUID = `auth.users`), `tests/` (`rls_test.sql`, `rpc_*.mjs`, `revenue_flow_test.mjs`).
 - `docs/` — `00_readme.md` … `09_recommendations.md` (10 files). Baca urut 01→09.
 
 ## Conventions
@@ -48,19 +48,21 @@ Dokumen perencanaan **canonical = `docs/`** (`00_readme` → `09_recommendations
 - ESM only (`"type": "module"`), Strict TS (`strict: true`, `moduleResolution: bundler`).
 - API: `Hono` + `zValidator` dengan schema dari `@c-verse/shared`. Mount via `app.route("/api/<name>", module)` di `apps/api/src/index.ts`. Alias `/api/listings` → marketplace (buyout).
 - Auth: Supabase JWT (Google OAuth + email OTP + Turnstile) — `requireUser(c)` di semua route; 401 invalid, 403 suspend (`flag_reason`). Register/login password DILARANG. Demo-login dihapus (butuh Supabase).
-- Uang & stok: wajib lewat RPC (`apps/api/src/lib/db.ts`: checkout, drop_entry/draw, place/cancel/accept bid, set_buyout/buyout_card, wallet_credit/debit — single transaction). DB wajib — fail-fast tanpa `SUPABASE_URL` (F-08).
-- NFC: verdict `verified` HANYA via CMAC valid (`lib/cmac.ts`, key diversification N5) + counter maju. QR → maksimal `registered`. Tamper permanen.
+- Uang & stok: wajib lewat RPC (`apps/api/src/lib/db.ts`: checkout, drop_entry/draw, place/cancel/accept bid, set_buyout/buyout_card, payout_request, wallet_credit/debit — single transaction). DB wajib — fail-fast tanpa `SUPABASE_URL` (F-08).
+- Revenue ledger: setiap settlement primary (70/30) & secondary (7,5/7,5/85) menulis `platform_revenue` (fee snapshot) + kredit wallet **treasury** (user sistem `...0c0`) via `record_platform_revenue` — pendapatan platform tidak boleh menguap.
+- NFC: verdict `verified` HANYA via CMAC valid (`lib/cmac.ts`, key diversification N5) + counter maju (UPDATE atomic `WHERE last_ctr < ctr`). QR → maksimal `registered`, tidak pernah menurunkan `verified`. Tamper permanen + audit log.
 - Shared constants canonical — jangan hard-code rate/fee/threshold di app (`idrToCCoin = Math.ceil`).
 - C-Coin: **integer ≥1 tanpa desimal** (`CHECK x >= 1`), konversi IDR→C-Coin ceil. Kolom `int`, jangan `numeric`.
-- Drop: `priceCcoin` canonical (platform-produced 70/30), `signedCount = ceil(total/10)`, `priceSigned = ceil(price*1.67)`.
-- Checkout: 1 kartu/user/drop, `shipping` (alamat + ongkir → tracking) vs `vault` (settled langsung, `platform_vault`).
-- Secondary: Marketplace `buyout_price_ccoin NOT NULL` (max 20/user); Browse bid langsung (1 active, outbid/cancel release, accept only, tanpa expire; history 90 hari). Fee 15% (7.5 platform + 7.5 royalti, snapshot di `metadata`).
+- Drop: `priceCcoin` canonical (platform-produced 70/30), `signedCount = ceil(total/10)`, `priceSigned = priceUnsigned + 20` FLAT (founder 2026-08-16). Rilis default 12:00 WIB; raffle window 24 jam (`raffle_end_at`), draw via cron; `scheduled→live` otomatis cron.
+- Checkout: 1 kartu/user/drop, `shipping` (alamat + ongkir → shipment `primary_shipping` auto + escrow release DELIVERED+H+7 via cron) vs `vault` (settled langsung, `platform_vault`). confirm-delivered hanya untuk order shipping berstatus `shipped`.
+- Secondary: Marketplace `buyout_price_ccoin NOT NULL` (max 20/user); Browse bid langsung (1 active/kartu, **max 3 aktif/user**, outbid/cancel release, accept only, tanpa expire; history 90 hari). Fee 15% (7,5 platform + 7,5 royalti) — ketiga bagian dicatat `platform_revenue` + treasury. Dest `buyer_address` wajib alamat → shipment `secondary_*` auto. Blok rebuy 24 jam (C-12). Kartu tampered/defect/lost tidak tradable.
 - Verify: tap NFC → `/cards/:cardId/3d` (Verified), QR → `/cards/:cardId` (Registered). Ownership history hanya di info. iOS SUN URL via `GET /api/nfc/sun-verify`.
-- Gamifikasi: `level = floor(total_xp/10)`, `spend 1 C = 1 XP` (+ badge `xp_reward`), top-up tidak menambah XP. Badge di `apps/admin` (ADM-07).
-- Profil: `/u/:username` & `/c/:username`; `is_anonymous` hide koleksi/level/badge. Domain `c-verse.co` + `c-verse.id` redirect — LOCK sebelum NFC.
-- KYC: hanya payout + top-up besar. Tidak untuk pasang buyout/accept bid. `hold_payout_until` untuk fraud hold.
-- Admin: terpisah, `service-role` + Cloudflare Access + 2FA TOTP (`aal2`) + `admin_audit_log` append-only. Login admin = email OTP (magic link), tanpa password. Tidak ada route admin di API publik.
-- Demo (seed `auth.users`, tanpa password — login via OTP/Google): `demo@cverse.id` (120 C-Coin), `admin@cverse.id`; creator `karina@creator.id` dll. Role `user` (legacy `collector`), `creator`, `admin`.
+- Gamifikasi: `level = floor(total_xp/10)`, `spend 1 C = 1 XP` (+ badge `xp_reward` via trigger SQL), top-up tidak menambah XP. Badge di `apps/admin` (ADM-07).
+- Profil: `/u/:username` & `/c/:username`; `is_anonymous` hide koleksi/level/badge; user suspended (`flag_reason`) disembunyikan dari profil publik. Domain `c-verse.co` + `c-verse.id` redirect — LOCK sebelum NFC.
+- KYC: wajib payout (`payout_request` RPC gate). Cap saldo top-up non-KYC 500 C-Coin (KYC approved = tanpa cap). Tidak untuk pasang buyout/accept bid. `hold_payout_until` untuk fraud hold.
+- Payments: top-up `POST /api/payments/topup` (Snap) → webhook verifikasi signature + status + **ceil**; payout `POST /api/payments/payout` (request, dana dikunci) → batch mingguan `POST /api/payments/admin/payout-run` → webhook IRIS.
+- Admin: terpisah, anon key + MFA TOTP (`aal2`) + Cloudflare Access; **mutasi lewat route API role-gated** (`/api/admin/*`, `/api/kyc/:id/approve`, `PATCH /api/drops/:id/status`, `PATCH /api/shipments/:id/status`) — semua ter-audit `admin_audit_log` append-only. Login admin = email OTP (magic link), tanpa password.
+- Seed dev (fixed UUID, login via OTP/Google): `demo@cverse.id` (120 C-Coin), `admin@cverse.id`; creator `karina@creator.id` dll. Role `user`, `creator`, `admin`. Onboarding creator: `POST /api/creators/apply` → admin approve.
 
 ## Pitfalls
 
