@@ -56,10 +56,13 @@ async function loadCardObj(THREE: any, objUrl: string, faceUrl: string): Promise
   obj.traverse((child: any) => {
     if (!child.isMesh) return;
     ensurePlanarUvs(THREE, child.geometry);
+    // Artwork is printed media, not metal — any metalness darkens the map
+    // without an environment map to reflect, hiding the texture at
+    // unfavorable rotation angles.
     child.material = new THREE.MeshStandardMaterial({
       ...(map ? { map } : { color: 0x232338 }),
-      roughness: 0.4,
-      metalness: 0.18,
+      roughness: 0.45,
+      metalness: 0,
     });
   });
   const bounds = new THREE.Box3().setFromObject(obj);
