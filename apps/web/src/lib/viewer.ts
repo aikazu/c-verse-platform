@@ -1,9 +1,9 @@
 import { useEffect, useRef } from "react";
 
-// Hono node server for local dev without wrangler — re-export api app as node handler
-// Also used to init three viewer imperatively
+// Imperative Three.js card viewer — mounted by Card3D page.
 
-// Simple card 3D viewer using Three.js (code-split friendly)
+// Public asset — placeholder C.Card mesh for drops that have no 3D object yet.
+const PLACEHOLDER_OBJ_URL = "/placeholder.obj";
 export function useCardViewer(containerRef: React.RefObject<HTMLDivElement | null>, artworkUrl: string | null) {
   const rafRef = useRef<number | null>(null);
   useEffect(() => {
@@ -40,19 +40,44 @@ export function useCardViewer(containerRef: React.RefObject<HTMLDivElement | nul
       rim.position.set(-2, 1, -1);
       scene.add(amb, dir, rim);
 
-      // Card geometry: rounded-ish box
+      // Card proportions — reused by the glow plane and the box fallback.
       const cardW = 0.63,
         cardH = 0.88,
         thick = 0.03;
-      const geom = new THREE.BoxGeometry(cardW, cardH, thick);
-      const loader = new THREE.TextureLoader();
 
-      const texUrl = artworkUrl || "";
-      let matFront: any, matBack: any;
-      if (texUrl) {
+      const sourceUrl = artworkUrl || PLACEHOLDER_OBJ_URL;
+      if (sourceUrl.toLowerCase().endsWith(".obj")) {
+        try {
+          const { OBJLoader } = await import("three/examples/jsm/loaders/OBJLoader.js");
+          const obj = await new OBJLoader().loadAsync(sourceUrl);
+          const material = new THREE.MeshStandardMaterial({ color: 0x232338, roughness: 0.4, metalness: 0.18 });
+          obj.traverse((child: any) => {
+            if (child.isMesh) child.material = material;
+          });
+          // Re-center arbitrary export units and fit to the standard card height.
+          const bounds = new THREE.Box3().setFromObject(obj);
+          const size = bounds.getSize(new THREE.Vector3());
+          const center = bounds.getCenter(new THREE.Vector3());
+          const fit = cardH / (size.y || 1);
+          obj.scale.setScalar(fit);
+          obj.position.set(-center.x * fit, -center.y * fit, -center.z * fit);
+          mesh = obj;
+          scene.add(mesh);
+        } catch {
+          mesh = new THREE.Mesh(
+            new THREE.BoxGeometry(cardW, cardH, thick),
+            new THREE.MeshStandardMaterial({ color: 0x1e1e32, roughness: 0.5 }),
+          );
+          scene.add(mesh);
+        }
+      } else {
+        const geom = new THREE.BoxGeometry(cardW, cardH, thick);
+        const loader = new THREE.TextureLoader();
+
+        let matFront: any, matBack: any;
         try {
           const tex = await new Promise<any>((resolve, reject) => {
-            loader.load(texUrl, resolve, undefined, reject);
+            loader.load(sourceUrl, resolve, undefined, reject);
           });
           tex.colorSpace = (THREE as any).SRGBColorSpace ?? undefined;
           matFront = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.35, metalness: 0.05 });
@@ -61,16 +86,13 @@ export function useCardViewer(containerRef: React.RefObject<HTMLDivElement | nul
           matFront = new THREE.MeshStandardMaterial({ color: 0x1e1e32, roughness: 0.5 });
           matBack = matFront;
         }
-      } else {
-        matFront = new THREE.MeshStandardMaterial({ color: 0x1e1e32, roughness: 0.5 });
-        matBack = matFront;
+        const matSide = new THREE.MeshStandardMaterial({ color: 0x2a2a40, roughness: 0.6 });
+        const matTop = new THREE.MeshStandardMaterial({ color: 0x2a2a40, roughness: 0.6 });
+        // BoxGeometry materials order: +x, -x, +y, -y, +z, -z
+        const materials = [matSide, matSide, matTop, matTop, matFront, matBack];
+        mesh = new THREE.Mesh(geom, materials);
+        scene.add(mesh);
       }
-      const matSide = new THREE.MeshStandardMaterial({ color: 0x2a2a40, roughness: 0.6 });
-      const matTop = new THREE.MeshStandardMaterial({ color: 0x2a2a40, roughness: 0.6 });
-      // BoxGeometry materials order: +x, -x, +y, -y, +z, -z
-      const materials = [matSide, matSide, matTop, matTop, matFront, matBack];
-      mesh = new THREE.Mesh(geom, materials);
-      scene.add(mesh);
 
       // Subtle bloom-like glow via an extra larger plane behind
       const glowGeom = new THREE.PlaneGeometry(cardW * 1.3, cardH * 1.35);
