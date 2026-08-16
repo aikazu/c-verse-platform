@@ -2,28 +2,28 @@ import { Link } from "react-router-dom";
 
 const TICKER_ITEMS = [
   "NEW DROP SETIAP MINGGU",
-  "KOLEKSI KREATOR EDISI TERBATAS",
-  "NFC VERIFIED",
+  "EDISI TERBATAS DARI KREATOR FAVORIT",
+  "KEASLIAN TERVERIFIKASI NFC",
   "1 C-COIN = RP 10.000",
-  "1 KARTU / USER / DROP",
-  "TRADE DI MARKETPLACE",
+  "1 KARTU PER USER PER DROP",
+  "JUAL & BID DI MARKETPLACE",
 ];
 
 const STEPS = [
   {
     num: "01",
     title: "PILIH DROP",
-    desc: "Beli kartu edisi terbatas dari kreator favoritmu sebelum habis. Satu kartu per user per drop — yang cepat, dapat.",
+    desc: "Masuk ke drop kreator favoritmu dan amankan kartu edisi terbatasnya. Satu kartu per user per drop — begitu habis, tidak ada cetak ulang.",
   },
   {
     num: "02",
     title: "TAP NFC",
-    desc: "Sentuh kartu ke ponselmu. Chip NTAG dengan CMAC AES-128 memverifikasi keaslian dalam sekejap — tamper permanen.",
+    desc: "Sentuh kartu ke ponselmu — keasliannya diverifikasi lewat NFC dalam hitungan detik. Kartu palsu tidak akan lolos.",
   },
   {
     num: "03",
     title: "TRADE & LEVEL UP",
-    desc: "Pasang buyout di Marketplace atau bid langsung di Browse. Setiap 1 C-Coin belanja = 1 XP — naik level, buka badge.",
+    desc: "Pasang buyout di Marketplace atau bid langsung di Browse. Setiap 1 C-Coin belanja = 1 XP — naik level, buka badge baru.",
   },
 ];
 
@@ -32,19 +32,19 @@ const POWER_UPS = [
     icon: "⬡",
     label: "POWER-UP 1",
     title: "FISIK PREMIUM",
-    desc: "Acrylic hardcase 63×88 mm dengan efek holo — koleksi yang benar-benar bisa dipegang, dipajang, dan ditunjukkan.",
+    desc: "Acrylic 63×88 mm dengan efek holo — koleksi yang benar-benar bisa dipegang, dipajang, dan dipamerkan.",
   },
   {
     icon: "◈",
     label: "POWER-UP 2",
     title: "NFC VERIFIED",
-    desc: "Verifikasi keaslian instan lewat tap NFC. Counter maju + diversifikasi key — kartu palsu tidak akan lolos.",
+    desc: "Satu tap ke ponsel, dan keaslian kartumu terkonfirmasi — instan, di mana saja, tanpa aplikasi tambahan.",
   },
   {
     icon: "₵",
     label: "POWER-UP 3",
     title: "C-COIN",
-    desc: "1 C-Coin = Rp 10.000. Top-up, beli drop, trade — semua transaksi dalam satu mata uang simpel, tanpa desimal.",
+    desc: "1 C-Coin = Rp 10.000 — angka bulat, tanpa desimal. Top-up, beli drop, dan trade semuanya lewat satu mata uang.",
   },
 ];
 
@@ -71,21 +71,22 @@ export default function Landing() {
         <div className="hero-grid-floor" />
         <div className="hero-inner">
           <div className="hero-copy">
-            <span className="hero-tag">Player 1 — Ready</span>
+            <span className="hero-tag">Fisik · Edisi Terbatas · Terverifikasi</span>
             <h1 className="hero-title">
               C<span className="dot">.</span>VERSE
             </h1>
-            <p className="hero-sub">Koleksi Kreator · Edisi Terbatas</p>
+            <p className="hero-sub">Kartu kolaborasi kreator, dibuat untuk dikoleksi</p>
             <p className="hero-desc">
-              Kartu kolaborasi kreator dalam <strong>acrylic premium</strong> — setiap kartu terverifikasi lewat <strong>tap NFC</strong>.
-              Kumpulkan, trade, dan naik level dalam satu ekosistem arcade koleksi.
+              Setiap kartu tercetak dalam jumlah terbatas bersama kreatornya — acrylic premium dengan efek holo yang enak dipajang. Sentuh
+              ke ponsel, keasliannya langsung terverifikasi lewat <strong>NFC</strong>. Kumpulkan, trade, dan naik level — semuanya di satu
+              tempat.
             </p>
             <div className="hero-cta">
               <Link to="/drops" className="btn-gold btn-xl">
-                ▶ Mulai Main
+                ▶ Mulai Koleksimu
               </Link>
               <Link to="/marketplace" className="btn-ghost btn-xl">
-                Marketplace
+                Buka Marketplace
               </Link>
             </div>
             <p className="insert-coin">
@@ -114,8 +115,8 @@ export default function Landing() {
           <div className="hero-score-label">MM Acrylic Premium</div>
         </div>
         <div className="hero-score-cell">
-          <div className="hero-score-value cyan">AES-128</div>
-          <div className="hero-score-label">CMAC NFC Anti-Tamper</div>
+          <div className="hero-score-value cyan">1 Tap</div>
+          <div className="hero-score-label">Verifikasi NFC Instan</div>
         </div>
         <div className="hero-score-cell">
           <div className="hero-score-value magenta">Rp 10.000</div>
@@ -166,15 +167,15 @@ export default function Landing() {
         {/* ATTRACT MODE CTA */}
         <section className="attract">
           <span className="eyebrow" style={{ textAlign: "center" }}>
-            Attract Mode
+            Game Start
           </span>
           <h2 className="attract-title" style={{ marginTop: 10 }}>
-            Ready <em>Player One?</em>
+            Kartu Pertamamu <em>Sudah Menunggu</em>
           </h2>
-          <p className="attract-desc">Buat akun, klaim kartu pertamamu dari drop berikutnya, dan mulai kumpulkan XP. High score menanti.</p>
+          <p className="attract-desc">Buat akun gratis, klaim kartu dari drop berikutnya, dan mulai kumpulkan XP. Papan skor menantimu.</p>
           <div className="attract-cta">
             <Link to="/register" className="btn-gold btn-xl">
-              ▶ Tekan Start
+              ▶ Buat Akun Gratis
             </Link>
             <Link to="/drops" className="btn-ghost btn-xl">
               Lihat Drops
