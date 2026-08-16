@@ -1,51 +1,162 @@
+import type { Session } from "@supabase/supabase-js";
 import type React from "react";
 import { useEffect, useState } from "react";
-import { NavLink, Route, Routes, useNavigate } from "react-router-dom";
+import { Navigate, NavLink, Route, Routes, useNavigate } from "react-router-dom";
+import { apiFetch } from "./lib/api";
 import { hasSupabase, supabase } from "./lib/supabase";
+
+// ── Row types (snake_case straight from Supabase / admin API) ───────────────
+type UserRow = {
+  id: string;
+  email: string;
+  display_name: string | null;
+  username: string | null;
+  role: string;
+  flag_reason: string | null;
+};
+type CreatorRow = {
+  id: string;
+  user_id: string | null;
+  handle: string | null;
+  total_followers_combined: number | null;
+  status: string;
+  notes: string | null;
+  created_at: string;
+};
+type DropRow = {
+  id: string;
+  title: string;
+  series: string;
+  status: string;
+  total_units: number;
+  sold_count: number | null;
+  price_ccoin: number | null;
+  price_unsigned_ccoin: number | null;
+  raffle_end_at: string | null;
+  drawn_at: string | null;
+  created_at: string;
+};
+type OrderRow = {
+  id: string;
+  card_id: string | null;
+  status: string;
+  delivery_option: string | null;
+  tracking_number: string | null;
+  created_at: string;
+};
+type ShipmentRow = { id: string; card_id: string; status: string; tracking_number: string | null };
+type DisputeRow = {
+  id: string;
+  order_id: string | null;
+  reporter_id: string;
+  reason: string;
+  status: string;
+  decision_notes: string | null;
+  created_at: string;
+};
+type BadgeRow = {
+  id: string;
+  code: string;
+  name: string;
+  description: string;
+  icon: string;
+  xp_reward: number | null;
+  criteria: unknown;
+  is_active: boolean | null;
+};
+type KycRow = {
+  id: string;
+  user_id: string;
+  full_name: string;
+  nik: string;
+  status: string;
+  created_at: string;
+};
+type PayoutBatchRow = { id: string; batch_code: string; status: string; total_ccoin: number; total_idr: number };
+type PayoutRow = {
+  id: string;
+  user_id: string;
+  type: string;
+  ccoin_amount: number;
+  idr_amount: number | null;
+  status: string;
+  batch_id: string | null;
+};
+type AuditRow = {
+  id: string;
+  admin_user_id: string;
+  action: string;
+  target_table: string;
+  target_id: string | null;
+  payload_summary: unknown;
+  ip: string | null;
+  created_at: string;
+};
+type NfcBatchRow = { id: string; batch_code: string; qty: number; status: string };
+type CardRow = {
+  id: string;
+  nfc_uid: string | null;
+  nfc_short_id: string | null;
+  verify_status: string | null;
+  nfc_configured: boolean | null;
+  qc_status: string | null;
+};
+
+function errMessage(err: unknown): string {
+  return err instanceof Error ? err.message : "Terjadi kesalahan";
+}
 
 // ── Auth hook ──────────────────────────────────────────────────────────────
 function useAdminAuth() {
-  const [session, setSession] = useState<any>(null);
+  const [session, setSession] = useState<Session | null>(null);
   const [aal2, setAal2] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    if (!hasSupabase) {
-      try {
-        const raw = localStorage.getItem("admin_demo_session");
-        if (raw) {
-          setSession(JSON.parse(raw));
-          setAal2(true);
-        }
-      } catch {}
-      setLoading(false);
-      return;
+  async function refreshAal2() {
+    try {
+      const { data } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+      setAal2(data?.currentLevel === "aal2");
+    } catch {
+      setAal2(false);
     }
-    supabase.auth.getSession().then(({ data }: any) => {
+  }
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
       setSession(data.session ?? null);
       setLoading(false);
     });
-    const { data: sub } = supabase.auth.onAuthStateChange((_e: any, s: any) => {
-      setSession(s);
-      if (!s) setAal2(false);
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, newSession) => {
+      setSession(newSession);
+      if (!newSession) setAal2(false);
     });
-    return () => sub?.subscription?.unsubscribe();
+    return () => sub.subscription.unsubscribe();
   }, []);
 
   useEffect(() => {
-    if (!session || !hasSupabase) return;
-    supabase.auth.mfa
-      .getAuthenticatorAssuranceLevel()
-      .then(({ data }: any) => {
-        setAal2(data?.currentLevel === "aal2");
-      })
-      .catch(() => setAal2(false));
+    if (!session) return;
+    refreshAal2();
   }, [session]);
 
-  return { session, aal2, loading, hasSupabase };
+  return { session, aal2, loading, refreshAal2 };
 }
 
-// ── Login ──────────────────────────────────────────────────────────────────
+// ── Configuration error (Supabase env is REQUIRED) ─────────────────────────
+function ConfigErrorScreen() {
+  return (
+    <div className="admin-auth-page">
+      <div className="admin-login-card" style={{ borderLeft: "4px solid #ef4444" }}>
+        <h3 style={{ fontWeight: 800 }}>Konfigurasi tidak lengkap</h3>
+        <p className="muted" style={{ fontSize: 12, marginTop: 8 }}>
+          Supabase wajib dikonfigurasi — mode demo sudah dihapus. Salin <code>apps/admin/.env.example</code> ke <code>.env.local</code>,
+          lalu isi <code>VITE_SUPABASE_URL</code> dan <code>VITE_SUPABASE_ANON_KEY</code> (anon key saja, dilindungi RLS + MFA aal2).
+        </p>
+      </div>
+    </div>
+  );
+}
+
+// ── Login (email OTP — no passwords) ───────────────────────────────────────
 function LoginPage() {
   const [email, setEmail] = useState("");
   const [msg, setMsg] = useState<string | null>(null);
@@ -68,32 +179,6 @@ function LoginPage() {
     }
   }
 
-  async function onEnroll() {
-    if (!hasSupabase) return;
-    const { error } = await supabase.auth.mfa.enroll({ factorType: "totp" });
-    if (error) setMsg(error.message);
-    else setMsg("Authenticator terdaftar — pindai QR di dashboard authenticator kamu.");
-  }
-
-  async function onChallenge() {
-    if (!hasSupabase) return;
-    const code = prompt("Masukkan kode 6 digit dari authenticator:") ?? "";
-    if (!code) return;
-    const { data: factors } = await supabase.auth.mfa.listFactors();
-    const factor = (factors as any)?.totp?.[0] ?? (factors as any)?.all?.[0];
-    if (!factor) {
-      setMsg("Belum ada authenticator — daftar dulu.");
-      return;
-    }
-    const { data: ch } = await supabase.auth.mfa.challenge({ factorId: factor.id });
-    const { error } = await supabase.auth.mfa.verify({ factorId: factor.id, challengeId: (ch as any)?.id, code });
-    if (error) setMsg(error.message);
-    else {
-      setMsg("Verifikasi berhasil");
-      location.reload();
-    }
-  }
-
   return (
     <div className="admin-auth-page">
       <div className="admin-login-card">
@@ -105,7 +190,7 @@ function LoginPage() {
         </div>
         <h1 className="admin-login-title">Masuk</h1>
         <p className="muted" style={{ fontSize: 12, textAlign: "center", marginBottom: 18 }}>
-          Hanya untuk pengelola platform
+          Hanya untuk pengelola platform — verifikasi TOTP diminta setelah login.
         </p>
 
         <form onSubmit={onLogin} style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -124,17 +209,6 @@ function LoginPage() {
           </button>
         </form>
 
-        {hasSupabase && (
-          <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
-            <button className="btn-ghost" onClick={onEnroll} style={{ flex: 1, fontSize: 12 }}>
-              Daftar Authenticator
-            </button>
-            <button className="btn-ghost" onClick={onChallenge} style={{ flex: 1, fontSize: 12 }}>
-              Verifikasi Kode
-            </button>
-          </div>
-        )}
-
         {msg && <div className="admin-msg">{msg}</div>}
 
         <div style={{ fontSize: 11, color: "var(--dim)", textAlign: "center", marginTop: 16 }}>
@@ -145,7 +219,46 @@ function LoginPage() {
   );
 }
 
-function TotpRequired() {
+// ── TOTP aal1 → aal2 gate (dedicated verify card, no nested LoginPage) ──────
+function TotpRequired({ onVerified }: { onVerified: () => void }) {
+  const [code, setCode] = useState("");
+  const [msg, setMsg] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  async function onEnroll() {
+    setMsg(null);
+    const { error } = await supabase.auth.mfa.enroll({ factorType: "totp" });
+    if (error) setMsg(error.message);
+    else setMsg("Authenticator terdaftar — pindai QR di app authenticator kamu, lalu masukkan kodenya di sini.");
+  }
+
+  async function onVerify(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    setMsg(null);
+    try {
+      const { data: factors } = await supabase.auth.mfa.listFactors();
+      const factor = factors?.totp[0] ?? factors?.all[0];
+      if (!factor) {
+        setMsg("Belum ada authenticator — klik Daftar Authenticator dulu.");
+        return;
+      }
+      const { data: challenge, error: challengeError } = await supabase.auth.mfa.challenge({ factorId: factor.id });
+      if (challengeError || !challenge) {
+        setMsg(challengeError?.message ?? "Gagal membuat challenge TOTP");
+        return;
+      }
+      const { error } = await supabase.auth.mfa.verify({ factorId: factor.id, challengeId: challenge.id, code });
+      if (error) {
+        setMsg(error.message);
+        return;
+      }
+      onVerified();
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <div className="admin-auth-page">
       <div className="admin-login-card" style={{ borderLeft: "4px solid #eab308" }}>
@@ -153,15 +266,29 @@ function TotpRequired() {
         <p className="muted" style={{ fontSize: 12, marginTop: 6 }}>
           Login berhasil (aal1) — sesi kamu terbatas sebagai view-only. Selesaikan kode TOTP untuk membuka dashboard &amp; mutasi (aal2).
         </p>
-        <p className="muted" style={{ fontSize: 11, marginTop: 6, color: "var(--dim)" }}>
-          Mode: aal1 = read-only (dashboard ringkas); aal2 = privileged (CRUD ADM-01..09). Break-glass: admin lain yang sudah aal2 dapat
-          mereset enrollment yang hilang — tercatat di audit log.
-        </p>
-        <div style={{ marginTop: 16 }}>
-          <LoginPage />
-        </div>
+        <form onSubmit={onVerify} style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 14 }}>
+          <div>
+            <label className="label">Kode TOTP (6 digit)</label>
+            <input
+              className="input"
+              value={code}
+              onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+              placeholder="123456"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              style={{ fontFamily: "var(--font-mono)", letterSpacing: 2, textAlign: "center", fontSize: 15 }}
+            />
+          </div>
+          <button className="btn-gold" type="submit" disabled={busy || code.length < 6} style={{ padding: "11px" }}>
+            {busy ? "Memverifikasi…" : "Verifikasi Kode"}
+          </button>
+          <button className="btn-ghost" type="button" onClick={onEnroll} style={{ fontSize: 12 }}>
+            Daftar Authenticator
+          </button>
+        </form>
+        {msg && <div className="admin-msg">{msg}</div>}
         <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--dim)", marginTop: 10 }}>
-          Butuh bantuan? Hubungi admin lain untuk reset enrollment — semua langkah di-log.
+          Break-glass: admin lain yang sudah aal2 dapat mereset enrollment yang hilang — tercatat di audit log.
         </div>
       </div>
     </div>
@@ -169,30 +296,8 @@ function TotpRequired() {
 }
 
 // ── Shell (sidebar + topbar) ───────────────────────────────────────────────
-function Shell({ children }: { children: React.ReactNode }) {
+function Shell({ email, onLogout, children }: { email: string; onLogout: () => void; children: React.ReactNode }) {
   const nav = useNavigate();
-  const [email, setEmail] = useState<string>("admin");
-  useEffect(() => {
-    if (!hasSupabase) {
-      try {
-        const s = JSON.parse(localStorage.getItem("admin_demo_session") ?? "{}");
-        setEmail(s?.user?.email ?? "admin@cverse.id (demo)");
-      } catch {}
-      return;
-    }
-    supabase.auth.getUser().then(({ data }: any) => setEmail(data.user?.email ?? ""));
-  }, []);
-
-  async function onLogout() {
-    if (!hasSupabase) {
-      localStorage.removeItem("admin_demo_session");
-      location.href = "/";
-      return;
-    }
-    await supabase.auth.signOut();
-    location.href = "/";
-  }
-
   const items = [
     { to: "/", label: "Dashboard", icon: "▦" },
     { to: "/creators", label: "Kreator", icon: "◎" },
@@ -202,6 +307,7 @@ function Shell({ children }: { children: React.ReactNode }) {
     { to: "/payouts", label: "Payout", icon: "₵" },
     { to: "/badges", label: "Lencana", icon: "✦" },
     { to: "/disputes", label: "Sengketa", icon: "⚑" },
+    { to: "/kyc", label: "KYC", icon: "⊞" },
     { to: "/audit", label: "Audit", icon: "◷" },
     { to: "/investor", label: "Investor", icon: "⬢" },
   ];
@@ -235,7 +341,7 @@ function Shell({ children }: { children: React.ReactNode }) {
               <div style={{ fontSize: 12, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                 {email}
               </div>
-              <div style={{ fontSize: 10, color: "var(--muted)" }}>{hasSupabase ? "Supabase" : "Demo lokal"}</div>
+              <div style={{ fontSize: 10, color: "var(--muted)" }}>Supabase · aal2</div>
             </div>
           </div>
           <button className="btn-ghost admin-logout" onClick={onLogout}>
@@ -260,131 +366,139 @@ function Shell({ children }: { children: React.ReactNode }) {
   );
 }
 
-async function auditInsert(action: string, targetTable: string, targetId: string | null, payload: any) {
-  if (!hasSupabase) return;
-  try {
-    await supabase.from("admin_audit_log").insert({
-      id: `audit-${Date.now()}`,
-      admin_user_id: (await supabase.auth.getUser()).data.user?.id ?? "unknown",
-      action,
-      target_table: targetTable,
-      target_id: targetId,
-      payload_summary: payload,
-      created_at: new Date().toISOString(),
-    });
-  } catch {}
-}
-
-// ── Pages (keep logic, polish copy) ───────────────────────────────────────
+// ── Pages ──────────────────────────────────────────────────────────────────
 function CreatorsPage() {
-  const [rows, setRows] = useState<any[]>([]);
+  const [creators, setCreators] = useState<CreatorRow[]>([]);
+  const [users, setUsers] = useState<UserRow[]>([]);
+  const [holds, setHolds] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
-  const [form, setForm] = useState({ handle: "", followers: "", notes: "", bank: "BCA", acc: "", holder: "" });
+  const [search, setSearch] = useState("");
   const [msg, setMsg] = useState<string | null>(null);
+
   async function load() {
     setLoading(true);
-    if (hasSupabase) {
-      const { data } = await supabase.from("creators").select("*").order("created_at", { ascending: false }).limit(500);
-      setRows(data ?? []);
-    } else {
-      try {
-        const r = await fetch("http://localhost:8787/api/creators");
-        const j = await r.json();
-        setRows(j.creators ?? []);
-      } catch {
-        setRows([]);
-      }
+    const [cr, us, wl] = await Promise.all([
+      supabase
+        .from("creators")
+        .select("id,user_id,handle,total_followers_combined,status,notes,created_at")
+        .order("created_at", { ascending: false })
+        .limit(500),
+      supabase.from("users").select("id,email,display_name,username,role,flag_reason").order("created_at", { ascending: false }).limit(500),
+      supabase.from("wallets").select("user_id,hold_payout_until").limit(1000),
+    ]);
+    setCreators((cr.data ?? []) as CreatorRow[]);
+    setUsers((us.data ?? []) as UserRow[]);
+    const holdMap: Record<string, string> = {};
+    for (const w of (wl.data ?? []) as { user_id: string; hold_payout_until: string | null }[]) {
+      if (w.hold_payout_until) holdMap[w.user_id] = w.hold_payout_until;
     }
+    setHolds(holdMap);
     setLoading(false);
   }
   useEffect(() => {
     load();
   }, []);
-  async function onCreate(e: React.FormEvent) {
-    e.preventDefault();
-    if (!hasSupabase) {
-      setMsg("Mode demo — penyimpanan memerlukan koneksi database.");
-      return;
-    }
-    const id = `cr-${Date.now().toString(36)}`;
-    const { error } = await supabase.from("creators").insert({
-      id,
-      handle: form.handle,
-      total_followers_combined: Number(form.followers) || 0,
-      status: "active",
-      bank_account: { bank: form.bank, account_no: form.acc, holder: form.holder },
-      notes: form.notes,
-    });
-    if (error) setMsg(error.message);
-    else {
-      await auditInsert("create", "creators", id, { handle: form.handle });
-      setMsg("Kreator ditambahkan");
-      setForm({ handle: "", followers: "", notes: "", bank: "BCA", acc: "", holder: "" });
+
+  async function promote(userId: string) {
+    try {
+      await apiFetch(`/api/admin/users/${userId}`, { method: "PATCH", body: JSON.stringify({ role: "creator" }) });
+      setMsg("User dipromosikan jadi creator — row creators diaktifkan server-side");
       load();
+    } catch (err) {
+      setMsg(errMessage(err));
     }
   }
+  async function toggleSuspend(u: UserRow) {
+    const flagReason = u.flag_reason ? null : `manual:${new Date().toISOString().slice(0, 10)}`;
+    try {
+      await apiFetch(`/api/admin/users/${u.id}`, { method: "PATCH", body: JSON.stringify({ flagReason }) });
+      setMsg(flagReason ? `User ${u.email} disuspend` : `User ${u.email} diaktifkan kembali`);
+      load();
+    } catch (err) {
+      setMsg(errMessage(err));
+    }
+  }
+  async function toggleHold(u: UserRow) {
+    const isHeld = Boolean(holds[u.id]);
+    const holdPayoutUntil = isHeld ? null : new Date(Date.now() + 7 * 24 * 3600 * 1000).toISOString();
+    try {
+      await apiFetch(`/api/admin/users/${u.id}/wallet-hold`, { method: "PATCH", body: JSON.stringify({ holdPayoutUntil }) });
+      setMsg(holdPayoutUntil ? `Payout ${u.email} di-hold 7 hari (fraud hold)` : `Fraud hold ${u.email} dilepas`);
+      load();
+    } catch (err) {
+      setMsg(errMessage(err));
+    }
+  }
+
+  const pending = creators.filter((c) => c.status === "inactive");
+  const term = search.trim().toLowerCase();
+  const filteredUsers = term
+    ? users.filter((u) => u.email.toLowerCase().includes(term) || (u.username ?? "").toLowerCase().includes(term))
+    : users;
+
   return (
     <div className="admin-page">
       <div className="admin-page-head">
         <h2>Kreator</h2>
-        <p className="muted">Daftar kreator terdaftar</p>
+        <p className="muted">Approve pendaftaran, promote role, suspend, dan fraud-hold payout (via API, ter-audit)</p>
       </div>
-      <form onSubmit={onCreate} className="card card-pad" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        <div style={{ fontWeight: 700, fontSize: 13 }}>Tambah Kreator</div>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <input
-            className="input"
-            placeholder="Handle"
-            value={form.handle}
-            onChange={(e) => setForm((s) => ({ ...s, handle: e.target.value }))}
-            required
-            style={{ flex: 1, minWidth: 160 }}
-          />
-          <input
-            className="input"
-            placeholder="Followers"
-            type="number"
-            value={form.followers}
-            onChange={(e) => setForm((s) => ({ ...s, followers: e.target.value }))}
-            style={{ width: 140 }}
-          />
-        </div>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <input
-            className="input"
-            placeholder="Bank"
-            value={form.bank}
-            onChange={(e) => setForm((s) => ({ ...s, bank: e.target.value }))}
-            style={{ width: 110 }}
-          />
-          <input
-            className="input"
-            placeholder="No. rekening"
-            value={form.acc}
-            onChange={(e) => setForm((s) => ({ ...s, acc: e.target.value }))}
-            style={{ flex: 1, minWidth: 140 }}
-          />
-          <input
-            className="input"
-            placeholder="Nama pemilik"
-            value={form.holder}
-            onChange={(e) => setForm((s) => ({ ...s, holder: e.target.value }))}
-            style={{ flex: 1, minWidth: 140 }}
-          />
-        </div>
-        <input
-          className="input"
-          placeholder="Catatan"
-          value={form.notes}
-          onChange={(e) => setForm((s) => ({ ...s, notes: e.target.value }))}
-        />
-        <button className="btn-gold" style={{ alignSelf: "start" }}>
-          Tambah
-        </button>
-        {msg && <div className="admin-msg">{msg}</div>}
-      </form>
+      {msg && <div className="admin-msg">{msg}</div>}
+
       <div className="card">
-        <div className="admin-table-head">Daftar — {rows.length}</div>
+        <div className="admin-table-head">Pendaftaran menunggu approval — {pending.length}</div>
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Handle</th>
+                <th>User</th>
+                <th>Diajukan</th>
+                <th>Aksi</th>
+              </tr>
+            </thead>
+            <tbody>
+              {pending.length === 0 ? (
+                <tr>
+                  <td colSpan={4} style={{ textAlign: "center", padding: 20 }} className="muted">
+                    Tidak ada pendaftaran pending
+                  </td>
+                </tr>
+              ) : (
+                pending.map((c) => (
+                  <tr key={c.id}>
+                    <td style={{ fontWeight: 700 }}>{c.handle ?? c.id}</td>
+                    <td style={{ fontFamily: "monospace", fontSize: 11 }}>{c.user_id ?? "—"}</td>
+                    <td style={{ fontSize: 11 }}>{new Date(c.created_at).toLocaleDateString("id-ID")}</td>
+                    <td>
+                      {c.user_id ? (
+                        <button className="btn-gold admin-mini" onClick={() => promote(c.user_id as string)}>
+                          Jadikan Creator
+                        </button>
+                      ) : (
+                        <span className="muted" style={{ fontSize: 11 }}>
+                          Tanpa user terhubung
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div className="card" style={{ marginTop: 14 }}>
+        <div className="admin-table-head">
+          Users — {filteredUsers.length}
+          <input
+            className="input"
+            placeholder="Cari email/username…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            style={{ width: 220, marginLeft: "auto", fontSize: 12 }}
+          />
+        </div>
         {loading ? (
           <div style={{ padding: 20 }} className="muted">
             Memuat…
@@ -394,46 +508,80 @@ function CreatorsPage() {
             <table>
               <thead>
                 <tr>
-                  <th>Handle</th>
-                  <th>Followers</th>
+                  <th>Email</th>
+                  <th>Role</th>
                   <th>Status</th>
-                  <th>Bank</th>
-                  <th>Catatan</th>
+                  <th>Payout</th>
+                  <th>Aksi</th>
                 </tr>
               </thead>
               <tbody>
-                {rows.length === 0 ? (
-                  <tr>
-                    <td colSpan={5} style={{ textAlign: "center", padding: 20 }} className="muted">
-                      Belum ada data
+                {filteredUsers.map((u) => (
+                  <tr key={u.id}>
+                    <td style={{ fontSize: 12, fontWeight: 600 }}>{u.email}</td>
+                    <td>
+                      <span className="pill pill-info">{u.role}</span>
+                    </td>
+                    <td>{u.flag_reason ? <span className="pill">Suspended</span> : <span className="pill pill-info">Aktif</span>}</td>
+                    <td>{holds[u.id] ? <span className="pill">Hold</span> : <span className="pill pill-info">Normal</span>}</td>
+                    <td style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                      {u.role !== "creator" && u.role !== "admin" && (
+                        <button className="btn-gold admin-mini" onClick={() => promote(u.id)}>
+                          Jadikan Creator
+                        </button>
+                      )}
+                      {u.role !== "admin" && (
+                        <button className="btn-ghost admin-mini" onClick={() => toggleSuspend(u)}>
+                          {u.flag_reason ? "Aktifkan" : "Suspend"}
+                        </button>
+                      )}
+                      <button className="btn-ghost admin-mini" onClick={() => toggleHold(u)}>
+                        {holds[u.id] ? "Lepas Hold" : "Hold 7d"}
+                      </button>
                     </td>
                   </tr>
-                ) : (
-                  rows.map((r: any) => (
-                    <tr key={r.id}>
-                      <td style={{ fontWeight: 700 }}>{r.handle ?? r.displayName ?? r.id}</td>
-                      <td>{r.totalFollowersCombined ?? r.total_followers_combined ?? "—"}</td>
-                      <td>
-                        <span className="pill pill-info">{r.status ?? "—"}</span>
-                      </td>
-                      <td style={{ fontSize: 11, maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis" }}>
-                        {r.bank_account ? JSON.stringify(r.bank_account) : r.bankAccount ? JSON.stringify(r.bankAccount) : "—"}
-                      </td>
-                      <td style={{ fontSize: 11 }}>{r.notes ?? "—"}</td>
-                    </tr>
-                  ))
-                )}
+                ))}
               </tbody>
             </table>
           </div>
         )}
+      </div>
+
+      <div className="card" style={{ marginTop: 14 }}>
+        <div className="admin-table-head">Kreator terdaftar — {creators.filter((c) => c.status !== "inactive").length}</div>
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Handle</th>
+                <th>Followers</th>
+                <th>Status</th>
+                <th>Catatan</th>
+              </tr>
+            </thead>
+            <tbody>
+              {creators
+                .filter((c) => c.status !== "inactive")
+                .map((c) => (
+                  <tr key={c.id}>
+                    <td style={{ fontWeight: 700 }}>{c.handle ?? c.id}</td>
+                    <td>{c.total_followers_combined ?? 0}</td>
+                    <td>
+                      <span className="pill pill-info">{c.status}</span>
+                    </td>
+                    <td style={{ fontSize: 11 }}>{c.notes ?? "—"}</td>
+                  </tr>
+                ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );
 }
 
 function DropsPage() {
-  const [rows, setRows] = useState<any[]>([]);
+  const [rows, setRows] = useState<DropRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [form, setForm] = useState({
     title: "",
@@ -445,71 +593,67 @@ function DropsPage() {
     dropStartAt: "",
   });
   const [msg, setMsg] = useState<string | null>(null);
+
   async function load() {
     setLoading(true);
-    if (hasSupabase) {
-      const { data } = await supabase.from("drops").select("*").order("created_at", { ascending: false }).limit(500);
-      setRows(data ?? []);
-    } else {
-      try {
-        const r = await fetch("http://localhost:8787/api/drops");
-        const j = await r.json();
-        setRows(j.drops ?? []);
-      } catch {
-        setRows([]);
-      }
-    }
+    const { data } = await supabase
+      .from("drops")
+      .select("id,title,series,status,total_units,sold_count,price_ccoin,price_unsigned_ccoin,raffle_end_at,drawn_at,created_at")
+      .order("created_at", { ascending: false })
+      .limit(500);
+    setRows((data ?? []) as DropRow[]);
     setLoading(false);
   }
   useEffect(() => {
     load();
   }, []);
+
   async function onCreate(e: React.FormEvent) {
     e.preventDefault();
-    if (!hasSupabase) {
-      setMsg("Mode demo — gunakan dashboard kreator.");
-      return;
-    }
-    const id = `drop-${Date.now().toString(36)}`;
-    const signedCount = Math.ceil(Number(form.totalUnits) / 10);
-    const { error } = await supabase.from("drops").insert({
-      id,
-      title: form.title,
-      series: form.series,
-      narrative: form.narrative,
-      artwork_url: form.artworkUrl || "/textures/genesis.jpg",
-      total_units: Number(form.totalUnits),
-      signed_count: signedCount,
-      unsigned_count: Number(form.totalUnits) - signedCount,
-      price_unsigned_ccoin: Number(form.priceCcoin),
-      price_signed_ccoin: Math.ceil(Number(form.priceCcoin) * 1.6),
-      price_ccoin: Number(form.priceCcoin),
-      status: "draft",
-      drop_start_at: form.dropStartAt || null,
-      creator_id: (await supabase.auth.getUser()).data.user?.id ?? null,
-      creator_name: "Admin",
-      sold_count: 0,
-    });
-    if (error) setMsg(error.message);
-    else {
-      await auditInsert("create", "drops", id, { title: form.title });
-      setMsg("Drop dibuat");
+    setMsg(null);
+    try {
+      // drops punya tanpa grant insert utk authenticated — wajib lewat API (audited).
+      await apiFetch("/api/drops", {
+        method: "POST",
+        body: JSON.stringify({
+          title: form.title,
+          series: form.series,
+          narrative: form.narrative,
+          artworkUrl: form.artworkUrl,
+          totalUnits: Number(form.totalUnits),
+          priceCcoin: Number(form.priceCcoin),
+          ...(form.dropStartAt ? { dropStartAt: new Date(form.dropStartAt).toISOString() } : {}),
+        }),
+      });
+      setMsg("Drop dibuat (draft) — signed/unsigned split & harga dihitung server-side");
       setForm({ title: "", series: "", narrative: "", artworkUrl: "", totalUnits: 15, priceCcoin: 30, dropStartAt: "" });
       load();
+    } catch (err) {
+      setMsg(errMessage(err));
     }
   }
+
   async function setStatus(id: string, status: string) {
-    if (!hasSupabase) {
-      setMsg("Memerlukan koneksi database.");
-      return;
-    }
-    const { error } = await supabase.from("drops").update({ status }).eq("id", id);
-    if (error) setMsg(error.message);
-    else {
-      await auditInsert("update", "drops", id, { status });
+    setMsg(null);
+    try {
+      await apiFetch(`/api/drops/${id}/status`, { method: "PATCH", body: JSON.stringify({ status }) });
       load();
+    } catch (err) {
+      setMsg(errMessage(err));
     }
   }
+
+  async function draw(id: string) {
+    setMsg(null);
+    try {
+      const { winners } = await apiFetch<{ winners: number }>(`/api/drops/${id}/draw`, { method: "POST" });
+      setMsg(`Draw selesai — ${winners} pemenang`);
+      load();
+    } catch (err) {
+      setMsg(errMessage(err));
+    }
+  }
+
   return (
     <div className="admin-page">
       <div className="admin-page-head">
@@ -534,7 +678,7 @@ function DropsPage() {
         />
         <textarea
           className="input"
-          placeholder="Deskripsi"
+          placeholder="Deskripsi (min. 10 karakter)"
           value={form.narrative}
           onChange={(e) => setForm((s) => ({ ...s, narrative: e.target.value }))}
           required
@@ -603,17 +747,22 @@ function DropsPage() {
                     </td>
                   </tr>
                 ) : (
-                  rows.map((r: any) => (
+                  rows.map((r) => (
                     <tr key={r.id}>
                       <td style={{ fontWeight: 700, fontSize: 12 }}>{r.title}</td>
                       <td>
                         <span className="pill pill-info">{r.status}</span>
+                        {r.drawn_at ? (
+                          <span className="pill" style={{ marginLeft: 4 }}>
+                            drawn
+                          </span>
+                        ) : null}
                       </td>
                       <td>
-                        {r.sold_count ?? r.soldCount ?? 0}/{r.total_units ?? r.totalUnits}
+                        {r.sold_count ?? 0}/{r.total_units}
                       </td>
-                      <td>{r.price_ccoin ?? r.priceCcoin ?? r.price_unsigned_ccoin} C</td>
-                      <td style={{ display: "flex", gap: 6 }}>
+                      <td>{r.price_ccoin ?? r.price_unsigned_ccoin ?? "—"} C</td>
+                      <td style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                         <button className="btn-ghost admin-mini" onClick={() => setStatus(r.id, "published")}>
                           Publish
                         </button>
@@ -623,6 +772,11 @@ function DropsPage() {
                         <button className="btn-ghost admin-mini" onClick={() => setStatus(r.id, "closed")}>
                           Tutup
                         </button>
+                        {r.raffle_end_at && !r.drawn_at && (
+                          <button className="btn-gold admin-mini" onClick={() => draw(r.id)}>
+                            Draw
+                          </button>
+                        )}
                       </td>
                     </tr>
                   ))
@@ -637,42 +791,119 @@ function DropsPage() {
 }
 
 function OrdersPage() {
-  const [rows, setRows] = useState<any[]>([]);
+  const [rows, setRows] = useState<OrderRow[]>([]);
+  const [shipments, setShipments] = useState<ShipmentRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [msg, setMsg] = useState<string | null>(null);
+  const [trackInputs, setTrackInputs] = useState<Record<string, string>>({});
+
   async function load() {
     setLoading(true);
-    if (hasSupabase) {
-      const { data } = await supabase.from("orders").select("*").order("created_at", { ascending: false }).limit(100);
-      setRows(data ?? []);
-    } else {
-      setRows([]);
-      setMsg("Mode demo — data pesanan tersedia di aplikasi utama.");
-    }
+    // orders select granted utk authenticated; mutasi status/resi WAJIB via /api/shipments.
+    const [{ data: o }, { data: s }] = await Promise.all([
+      supabase
+        .from("orders")
+        .select("id,card_id,status,delivery_option,tracking_number,created_at")
+        .order("created_at", { ascending: false })
+        .limit(100),
+      supabase.from("shipments").select("id,card_id,status,tracking_number").order("created_at", { ascending: false }).limit(500),
+    ]);
+    setRows((o ?? []) as OrderRow[]);
+    setShipments((s ?? []) as ShipmentRow[]);
     setLoading(false);
   }
   useEffect(() => {
     load();
   }, []);
-  async function updateStatus(id: string, status: string, tracking?: string) {
-    if (!hasSupabase) {
-      setMsg("Memerlukan koneksi database.");
-      return;
-    }
-    const patch: any = { status };
-    if (tracking) patch.tracking_number = tracking;
-    const { error } = await supabase.from("orders").update(patch).eq("id", id);
-    if (error) setMsg(error.message);
-    else {
-      await auditInsert("update", "orders", id, { status });
+
+  function shipmentFor(order: OrderRow): ShipmentRow | null {
+    if (!order.card_id) return null;
+    return shipments.find((s) => s.card_id === order.card_id) ?? null;
+  }
+
+  async function updateShipment(shipmentId: string, status: string, trackingNumber?: string) {
+    setMsg(null);
+    try {
+      await apiFetch(`/api/shipments/${shipmentId}/status`, {
+        method: "PATCH",
+        body: JSON.stringify({ status, ...(trackingNumber ? { trackingNumber } : {}) }),
+      });
       load();
+    } catch (err) {
+      setMsg(errMessage(err));
     }
   }
+
+  function actionsFor(order: OrderRow) {
+    if (order.delivery_option === "vault") {
+      return (
+        <span className="muted" style={{ fontSize: 11 }}>
+          Vault — settled otomatis
+        </span>
+      );
+    }
+    const shipment = shipmentFor(order);
+    if (!shipment) {
+      return (
+        <span className="muted" style={{ fontSize: 11 }}>
+          Tidak ada shipment — order shipping tanpa record pengiriman
+        </span>
+      );
+    }
+    const tracking = trackInputs[shipment.id] ?? "";
+    return (
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+        <span className="pill pill-info" style={{ fontSize: 10 }}>
+          {shipment.status}
+        </span>
+        {shipment.status === "requested" && (
+          <>
+            <button className="btn-ghost admin-mini" onClick={() => updateShipment(shipment.id, "packed")}>
+              Packing
+            </button>
+            <button className="btn-ghost admin-mini" onClick={() => updateShipment(shipment.id, "cancelled")}>
+              Batal
+            </button>
+          </>
+        )}
+        {(shipment.status === "requested" || shipment.status === "packed") && (
+          <>
+            <input
+              className="input"
+              placeholder="No. resi"
+              value={tracking}
+              onChange={(e) => setTrackInputs((prev) => ({ ...prev, [shipment.id]: e.target.value }))}
+              style={{ width: 110, fontSize: 11, padding: "4px 8px" }}
+            />
+            <button className="btn-ghost admin-mini" onClick={() => updateShipment(shipment.id, "shipped", tracking || undefined)}>
+              Kirim
+            </button>
+          </>
+        )}
+        {shipment.status === "shipped" && (
+          <button className="btn-gold admin-mini" onClick={() => updateShipment(shipment.id, "delivered")}>
+            Selesai
+          </button>
+        )}
+        {shipment.status === "delivered" && (
+          <span className="muted" style={{ fontSize: 11 }}>
+            Selesai
+          </span>
+        )}
+        {shipment.status === "cancelled" && (
+          <span className="muted" style={{ fontSize: 11 }}>
+            Dibatalkan
+          </span>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="admin-page">
       <div className="admin-page-head">
         <h2>Pesanan</h2>
-        <p className="muted">Kelola pesanan dan pengiriman</p>
+        <p className="muted">Kelola pengiriman — transisi divalidasi server-side via /api/shipments</p>
       </div>
       {msg && <div className="admin-msg">{msg}</div>}
       <div className="card">
@@ -691,14 +922,14 @@ function OrdersPage() {
               <thead>
                 <tr>
                   <th>ID</th>
-                  <th>Status</th>
+                  <th>Status Order</th>
                   <th>Opsi</th>
                   <th>Resi</th>
-                  <th>Aksi</th>
+                  <th>Pengiriman</th>
                 </tr>
               </thead>
               <tbody>
-                {rows.map((r: any) => (
+                {rows.map((r) => (
                   <tr key={r.id}>
                     <td style={{ fontFamily: "monospace", fontSize: 11 }}>{r.id.slice(0, 10)}</td>
                     <td>
@@ -706,27 +937,7 @@ function OrdersPage() {
                     </td>
                     <td style={{ fontSize: 12 }}>{r.delivery_option ?? "—"}</td>
                     <td style={{ fontSize: 11 }}>{r.tracking_number ?? "—"}</td>
-                    <td style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                      <button className="btn-ghost admin-mini" onClick={() => updateStatus(r.id, "qc")}>
-                        QC
-                      </button>
-                      <button
-                        className="btn-ghost admin-mini"
-                        onClick={() => {
-                          const t = prompt("No resi:");
-                          if (t) updateStatus(r.id, "shipped", t);
-                          else updateStatus(r.id, "shipped");
-                        }}
-                      >
-                        Kirim
-                      </button>
-                      <button className="btn-ghost admin-mini" onClick={() => updateStatus(r.id, "delivered")}>
-                        Selesai
-                      </button>
-                      <button className="btn-gold admin-mini" onClick={() => updateStatus(r.id, "settled")}>
-                        Settled
-                      </button>
-                    </td>
+                    <td>{actionsFor(r)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -739,52 +950,36 @@ function OrdersPage() {
 }
 
 function NfcPage() {
-  const [batches, setBatches] = useState<any[]>([]);
-  const [cards, setCards] = useState<any[]>([]);
+  const [batches, setBatches] = useState<NfcBatchRow[]>([]);
+  const [cards, setCards] = useState<CardRow[]>([]);
   const [msg, setMsg] = useState<string | null>(null);
+
   async function load() {
-    if (hasSupabase) {
-      const { data: b } = await supabase.from("nfc_batches").select("*").order("created_at", { ascending: false });
-      setBatches(b ?? []);
-      const { data: c } = await supabase
-        .from("cards")
-        .select("id,nfc_uid,nfc_short_id,verify_status,nfc_configured,qc_status,drop_id")
-        .limit(50);
-      setCards(c ?? []);
-    } else {
-      setMsg("Mode demo — pengelolaan NFC via database.");
-    }
+    const { data: b, error: bErr } = await supabase
+      .from("nfc_batches")
+      .select("id,batch_code,qty,status")
+      .order("created_at", { ascending: false });
+    setBatches((b ?? []) as NfcBatchRow[]);
+    const { data: c, error: cErr } = await supabase
+      .from("cards")
+      .select("id,nfc_uid,nfc_short_id,verify_status,nfc_configured,qc_status")
+      .limit(50);
+    setCards((c ?? []) as CardRow[]);
+    const err = bErr ?? cErr;
+    if (err) setMsg(err.message);
   }
   useEffect(() => {
     load();
   }, []);
-  async function createBatch() {
-    const code = `BATCH-${Date.now().toString(36).toUpperCase()}`;
-    if (!hasSupabase) {
-      setMsg("Memerlukan koneksi database.");
-      return;
-    }
-    const qty = Number(prompt("Jumlah batch:", "50") ?? "50");
-    const { error } = await supabase
-      .from("nfc_batches")
-      .insert({ id: `nfc-${Date.now().toString(36)}`, batch_code: code, qty, status: "received" });
-    if (error) setMsg(error.message);
-    else {
-      await auditInsert("create", "nfc_batches", code, { qty });
-      load();
-    }
-  }
+
   return (
     <div className="admin-page">
       <div className="admin-page-head">
         <h2>NFC</h2>
-        <p className="muted">Kelola batch dan verifikasi kartu</p>
+        <p className="muted">Pantau batch dan verifikasi kartu (read-only — provisioning via backend)</p>
       </div>
       {msg && <div className="admin-msg">{msg}</div>}
       <div style={{ display: "flex", gap: 8 }}>
-        <button className="btn-gold" onClick={createBatch}>
-          Buat Batch
-        </button>
         <button className="btn-ghost" onClick={load}>
           Refresh
         </button>
@@ -809,7 +1004,7 @@ function NfcPage() {
                     </td>
                   </tr>
                 ) : (
-                  batches.map((b: any) => (
+                  batches.map((b) => (
                     <tr key={b.id}>
                       <td style={{ fontFamily: "monospace", fontSize: 11 }}>{b.batch_code}</td>
                       <td>{b.qty}</td>
@@ -832,7 +1027,7 @@ function NfcPage() {
                   <th>Kode</th>
                   <th>UID</th>
                   <th>QC</th>
-                  <th>Siap</th>
+                  <th>Verifikasi</th>
                 </tr>
               </thead>
               <tbody>
@@ -843,14 +1038,14 @@ function NfcPage() {
                     </td>
                   </tr>
                 ) : (
-                  cards.map((c: any) => (
+                  cards.map((c) => (
                     <tr key={c.id}>
-                      <td style={{ fontFamily: "monospace", fontSize: 11 }}>{c.nfc_short_id ?? c.nfcShortId}</td>
-                      <td style={{ fontFamily: "monospace", fontSize: 11 }}>{(c.nfc_uid ?? c.nfcUid ?? "").slice(0, 12)}</td>
+                      <td style={{ fontFamily: "monospace", fontSize: 11 }}>{c.nfc_short_id}</td>
+                      <td style={{ fontFamily: "monospace", fontSize: 11 }}>{(c.nfc_uid ?? "").slice(0, 12)}</td>
                       <td>
-                        <span className="pill pill-info">{c.qc_status ?? c.qcStatus ?? "—"}</span>
+                        <span className="pill pill-info">{c.qc_status ?? "—"}</span>
                       </td>
-                      <td>{String(c.nfc_configured ?? c.nfcConfigured)}</td>
+                      <td>{c.verify_status ?? "—"}</td>
                     </tr>
                   ))
                 )}
@@ -864,46 +1059,59 @@ function NfcPage() {
 }
 
 function PayoutsPage() {
-  const [batches, setBatches] = useState<any[]>([]);
+  const [batches, setBatches] = useState<PayoutBatchRow[]>([]);
+  const [payouts, setPayouts] = useState<PayoutRow[]>([]);
+  const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+
   async function load() {
-    if (!hasSupabase) {
-      setMsg("Mode demo — payout via database.");
-      return;
-    }
-    const { data } = await supabase.from("payout_batches").select("*").order("created_at", { ascending: false }).limit(500);
-    setBatches(data ?? []);
+    const [{ data: b }, { data: p }] = await Promise.all([
+      supabase
+        .from("payout_batches")
+        .select("id,batch_code,status,total_ccoin,total_idr")
+        .order("created_at", { ascending: false })
+        .limit(500),
+      supabase
+        .from("payouts")
+        .select("id,user_id,type,ccoin_amount,idr_amount,status,batch_id")
+        .order("batch_id", { ascending: false })
+        .limit(500),
+    ]);
+    setBatches((b ?? []) as PayoutBatchRow[]);
+    setPayouts((p ?? []) as PayoutRow[]);
   }
   useEffect(() => {
     load();
   }, []);
+
   async function triggerBatch() {
-    if (!hasSupabase) return;
-    const id = `payout-${Date.now().toString(36)}`;
-    const { error } = await supabase.from("payout_batches").insert({
-      id,
-      batch_code: `BATCH-${Date.now().toString(36).toUpperCase()}`,
-      status: "draft",
-      total_ccoin: 0,
-      total_idr: 0,
-      fee_1pct_idr: 0,
-    });
-    if (error) setMsg(error.message);
-    else {
-      await auditInsert("payout_trigger", "payout_batches", id, {});
+    setBusy(true);
+    setMsg(null);
+    try {
+      const { batchId } = await apiFetch<{ batchId: string | null }>("/api/payments/admin/payout-run", { method: "POST" });
+      setMsg(
+        batchId
+          ? `Batch ${batchId} dibuat — payout eligible dikelompokkan`
+          : "Tidak ada payout eligible (min 10 C, KYC approved, tanpa hold)",
+      );
       load();
+    } catch (err) {
+      setMsg(errMessage(err));
+    } finally {
+      setBusy(false);
     }
   }
+
   return (
     <div className="admin-page">
       <div className="admin-page-head">
         <h2>Payout</h2>
-        <p className="muted">Kelola pencairan dan rekonsiliasi</p>
+        <p className="muted">Kelola pencairan dan rekonsiliasi — batch via API (ter-audit)</p>
       </div>
       {msg && <div className="admin-msg">{msg}</div>}
       <div style={{ display: "flex", gap: 8 }}>
-        <button className="btn-gold" onClick={triggerBatch}>
-          Buat Batch
+        <button className="btn-gold" onClick={triggerBatch} disabled={busy}>
+          {busy ? "Menjalankan…" : "Jalankan Batch"}
         </button>
         <button className="btn-ghost" onClick={load}>
           Refresh
@@ -929,7 +1137,7 @@ function PayoutsPage() {
                   </td>
                 </tr>
               ) : (
-                batches.map((b: any) => (
+                batches.map((b) => (
                   <tr key={b.id}>
                     <td style={{ fontFamily: "monospace", fontSize: 11 }}>{b.batch_code}</td>
                     <td>
@@ -944,38 +1152,92 @@ function PayoutsPage() {
           </table>
         </div>
       </div>
+      <div className="card" style={{ marginTop: 14 }}>
+        <div className="admin-table-head">Payout — {payouts.length}</div>
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>User</th>
+                <th>Tipe</th>
+                <th>C-Coin</th>
+                <th>IDR</th>
+                <th>Status</th>
+                <th>Batch</th>
+              </tr>
+            </thead>
+            <tbody>
+              {payouts.length === 0 ? (
+                <tr>
+                  <td colSpan={6} style={{ textAlign: "center", padding: 20 }} className="muted">
+                    Belum ada payout
+                  </td>
+                </tr>
+              ) : (
+                payouts.map((p) => (
+                  <tr key={p.id}>
+                    <td style={{ fontFamily: "monospace", fontSize: 11 }}>{p.user_id.slice(0, 8)}</td>
+                    <td>{p.type}</td>
+                    <td>{p.ccoin_amount}</td>
+                    <td>{p.idr_amount ?? "—"}</td>
+                    <td>
+                      <span className="pill pill-info">{p.status}</span>
+                    </td>
+                    <td style={{ fontFamily: "monospace", fontSize: 11 }}>{p.batch_id ? p.batch_id.slice(0, 8) : "—"}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   );
 }
 
 function DisputesPage() {
-  const [rows, setRows] = useState<any[]>([]);
+  const [rows, setRows] = useState<DisputeRow[]>([]);
+  const [drafts, setDrafts] = useState<Record<string, { status: string; notes: string }>>({});
   const [msg, setMsg] = useState<string | null>(null);
+
   async function load() {
-    if (!hasSupabase) {
-      setMsg("Mode demo — sengketa via database.");
-      return;
+    try {
+      const { disputes } = await apiFetch<{ disputes: DisputeRow[] }>("/api/admin/disputes");
+      setRows(disputes);
+    } catch (err) {
+      setMsg(errMessage(err));
     }
-    const { data } = await supabase.from("disputes").select("*").order("created_at", { ascending: false }).limit(500);
-    setRows(data ?? []);
   }
   useEffect(() => {
     load();
   }, []);
-  async function decide(id: string, status: string) {
-    if (!hasSupabase) return;
-    const { error } = await supabase.from("disputes").update({ status }).eq("id", id);
-    if (error) setMsg(error.message);
-    else {
-      await auditInsert("update", "disputes", id, { status });
+
+  function setDraft(id: string, patch: Partial<{ status: string; notes: string }>) {
+    setDrafts((prev) => ({ ...prev, [id]: { status: prev[id]?.status ?? "under_review", notes: prev[id]?.notes ?? "", ...patch } }));
+  }
+
+  async function decide(id: string) {
+    const draft = drafts[id] ?? { status: "under_review", notes: "" };
+    setMsg(null);
+    try {
+      await apiFetch(`/api/admin/disputes/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ status: draft.status, decisionNotes: draft.notes || undefined }),
+      });
+      setMsg(`Disput ${id.slice(0, 8)} diperbarui`);
       load();
+    } catch (err) {
+      setMsg(errMessage(err));
     }
   }
+
+  const RESOLUTIONS = ["under_review", "resolved_refund", "resolved_strike", "resolved_suspend"];
+
   return (
     <div className="admin-page">
       <div className="admin-page-head">
         <h2>Sengketa</h2>
-        <p className="muted">Tinjau dan selesaikan laporan</p>
+        <p className="muted">Tinjau dan selesaikan laporan (via API, ter-audit)</p>
       </div>
       {msg && <div className="admin-msg">{msg}</div>}
       <div className="card">
@@ -987,7 +1249,7 @@ function DisputesPage() {
                 <th>ID</th>
                 <th>Alasan</th>
                 <th>Status</th>
-                <th>Aksi</th>
+                <th>Keputusan</th>
               </tr>
             </thead>
             <tbody>
@@ -998,22 +1260,129 @@ function DisputesPage() {
                   </td>
                 </tr>
               ) : (
-                rows.map((r: any) => (
+                rows.map((r) => {
+                  const isResolved = r.status.startsWith("resolved_");
+                  return (
+                    <tr key={r.id}>
+                      <td style={{ fontFamily: "monospace", fontSize: 11 }}>{r.id.slice(0, 10)}</td>
+                      <td style={{ fontSize: 12, maxWidth: 220 }}>{r.reason}</td>
+                      <td>
+                        <span className="pill pill-info">{r.status}</span>
+                        {r.decision_notes ? (
+                          <div className="muted" style={{ fontSize: 10, marginTop: 4 }}>
+                            {r.decision_notes}
+                          </div>
+                        ) : null}
+                      </td>
+                      <td>
+                        {isResolved ? (
+                          <span className="muted" style={{ fontSize: 11 }}>
+                            Selesai
+                          </span>
+                        ) : (
+                          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", minWidth: 260 }}>
+                            <select
+                              className="input"
+                              value={drafts[r.id]?.status ?? "under_review"}
+                              onChange={(e) => setDraft(r.id, { status: e.target.value })}
+                              style={{ width: 160, fontSize: 11, padding: "4px 8px" }}
+                            >
+                              {RESOLUTIONS.map((s) => (
+                                <option key={s} value={s}>
+                                  {s}
+                                </option>
+                              ))}
+                            </select>
+                            <textarea
+                              className="input"
+                              placeholder="Catatan keputusan"
+                              value={drafts[r.id]?.notes ?? ""}
+                              onChange={(e) => setDraft(r.id, { notes: e.target.value })}
+                              rows={1}
+                              style={{ flex: 1, minWidth: 140, fontSize: 11, padding: "4px 8px" }}
+                            />
+                            <button className="btn-gold admin-mini" onClick={() => decide(r.id)}>
+                              Simpan
+                            </button>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function BadgesPage() {
+  const [rows, setRows] = useState<BadgeRow[]>([]);
+  const [msg, setMsg] = useState<string | null>(null);
+
+  async function load() {
+    const { data } = await supabase.from("badges").select("*").order("created_at", { ascending: false });
+    setRows((data ?? []) as BadgeRow[]);
+  }
+  useEffect(() => {
+    load();
+  }, []);
+
+  async function toggleActive(b: BadgeRow) {
+    setMsg(null);
+    try {
+      const isActive = !(b.is_active ?? true);
+      await apiFetch(`/api/gamification/badges/${b.id}`, { method: "PATCH", body: JSON.stringify({ isActive }) });
+      load();
+    } catch (err) {
+      setMsg(errMessage(err));
+    }
+  }
+
+  return (
+    <div className="admin-page">
+      <div className="admin-page-head">
+        <h2>Lencana</h2>
+        <p className="muted">Aktifkan/nonaktifkan lencana (via API, ter-audit)</p>
+      </div>
+      {msg && <div className="admin-msg">{msg}</div>}
+      <div className="card">
+        <div className="admin-table-head">Daftar — {rows.length}</div>
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Kode</th>
+                <th>Nama</th>
+                <th>XP</th>
+                <th>Kriteria</th>
+                <th>Aktif</th>
+                <th>Aksi</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.length === 0 ? (
+                <tr>
+                  <td colSpan={6} style={{ textAlign: "center", padding: 20 }} className="muted">
+                    Belum ada data
+                  </td>
+                </tr>
+              ) : (
+                rows.map((r) => (
                   <tr key={r.id}>
-                    <td style={{ fontFamily: "monospace", fontSize: 11 }}>{r.id.slice(0, 10)}</td>
-                    <td style={{ fontSize: 12 }}>{r.reason}</td>
-                    <td>
-                      <span className="pill pill-info">{r.status}</span>
+                    <td style={{ fontWeight: 700, fontFamily: "monospace", fontSize: 11 }}>{r.code}</td>
+                    <td>{r.name}</td>
+                    <td>{r.xp_reward ?? 0}</td>
+                    <td style={{ fontFamily: "monospace", fontSize: 11, maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis" }}>
+                      {typeof r.criteria === "string" ? r.criteria : JSON.stringify(r.criteria)}
                     </td>
-                    <td style={{ display: "flex", gap: 6 }}>
-                      <button className="btn-ghost admin-mini" onClick={() => decide(r.id, "resolved_refund")}>
-                        Refund
-                      </button>
-                      <button className="btn-ghost admin-mini" onClick={() => decide(r.id, "resolved_strike")}>
-                        Strike
-                      </button>
-                      <button className="btn-ghost admin-mini" onClick={() => decide(r.id, "resolved_suspend")}>
-                        Suspend
+                    <td>{String(r.is_active ?? true)}</td>
+                    <td>
+                      <button className="btn-ghost admin-mini" onClick={() => toggleActive(r)}>
+                        {(r.is_active ?? true) ? "Nonaktifkan" : "Aktifkan"}
                       </button>
                     </td>
                   </tr>
@@ -1027,158 +1396,87 @@ function DisputesPage() {
   );
 }
 
-function BadgesPage() {
-  const [rows, setRows] = useState<any[]>([]);
-  const [form, setForm] = useState({
-    code: "",
-    name: "",
-    description: "",
-    icon: "",
-    xp_reward: 0,
-    criteria: '{"type":"collect_count","min":5}',
-  });
+function KycPage() {
+  const [rows, setRows] = useState<KycRow[]>([]);
   const [msg, setMsg] = useState<string | null>(null);
+
   async function load() {
-    if (hasSupabase) {
-      const { data } = await supabase.from("badges").select("*").order("created_at", { ascending: false });
-      setRows(data ?? []);
-    } else {
-      try {
-        const r = await fetch("http://localhost:8787/api/gamification/badges");
-        const j = await r.json();
-        setRows(j.badges ?? []);
-      } catch {
-        setRows([]);
-      }
+    try {
+      const { kyc } = await apiFetch<{ kyc: KycRow[] }>("/api/kyc/admin/all");
+      setRows(kyc);
+    } catch (err) {
+      setMsg(errMessage(err));
     }
   }
   useEffect(() => {
     load();
   }, []);
-  async function onCreate(e: React.FormEvent) {
-    e.preventDefault();
-    let criteria: any;
+
+  async function decide(id: string, action: "approve" | "reject") {
+    setMsg(null);
     try {
-      criteria = JSON.parse(form.criteria);
-    } catch {
-      setMsg("Format kriteria tidak valid");
-      return;
-    }
-    if (!hasSupabase) {
-      setMsg("Mode demo — penyimpanan memerlukan database.");
-      return;
-    }
-    const id = `b-${Date.now().toString(36)}`;
-    const { error } = await supabase.from("badges").insert({
-      id,
-      code: form.code,
-      name: form.name,
-      description: form.description,
-      icon: form.icon,
-      icon_url: form.icon,
-      xp: Number(form.xp_reward),
-      xp_reward: Number(form.xp_reward),
-      criteria,
-      is_active: true,
-    });
-    if (error) setMsg(error.message);
-    else {
-      await auditInsert("create", "badges", id, { code: form.code });
-      setMsg("Lencana dibuat");
-      setForm({ code: "", name: "", description: "", icon: "", xp_reward: 0, criteria: '{"type":"collect_count","min":5}' });
+      await apiFetch(`/api/kyc/${id}/${action}`, { method: "POST" });
+      setMsg(`KYC ${id.slice(0, 8)} ${action === "approve" ? "disetujui" : "ditolak"}`);
       load();
+    } catch (err) {
+      setMsg(errMessage(err));
     }
   }
+
   return (
     <div className="admin-page">
       <div className="admin-page-head">
-        <h2>Lencana</h2>
-        <p className="muted">Kelola lencana dan penghargaan</p>
+        <h2>KYC</h2>
+        <p className="muted">Review KYC untuk payout &amp; top-up besar (via API, ter-audit)</p>
       </div>
-      <form onSubmit={onCreate} className="card card-pad" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        <div style={{ fontWeight: 700, fontSize: 13 }}>Tambah Lencana</div>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <input
-            className="input"
-            placeholder="Kode"
-            value={form.code}
-            onChange={(e) => setForm((s) => ({ ...s, code: e.target.value }))}
-            required
-            style={{ flex: 1, minWidth: 120 }}
-          />
-          <input
-            className="input"
-            placeholder="Nama"
-            value={form.name}
-            onChange={(e) => setForm((s) => ({ ...s, name: e.target.value }))}
-            required
-            style={{ flex: 1, minWidth: 120 }}
-          />
-          <input
-            className="input"
-            placeholder="Ikon"
-            value={form.icon}
-            onChange={(e) => setForm((s) => ({ ...s, icon: e.target.value }))}
-            style={{ width: 110 }}
-          />
-          <input
-            className="input"
-            type="number"
-            min={0}
-            placeholder="XP"
-            value={form.xp_reward}
-            onChange={(e) => setForm((s) => ({ ...s, xp_reward: Number(e.target.value) }))}
-            style={{ width: 90 }}
-          />
-        </div>
-        <input
-          className="input"
-          placeholder="Deskripsi"
-          value={form.description}
-          onChange={(e) => setForm((s) => ({ ...s, description: e.target.value }))}
-        />
-        <input
-          className="input"
-          placeholder="Kriteria JSON"
-          value={form.criteria}
-          onChange={(e) => setForm((s) => ({ ...s, criteria: e.target.value }))}
-          style={{ fontFamily: "monospace", fontSize: 12 }}
-        />
-        <button className="btn-gold" style={{ alignSelf: "start" }}>
-          Tambah
-        </button>
-        {msg && <div className="admin-msg">{msg}</div>}
-      </form>
+      {msg && <div className="admin-msg">{msg}</div>}
       <div className="card">
         <div className="admin-table-head">Daftar — {rows.length}</div>
         <div className="table-wrap">
           <table>
             <thead>
               <tr>
-                <th>Kode</th>
+                <th>User</th>
                 <th>Nama</th>
-                <th>XP</th>
-                <th>Kriteria</th>
-                <th>Aktif</th>
+                <th>NIK</th>
+                <th>Status</th>
+                <th>Diajukan</th>
+                <th>Aksi</th>
               </tr>
             </thead>
             <tbody>
               {rows.length === 0 ? (
                 <tr>
-                  <td colSpan={5} style={{ textAlign: "center", padding: 20 }} className="muted">
-                    Belum ada data
+                  <td colSpan={6} style={{ textAlign: "center", padding: 20 }} className="muted">
+                    Belum ada pengajuan
                   </td>
                 </tr>
               ) : (
-                rows.map((r: any) => (
+                rows.map((r) => (
                   <tr key={r.id}>
-                    <td style={{ fontWeight: 700, fontFamily: "monospace", fontSize: 11 }}>{r.code}</td>
-                    <td>{r.name}</td>
-                    <td>{r.xp_reward ?? r.xp ?? 0}</td>
-                    <td style={{ fontFamily: "monospace", fontSize: 11, maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis" }}>
-                      {typeof r.criteria === "string" ? r.criteria : JSON.stringify(r.criteria)}
+                    <td style={{ fontFamily: "monospace", fontSize: 11 }}>{r.user_id.slice(0, 8)}</td>
+                    <td style={{ fontSize: 12, fontWeight: 600 }}>{r.full_name}</td>
+                    <td style={{ fontFamily: "monospace", fontSize: 11 }}>{r.nik}</td>
+                    <td>
+                      <span className="pill pill-info">{r.status}</span>
                     </td>
-                    <td>{String(r.is_active ?? r.isActive ?? true)}</td>
+                    <td style={{ fontSize: 11 }}>{new Date(r.created_at).toLocaleDateString("id-ID")}</td>
+                    <td style={{ display: "flex", gap: 6 }}>
+                      {r.status === "pending" ? (
+                        <>
+                          <button className="btn-gold admin-mini" onClick={() => decide(r.id, "approve")}>
+                            Setujui
+                          </button>
+                          <button className="btn-ghost admin-mini" onClick={() => decide(r.id, "reject")}>
+                            Tolak
+                          </button>
+                        </>
+                      ) : (
+                        <span className="muted" style={{ fontSize: 11 }}>
+                          Selesai
+                        </span>
+                      )}
+                    </td>
                   </tr>
                 ))
               )}
@@ -1191,31 +1489,38 @@ function BadgesPage() {
 }
 
 function AuditPage() {
-  const [rows, setRows] = useState<any[]>([]);
+  const [rows, setRows] = useState<AuditRow[]>([]);
   const [filter, setFilter] = useState("");
+  const [msg, setMsg] = useState<string | null>(null);
+
   async function load() {
-    if (!hasSupabase) {
-      setRows([]);
-      return;
+    setMsg(null);
+    try {
+      // admin_audit_log RLS-deny utk authenticated — wajib lewat API (service-role).
+      const { audit } = await apiFetch<{ audit: AuditRow[] }>("/api/admin/audit?limit=100");
+      setRows(audit);
+    } catch (err) {
+      setMsg(errMessage(err));
     }
-    let q = supabase.from("admin_audit_log").select("*").order("created_at", { ascending: false }).limit(100);
-    if (filter) q = q.ilike("action", `%${filter}%`);
-    const { data } = await q;
-    setRows(data ?? []);
   }
   useEffect(() => {
     load();
   }, []);
+
+  const term = filter.trim().toLowerCase();
+  const visible = term ? rows.filter((r) => r.action.toLowerCase().includes(term)) : rows;
+
   return (
     <div className="admin-page">
       <div className="admin-page-head">
         <h2>Audit Log</h2>
-        <p className="muted">Riwayat aktivitas admin — append-only (tidak bisa edit/hapus, retensi ≥1 tahun)</p>
+        <p className="muted">Riwayat aktivitas admin — append-only, ditulis server-side oleh API</p>
       </div>
+      {msg && <div className="admin-msg">{msg}</div>}
       <div style={{ display: "flex", gap: 8 }}>
         <input className="input" placeholder="Cari aksi…" value={filter} onChange={(e) => setFilter(e.target.value)} style={{ flex: 1 }} />
         <button className="btn-ghost" onClick={load}>
-          Cari
+          Refresh
         </button>
       </div>
       <div className="card">
@@ -1232,26 +1537,26 @@ function AuditPage() {
               </tr>
             </thead>
             <tbody>
-              {rows.length === 0 ? (
+              {visible.length === 0 ? (
                 <tr>
                   <td colSpan={5} style={{ textAlign: "center", padding: 20 }} className="muted">
-                    {hasSupabase ? "Belum ada aktivitas" : "Memerlukan koneksi database"}{" "}
+                    Belum ada aktivitas
                   </td>
                 </tr>
               ) : (
-                rows.map((r: any) => (
+                visible.map((r) => (
                   <tr key={r.id}>
-                    <td style={{ fontSize: 11, color: "var(--muted)" }}>{new Date(r.created_at ?? r.createdAt).toLocaleString("id-ID")}</td>
-                    <td style={{ fontFamily: "monospace", fontSize: 11 }}>{(r.admin_user_id ?? r.adminUserId ?? "").slice(0, 10)}</td>
+                    <td style={{ fontSize: 11, color: "var(--muted)" }}>{new Date(r.created_at).toLocaleString("id-ID")}</td>
+                    <td style={{ fontFamily: "monospace", fontSize: 11 }}>{r.admin_user_id.slice(0, 10)}</td>
                     <td>
                       <span className="pill pill-info">{r.action}</span>
                     </td>
                     <td style={{ fontSize: 11 }}>
-                      {r.target_table ?? r.targetTable}
+                      {r.target_table}
                       {r.target_id ? `:${String(r.target_id).slice(0, 8)}` : ""}
                     </td>
                     <td style={{ fontFamily: "monospace", fontSize: 11, maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis" }}>
-                      {r.payload_summary ? JSON.stringify(r.payload_summary) : r.payloadSummary ? JSON.stringify(r.payloadSummary) : "—"}
+                      {r.payload_summary != null ? JSON.stringify(r.payload_summary) : "—"}
                     </td>
                   </tr>
                 ))
@@ -1265,57 +1570,41 @@ function AuditPage() {
 }
 
 function InvestorPage() {
-  const [data, setData] = useState<any>(null);
+  const [data, setData] = useState<{
+    gmv: number;
+    secondaryVol: number;
+    users: number;
+    drops: number;
+    sold: number;
+    units: number;
+    dropsRows: { id: string; title: string; status: string; sold_count: number | null; total_units: number }[];
+  } | null>(null);
+
   useEffect(() => {
     async function load() {
-      if (hasSupabase) {
-        const [wtx, us, dr] = await Promise.all([
-          supabase.from("wallet_transactions").select("amount_ccoin,type").limit(1000),
-          supabase.from("users").select("id,total_xp").limit(1000),
-          supabase.from("drops").select("id,total_units,sold_count,status").limit(100),
-        ]);
-        const w: any[] = (wtx as any).data ?? [];
-        const gmv = w
-          .filter((t: any) => t.type === "checkout" || t.type === "platform_buy")
-          .reduce((n: number, t: any) => n + Math.abs(t.amount_ccoin), 0);
-        const secondaryVol = w
-          .filter((t: any) => t.type === "payout" || t.type === "royalty")
-          .reduce((n: number, t: any) => n + Math.abs(t.amount_ccoin), 0);
-        const users: any[] = (us as any).data ?? [];
-        const drops: any[] = (dr as any).data ?? [];
-        setData({
-          gmv,
-          secondaryVol,
-          users: users.length,
-          drops: drops.length,
-          sold: drops.reduce((n: number, d: any) => n + (d.sold_count ?? 0), 0),
-          units: drops.reduce((n: number, d: any) => n + (d.total_units ?? 0), 0),
-          dropsRows: drops,
-        });
-      } else {
-        try {
-          const [r1, r2] = await Promise.all([
-            fetch("http://localhost:8787/api/drops").then((r) => r.json().catch(() => ({ drops: [] }))),
-            fetch("http://localhost:8787/api/gamification/leaderboard").then((r) => r.json().catch(() => ({ leaderboard: [] }))),
-          ]);
-          const drops: any[] = r1.drops ?? [];
-          const gmv = drops.reduce((n: number, d: any) => n + (d.soldCount ?? 0) * (d.priceCcoin ?? d.priceUnsignedCCoin ?? 30), 0);
-          setData({
-            gmv,
-            secondaryVol: 0,
-            users: (r2.leaderboard ?? []).length,
-            drops: drops.length,
-            sold: drops.reduce((n: number, d: any) => n + (d.soldCount ?? 0), 0),
-            units: drops.reduce((n: number, d: any) => n + (d.totalUnits ?? 0), 0),
-            dropsRows: drops,
-          });
-        } catch {
-          setData({ gmv: 0, users: 0, drops: 0, sold: 0, units: 0, secondaryVol: 0, dropsRows: [] });
-        }
-      }
+      const [wtx, us, dr] = await Promise.all([
+        supabase.from("wallet_transactions").select("amount_ccoin,type").limit(1000),
+        supabase.from("users").select("id,total_xp").limit(1000),
+        supabase.from("drops").select("id,title,status,total_units,sold_count").limit(100),
+      ]);
+      const w = (wtx.data ?? []) as { amount_ccoin: number; type: string }[];
+      const users = (us.data ?? []) as { id: string }[];
+      const drops = (dr.data ?? []) as { id: string; title: string; status: string; total_units: number; sold_count: number | null }[];
+      const gmv = w.filter((t) => t.type === "checkout" || t.type === "platform_buy").reduce((n, t) => n + Math.abs(t.amount_ccoin), 0);
+      const secondaryVol = w.filter((t) => t.type === "payout" || t.type === "royalty").reduce((n, t) => n + Math.abs(t.amount_ccoin), 0);
+      setData({
+        gmv,
+        secondaryVol,
+        users: users.length,
+        drops: drops.length,
+        sold: drops.reduce((n, d) => n + (d.sold_count ?? 0), 0),
+        units: drops.reduce((n, d) => n + (d.total_units ?? 0), 0),
+        dropsRows: drops,
+      });
     }
     load();
   }, []);
+
   if (!data)
     return (
       <div className="muted" style={{ padding: 24, textAlign: "center" }}>
@@ -1370,7 +1659,7 @@ function InvestorPage() {
               </tr>
             </thead>
             <tbody>
-              {(data.dropsRows ?? []).slice(0, 20).map((d: any) => (
+              {data.dropsRows.slice(0, 20).map((d) => (
                 <tr key={d.id}>
                   <td style={{ fontWeight: 600, fontSize: 12 }}>{d.title}</td>
                   <td>
@@ -1378,8 +1667,8 @@ function InvestorPage() {
                       {d.status}
                     </span>
                   </td>
-                  <td style={{ fontFamily: "monospace" }}>{d.sold_count ?? d.soldCount ?? 0}</td>
-                  <td style={{ fontFamily: "monospace" }}>{d.total_units ?? d.totalUnits ?? 0}</td>
+                  <td style={{ fontFamily: "monospace" }}>{d.sold_count ?? 0}</td>
+                  <td style={{ fontFamily: "monospace" }}>{d.total_units}</td>
                 </tr>
               ))}
             </tbody>
@@ -1387,30 +1676,22 @@ function InvestorPage() {
         </div>
       </div>
       <div className="muted" style={{ fontSize: 11, marginTop: 12 }}>
-        Sumber: Supabase langsung (service-role) atau API publik fallback. Data untuk internal founder saja — tidak diekspos ke publik.
+        Sumber: Supabase (RLS, authenticated read). Data untuk internal founder saja — tidak diekspos ke publik.
       </div>
     </div>
   );
 }
 
 function DashboardInner() {
-  const [stats, setStats] = useState<any>({ drops: 0, orders: 0, creators: 0 });
+  const [stats, setStats] = useState<{ drops: number; orders: number; creators: number }>({ drops: 0, orders: 0, creators: 0 });
   useEffect(() => {
     async function load() {
-      if (hasSupabase) {
-        const [d, o, c] = await Promise.all([
-          supabase.from("drops").select("id", { count: "exact", head: true }),
-          supabase.from("orders").select("id", { count: "exact", head: true }),
-          supabase.from("creators").select("id", { count: "exact", head: true }),
-        ]);
-        setStats({ drops: (d as any).count ?? 0, orders: (o as any).count ?? 0, creators: (c as any).count ?? 0 });
-      } else {
-        try {
-          const r = await fetch("http://localhost:8787/api/drops");
-          const j = await r.json();
-          setStats({ drops: j.drops?.length ?? 0, orders: 0, creators: 0 });
-        } catch {}
-      }
+      const [d, o, c] = await Promise.all([
+        supabase.from("drops").select("id", { count: "exact", head: true }),
+        supabase.from("orders").select("id", { count: "exact", head: true }),
+        supabase.from("creators").select("id", { count: "exact", head: true }),
+      ]);
+      setStats({ drops: d.count ?? 0, orders: o.count ?? 0, creators: c.count ?? 0 });
     }
     load();
   }, []);
@@ -1440,9 +1721,9 @@ function DashboardInner() {
         <div className="admin-stat-card gold">
           <div className="admin-stat-label">Sistem</div>
           <div className="admin-stat-value" style={{ fontSize: 14 }}>
-            {hasSupabase ? "Terhubung" : "Demo"}
+            Terhubung
           </div>
-          <div className="admin-stat-hint">{hasSupabase ? "Supabase aktif" : "Tanpa database"}</div>
+          <div className="admin-stat-hint">Supabase aktif · MFA aal2</div>
         </div>
       </div>
 
@@ -1496,9 +1777,12 @@ function DashboardInner() {
   );
 }
 
-// ── Root ───────────────────────────────────────────────────────────────────
+// ── Root — login gate + admin shell ────────────────────────────────────────
 export default function App() {
-  const { session, aal2, loading, hasSupabase } = useAdminAuth();
+  const { session, aal2, loading, refreshAal2 } = useAdminAuth();
+  const nav = useNavigate();
+
+  if (!hasSupabase) return <ConfigErrorScreen />;
 
   if (loading) {
     return (
@@ -1508,16 +1792,17 @@ export default function App() {
     );
   }
 
-  const isAuthed = hasSupabase ? session && aal2 : !!session;
-  const needsTotp = hasSupabase && session && !aal2;
+  if (!session) return <LoginPage />;
+  if (!aal2) return <TotpRequired onVerified={refreshAal2} />;
 
-  if (!isAuthed) {
-    if (needsTotp) return <TotpRequired />;
-    return <LoginPage />;
+  async function onLogout() {
+    await supabase.auth.signOut();
+    localStorage.removeItem("admin_demo_session"); // clean up legacy demo-session leftovers
+    nav("/");
   }
 
   return (
-    <Shell>
+    <Shell email={session.user.email ?? "admin"} onLogout={onLogout}>
       <Routes>
         <Route path="/" element={<DashboardInner />} />
         <Route path="/creators" element={<CreatorsPage />} />
@@ -1527,9 +1812,10 @@ export default function App() {
         <Route path="/payouts" element={<PayoutsPage />} />
         <Route path="/badges" element={<BadgesPage />} />
         <Route path="/disputes" element={<DisputesPage />} />
+        <Route path="/kyc" element={<KycPage />} />
         <Route path="/audit" element={<AuditPage />} />
         <Route path="/investor" element={<InvestorPage />} />
-        <Route path="/login" element={<DashboardInner />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Shell>
   );
