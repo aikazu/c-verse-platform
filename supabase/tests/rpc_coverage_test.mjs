@@ -8,7 +8,7 @@
 //   S1-S5 : place_bid / cancel_bid / accept_bid (outbid release, fee 7.5/7.5/85,
 //           XP buyer, transfer kepemilikan, race 2 bid concurrent amount sama)
 //   M1-M5 : set_buyout / buyout_card (MAX 20 listing, fee split, cooling period
-//           14d, creator self-dealing 30d, race 2 buyout, re-sale pasca-cooling)
+//           24h, creator self-dealing 30d, race 2 buyout, re-sale pasca-cooling)
 //   C1-C3 : escrow_auto_release / draw_pending_drops / payout_batch_run (cron)
 //   W1-W2 : wallet_credit idempotency + INVALID_AMOUNT
 //   X1-X3 : lockdown EXECUTE RPC (anon denied, wallet_debit self-only, dsb.)
@@ -312,7 +312,7 @@ await admin.query("commit");
   const notForSale = await expectCode(b1.query("select public.buyout_card('cov-card-m1')"));
   await s.query("select public.set_buyout('cov-card-m5', 60)");
   const ownCard = await expectCode(s.query("select public.buyout_card('cov-card-m5')"));
-  // cooling 24h: b1 beli -> jual ke b2 -> b2 re-list -> b1 (pemilik lama <14 hari) coba beli lagi
+  // cooling 24h: b1 beli -> jual ke b2 -> b2 re-list -> b1 (pemilik lama <24 jam) coba beli lagi
   await b1.query("select public.buyout_card('cov-card-m5')");
   await b1.query("select public.set_buyout('cov-card-m5', 70)");
   await b2.query("select public.buyout_card('cov-card-m5')");
@@ -376,7 +376,7 @@ await admin.query("commit");
   await b2.query("select public.buyout_card('cov-card-m7')"); // b2 beli dari b1
   const b1After2 = await balance(U.b1);
   await b2.query("select public.set_buyout('cov-card-m7', 30)");
-  // lewati cooling period 14 hari
+  // lewati cooling period 24 jam
   await admin.query("update public.ownership_history set transferred_at = now() - interval '15 days' where card_id = 'cov-card-m7'");
   const b1Before3 = await balance(U.b1);
   const b2Before3 = await balance(U.b2);

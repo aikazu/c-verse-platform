@@ -592,11 +592,11 @@ begin
   if not found or v_card.buyout_price_ccoin is null then raise exception 'NOT_FOR_SALE'; end if;
   if v_card.owner_id = v_user then raise exception 'OWN_CARD'; end if;
 
-  -- wash trading 14 hari (I13) & creator self-dealing 30 hari (I14)
+  -- wash trading blok rebuy 24 jam (C-12 FINAL 2026-08-15) & creator self-dealing 30 hari (I14)
   if exists (select 1 from ownership_history h
              where h.card_id = p_card_id and h.owner_id = v_user
-             and h.transferred_at > now() - interval '14 days') then
-    raise exception 'COOLING_PERIOD_14D';
+             and h.transferred_at > now() - interval '24 hours') then
+    raise exception 'COOLING_PERIOD_24H';
   end if;
   if exists (select 1 from drops d where d.id = v_card.drop_id and d.creator_id = v_user
              and coalesce(d.drop_start_at, d.drop_at, d.created_at) > now() - interval '30 days') then
