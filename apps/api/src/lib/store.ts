@@ -1,52 +1,41 @@
 // Domain types (docs/05-data-model) — dipakai mapper reads.ts & route responses.
+// Enum types canonical di @c-verse/shared; store.ts import + extend untuk legacy values.
+
+import type {
+  BidStatus as SharedBidStatus,
+  CardLocation as SharedCardLocation,
+  CardStatus as SharedCardStatus,
+  DeliveryOption as SharedDeliveryOption,
+  DropStatus as SharedDropStatus,
+  EscrowStatus as SharedEscrowStatus,
+  KycStatus as SharedKycStatus,
+  OrderStatus as SharedOrderStatus,
+  ShipmentStatus as SharedShipmentStatus,
+  ShipmentToDest as SharedShipmentToDest,
+  ShipmentType as SharedShipmentType,
+  VerifyStatus as SharedVerifyStatus,
+  WalletTxType as SharedWalletTxType,
+} from "@c-verse/shared";
 
 // ── Types (align docs/05-data-model) ───────────────────────────────────────
 export type UserRole = "user" | "creator" | "admin";
 export type LegacyCollector = "collector"; // alias
 export type AnyRole = UserRole | LegacyCollector;
-export type DropStatus =
-  | "draft"
-  | "scheduled"
-  | "published"
-  | "live"
-  | "sold_out"
-  | "closed"
-  | "cancelled"
-  | "review"
-  | "approved"
-  | "production"
-  | "ended";
-export type OrderStatus =
-  | "paid"
-  | "qc"
-  | "shipped"
-  | "delivered"
-  | "settled"
-  | "refunded"
-  | "disputed"
-  | "pending"
-  | "processing"
-  | "cancelled";
-export type DeliveryOption = "shipping" | "vault";
-export type EscrowStatus = "held" | "released";
-export type CardLocation = "platform_stock" | "with_owner" | "platform_vault";
-export type CardStatus =
-  | "inventory"
-  | "bound"
-  | "listed_buyout"
-  | "bid_pending"
-  | "sold"
-  | "tampered"
-  | "defect"
-  | "lost"
-  | "available"
-  | "listed"
-  | "transferred";
-export type ShipmentType = "primary_shipping" | "primary_vault" | "secondary_buyout" | "secondary_bid" | "vault_shipout";
-export type ShipmentToDest = "buyer_address" | "platform_vault";
-export type ShipmentStatus = "requested" | "packed" | "shipped" | "delivered" | "cancelled";
-export type BidStatus = "active" | "outbid" | "cancelled" | "accepted";
-export type VerifyStatus = "verified" | "tamper_detected" | "registered" | "unknown";
+
+// Legacy extended types: shared + extra values masih ada di DB/migration lama
+export type DropStatus = SharedDropStatus | "review" | "approved" | "production" | "ended";
+export type OrderStatus = SharedOrderStatus | "pending" | "processing" | "cancelled";
+export type DeliveryOption = SharedDeliveryOption;
+export type EscrowStatus = SharedEscrowStatus;
+export type CardLocation = SharedCardLocation;
+export type CardStatus = SharedCardStatus | "available" | "listed" | "transferred";
+export type ShipmentType = SharedShipmentType;
+export type ShipmentToDest = SharedShipmentToDest;
+export type ShipmentStatus = SharedShipmentStatus;
+export type BidStatus = SharedBidStatus;
+export type VerifyStatus = SharedVerifyStatus;
+export type KycStatus = SharedKycStatus;
+export type WalletTxType = SharedWalletTxType;
 export type ListingStatus = never; // legacy auction/listing removed (C-07 FINAL)
 
 export interface User {

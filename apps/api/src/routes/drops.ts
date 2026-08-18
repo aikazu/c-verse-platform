@@ -5,7 +5,7 @@ import { z } from "zod";
 import { requireUser } from "../lib/auth.js";
 import { RpcError, rpcDropEntry, userDb } from "../lib/db.js";
 import { getCreatorByUserId } from "../lib/reads/creators.js";
-import { getDropById, listCardsByDrop, listDrops } from "../lib/reads/drops.js";
+import { getDropById, listCardsByDrop, listDrops, type DropFilter } from "../lib/reads/drops.js";
 import { logAuditDb } from "../lib/reads/kyc.js";
 import { getUserById } from "../lib/reads/users.js";
 import { pageMeta, parsePageParams, slicePage } from "../lib/reads.js";
@@ -21,20 +21,20 @@ app.get("/", async (c) => {
   const q = c.req.query();
   const status = q.status as string | undefined;
   const search = (q.search as string | undefined)?.toLowerCase();
-  // Viewer-aware: draft/review hanya terlihat oleh pemilik creatornya atau admin —
-  // tanpa ini drop unpublished bocor via panggilan API langsung (readDb = service-role).
   const authRes = await requireUser(c);
   const viewer = "error" in authRes ? null : authRes.user;
-  let drops = await listDrops();
-  if (viewer?.role !== "admin") {
-    drops = drops.filter((d) => PUBLIC_DROP_STATUSES.includes(d.status) || d.creatorId === viewer?.id);
-  }
-  if (status && status !== "all") drops = drops.filter((d) => d.status === status);
-  if (search)
-    drops = drops.filter(
-      (d) =>
-        d.title.toLowerCase().includes(search) || d.series.toLowerCase().includes(search) || d.creatorName.toLowerCase().includes(search),
-    );
+
+  const filter: DropFilter = {
+    status,
+    search,
+    viewerId: viewer?.id,
+    viewerRole: viewer?.role,
+    publicStatuses: PUBLIC_DROP_STATUSES,
+  };
+
+  let drops = await listDrops(filter);
+
+  // Sorting masih in-memory karena priority order complex (live→published→scheduled→...)
   const order: Record<string, number> = {
     live: 0,
     published: 0,
@@ -51,6 +51,7 @@ app.get("/", async (c) => {
   drops.sort(
     (a, b) => (order[a.status] ?? 9) - (order[b.status] ?? 9) || new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
   );
+
   const enriched = drops.map((d) => ({
     ...d,
     remainingUnits: d.totalUnits - d.soldCount,

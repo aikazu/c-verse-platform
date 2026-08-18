@@ -3,10 +3,42 @@ import type { Card, Drop } from "../store.js";
 
 // Domain reads: drops & cards (docs/13 Wave 1 — public select, no RPC needed).
 
-export async function listDrops(): Promise<Drop[]> {
+export interface DropFilter {
+  status?: string;
+  search?: string;
+  viewerId?: string;
+  viewerRole?: string;
+  publicStatuses?: string[];
+}
+
+export async function listDrops(filter?: DropFilter): Promise<Drop[]> {
   const db = readDb();
-  // ceiling working set — jangan muat tabel drop tanpa batas ke memori Worker
-  const { data, error } = await db.from("drops").select("*").order("created_at", { ascending: false }).limit(2000);
+  let query = db.from("drops").select("*").order("created_at", { ascending: false }).limit(2000);
+
+  // Status filter — langsung di SQL, hindari in-memory filter
+  if (filter?.status && filter.status !== "all") {
+    query = query.eq("status", filter.status);
+  }
+
+  // Viewer-aware: non-admin cuma lihat public + owned drafts
+  if (!filter) {
+    // no filter — no-op, query stays as-is
+  } else if (filter.viewerRole === "admin") {
+    // admin lihat semua — tanpa filter status tambahan
+  } else if (filter.viewerId) {
+    const publicStatuses = filter.publicStatuses ?? ["live", "published", "sold_out", "closed", "ended", "scheduled"];
+    query = query.or(`creator_id.eq.${filter.viewerId},status.in.(${publicStatuses.join(",")})`);
+  } else {
+    const publicStatuses = filter.publicStatuses ?? ["live", "published", "sold_out", "closed", "ended", "scheduled"];
+    query = query.in("status", publicStatuses);
+  }
+
+  // Search di SQL via ilike
+  if (filter?.search) {
+    query = query.or(`title.ilike.%${filter.search}%,series.ilike.%${filter.search}%`);
+  }
+
+  const { data, error } = await query;
   if (error) throw new Error(error.message);
   return (data ?? []).map((r) => mapDropRow(r as Record<string, unknown>));
 }
