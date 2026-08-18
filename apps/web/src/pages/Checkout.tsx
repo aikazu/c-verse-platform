@@ -161,12 +161,24 @@ export default function Checkout() {
         {delivery === "shipping" && (
           <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 14 }}>
             <div>
-              <label className="label">Alamat</label>
-              <textarea className="input" value={addr} onChange={(e) => setAddr(e.target.value)} rows={3} placeholder="Alamat lengkap" />
+              <label className="label" htmlFor="checkout-address">
+                Alamat
+              </label>
+              <textarea
+                id="checkout-address"
+                className="input"
+                value={addr}
+                onChange={(e) => setAddr(e.target.value)}
+                rows={3}
+                placeholder="Alamat lengkap"
+              />
             </div>
             <div>
-              <label className="label">Ongkir (C-Coin)</label>
+              <label className="label" htmlFor="checkout-fee">
+                Ongkir (C-Coin)
+              </label>
               <input
+                id="checkout-fee"
                 className="input"
                 type="number"
                 min={1}

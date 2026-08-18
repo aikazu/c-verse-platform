@@ -81,6 +81,22 @@ button { font-family: inherit; cursor: pointer; }
 ::selection { background: var(--gold); color: var(--canvas); }
 :focus-visible { outline: 2px solid rgba(91, 230, 255, 0.85); outline-offset: 3px; }
 
+.skip-link {
+  position: absolute;
+  left: 8px;
+  top: -48px;
+  z-index: 10000;
+  padding: 10px 16px;
+  background: var(--surface-2);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-2);
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  transition: top var(--motion-fast);
+}
+.skip-link:focus { top: 8px; }
+
 /* ── Global deep-space atmosphere ──────────────────────────────────────────── */
 body::before { /* fine film grain — keeps large dark areas from banding flat */
   content: '';

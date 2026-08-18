@@ -46,9 +46,22 @@ export default function UsernameSetupModal() {
     return () => clearTimeout(debounceRef.current);
   }, [value, user?.username]);
 
+  // Escape menutup modal (sama dengan aksi "Nanti") demi aksesibilitas keyboard.
+  useEffect(() => {
+    if (!isDefault || skipped) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key !== "Escape") return;
+      try {
+        localStorage.setItem(LATER_FLAG_KEY, "1");
+      } catch {}
+      setSkipped(true);
+    }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [isDefault, skipped]);
+
   // early return seteleh semua hook agar urutan hook tetap konsisten tiap render
   if (!isDefault || skipped) return null;
-
   async function onSubmit() {
     if (status !== "available" && status !== "idle") return;
     setBusy(true);
@@ -81,6 +94,9 @@ export default function UsernameSetupModal() {
 
   return (
     <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="username-modal-title"
       style={{
         position: "fixed",
         inset: 0,
@@ -103,13 +119,21 @@ export default function UsernameSetupModal() {
           boxShadow: "0 0 0 2px var(--border-strong), 0 24px 64px rgba(0,0,0,0.6)",
         }}
       >
-        <div style={{ fontFamily: "var(--font-display)", fontSize: 15, color: "var(--gold)", textAlign: "center" }}>Pilih Username</div>
+        <div
+          id="username-modal-title"
+          style={{ fontFamily: "var(--font-display)", fontSize: 15, color: "var(--gold)", textAlign: "center" }}
+        >
+          Pilih Username
+        </div>
         <div className="muted" style={{ textAlign: "center", marginTop: 10, fontSize: 13 }}>
           Panggilan publik untuk profilmu di C.Verse — bisa diganti nanti.
         </div>
         <div className="form-row" style={{ marginTop: 20 }}>
-          <label className="label">Username</label>
+          <label className="label" htmlFor="username-input">
+            Username
+          </label>
           <input
+            id="username-input"
             className="input"
             placeholder="contoh: kolektor_sejati"
             value={value}

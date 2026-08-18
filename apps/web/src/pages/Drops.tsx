@@ -49,12 +49,19 @@ export default function Drops() {
         <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
           <input
             className="input"
+            aria-label="Cari drop"
             placeholder="Cari seri atau judul…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             style={{ width: 210 }}
           />
-          <select className="select" value={filter} onChange={(e) => setFilter(e.target.value)} style={{ width: 140 }}>
+          <select
+            className="select"
+            aria-label="Filter status drop"
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+            style={{ width: 140 }}
+          >
             <option value="all">Semua</option>
             <option value="live">Live</option>
             <option value="scheduled">Segera</option>

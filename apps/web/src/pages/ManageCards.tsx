@@ -155,6 +155,7 @@ export default function ManageCards() {
                   className="input"
                   type="number"
                   min={1}
+                  aria-label="Harga jual C-Coin"
                   placeholder="Harga C (kosong = hapus)"
                   value={buyout[card.id] ?? ""}
                   onChange={(e) => setBuyout((s) => ({ ...s, [card.id]: e.target.value }))}
@@ -180,6 +181,7 @@ export default function ManageCards() {
                   </div>
                   <select
                     className="select"
+                    aria-label="Tujuan pengiriman"
                     value={acceptDest[card.id] ?? "buyer_address"}
                     onChange={(e) => setAcceptDest((s) => ({ ...s, [card.id]: e.target.value as "buyer_address" | "platform_vault" }))}
                     style={{ fontSize: 12 }}
@@ -191,6 +193,7 @@ export default function ManageCards() {
                     <textarea
                       className="textarea"
                       rows={2}
+                      aria-label="Alamat pembeli"
                       placeholder="Alamat pembeli (min 10 karakter)"
                       value={acceptAddr[card.id] ?? ""}
                       onChange={(e) => setAcceptAddr((s) => ({ ...s, [card.id]: e.target.value }))}
@@ -218,6 +221,7 @@ export default function ManageCards() {
                   </div>
                   <input
                     className="input"
+                    aria-label="Alamat pengiriman"
                     placeholder="Alamat lengkap"
                     value={vaultAddr[card.id] ?? ""}
                     onChange={(e) => setVaultAddr((s) => ({ ...s, [card.id]: e.target.value }))}
@@ -228,6 +232,7 @@ export default function ManageCards() {
                       className="input"
                       type="number"
                       min={1}
+                      aria-label="Ongkir C-Coin"
                       value={vaultFee[card.id] ?? 2}
                       onChange={(e) => setVaultFee((s) => ({ ...s, [card.id]: Number(e.target.value) }))}
                       style={{ width: 100, fontSize: 12, fontFamily: "var(--font-mono)" }}

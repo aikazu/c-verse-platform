@@ -161,8 +161,11 @@ export default function OrderDetail() {
           <div style={{ marginTop: 16, borderTop: "1px solid var(--border)", paddingTop: 14 }}>
             {disputeOpen ? (
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                <label className="label">Alasan dispute (min 10 karakter)</label>
+                <label className="label" htmlFor="dispute-reason">
+                  Alasan dispute (min 10 karakter)
+                </label>
                 <textarea
+                  id="dispute-reason"
                   className="textarea"
                   rows={3}
                   value={disputeReason}

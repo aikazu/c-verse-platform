@@ -220,8 +220,11 @@ function Navbar() {
 function AppRoutes() {
   return (
     <div className="app-shell">
+      <a href="#main-content" className="skip-link">
+        Lompat ke konten
+      </a>
       <Navbar />
-      <main className="main-content">
+      <main className="main-content" id="main-content">
         <Suspense
           fallback={
             <div className="now-loading">

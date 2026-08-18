@@ -122,12 +122,17 @@ export default function AuthForm() {
         {!otpSent ? (
           <form onSubmit={onRequestOtp} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             <div className="form-row" style={{ marginBottom: 0 }}>
-              <label className="label">Email</label>
-              <input className="input" value={email} onChange={(e) => setEmail(e.target.value)} type="email" required />
+              <label className="label" htmlFor="auth-email">
+                Email
+              </label>
+              <input id="auth-email" className="input" value={email} onChange={(e) => setEmail(e.target.value)} type="email" required />
             </div>
             <div className="form-row" style={{ marginBottom: 0 }}>
-              <label className="label">Nama tampilan (opsional — untuk akun baru)</label>
+              <label className="label" htmlFor="auth-displayname">
+                Nama tampilan (opsional — untuk akun baru)
+              </label>
               <input
+                id="auth-displayname"
                 className="input"
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
@@ -142,8 +147,11 @@ export default function AuthForm() {
         ) : (
           <form onSubmit={onVerifyOtp} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             <div className="form-row" style={{ marginBottom: 0 }}>
-              <label className="label">Kode 6 digit ({email})</label>
+              <label className="label" htmlFor="auth-code">
+                Kode 6 digit ({email})
+              </label>
               <input
+                id="auth-code"
                 className="input"
                 value={code}
                 onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}

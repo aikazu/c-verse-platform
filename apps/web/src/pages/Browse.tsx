@@ -49,6 +49,7 @@ export default function Browse() {
       <div style={{ display: "flex", gap: 8 }}>
         <input
           className="input"
+          aria-label="Cari C.Card"
           placeholder="Cari C.Card, seri, kreator…"
           value={q}
           onChange={(e) => setQ(e.target.value)}

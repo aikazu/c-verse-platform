@@ -148,8 +148,11 @@ export default function CreatorDashboard() {
         <form onSubmit={onCreate} className="card card-pad" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           <div style={{ fontWeight: 600, fontSize: 14 }}>Buat Drop</div>
           <div className="form-row" style={{ marginBottom: 0 }}>
-            <label className="label">Judul</label>
+            <label className="label" htmlFor="cd-title">
+              Judul
+            </label>
             <input
+              id="cd-title"
               className="input"
               value={form.title}
               onChange={(e) => setForm((s) => ({ ...s, title: e.target.value }))}
@@ -158,8 +161,11 @@ export default function CreatorDashboard() {
             />
           </div>
           <div className="form-row" style={{ marginBottom: 0 }}>
-            <label className="label">Seri</label>
+            <label className="label" htmlFor="cd-series">
+              Seri
+            </label>
             <input
+              id="cd-series"
               className="input"
               value={form.series}
               onChange={(e) => setForm((s) => ({ ...s, series: e.target.value }))}
@@ -168,8 +174,11 @@ export default function CreatorDashboard() {
             />
           </div>
           <div className="form-row" style={{ marginBottom: 0 }}>
-            <label className="label">Deskripsi</label>
+            <label className="label" htmlFor="cd-narrative">
+              Deskripsi
+            </label>
             <textarea
+              id="cd-narrative"
               className="textarea"
               value={form.narrative}
               onChange={(e) => setForm((s) => ({ ...s, narrative: e.target.value }))}
@@ -179,8 +188,11 @@ export default function CreatorDashboard() {
           </div>
           <div style={{ display: "flex", gap: 8 }}>
             <div className="form-row" style={{ flex: 1, marginBottom: 0 }}>
-              <label className="label">Total unit</label>
+              <label className="label" htmlFor="cd-units">
+                Total unit
+              </label>
               <input
+                id="cd-units"
                 className="input"
                 type="number"
                 value={form.totalUnits}
@@ -190,8 +202,11 @@ export default function CreatorDashboard() {
               />
             </div>
             <div className="form-row" style={{ flex: 1, marginBottom: 0 }}>
-              <label className="label">Harga (C)</label>
+              <label className="label" htmlFor="cd-price">
+                Harga (C)
+              </label>
               <input
+                id="cd-price"
                 className="input"
                 type="number"
                 value={form.priceCcoin}
@@ -202,8 +217,11 @@ export default function CreatorDashboard() {
           </div>
           <div style={{ display: "flex", gap: 8 }}>
             <div className="form-row" style={{ flex: 1, marginBottom: 0 }}>
-              <label className="label">Tanggal rilis</label>
+              <label className="label" htmlFor="cd-date">
+                Tanggal rilis
+              </label>
               <input
+                id="cd-date"
                 className="input"
                 type="date"
                 value={form.releaseDate}
@@ -211,8 +229,11 @@ export default function CreatorDashboard() {
               />
             </div>
             <div className="form-row" style={{ flex: 1, marginBottom: 0 }}>
-              <label className="label">Jam (WIB)</label>
+              <label className="label" htmlFor="cd-time">
+                Jam (WIB)
+              </label>
               <input
+                id="cd-time"
                 className="input"
                 type="time"
                 value={form.releaseTime}

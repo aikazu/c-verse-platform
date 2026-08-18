@@ -205,7 +205,7 @@ export default function Wallet() {
           >
             Cap saldo non-KYC: <strong style={{ color: "var(--text)" }}>{topupCapNoKyc} C-Coin</strong> — KYC untuk tanpa cap.
           </div>
-          <select className="select" value={amount} onChange={(e) => setAmount(Number(e.target.value))}>
+          <select className="select" aria-label="Jumlah top-up C-Coin" value={amount} onChange={(e) => setAmount(Number(e.target.value))}>
             {[10, 20, 30, 50, 100, 200, 500].map((v) => (
               <option key={v} value={v}>
                 {v} C · {formatIdr(v * rate)}
@@ -255,6 +255,7 @@ export default function Wallet() {
                   value={payoutAmt}
                   onChange={(e) => setPayoutAmt(Number(e.target.value))}
                   style={{ flex: 1 }}
+                  aria-label="Jumlah penarikan C-Coin"
                   placeholder="Jumlah C"
                 />
                 <button className="btn-ghost" onClick={onPayout} disabled={busyPayout}>

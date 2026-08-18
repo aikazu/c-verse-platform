@@ -18,9 +18,9 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   return (
     <Ctx.Provider value={{ toasts, push, dismiss }}>
       {children}
-      <div className="toast-area">
+      <div className="toast-area" role="status" aria-live="polite" aria-atomic="true">
         {toasts.map((t) => (
-          <div key={t.id} className={`toast toast-${t.kind}`}>
+          <div key={t.id} className={`toast toast-${t.kind}`} role={t.kind === "error" ? "alert" : undefined}>
             {t.msg}
           </div>
         ))}

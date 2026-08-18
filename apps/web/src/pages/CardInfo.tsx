@@ -193,6 +193,7 @@ export default function CardInfo() {
                     <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 10 }}>
                       <select
                         className="select"
+                        aria-label="Tujuan pengiriman"
                         value={destination}
                         onChange={(e) => setDestination(e.target.value as "buyer_address" | "platform_vault")}
                       >
@@ -203,6 +204,7 @@ export default function CardInfo() {
                         <textarea
                           className="textarea"
                           rows={3}
+                          aria-label="Alamat pengiriman"
                           placeholder="Alamat lengkap (min 10 karakter)"
                           value={address}
                           onChange={(e) => setAddress(e.target.value)}

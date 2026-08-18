@@ -90,21 +90,29 @@ export default function Kyc() {
         <div className="card card-pad" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           <div style={{ fontWeight: 600, fontSize: 14 }}>Ajukan Verifikasi</div>
           <div className="form-row" style={{ marginBottom: 0 }}>
-            <label className="label">Nama lengkap</label>
-            <input className="input" value={fullName} onChange={(e) => setFullName(e.target.value)} />
+            <label className="label" htmlFor="kyc-fullname">
+              Nama lengkap
+            </label>
+            <input id="kyc-fullname" className="input" value={fullName} onChange={(e) => setFullName(e.target.value)} />
           </div>
           <div className="form-row" style={{ marginBottom: 0 }}>
-            <label className="label">NIK — 16 digit</label>
+            <label className="label" htmlFor="kyc-nik">
+              NIK — 16 digit
+            </label>
             <input
+              id="kyc-nik"
               className="input"
               value={nik}
+              inputMode="numeric"
               onChange={(e) => setNik(e.target.value.replace(/\D/g, "").slice(0, 16))}
               style={{ fontFamily: "var(--font-mono)" }}
             />
           </div>
           <div className="form-row" style={{ marginBottom: 0 }}>
-            <label className="label">Alamat</label>
-            <textarea className="input" value={address} onChange={(e) => setAddress(e.target.value)} rows={3} />
+            <label className="label" htmlFor="kyc-address">
+              Alamat
+            </label>
+            <textarea id="kyc-address" className="input" value={address} onChange={(e) => setAddress(e.target.value)} rows={3} />
           </div>
           <button className="btn-gold" onClick={onSubmit} disabled={saving} style={{ width: "100%", padding: "12px" }}>
             {saving ? "Mengirim…" : "Kirim"}
