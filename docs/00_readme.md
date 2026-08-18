@@ -1,9 +1,7 @@
 # 00 — README: Development Strategy C.Verse MVP
 
 > Status: [VALIDATED]
-> Last updated: 2026-08-15 (restruktur AI-first: 3 kelompok dok +
-> sprint map + prompting guide; tambah spec 10-16 hasil audit
-> foundation code)
+> Last updated: 2026-08-18 (sinkronisasi dengan codebase — enum bersih, auth/RLS/RPC/Midtrans implemented)
 > Konteks: foundation code sudah ada di
 > `C:\Users\iqbal\Documents\C-Verse\Platform` (mulai 2026-08-12).
 > Folder ini = satu-satunya acuan eksekusi; dok ini = pintu masuk.
@@ -30,11 +28,11 @@
 | # | Dok | Isi | Status foundation saat audit |
 |---|-----|-----|------------------------------|
 | 9 | `09_recommendations.md` | Prioritas build, operasional manual, risiko | acuan umum |
-| 10 | `10_auth_migration.md` | Supabase Auth Google+OTP+Turnstile ganti auth plaintext | BLOCKER |
-| 11 | `11_rls_policy.md` | Matriks RLS + test T1-T10 ganti allow-all | BLOCKER |
+| 10 | `10_auth_migration.md` | Supabase Auth Google+OTP+Turnstile ganti auth plaintext | IMPLEMENTED |
+| 11 | `11_rls_policy.md` | Matriks RLS + test T1-T10 ganti allow-all | IMPLEMENTED |
 | 12 | `12_nfc_cmac_verify.md` | CMAC verify + anti-replay + TagTamper (SUN/SDM) | BLOCKER |
-| 13 | `13_atomic_checkout_rpc.md` | Store in-memory → Postgres, RPC checkout/wallet atomik | BLOCKER |
-| 14 | `14_payments_integration.md` | Midtrans top-up webhook + payout disbursement (sandbox→prod) | mocked |
+| 13 | `13_atomic_checkout_rpc.md` | Store in-memory → Postgres, RPC checkout/wallet atomik | IMPLEMENTED |
+| 14 | `14_payments_integration.md` | Midtrans top-up webhook + payout disbursement (sandbox→prod) | IMPLEMENTED |
 | 15 | `15_quality_gates.md` | Vitest + Biome + CI + matriks test wajib + DoD per PR | 0 test |
 | 16 | `16_foundation_cleanup.md` | 10 quick fix (vault default, hapus legacy auction, dst) | terkumpul |
 
@@ -48,6 +46,9 @@
 | 2 | 3-5 | RLS full + gelombang 3-4 (raffle entry/draw + checkout FCFS + bids) + hapus store | `11`, `13` |
 | 3 (paralel) | 3-5 | CMAC verify + provisioning 5 tag + validasi C-03 iPhone | `12` |
 | 4 | 5-8 | Midtrans sandbox→prod-ready + cron + smoke + polish | `14`, `08` §go-live |
+
+**Sprint 1-3 selesai** (auth, RLS, store→RPC, Midtrans terimplementasi).
+Sisa: validasi C-03 iPhone + NFC provisioning + smoke test + polish.
 
 Cut line darurat (kalau molor): F008 3D → 2D statis (-4-5 PW),
 Browse bid → Marketplace buyout only (-2 PW). Lihat `01_scope.md`.
@@ -122,7 +123,7 @@ semua dok sekaligus (mubazir token, AI kehilangan fokus):
 | Format kartu | 63x88mm, 350-400gsm, holo, acrylic hardcase | `01_scope.md` |
 | Web NFC | Chrome Android 89+ only (scan terprogram); iOS tap-to-verify via SUN URL | `06_tech_decisions.md`, `07_constraints.md` |
 | Pricing kreator (tier) | Emerging (100-300k) = 20 C-Coin, Established (300k-1jt) = 30 C-Coin, Top (1jt+) = 50 C-Coin, Hype = 40-60 C-Coin | `01_scope.md` F004 |
-| Signed card pricing | 1,67× base price (contoh: unsigned 30 → signed 50 C-Coin) | `01_scope.md` F004 |
+|| Signed card pricing | unsigned + 20 C-Coin **FLAT** (founder 2026-08-16; contoh: unsigned 30 → signed 50 C-Coin) | `01_scope.md` F004 |
 | Mekanisme drop | Raffle hybrid (C-15): entry window 24 jam (pilih pool reguler/premium/keduanya, hold C-Coin) → draw otomatis → sisa unit FCFS "siapa cepat dia dapat" | `03_flows.md` Flow 1, `07_constraints.md` C-15 |
 | Signed card pool | Buyer pilih pool EKSPLISIT (signed = ceil(total/10) di pool premium) — tidak ada random surprise 1:10 | `03_flows.md` Flow 1 |
 | Quality gate kreator | Engagement rate ≥ 5% dari 10 post terakhir (IG/Twitter 5%+, TikTok 10%+) — wajib sebelum deal memo | `07_constraints.md` C-05 |

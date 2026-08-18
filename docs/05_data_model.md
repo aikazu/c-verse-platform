@@ -1,9 +1,9 @@
 # 05 — Data Model (Skema Logis)
 
 > Status: [VALIDATED]
-> Last updated: 2026-08-14
+> Last updated: 2026-08-18 (sinkronisasi dengan migration SQL — hapus Drizzle, +20 flat, legacy enum)
 > Skema LOGIS (tabel + relasi + enum), bukan DDL final.
-> Database: Supabase Postgres (region SG). ORM: Drizzle.
+> Database: Supabase Postgres (region SG). Query: Supabase client langsung (tanpa ORM).
 > Nama kolom: `snake_case`. PK: `uuid` (default `gen_random_uuid()`).
 
 ## 1. Prinsip
@@ -68,9 +68,8 @@ drops
   artwork_2d_url text        -- upload by ops (approved off-platform)
   artwork_3d_url text nullable -- F008 (cut line)
   price_ccoin int            -- e.g. 30 (Rp 300.000) — harga unsigned
-  price_signed_ccoin int nullable -- harga signed, default auto
-                              -- ceil(price_ccoin x 1,67) e.g. 30 -> 50
-                              -- (Rp 500.000); nullable utk drop lama
+  price_signed_ccoin int nullable -- harga signed = price_ccoin + 20 FLAT (founder 2026-08-16)
+                              -- e.g. 30 -> 50 (Rp 500.000); nullable utk drop lama
   total_units int
   signed_units int           -- ceil(total_units / 10)
   drop_start_at timestamptz

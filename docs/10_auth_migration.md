@@ -1,9 +1,11 @@
 # 10 — Auth Migration: Supabase Auth + Turnstile
 
-> Status: [DRAFT — SPEC SIAP EKSEKUSI]
-> Created: 2026-08-15
-> Basis audit: `apps/api/src/routes/auth.ts` (password plaintext, token
-> in-memory) vs keputusan FINAL `06_tech_decisions.md` (Supabase Auth).
+> Status: [IMPLEMENTED 2026-08-16]
+> Created: 2026-08-15; updated: 2026-08-18
+> Basis audit awal: `apps/api/src/routes/auth.ts` (password plaintext, token
+> in-memory). Migration selesai: route auth.ts sudah clean (hanya `/me`),
+> JWT verify via `jose` + JWKS, tidak ada password/in-memory session.
+> Admin app MFA TOTP (aal2) via `TotpRequired.tsx`.
 > Estimasi: 3-5 hari AI-assisted. Dependency: tidak ada (mulai duluan).
 > Blok: `11_rls_policy.md`, `13_atomic_checkout_rpc.md` menunggu ini.
 

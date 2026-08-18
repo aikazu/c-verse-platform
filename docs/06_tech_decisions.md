@@ -1,14 +1,14 @@
 # 06 — Tech Decisions (Keputusan Arsitektur)
 
 > Status: [VALIDATED]
-> Last updated: 2026-08-14
+> Last updated: 2026-08-18 (sinkronisasi dengan codebase — hapus Turborepo/Drizzle, catat service-role shortcut)
 > Konsolidasi final dari full-edge decision. Dok ini SELF-CONTAINED
 > — tidak perlu baca dok sumber lain untuk memahami arsitektur MVP.
 
 ## 1. Stack Ringkas (Full-Edge, Zero Server Management)
 
 ```
-repo-root (pnpm workspace + Turborepo)
+repo-root (pnpm workspace)
 ├── apps/web/      → Cloudflare Pages (SPA publik, statik) — anon key + RLS
 ├── apps/admin/    → LOKAL / VPS + Cloudflare Tunnel + Access — service-role key (bypass RLS)
 ├── apps/api/      → Cloudflare Workers (Hono) — verify JWT via Supabase JWKS
@@ -43,7 +43,7 @@ Admin flow (terpisah):
 | Data fetching | TanStack Query |
 | Backend | Hono di Cloudflare Workers (apps/api) |
 | Database | Supabase Postgres (region SG) + Supavisor |
-| ORM | Drizzle ORM + Drizzle Kit |
+| ORM | — (query via Supabase client langsung — tidak pakai ORM) |
 | Auth | Supabase Auth (Google OAuth + email OTP, **email OTP wajib captcha anti-spam** — Cloudflare Turnstile), JWKS di Hono |
 | Storage | Cloudflare R2 (artwork, model 3D) — zero egress fee |
 | Queue/async | CF Queues + Cron Triggers |
@@ -55,7 +55,7 @@ Admin flow (terpisah):
 | Analytics | PostHog (product) + Plausible (web) |
 | Monitoring | Sentry + BetterStack |
 | CI/CD | GitHub Actions → wrangler deploy |
-| Monorepo | pnpm workspace + Turborepo: apps/web, apps/admin, apps/api, packages/shared (Zod) |
+| Monorepo | pnpm workspace: apps/web, apps/admin, apps/api, packages/shared (Zod) |
 
 ## 2. Keputusan Arsitektur Kunci
 
@@ -69,6 +69,10 @@ Admin flow (terpisah):
 - **TIDAK ADA route admin di Workers API publik.** Public API
   hanya untuk user/kreator.
 - Public app = anon key + RLS. Service-role = admin only.
+- **Catatan (dev shortcut)**: `lib/supabase.ts` di API server saat ini
+  prefer `serviceKey ?? anonKey` — service-role dipakai di API publik
+  sebagai shortcut MVP (bypass RLS selama migrasi). Rencana: transisi
+  ke anon key + RLS penuh setelah semua RPC dan RLS tervalidasi.
 - Konsekuensi: operasi berhenti jika mesin admin mati →
   rekomendasi VPS kecil + Cloudflare Access (Rp 100-200rb/bln)
   untuk always-on.

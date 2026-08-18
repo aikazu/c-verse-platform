@@ -1,9 +1,11 @@
 # 11 — RLS Policy Matrix (ganti `allow all using(true)`)
 
-> Status: [DRAFT — SPEC SIAP EKSEKUSI]
-> Created: 2026-08-15
-> Basis audit: semua policy di `supabase/migrations/` saat ini
-> `for all using (true) with check (true)` — anon key bisa baca-tulis semua.
+> Status: [IMPLEMENTED 2026-08-16]
+> Created: 2026-08-15; updated: 2026-08-18
+> Basis audit awal: semua policy `for all using (true) with check (true)`.
+> Migration `20260817020000_rls_policies.sql` sudah mengimplementasikan
+> matriks policy penuh (226 baris) — enable RLS semua tabel, policy
+> per-operation, guard function immutable.
 > Estimasi: 2-3 hari AI-assisted. Dependency: `10_auth_migration.md`
 > selesai (butuh `auth.uid()`).
 
