@@ -1,28 +1,33 @@
 import { Navigate, Route, Routes, useNavigate } from "react-router-dom";
-import { hasSupabase, supabase } from "./lib/supabase";
-import { useAdminAuth } from "./lib/hooks/useAdminAuth";
 import { ConfigErrorScreen } from "./components/ConfigErrorScreen";
 import { LoginPage } from "./components/LoginPage";
 import { Shell } from "./components/Shell";
 import { TotpRequired } from "./components/TotpRequired";
-import { DashboardPage } from "./pages/Dashboard";
-import { CreatorsPage } from "./pages/Creators";
-import { DropsPage } from "./pages/Drops";
-import { OrdersPage } from "./pages/Orders";
-import { NfcPage } from "./pages/Nfc";
-import { PayoutsPage } from "./pages/Payouts";
-import { BadgesPage } from "./pages/Badges";
-import { DisputesPage } from "./pages/Disputes";
-import { KycPage } from "./pages/Kyc";
+import { useAdminAuth } from "./lib/hooks/useAdminAuth";
+import { hasSupabase, supabase } from "./lib/supabase";
 import { AuditPage } from "./pages/Audit";
+import { BadgesPage } from "./pages/Badges";
+import { CreatorsPage } from "./pages/Creators";
+import { DashboardPage } from "./pages/Dashboard";
+import { DisputesPage } from "./pages/Disputes";
+import { DropsPage } from "./pages/Drops";
 import { InvestorPage } from "./pages/Investor";
+import { KycPage } from "./pages/Kyc";
+import { NfcPage } from "./pages/Nfc";
+import { OrdersPage } from "./pages/Orders";
+import { PayoutsPage } from "./pages/Payouts";
 
 export default function App() {
   const { session, aal2, loading, refreshAal2 } = useAdminAuth();
   const nav = useNavigate();
 
   if (!hasSupabase) return <ConfigErrorScreen />;
-  if (loading) return <div className="admin-auth-page"><div className="muted">Memuat…</div></div>;
+  if (loading)
+    return (
+      <div className="admin-auth-page">
+        <div className="muted">Memuat…</div>
+      </div>
+    );
   if (!session) return <LoginPage />;
   if (!aal2) return <TotpRequired onVerified={refreshAal2} />;
 

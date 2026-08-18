@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
-import { supabase } from "../lib/supabase";
 import { apiFetch } from "../lib/api";
-import { errMessage } from "../lib/utils";
+import { supabase } from "../lib/supabase";
 import type { DropRow } from "../lib/types";
+import { errMessage } from "../lib/utils";
 
 export function DropsPage() {
   const [rows, setRows] = useState<DropRow[]>([]);

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
-import type { NfcBatchRow, CardRow } from "../lib/types";
+import type { CardRow, NfcBatchRow } from "../lib/types";
 
 export function NfcPage() {
   const [batches, setBatches] = useState<NfcBatchRow[]>([]);

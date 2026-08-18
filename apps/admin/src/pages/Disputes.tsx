@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { apiFetch } from "../lib/api";
-import { errMessage } from "../lib/utils";
 import type { DisputeRow } from "../lib/types";
+import { errMessage } from "../lib/utils";
 
 export function DisputesPage() {
   const [rows, setRows] = useState<DisputeRow[]>([]);

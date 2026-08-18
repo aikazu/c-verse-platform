@@ -1,5 +1,5 @@
-import { test, expect } from "@playwright/test";
-import { loginAs, clearMailbox } from "../helpers";
+import { expect, test } from "@playwright/test";
+import { clearMailbox, loginAs } from "../helpers";
 
 test.describe("KYC", () => {
   test.beforeEach(async () => {

@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
-import { supabase } from "../lib/supabase";
 import { apiFetch } from "../lib/api";
+import { supabase } from "../lib/supabase";
+import type { CreatorRow, UserRow } from "../lib/types";
 import { errMessage } from "../lib/utils";
-import type { UserRow, CreatorRow } from "../lib/types";
 
 export function CreatorsPage() {
   const [creators, setCreators] = useState<CreatorRow[]>([]);

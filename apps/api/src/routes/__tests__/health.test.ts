@@ -12,7 +12,7 @@ describe("Health endpoints", () => {
   it("GET / returns API info", async () => {
     const res = await app.request("/");
     expect(res.status).toBe(200);
-    const body = await res.json() as Record<string, unknown>;
+    const body = (await res.json()) as Record<string, unknown>;
     expect(body.name).toBe("C.Verse API");
     expect(body.status).toBe("ok");
   });
@@ -20,21 +20,21 @@ describe("Health endpoints", () => {
   it("GET /health returns ok", async () => {
     const res = await app.request("/health");
     expect(res.status).toBe(200);
-    const body = await res.json() as Record<string, unknown>;
+    const body = (await res.json()) as Record<string, unknown>;
     expect(body.ok).toBe(true);
   });
 
   it("GET /api/health returns ok", async () => {
     const res = await app.request("/api/health");
     expect(res.status).toBe(200);
-    const body = await res.json() as Record<string, unknown>;
+    const body = (await res.json()) as Record<string, unknown>;
     expect(body.ok).toBe(true);
   });
 
   it("GET /nonexistent returns 404", async () => {
     const res = await app.request("/api/tidak-ada");
     expect(res.status).toBe(404);
-    const body = await res.json() as Record<string, unknown>;
+    const body = (await res.json()) as Record<string, unknown>;
     expect(body.error).toBeDefined();
   });
 });

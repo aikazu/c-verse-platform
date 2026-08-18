@@ -5,7 +5,7 @@ import { z } from "zod";
 import { requireUser } from "../lib/auth.js";
 import { RpcError, rpcDropEntry, userDb } from "../lib/db.js";
 import { getCreatorByUserId } from "../lib/reads/creators.js";
-import { getDropById, listCardsByDrop, listDrops, type DropFilter } from "../lib/reads/drops.js";
+import { type DropFilter, getDropById, listCardsByDrop, listDrops } from "../lib/reads/drops.js";
 import { logAuditDb } from "../lib/reads/kyc.js";
 import { getUserById } from "../lib/reads/users.js";
 import { pageMeta, parsePageParams, slicePage } from "../lib/reads.js";
@@ -32,7 +32,7 @@ app.get("/", async (c) => {
     publicStatuses: PUBLIC_DROP_STATUSES,
   };
 
-  let drops = await listDrops(filter);
+  const drops = await listDrops(filter);
 
   // Sorting masih in-memory karena priority order complex (live→published→scheduled→...)
   const order: Record<string, number> = {

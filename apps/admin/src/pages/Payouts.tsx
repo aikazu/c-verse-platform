@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
-import { supabase } from "../lib/supabase";
 import { apiFetch } from "../lib/api";
-import { errMessage } from "../lib/utils";
+import { supabase } from "../lib/supabase";
 import type { PayoutBatchRow, PayoutRow } from "../lib/types";
+import { errMessage } from "../lib/utils";
 
 export function PayoutsPage() {
   const [batches, setBatches] = useState<PayoutBatchRow[]>([]);

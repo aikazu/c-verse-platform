@@ -1,5 +1,5 @@
-import { test, expect } from "@playwright/test";
-import { loginAs, clearMailbox, getOtpFromInbucket } from "../helpers";
+import { expect, test } from "@playwright/test";
+import { clearMailbox, getOtpFromInbucket, loginAs } from "../helpers";
 
 const TEST_EMAIL = `e2e-${Date.now()}@test.cverse.id`;
 

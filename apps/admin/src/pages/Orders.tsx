@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
-import { supabase } from "../lib/supabase";
 import { apiFetch } from "../lib/api";
-import { errMessage } from "../lib/utils";
+import { supabase } from "../lib/supabase";
 import type { OrderRow, ShipmentRow } from "../lib/types";
+import { errMessage } from "../lib/utils";
 
 export function OrdersPage() {
   const [rows, setRows] = useState<OrderRow[]>([]);
@@ -49,19 +49,11 @@ export function OrdersPage() {
 
   function actionsFor(order: OrderRow) {
     if (order.delivery_option === "vault") {
-      return (
-        <span className="muted fs-11">
-          Vault — settled otomatis
-        </span>
-      );
+      return <span className="muted fs-11">Vault — settled otomatis</span>;
     }
     const shipment = shipmentFor(order);
     if (!shipment) {
-      return (
-        <span className="muted fs-11">
-          Tidak ada shipment — order shipping tanpa record pengiriman
-        </span>
-      );
+      return <span className="muted fs-11">Tidak ada shipment — order shipping tanpa record pengiriman</span>;
     }
     const tracking = trackInputs[shipment.id] ?? "";
     return (
@@ -98,16 +90,8 @@ export function OrdersPage() {
             Selesai
           </button>
         )}
-        {shipment.status === "delivered" && (
-          <span className="muted fs-11">
-            Selesai
-          </span>
-        )}
-        {shipment.status === "cancelled" && (
-          <span className="muted fs-11">
-            Dibatalkan
-          </span>
-        )}
+        {shipment.status === "delivered" && <span className="muted fs-11">Selesai</span>}
+        {shipment.status === "cancelled" && <span className="muted fs-11">Dibatalkan</span>}
       </div>
     );
   }

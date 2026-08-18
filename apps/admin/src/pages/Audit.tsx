@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { apiFetch } from "../lib/api";
-import { errMessage } from "../lib/utils";
 import type { AuditRow } from "../lib/types";
+import { errMessage } from "../lib/utils";
 
 export function AuditPage() {
   const [rows, setRows] = useState<AuditRow[]>([]);

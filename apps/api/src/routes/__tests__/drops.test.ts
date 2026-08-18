@@ -5,28 +5,29 @@ vi.hoisted(() => {
 });
 
 vi.mock("../../lib/reads/drops.js", () => ({
-  listDrops: () => Promise.resolve([
-    {
-      id: "drop-test-1",
-      title: "Test Drop",
-      series: "Test Series",
-      narrative: "A test drop for E2E",
-      artworkUrl: "/textures/test.jpg",
-      totalUnits: 100,
-      signedCount: 10,
-      unsignedCount: 90,
-      priceUnsignedCCoin: 30,
-      priceSignedCCoin: 50,
-      priceCcoin: 30,
-      status: "live",
-      dropAt: new Date().toISOString(),
-      dropStartAt: new Date().toISOString(),
-      creatorId: "creator-1",
-      creatorName: "Test Creator",
-      soldCount: 10,
-      createdAt: new Date().toISOString(),
-    },
-  ]),
+  listDrops: () =>
+    Promise.resolve([
+      {
+        id: "drop-test-1",
+        title: "Test Drop",
+        series: "Test Series",
+        narrative: "A test drop for E2E",
+        artworkUrl: "/textures/test.jpg",
+        totalUnits: 100,
+        signedCount: 10,
+        unsignedCount: 90,
+        priceUnsignedCCoin: 30,
+        priceSignedCCoin: 50,
+        priceCcoin: 30,
+        status: "live",
+        dropAt: new Date().toISOString(),
+        dropStartAt: new Date().toISOString(),
+        creatorId: "creator-1",
+        creatorName: "Test Creator",
+        soldCount: 10,
+        createdAt: new Date().toISOString(),
+      },
+    ]),
   listCardsByDrop: () => Promise.resolve([]),
   getDropById: () => Promise.resolve(null),
 }));
@@ -37,7 +38,7 @@ describe("Drops routes", () => {
   it("GET /api/drops returns drops list", async () => {
     const res = await app.request("/api/drops");
     expect(res.status).toBe(200);
-    const body = await res.json() as { drops: unknown[] };
+    const body = (await res.json()) as { drops: unknown[] };
     expect(body.drops).toBeDefined();
     expect(Array.isArray(body.drops)).toBe(true);
     expect(body.drops.length).toBeGreaterThan(0);

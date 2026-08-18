@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 
 test.describe("Public browsing (unauthenticated)", () => {
   test("landing page memuat dan menampilkan C.Verse branding", async ({ page }) => {

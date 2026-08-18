@@ -1,5 +1,5 @@
-import { test, expect } from "@playwright/test";
-import { loginAs, clearMailbox } from "../helpers";
+import { expect, test } from "@playwright/test";
+import { clearMailbox, loginAs } from "../helpers";
 
 test.describe("Primary checkout", () => {
   test.beforeEach(async () => {
@@ -20,8 +20,8 @@ test.describe("Primary checkout", () => {
   test("checkout vault: halaman checkout memuat", async ({ page }) => {
     await loginAs(page, "demo@cverse.id");
     await page.goto("/wallet");
-    // Catat saldo (sebagai string, bisa undefined kalo loading)
-    const saldoText = await page.locator("[class*=balance]").first().textContent();
+    // Catat saldo
+    const _saldoText = await page.locator("[class*=balance]").first().textContent();
 
     await page.goto("/drops");
     const firstDrop = page.locator("a[href*='/drops/']").first();

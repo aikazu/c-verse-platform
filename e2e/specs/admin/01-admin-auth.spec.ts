@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 
 test.describe("Admin auth", () => {
   test("halaman login admin menampilkan form email", async ({ page }) => {

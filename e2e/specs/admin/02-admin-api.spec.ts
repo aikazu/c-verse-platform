@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 
 test.describe("Admin drops (API)", () => {
   test("API drops endpoint bisa diakses", async ({ page }) => {
