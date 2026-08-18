@@ -22,7 +22,10 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "format": "biome format --write .",
-    "lint:fix": "biome check --write ."
+    "lint:fix": "biome check --write .",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:debug": "playwright test --debug"
   },
   "packageManager": "pnpm@9.12.3",
   "engines": {
@@ -33,6 +36,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.8",
+    "@playwright/test": "^1.62.1",
     "vitest": "^4.1.10"
   }
 }
