@@ -380,8 +380,8 @@ create index if not exists idx_ownership_card on public.ownership_history(card_i
 create index if not exists idx_ownership_owner_card on public.ownership_history(owner_id, card_id);
 create index if not exists idx_disputes_reporter on public.disputes(reporter_id);
 create index if not exists idx_audit_admin on public.admin_audit_log(admin_user_id, created_at desc);
-create index if not exists idx_audit_action on public.audit_log(action);
-create index if not exists idx_audit_target on public.audit_log(target_table, target_id);
+create index if not exists idx_audit_action on public.admin_audit_log(action);
+create index if not exists idx_audit_target on public.admin_audit_log(target_table, target_id);
 create index if not exists idx_notifications_user on public.notifications(user_id, created_at desc);
 create index if not exists idx_payouts_user on public.payouts(user_id);
 create index if not exists idx_payouts_batch on public.payouts(batch_id);

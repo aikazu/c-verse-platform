@@ -50,7 +50,7 @@ end $$;
 do $$
 declare n int;
 begin
-  select count(*) into n from public.drops where status::text not in ('live','published','sold_out','closed','ended','scheduled');
+  select count(*) into n from public.drops where status::text not in ('live','published','sold_out','closed','scheduled');
   if n = 0 then raise notice 'T3 PASS'; else raise notice 'T3 FAIL (% rows)', n; end if;
 end $$;
 

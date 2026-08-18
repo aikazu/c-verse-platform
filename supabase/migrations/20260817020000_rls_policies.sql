@@ -70,7 +70,7 @@ create policy creators_select on public.creators for select
 -- drops
 -- ══════════════════════════════════════════════════════════════════════════
 create policy drops_select_public on public.drops for select
-  using (status in ('live','published','sold_out','closed','ended','scheduled'));
+  using (status in ('live','published','sold_out','closed','scheduled'));
 
 -- ══════════════════════════════════════════════════════════════════════════
 -- cards (guard versi FINAL: 10 kolom terlindungi + paritas MAX 20 listing)
