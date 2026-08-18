@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { StatusBadge } from "../components/StatusBadge";
 import { apiFetch } from "../lib/api";
 import { supabase } from "../lib/supabase";
 import type { CreatorRow, UserRow } from "../lib/types";
@@ -227,7 +228,7 @@ export function CreatorsPage() {
                     <td style={{ fontWeight: 700 }}>{c.handle ?? c.id}</td>
                     <td>{c.total_followers_combined ?? 0}</td>
                     <td>
-                      <span className="pill pill-info">{c.status}</span>
+                      <StatusBadge status={c.status} />
                     </td>
                     <td style={{ fontSize: 11 }}>{c.notes ?? "—"}</td>
                   </tr>

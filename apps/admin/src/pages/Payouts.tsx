@@ -1,4 +1,6 @@
+import { formatIdr } from "@c-verse/shared";
 import { useEffect, useState } from "react";
+import { StatusBadge } from "../components/StatusBadge";
 import { apiFetch } from "../lib/api";
 import { supabase } from "../lib/supabase";
 import type { PayoutBatchRow, PayoutRow } from "../lib/types";
@@ -92,10 +94,10 @@ export function PayoutsPage() {
                   <tr key={b.id}>
                     <td className="mono fs-11">{b.batch_code}</td>
                     <td>
-                      <span className="pill pill-info">{b.status}</span>
+                      <StatusBadge status={b.status} />
                     </td>
                     <td>{b.total_ccoin}</td>
-                    <td>{b.total_idr}</td>
+                    <td>{b.total_idr != null ? formatIdr(b.total_idr) : "—"}</td>
                   </tr>
                 ))
               )}
@@ -130,9 +132,9 @@ export function PayoutsPage() {
                     <td className="mono fs-11">{p.user_id.slice(0, 8)}</td>
                     <td>{p.type}</td>
                     <td>{p.ccoin_amount}</td>
-                    <td>{p.idr_amount ?? "—"}</td>
+                    <td>{p.idr_amount != null ? formatIdr(p.idr_amount) : "—"}</td>
                     <td>
-                      <span className="pill pill-info">{p.status}</span>
+                      <StatusBadge status={p.status} />
                     </td>
                     <td className="mono fs-11">{p.batch_id ? p.batch_id.slice(0, 8) : "—"}</td>
                   </tr>

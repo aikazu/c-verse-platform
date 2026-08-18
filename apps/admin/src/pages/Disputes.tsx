@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { StatusBadge } from "../components/StatusBadge";
 import { apiFetch } from "../lib/api";
 import type { DisputeRow } from "../lib/types";
 import { errMessage } from "../lib/utils";
@@ -88,7 +89,7 @@ export function DisputesPage() {
                       <td style={{ fontFamily: "monospace", fontSize: 11 }}>{r.id.slice(0, 10)}</td>
                       <td style={{ fontSize: 12, maxWidth: 220 }}>{r.reason}</td>
                       <td>
-                        <span className="pill pill-info">{r.status}</span>
+                        <StatusBadge status={r.status} />
                         {r.decision_notes ? (
                           <div className="muted" style={{ fontSize: 10, marginTop: 4 }}>
                             {r.decision_notes}

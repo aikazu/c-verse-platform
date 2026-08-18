@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { StatusBadge } from "../components/StatusBadge";
 import { supabase } from "../lib/supabase";
 import type { CardRow, NfcBatchRow } from "../lib/types";
 
@@ -66,7 +67,7 @@ export function NfcPage() {
                       <td className="mono fs-11">{b.batch_code}</td>
                       <td>{b.qty}</td>
                       <td>
-                        <span className="pill pill-info">{b.status}</span>
+                        <StatusBadge status={b.status} />
                       </td>
                     </tr>
                   ))
@@ -99,9 +100,7 @@ export function NfcPage() {
                     <tr key={c.id}>
                       <td className="mono fs-11">{c.nfc_short_id}</td>
                       <td className="mono fs-11">{(c.nfc_uid ?? "").slice(0, 12)}</td>
-                      <td>
-                        <span className="pill pill-info">{c.qc_status ?? "—"}</span>
-                      </td>
+                      <td>{c.qc_status ? <StatusBadge status={c.qc_status} /> : <span className="pill">—</span>}</td>
                       <td>{c.verify_status ?? "—"}</td>
                     </tr>
                   ))

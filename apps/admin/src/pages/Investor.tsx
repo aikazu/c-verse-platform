@@ -1,4 +1,6 @@
+import { ccoinToIdr, formatIdr } from "@c-verse/shared";
 import { useEffect, useState } from "react";
+import { StatusBadge } from "../components/StatusBadge";
 import { supabase } from "../lib/supabase";
 
 export function InvestorPage() {
@@ -70,7 +72,7 @@ export function InvestorPage() {
         <div className="admin-stat-card gold">
           <div className="admin-stat-label">GMV (C-Coin)</div>
           <div className="admin-stat-value">{data.gmv}</div>
-          <div className="admin-stat-hint">≈ Rp {(data.gmv * 10000).toLocaleString("id-ID")}</div>
+          <div className="admin-stat-hint">≈ {formatIdr(ccoinToIdr(data.gmv))}</div>
         </div>
         <div className="admin-stat-card">
           <div className="admin-stat-label">Users</div>
@@ -107,9 +109,7 @@ export function InvestorPage() {
                 <tr key={d.id}>
                   <td style={{ fontWeight: 600, fontSize: 12 }}>{d.title}</td>
                   <td>
-                    <span className="pill pill-info" style={{ fontSize: 10 }}>
-                      {d.status}
-                    </span>
+                    <StatusBadge status={d.status} kind="drop" style={{ fontSize: 10 }} />
                   </td>
                   <td className="mono">{d.sold_count ?? 0}</td>
                   <td className="mono">{d.total_units}</td>

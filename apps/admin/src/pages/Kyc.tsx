@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { StatusBadge } from "../components/StatusBadge";
 import { apiFetch } from "../lib/api";
 import type { KycRow } from "../lib/types";
 import { errMessage, maskNik } from "../lib/utils";
@@ -76,7 +77,7 @@ export function KycPage() {
                     <td style={{ fontSize: 12, fontWeight: 600 }}>{r.full_name}</td>
                     <td className="mono fs-11">{maskNik(r.nik)}</td>
                     <td>
-                      <span className="pill pill-info">{r.status}</span>
+                      <StatusBadge status={r.status} kind="kyc" />
                     </td>
                     <td style={{ fontSize: 11 }}>{new Date(r.created_at).toLocaleDateString("id-ID")}</td>
                     <td className="flex-gap-6">

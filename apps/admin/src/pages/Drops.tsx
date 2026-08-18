@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { StatusBadge } from "../components/StatusBadge";
 import { apiFetch } from "../lib/api";
 import { supabase } from "../lib/supabase";
 import type { DropRow } from "../lib/types";
@@ -228,7 +229,7 @@ export function DropsPage() {
                     <tr key={r.id}>
                       <td style={{ fontWeight: 700, fontSize: 12 }}>{r.title}</td>
                       <td>
-                        <span className="pill pill-info">{r.status}</span>
+                        <StatusBadge status={r.status} kind="drop" />
                         {r.drawn_at ? (
                           <span className="pill" style={{ marginLeft: 4 }}>
                             drawn

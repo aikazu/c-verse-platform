@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { StatusBadge } from "../components/StatusBadge";
 import { apiFetch } from "../lib/api";
 import { supabase } from "../lib/supabase";
 import type { OrderRow, ShipmentRow } from "../lib/types";
@@ -64,9 +65,7 @@ export function OrdersPage() {
     const rowBusy = busyId === shipment.id;
     return (
       <div className="flex-gap-6 flex-wrap" style={{ alignItems: "center" }}>
-        <span className="pill pill-info" style={{ fontSize: 10 }}>
-          {shipment.status}
-        </span>
+        <StatusBadge status={shipment.status} kind="shipment" style={{ fontSize: 10 }} />
         {shipment.status === "requested" && (
           <>
             <button className="btn-ghost admin-mini" onClick={() => updateShipment(shipment.id, "packed")} disabled={rowBusy}>
@@ -145,7 +144,7 @@ export function OrdersPage() {
                   <tr key={r.id}>
                     <td style={{ fontFamily: "monospace", fontSize: 11 }}>{r.id.slice(0, 10)}</td>
                     <td>
-                      <span className="pill pill-info">{r.status}</span>
+                      <StatusBadge status={r.status} kind="order" />
                     </td>
                     <td style={{ fontSize: 12 }}>{r.delivery_option ?? "—"}</td>
                     <td style={{ fontSize: 11 }}>{r.tracking_number ?? "—"}</td>
