@@ -11,14 +11,20 @@ export function InvestorPage() {
     units: number;
     dropsRows: { id: string; title: string; status: string; sold_count: number | null; total_units: number }[];
   } | null>(null);
+  const [error, setError] = useState(false);
 
   useEffect(() => {
     async function load() {
+      setError(false);
       const [wtx, us, dr] = await Promise.all([
         supabase.from("wallet_transactions").select("amount_ccoin,type").limit(1000),
         supabase.from("users").select("id,total_xp").limit(1000),
         supabase.from("drops").select("id,title,status,total_units,sold_count").limit(100),
       ]);
+      if (wtx.error || us.error || dr.error) {
+        setError(true);
+        return;
+      }
       const w = (wtx.data ?? []) as { amount_ccoin: number; type: string }[];
       const users = (us.data ?? []) as { id: string }[];
       const drops = (dr.data ?? []) as { id: string; title: string; status: string; total_units: number; sold_count: number | null }[];
@@ -37,6 +43,12 @@ export function InvestorPage() {
     load();
   }, []);
 
+  if (error)
+    return (
+      <div className="admin-msg" role="alert" aria-live="polite" style={{ margin: 24 }}>
+        Gagal memuat data investor — periksa koneksi lalu muat ulang halaman.
+      </div>
+    );
   if (!data)
     return (
       <div className="muted" style={{ padding: 24, textAlign: "center" }}>

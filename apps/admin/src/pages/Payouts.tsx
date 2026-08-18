@@ -27,7 +27,7 @@ export function PayoutsPage() {
     setPayouts((p ?? []) as PayoutRow[]);
   }
   useEffect(() => {
-    load();
+    load().catch(() => setMsg("Gagal memuat data payout — periksa koneksi lalu refresh."));
   }, []);
 
   async function triggerBatch() {

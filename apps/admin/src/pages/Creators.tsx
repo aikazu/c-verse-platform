@@ -31,6 +31,7 @@ export function CreatorsPage() {
       if (w.hold_payout_until) holdMap[w.user_id] = w.hold_payout_until;
     }
     setHolds(holdMap);
+    if (cr.error || us.error || wl.error) setMsg("Gagal memuat sebagian data — periksa koneksi lalu refresh.");
     setLoading(false);
   }
   useEffect(() => {

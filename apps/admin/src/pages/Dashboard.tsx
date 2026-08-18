@@ -3,14 +3,24 @@ import { supabase } from "../lib/supabase";
 
 export function DashboardPage() {
   const [stats, setStats] = useState<{ drops: number; orders: number; creators: number }>({ drops: 0, orders: 0, creators: 0 });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
   useEffect(() => {
     async function load() {
+      setLoading(true);
+      setError(false);
       const [d, o, c] = await Promise.all([
         supabase.from("drops").select("id", { count: "exact", head: true }),
         supabase.from("orders").select("id", { count: "exact", head: true }),
         supabase.from("creators").select("id", { count: "exact", head: true }),
       ]);
+      if (d.error || o.error || c.error) {
+        setError(true);
+        setLoading(false);
+        return;
+      }
       setStats({ drops: d.count ?? 0, orders: o.count ?? 0, creators: c.count ?? 0 });
+      setLoading(false);
     }
     load();
   }, []);
@@ -21,20 +31,26 @@ export function DashboardPage() {
         <p className="muted">Ringkasan operasional</p>
       </div>
 
+      {error && (
+        <div className="admin-msg" role="alert" aria-live="polite">
+          Gagal memuat ringkasan — periksa koneksi lalu muat ulang halaman.
+        </div>
+      )}
+
       <div className="admin-stats">
         <div className="admin-stat-card">
           <div className="admin-stat-label">Drops</div>
-          <div className="admin-stat-value">{stats.drops}</div>
+          <div className="admin-stat-value">{loading ? "…" : stats.drops}</div>
           <div className="admin-stat-hint">Koleksi aktif</div>
         </div>
         <div className="admin-stat-card">
           <div className="admin-stat-label">Pesanan</div>
-          <div className="admin-stat-value">{stats.orders}</div>
+          <div className="admin-stat-value">{loading ? "…" : stats.orders}</div>
           <div className="admin-stat-hint">Perlu diproses</div>
         </div>
         <div className="admin-stat-card">
           <div className="admin-stat-label">Kreator</div>
-          <div className="admin-stat-value">{stats.creators}</div>
+          <div className="admin-stat-value">{loading ? "…" : stats.creators}</div>
           <div className="admin-stat-hint">Terdaftar</div>
         </div>
         <div className="admin-stat-card gold">
