@@ -33,7 +33,7 @@ on conflict (id) do update set
   total_xp = excluded.total_xp,
   level = excluded.level;
 
--- ── badges (katalog; mirror store.ts ensureSeed — award badge DB path butuh ini) ──
+-- ── badges (katalog; award badge lewat jalur DB butuh definisi ini) ──
 insert into public.badges (id, code, name, description, icon, icon_url, xp, xp_reward, criteria, is_active) values
  ('b1', 'first_drop', 'First Drop', 'Beli pertama kali', '🎴', '🎴', 100, 100, '{"type":"collect_count","min":1}', true),
  ('b2', 'first_bid', 'First Bid', 'Bid pertama', '🔨', '🔨', 50, 50, '{"type":"first_bid"}', true),
@@ -50,7 +50,7 @@ insert into public.creators (id, user_id, handle, total_followers_combined, stat
  ('cr-nova',   '00000000-0000-4000-8000-000000000005', 'nova_studio', 110000, 'active', '{"bank":"BCA","account_no":"1122334455","holder":"Nova Studio"}', 'Found via search')
 on conflict (id) do nothing;
 
--- ── drops (mirror store.ts: 70/30 platform-produced, priceCcoin canonical) ──
+-- ── drops (70/30 platform-produced, priceCcoin canonical) ──
 -- raffle_end_at = drop_start_at + 24 jam (drop baru selalu raffle, docs 03 Flow 5).
 insert into public.drops (id, title, series, narrative, artwork_url, total_units, signed_count, unsigned_count, price_unsigned_ccoin, price_signed_ccoin, price_ccoin, status, drop_at, drop_start_at, raffle_end_at, drawn_at, creator_id, creator_name, sold_count) values
  ('drop-aespa-2025', 'Karina — Limited Genesis', 'HypeCreator X Aespa (2025 Limited Series)', 'Kolaborasi eksklusif Karina Aespa dengan HypeCreator. Acrylic hardcase premium + NFC anti-tamper cryptographic. Hanya 15 unit di dunia.', '/textures/karina.jpg', 15, 2, 13, 30, 50, 30, 'live', now() - interval '1 hour', now() - interval '1 hour', now() + interval '23 hours', null, '00000000-0000-4000-8000-000000000003', 'Karina Aespa', 6),
@@ -59,7 +59,7 @@ insert into public.drops (id, title, series, narrative, artwork_url, total_units
  ('drop-aespa-signed', 'Karina — Signed Vault', 'HypeCreator X Aespa — Signed Vault', 'Signed edition — ditandatangani kreator, insert premium, hanya 1 per 10 kartu.', '/textures/karina-signed.jpg', 10, 1, 9, 30, 50, 30, 'closed', now() - interval '7 days', now() - interval '7 days', now() - interval '6 days', now() - interval '6 days', '00000000-0000-4000-8000-000000000003', 'Karina Aespa', 10)
 on conflict (id) do nothing;
 
--- ── cards (generate_series mirror store.ts: unit <= sold_count terjual;
+-- ── cards (generate_series: unit <= sold_count terjual;
 --    owner: i%3=0 demo, i%2=0 admin, selain itu hype; unit 3 aespa listed buyout 45)
 --    verify_status: 'verified' HANYA via tap CMAC — seed 'registered' (sold) / 'unknown'. ──
 insert into public.cards (id, drop_id, unit_number, variant, status, owner_id, nfc_uid, nfc_short_id, verify_status, location, buyout_price_ccoin, nfc_configured, qc_status)
@@ -92,7 +92,7 @@ on conflict (id) do nothing;
 
 
 
--- ── wallets (mirror store.ts: demo 120 / karina 0 / lainnya 50) ──
+-- ── wallets (demo 120 / karina 0 / lainnya 50) ──
 insert into public.wallets (user_id, balance_ccoin, total_topup_ccoin, total_spent_ccoin) values
  ('00000000-0000-4000-8000-000000000001', 120, 150, 30),
  ('00000000-0000-4000-8000-000000000002', 50, 0, 0),
@@ -101,7 +101,7 @@ insert into public.wallets (user_id, balance_ccoin, total_topup_ccoin, total_spe
  ('00000000-0000-4000-8000-000000000005', 50, 0, 0)
 on conflict (user_id) do nothing;
 
--- ── wallet_transactions demo (mirror store.ts) ──
+-- ── wallet_transactions demo ──
 insert into public.wallet_transactions (id, user_id, type, amount_ccoin, balance_after_ccoin, ref_type, ref_id, note, created_at) values
  ('wtx-seed-1', '00000000-0000-4000-8000-000000000001', 'top_up', 100, 100, 'topup', 'top-1', 'Top-up via QRIS', now() - interval '3 days'),
  ('wtx-seed-2', '00000000-0000-4000-8000-000000000001', 'top_up', 50, 150, 'topup', 'top-2', 'Top-up via VA BCA', now() - interval '1 day'),
@@ -126,7 +126,7 @@ insert into public.ownership_history (id, card_id, owner_id, acquired_via, order
  ('oh-seed-2', 'card-drop-genesis-alpha-02', '00000000-0000-4000-8000-000000000001', 'primary', 'ord-vault-demo', now() - interval '5 days')
 on conflict (id) do nothing;
 
--- ── bids demo (outbid 38 admin, active 42 hype — mirror store.ts) ──
+-- ── bids demo (outbid 38 admin, active 42 hype) ──
 insert into public.bids (id, card_id, bidder_id, bidder_name, amount_ccoin, status, created_at, outbid_at) values
  ('bid-seed-1', 'card-drop-aespa-2025-03', '00000000-0000-4000-8000-000000000002', 'Admin C.Verse', 38, 'outbid', now() - interval '5 hours', now() - interval '1 hour'),
  ('bid-seed-2', 'card-drop-aespa-2025-03', '00000000-0000-4000-8000-000000000004', 'HypeCreator', 42, 'active', now() - interval '1 hour', null)

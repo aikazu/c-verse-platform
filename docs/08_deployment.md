@@ -1,7 +1,8 @@
 # 08 — Deployment Runbook (Step-by-Step)
 
 > Status: [VALIDATED]
-> Last updated: 2026-08-14
+> Last updated: 2026-08-18 (sinkronisasi dengan codebase: pnpm workspace
+> tanpa Turborepo, migrasi via Supabase CLI, 2 cron trigger)
 > Menjawab open items O-5 (CI/CD pipeline) & O-7 (domain/SSL)
 > di `06_tech_decisions.md`. Dok ini self-contained — semua
 > detail deploy ada di sini.
@@ -9,18 +10,20 @@
 ## 1. Target & Arsitektur Deploy
 
 ```
-repo-root (pnpm workspace + Turborepo)
+repo-root (pnpm workspace, tanpa Turborepo)
 ├── apps/web/      → Cloudflare Pages (SPA publik, statik)
 ├── apps/admin/    → LOKAL / VPS + Cloudflare Access (bukan Pages)
 ├── apps/api/      → Cloudflare Workers (Hono)
-└── packages/shared → dikonsumsi web+api (build via Turborepo)
+└── packages/shared → dikonsumsi web+admin+api (build via `pnpm -r build`)
 
 Infra pendukung:
 - Supabase (Postgres + Auth + Realtime + Supavisor)
-- Cloudflare R2 (artwork, model 3D, KYC private)
-- Cloudflare Queues (email, notifikasi, payout)
-- Cloudflare Cron Triggers (escrow settlement, raffle draw, payout batch)
-- SumoPod SMTP (email), FCM (push), Midtrans/Xendit (sandbox → prod)
+- Cloudflare R2 (artwork, model 3D, KYC private) — binding masih
+  dikomentari di `wrangler.toml` sampai bucket dibuat
+- Cloudflare Cron Triggers (escrow settlement + raffle draw, payout batch)
+- Midtrans (sandbox → prod)
+- Belum aktif: Cloudflare Queues (email/notifikasi/payout), SMTP
+  transaksional di API, FCM push
 ```
 
 Environment:
@@ -36,19 +39,20 @@ Akun & kredensial yang harus sudah ada:
 | 1 | Cloudflare (zone domain) | Pages, Workers, R2, Queues, Cron, Access, DNS |
 | 2 | GitHub (repo) | CI/CD Actions |
 | 3 | Supabase | Postgres, Auth, Realtime, Storage |
-| 4 | SumoPod SMTP | Email abstraction layer (default MVP — smtp.sumopod.com:465 SSL) |
+| 4 | SumoPod SMTP | Email OTP Supabase Auth (smtp.sumopod.com:465 SSL — diisi di Supabase Dashboard, bukan env API) |
 | 5 | Midtrans/Xendit (sandbox dulu) | Top-up & disbursement (top-up bisa live setelah T&C final + cap saldo) |
-| 6 | Firebase (FCM) | Push notification |
+| 6 | Firebase (FCM) | Push notification — **post-MVP, belum diimplementasi** |
 
-Tool lokal: Node 20+, pnpm 9, wrangler CLI (`pnpm dlx wrangler`),
-drizzle-kit (migrasi), git + GitHub CLI.
+Tool lokal: Node 20+, pnpm 9.12.3, wrangler CLI (`pnpm dlx wrangler`),
+Supabase CLI (`npx supabase`, migrasi SQL), git + GitHub CLI.
 
 Kredensial yang disimpan rahasia (tidak pernah di repo):
 `CF_ACCOUNT_ID`, `CF_API_TOKEN`, `SUPABASE_SERVICE_ROLE_KEY`,
-`SMTP_HOST` (smtp.sumopod.com), `SMTP_PORT` (465, SSL enabled),
-`SMTP_USER`, `SMTP_PASS`, `MIDTRANS_SERVER_KEY`,
-`FCM_SERVICE_ACCOUNT`, `NFC_MASTER_KEY`. Public vars boleh di
-bundle dengan konvensi **Vite `PUBLIC_*`** (anon keys).
+`MIDTRANS_SERVER_KEY`, `PAYOUT_WEBHOOK_SIGNING_KEY`,
+`NFC_MASTER_KEY`. Kredensial SMTP (`SMTP_HOST`/`PORT`/`USER`/`PASS`)
+dan captcha secret Turnstile diisi di **Supabase Dashboard** — API
+tidak membacanya. Public vars boleh di bundle dengan konvensi
+**Vite `VITE_*`** (anon keys).
 
 ## 3. Setup Cloudflare (sekali, Sprint 0)
 
@@ -84,14 +88,13 @@ bundle dengan konvensi **Vite `PUBLIC_*`** (anon keys).
 ### 3.3 Cloudflare Workers (apps/api)
 1. Buat Worker `cverse-api` (dari `apps/api`).
 2. Route: `api.c-verse.co/*`.
-3. Cron Triggers:
-   | Cron | Fungsi |
-   |------|--------|
-   | setiap 5 menit | escrow auto-release check (DELIVERED + H+7) + raffle draw (drops lewat `raffle_end_at` & belum `drawn_at` — idempotent, C-15) |
-   | Selasa 06:00 WIB | payout batch (settlement) |
-   | harian 04:00 WIB | housekeeping (TIDAK ada bid expire — bid berakhir via accept/cancel/outbid) |
-4. Queues: `email-queue`, `notification-queue`, `payout-queue`
-   → bind ke Worker via `wrangler.toml` (prod).
+3. Cron Triggers (`wrangler.toml` — 2 trigger aktif):
+   | Cron (UTC) | WIB | Fungsi |
+   |------|-----|--------|
+   | `*/5 * * * *` | tiap 5 menit | `activate_scheduled_drops` (scheduled→live) → `escrow_auto_release` (DELIVERED + H+7) → `draw_pending_drops` (drops lewat `raffle_end_at`, idempotent — C-15) |
+   | `0 23 * * 1` | Selasa 06:00 | `payout_batch_run` (settlement mingguan, fee 1%) |
+4. Queues (`email-queue` dll) belum aktif — blok masih dikomentari
+   di `wrangler.toml`; aktifkan saat notifikasi diimplementasi.
 5. Secrets (wrangler secret put, TIDAK di repo):
    `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`,
    `JWT_SECRET` (JWKS verifikasi), `SMTP_HOST`, `SMTP_PORT`,
@@ -129,9 +132,9 @@ bundle dengan konvensi **Vite `PUBLIC_*`** (anon keys).
    + secret key, set di Dashboard Auth → config captcha); set
    redirect URLs
    (prod: `https://c-verse.co`, preview: `https://*.pages.dev`).
-4. Migrasi: `pnpm --filter api db:generate` →
-   `pnpm --filter api db:migrate` → push ke project. Cek output
-   `drizzle-kit` untuk drift.
+4. Migrasi: `npx supabase db push` (atau `npx supabase db reset`
+   untuk lokal) — file SQL murni di `supabase/migrations/*.sql`
+   (7 fase). Cek `npx supabase db lint` untuk drift.
 5. RLS: apply policy per tabel (lihat `05_data_model.md` RLS) —
    verifikasi dengan `supabase/rls` test setelah deploy.
 6. Realtime: enable broadcast untuk channel `drop_countdown` &
@@ -141,10 +144,12 @@ bundle dengan konvensi **Vite `PUBLIC_*`** (anon keys).
 
 ```bash
 pnpm install                 # install deps workspace
-pnpm build                   # turborepo build (shared → web, api, admin)
-pnpm --filter api test       # vitest (wajib hijau)
-pnpm --filter web test
-pnpm lint                    # biome/eslint 0 warning
+pnpm run format              # biome auto-format
+pnpm run lint:fix            # biome auto-fix
+pnpm run typecheck           # tsc --noEmit × 4 workspace
+pnpm run test                # vitest (packages/shared + apps/api, wajib hijau)
+pnpm run lint                # biome check . — 0 error/warning
+pnpm run build               # pnpm -r build (shared → web/admin dist, api = tsc)
 ```
 
 Preview lokal API: `pnpm --filter api dev` (wrangler dev) →

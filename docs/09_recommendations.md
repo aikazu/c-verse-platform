@@ -75,7 +75,7 @@
 ### 2.6 Anti-Fraud Y1
 | Mekanisme | Detail |
 |-----------|--------|
-| Rate limit bid | Max 10 bid aktif/user, max 50 bid/hari |
+| Rate limit bid | Max 3 bid aktif/user (RPC `BID_LIMIT`, founder 2026-08-16) |
 | Strike system | 3 strike = suspend 30 hari |
 | Shill detection | Cross-check IP + device fingerprint + payment method |
 | Wash trading | Diterima (fee 15% tetap kena) — hanya blok rebuy seller 1 hari; listing ulang bebas |
@@ -88,7 +88,8 @@
   - Established (300k-1jt): 30 C-Coin
   - Top (1jt+): 50 C-Coin
   - Hype (viral): 40-60 C-Coin
-- Signed variant: 1,67× base (30 → 50, 20 → 34, 50 → 84).
+- Signed variant: unsigned + 20 C-Coin **FLAT** (founder 2026-08-16;
+  30 → 50, 20 → 40, 50 → 70). Menggantikan multiplier 1,67× lama.
 - Primary = flat price. Numbering premium (#1, lucky numbers)
   hanya di secondary — pasar yang menentukan.
 - **Build-time implication**: `drops.price_ccoin` per-drop, bukan

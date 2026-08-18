@@ -49,8 +49,8 @@ Auth saat ini custom in-memory — tidak bisa dibawa ke produksi:
    - Form email → `supabase.auth.signInWithOtp({ email, options: { captchaToken } })`
      → layar input 6 digit → `supabase.auth.verifyOtp({ email, token, type: 'email' })`.
    - Widget Turnstile render dulu; token disertakan tiap request OTP.
-4. Hapus "Demo Login 1-klik" untuk build prod (keep via env flag
-   `VITE_ENABLE_DEMO_LOGIN` untuk demo founder).
+4. "Demo Login 1-klik" DIHAPUS total dari web (tidak ada env flag
+   tersisa) — login hanya Google OAuth + email OTP.
 
 ### 3,3 API (`apps/api`)
 1. Middleware auth baru `src/lib/auth.ts` (paket `jose`, jalan di Workers):

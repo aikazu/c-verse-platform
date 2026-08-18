@@ -68,7 +68,7 @@ pembacaan lewat API service-role (agregat ke kreator).
 ## 3. Langkah Eksekusi
 
 1. Migration RLS (`20260817020000_rls_policies.sql`, fase 3 dari rantai
-   6 fase): `enable row level security` ulang semua tabel, `force row level
+   7 file): `enable row level security` ulang semua tabel, `force row level
    security` pada `cards`, buat policy matriks di atas + 5 guard function
    (`users_fields_guard`, `cards_buyout_guard`, `wallet_tx_immutable_guard`,
    `audit_log_immutable_guard`, `kyc_status_guard`) + trigger-nya.

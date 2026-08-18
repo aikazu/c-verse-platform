@@ -34,7 +34,7 @@ profiles
   role enum('user','creator','admin')   -- default 'user'
   is_anonymous bool default false       -- privacy: profil tidak tampil publik
   total_xp int default 0                -- experience; sumber: spend C-Coin + reward badge
-  level int default 1                   -- = floor(total_xp / 10)
+  level int default 1                   -- = floor(total_xp / 10) + 1, clamp 1..100
 cumulative_spend_ccoin int default 0  -- 1 C-Coin spent = 1 XP (top-up TIDAK menambah XP)
 	  flag_reason text nullable              -- alasan fraud flag (isi manual admin)
 	  consent_analytics_detail bool default false -- izin kreator lihat data per-user (anonim)
@@ -214,7 +214,8 @@ wallet_transactions
   user_id uuid FK users.id
   type enum('top_up','checkout','escrow_hold','escrow_release',
             'settlement','payout','royalty','refund','adjustment',
-            'platform_buy')    -- platform beli kartu di secondary (admin seed)
+            'platform_buy',    -- platform beli kartu di secondary (admin seed)
+            'platform_revenue') -- fee snapshot masuk wallet treasury
   amount_ccoin int            -- signed (+/-)
   ref_type text nullable      -- 'order', 'bid', 'payout'
   ref_id uuid nullable

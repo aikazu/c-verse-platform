@@ -1,20 +1,19 @@
 # 13 — Atomic Checkout RPC (store in-memory → Postgres)
 
-> Status: [DRAFT — SPEC SIAP EKSEKUSI]
-> Created: 2026-08-15
-> Basis audit: seluruh route API pakai `apps/api/src/lib/store.ts` (Map
-> in-memory); checkout = read-check-write JS (`orders.ts:52-92`) — aman
-> hanya single-process, oversell di Workers multi-isolate. Adapter
-> `supabase.ts` ada tapi tidak dipakai.
-> Estimasi: 4-6 hari AI-assisted. Dependency: `10_auth_migration.md` +
-> `11_rls_policy.md` selesai.
+> Status: [IMPLEMENTED 2026-08-16] — spec ini historis; kondisi akhir:
+> semua uang & stok lewat RPC single-transaction di
+> `supabase/migrations/*.sql` (7 file), `store.ts` tinggal type + helper
+> murni (bukan data), tidak ada fallback in-memory.
+> Created: 2026-08-15; updated: 2026-08-18
+> Basis audit awal: seluruh route API pakai `apps/api/src/lib/store.ts` (Map
+> in-memory); checkout = read-check-write JS — aman hanya single-process,
+> oversell di Workers multi-isolate.
 
 ## 1. Prinsip Migrasi
 
-1. **Postgres = satu-satunya sumber kebenaran.** Hapus dual-write mental
-   model; `store.ts` hanya boleh tersisa sebagai fallback dev tanpa DB
-   (env `SUPABASE_URL` kosong) — ATAU dihapus total setelah stabil.
-   Keputusan: keep fallback dev hingga Sprint 3 selesai, hapus setelahnya.
+1. **Postgres = satu-satunya sumber kebenaran.** Dual-write dihapus;
+   `store.ts` kini hanya type domain + helper `uid`/`nowIso`, tanpa
+   data in-memory. API fail-fast tanpa `SUPABASE_URL`.
 2. Semua **aksi uang & stok** lewat **RPC single transaction**
    (`security definer` function) — bukan read-modify-write di JS.
 3. Urutan migrasi route: read-only dulu → wallet → checkout → bids →
@@ -111,11 +110,11 @@ begin
   -- hold: regular = harga unsigned, premium/both = harga signed (max)
   v_hold := case when p_pool = 'regular' then v_drop.price_ccoin
                  else v_drop.price_signed_ccoin end;
-  perform public.wallet_debit(v_user, v_hold, 'drop_entry_hold',
+  perform public.wallet_debit(v_user, v_hold, 'escrow_hold',
           'drop', p_drop_id, 'entry-' || v_user || '-' || p_drop_id);
-  -- CATATAN: type 'drop_entry_hold' TIDAK menambah XP (bukan spend
-  -- nyata) — XP hanya tercatat saat konversi hold jadi pembayaran
-  -- di draw_drop (winner).
+  -- CATATAN: hold entry pakai type 'escrow_hold' dan TIDAK menambah XP
+  -- (bukan spend nyata) — XP hanya tercatat saat konversi hold jadi
+  -- pembayaran di draw_drop (winner).
   insert into drop_entries (drop_id, user_id, pool, hold_ccoin, status)
   values (p_drop_id, v_user, p_pool, v_hold, 'held')
   returning *;                       -- UNIQUE(drop_id,user_id) -> ENTRY_EXISTS
@@ -185,8 +184,8 @@ wallet_credit(...)  -- mirip, untuk release/refund/royalty/settlement
 | 2 | wallet (top-up/payout/ledger), gamification | store → RPC wallet_credit/debit + select |
 | 3 | orders (checkout, orders list/detail), shipments | store → RPC checkout + select |
 | 4 | bids (place/cancel/accept), cards buyout set/cabut | store → RPC `place_bid` (hold+outbid release atomic), `accept_bid` (transfer+split fee 7,5/7,5/85 + ownership_history) |
-| 5 | kyc, disputes, notifications, admin reads | select service-role |
-| 6 | HAPUS `store.ts` + seed SQL-only (`supabase/seed.sql` jadi satu sumber seed) |
+| 5 | kyc, disputes, admin reads | select via anon + RLS / role-gated API |
+| 6 | `store.ts` disusutkan jadi type + helper murni (bukan data); seed SQL-only (`supabase/seed.sql` satu sumber seed) |
 
 Per gelombang: jalankan typecheck + manual smoke flow + tambah vitest.
 
@@ -217,7 +216,7 @@ Per gelombang: jalankan typecheck + manual smoke flow + tambah vitest.
 - [ ] Race test 50-concurrent lulus (video/log terlampir di PR).
 - [ ] `wallet_transactions` hanya bertambah via RPC; tidak ada row hasil
       tulis langsung JS.
-- [ ] `store.ts` terhapus (atau dev-only, tanpa import dari route prod).
+- [x] `store.ts` disusutkan jadi type + helper murni, tanpa data in-memory.
 - [ ] Checkout vault default (C-10) teruji: tanpa address → order
       `delivery_option='vault'`, kartu `location='platform_vault'`.
 

@@ -2,7 +2,7 @@
 
 Monorepo `pnpm` workspaces: React 19/Vite SPA (`apps/web` → Cloudflare Pages) + Hono 4 API (`apps/api` → Cloudflare Workers / Node) + React 19/Vite Admin (`apps/admin` → VPS + Cloudflare Tunnel + Access) + shared Zod schemas/constants (`packages/shared`). C.Card MVP — 9 flows. Supabase Postgres (SG) + Cloudflare R2.
 
-Dokumen perencanaan **canonical = `docs/`** (`00_readme` → `09_recommendations`, 10 files, `[VALIDATED]`). Jangan baca `00_Dream_Project/`.
+Dokumen perencanaan **canonical = `docs/`** (`00_readme` → `16_foundation_cleanup`, 17 files, `[VALIDATED]`). Jangan baca `00_Dream_Project/`.
 
 ## Dev environment
 
@@ -53,7 +53,7 @@ Jika salah satu dari langkah 3-6 gagal, jangan commit. Fix dulu. Gunakan `git ad
 - `apps/admin/src/` — Vite SPA terpisah (Guard `aal2` via Supabase MFA TOTP, nav ADM-01..10: dashboard/creators/drops/orders/nfc/payouts/badges/disputes/audit/investor).
 - `packages/shared/src/index.ts` — **single source** Zod schemas + constants (`C_COIN_RATE_IDR=10_000`, `SECONDARY_*`, `REVENUE_SHARE_*`, `calcLevel`, `calcSignedPrice` (+20 flat), `BALANCE_CAP_CCOIN=500`, `MAX_ACTIVE_BIDS_PER_USER=3`, `MAX_BUYOUT 20`). Import via `@c-verse/shared`.
 - `supabase/` — `config.toml`, `migrations/*.sql` (7 phase: foundation → auth → RLS → RPC atomic → grants/payout → perf index → revenue flow hardening), `seed.sql` (fixed UUID = `auth.users`), `tests/` (`rls_test.sql`, `rpc_*.mjs`, `revenue_flow_test.mjs`).
-- `docs/` — `00_readme.md` … `09_recommendations.md` (10 files). Baca urut 01→09.
+- `docs/` — `00_readme.md` … `16_foundation_cleanup.md` (17 files). Baca urut 00→16.
 
 ## Conventions
 
@@ -69,7 +69,7 @@ Jika salah satu dari langkah 3-6 gagal, jangan commit. Fix dulu. Gunakan `git ad
 - Checkout: 1 kartu/user/drop, `shipping` (alamat + ongkir → shipment `primary_shipping` auto + escrow release DELIVERED+H+7 via cron) vs `vault` (settled langsung, `platform_vault`). confirm-delivered hanya untuk order shipping berstatus `shipped`.
 - Secondary: Marketplace `buyout_price_ccoin NOT NULL` (max 20/user); Browse bid langsung (1 active/kartu, **max 3 aktif/user**, outbid/cancel release, accept only, tanpa expire; history 90 hari). Fee 15% (7,5 platform + 7,5 royalti) — ketiga bagian dicatat `platform_revenue` + treasury. Dest `buyer_address` wajib alamat → shipment `secondary_*` auto. Blok rebuy 24 jam (C-12). Kartu tampered/defect/lost tidak tradable.
 - Verify: tap NFC → `/cards/:cardId/3d` (Verified), QR → `/cards/:cardId` (Registered). Ownership history hanya di info. iOS SUN URL via `GET /api/nfc/sun-verify`.
-- Gamifikasi: `level = floor(total_xp/10)`, `spend 1 C = 1 XP` (+ badge `xp_reward` via trigger SQL), top-up tidak menambah XP. Badge di `apps/admin` (ADM-07).
+- Gamifikasi: `level = floor(total_xp/10) + 1` (clamp 1..100), `spend 1 C = 1 XP` (+ badge `xp_reward` via trigger SQL), top-up tidak menambah XP. Badge di `apps/admin` (ADM-07).
 - Profil: `/u/:username` & `/c/:username`; `is_anonymous` hide koleksi/level/badge; user suspended (`flag_reason`) disembunyikan dari profil publik. Domain `c-verse.co` + `c-verse.id` redirect — LOCK sebelum NFC.
 - KYC: wajib payout (`payout_request` RPC gate). Cap saldo top-up non-KYC 500 C-Coin (KYC approved = tanpa cap). Tidak untuk pasang buyout/accept bid. `hold_payout_until` untuk fraud hold.
 - Payments: top-up `POST /api/payments/topup` (Snap) → webhook verifikasi signature + status + **ceil**; payout `POST /api/payments/payout` (request, dana dikunci) → batch mingguan `POST /api/payments/admin/payout-run` → webhook IRIS.
