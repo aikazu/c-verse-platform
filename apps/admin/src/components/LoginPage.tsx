@@ -38,9 +38,14 @@ export function LoginPage() {
 
         <form onSubmit={onLogin} className="flex-gap-8" style={{ flexDirection: "column" }}>
           <div>
-            <label className="label">Email</label>
+            <label className="label" htmlFor="admin-login-email">
+              Email
+            </label>
             <input
+              id="admin-login-email"
               className="input"
+              type="email"
+              required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="admin@cverse.id"
@@ -52,7 +57,11 @@ export function LoginPage() {
           </button>
         </form>
 
-        {msg && <div className="admin-msg">{msg}</div>}
+        {msg && (
+          <div className="admin-msg" role="status" aria-live="polite">
+            {msg}
+          </div>
+        )}
 
         <div style={{ fontSize: 11, color: "var(--dim)", textAlign: "center", marginTop: 16 }}>
           Butuh bantuan? Hubungi super admin untuk reset.

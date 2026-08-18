@@ -30,9 +30,20 @@ export function AuditPage() {
         <h2>Audit Log</h2>
         <p className="muted">Riwayat aktivitas admin — append-only, ditulis server-side oleh API</p>
       </div>
-      {msg && <div className="admin-msg">{msg}</div>}
+      {msg && (
+        <div className="admin-msg" role="status" aria-live="polite">
+          {msg}
+        </div>
+      )}
       <div style={{ display: "flex", gap: 8 }}>
-        <input className="input" placeholder="Cari aksi…" value={filter} onChange={(e) => setFilter(e.target.value)} style={{ flex: 1 }} />
+        <input
+          className="input"
+          aria-label="Cari aksi audit"
+          placeholder="Cari aksi…"
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+          style={{ flex: 1 }}
+        />
         <button className="btn-ghost" onClick={load}>
           Refresh
         </button>

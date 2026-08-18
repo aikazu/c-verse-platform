@@ -11,6 +11,7 @@ export function CreatorsPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [msg, setMsg] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
 
   async function load() {
     setLoading(true);
@@ -37,33 +38,49 @@ export function CreatorsPage() {
   }, []);
 
   async function promote(userId: string) {
+    if (!window.confirm("Promosikan user ini menjadi creator?")) return;
+    setBusy(true);
     try {
       await apiFetch(`/api/admin/users/${userId}`, { method: "PATCH", body: JSON.stringify({ role: "creator" }) });
       setMsg("User dipromosikan jadi creator — row creators diaktifkan server-side");
       load();
     } catch (err) {
       setMsg(errMessage(err));
+    } finally {
+      setBusy(false);
     }
   }
   async function toggleSuspend(u: UserRow) {
     const flagReason = u.flag_reason ? null : `manual:${new Date().toISOString().slice(0, 10)}`;
+    const confirmMsg = flagReason
+      ? `Suspend user ${u.email}? Akun tidak bisa transaksi hingga diaktifkan kembali.`
+      : `Aktifkan kembali user ${u.email}?`;
+    if (!window.confirm(confirmMsg)) return;
+    setBusy(true);
     try {
       await apiFetch(`/api/admin/users/${u.id}`, { method: "PATCH", body: JSON.stringify({ flagReason }) });
       setMsg(flagReason ? `User ${u.email} disuspend` : `User ${u.email} diaktifkan kembali`);
       load();
     } catch (err) {
       setMsg(errMessage(err));
+    } finally {
+      setBusy(false);
     }
   }
   async function toggleHold(u: UserRow) {
     const isHeld = Boolean(holds[u.id]);
     const holdPayoutUntil = isHeld ? null : new Date(Date.now() + 7 * 24 * 3600 * 1000).toISOString();
+    const confirmMsg = holdPayoutUntil ? `Hold payout ${u.email} selama 7 hari (fraud hold)?` : `Lepas fraud hold payout ${u.email}?`;
+    if (!window.confirm(confirmMsg)) return;
+    setBusy(true);
     try {
       await apiFetch(`/api/admin/users/${u.id}/wallet-hold`, { method: "PATCH", body: JSON.stringify({ holdPayoutUntil }) });
       setMsg(holdPayoutUntil ? `Payout ${u.email} di-hold 7 hari (fraud hold)` : `Fraud hold ${u.email} dilepas`);
       load();
     } catch (err) {
       setMsg(errMessage(err));
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -79,7 +96,11 @@ export function CreatorsPage() {
         <h2>Kreator</h2>
         <p className="muted">Approve pendaftaran, promote role, suspend, dan fraud-hold payout (via API, ter-audit)</p>
       </div>
-      {msg && <div className="admin-msg">{msg}</div>}
+      {msg && (
+        <div className="admin-msg" role="status" aria-live="polite">
+          {msg}
+        </div>
+      )}
 
       <div className="card">
         <div className="admin-table-head">Pendaftaran menunggu approval — {pending.length}</div>
@@ -108,7 +129,7 @@ export function CreatorsPage() {
                     <td style={{ fontSize: 11 }}>{new Date(c.created_at).toLocaleDateString("id-ID")}</td>
                     <td>
                       {c.user_id ? (
-                        <button className="btn-gold admin-mini" onClick={() => promote(c.user_id as string)}>
+                        <button className="btn-gold admin-mini" onClick={() => promote(c.user_id as string)} disabled={busy}>
                           Jadikan Creator
                         </button>
                       ) : (
@@ -130,6 +151,7 @@ export function CreatorsPage() {
           Users — {filteredUsers.length}
           <input
             className="input"
+            aria-label="Cari user"
             placeholder="Cari email/username…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -163,16 +185,16 @@ export function CreatorsPage() {
                     <td>{holds[u.id] ? <span className="pill">Hold</span> : <span className="pill pill-info">Normal</span>}</td>
                     <td className="flex-gap-6 flex-wrap">
                       {u.role !== "creator" && u.role !== "admin" && (
-                        <button className="btn-gold admin-mini" onClick={() => promote(u.id)}>
+                        <button className="btn-gold admin-mini" onClick={() => promote(u.id)} disabled={busy}>
                           Jadikan Creator
                         </button>
                       )}
                       {u.role !== "admin" && (
-                        <button className="btn-ghost admin-mini" onClick={() => toggleSuspend(u)}>
+                        <button className="btn-ghost admin-mini" onClick={() => toggleSuspend(u)} disabled={busy}>
                           {u.flag_reason ? "Aktifkan" : "Suspend"}
                         </button>
                       )}
-                      <button className="btn-ghost admin-mini" onClick={() => toggleHold(u)}>
+                      <button className="btn-ghost admin-mini" onClick={() => toggleHold(u)} disabled={busy}>
                         {holds[u.id] ? "Lepas Hold" : "Hold 7d"}
                       </button>
                     </td>

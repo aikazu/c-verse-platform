@@ -7,6 +7,7 @@ export function DisputesPage() {
   const [rows, setRows] = useState<DisputeRow[]>([]);
   const [drafts, setDrafts] = useState<Record<string, { status: string; notes: string }>>({});
   const [msg, setMsg] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
 
   async function load() {
     try {
@@ -26,7 +27,13 @@ export function DisputesPage() {
 
   async function decide(id: string) {
     const draft = drafts[id] ?? { status: "under_review", notes: "" };
+    const suspends = draft.status === "resolved_suspend";
+    const confirmMsg = suspends
+      ? "Selesaikan sengketa dengan SUSPEND user? Akun terkait akan dinonaktifkan."
+      : `Simpan keputusan sengketa (${draft.status})?`;
+    if (!window.confirm(confirmMsg)) return;
     setMsg(null);
+    setBusy(true);
     try {
       await apiFetch(`/api/admin/disputes/${id}`, {
         method: "PATCH",
@@ -36,6 +43,8 @@ export function DisputesPage() {
       load();
     } catch (err) {
       setMsg(errMessage(err));
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -47,7 +56,11 @@ export function DisputesPage() {
         <h2>Sengketa</h2>
         <p className="muted">Tinjau dan selesaikan laporan (via API, ter-audit)</p>
       </div>
-      {msg && <div className="admin-msg">{msg}</div>}
+      {msg && (
+        <div className="admin-msg" role="status" aria-live="polite">
+          {msg}
+        </div>
+      )}
       <div className="card">
         <div className="admin-table-head">Daftar — {rows.length}</div>
         <div className="table-wrap">
@@ -91,6 +104,7 @@ export function DisputesPage() {
                           <div className="flex-gap-6 flex-wrap" style={{ minWidth: 260 }}>
                             <select
                               className="input fs-11 input-mini"
+                              aria-label="Resolusi sengketa"
                               value={drafts[r.id]?.status ?? "under_review"}
                               onChange={(e) => setDraft(r.id, { status: e.target.value })}
                             >
@@ -102,13 +116,14 @@ export function DisputesPage() {
                             </select>
                             <textarea
                               className="input"
+                              aria-label="Catatan keputusan"
                               placeholder="Catatan keputusan"
                               value={drafts[r.id]?.notes ?? ""}
                               onChange={(e) => setDraft(r.id, { notes: e.target.value })}
-                              rows={1}
+                              rows={2}
                               style={{ flex: 1, minWidth: 140, fontSize: 11, padding: "4px 8px" }}
                             />
-                            <button className="btn-gold admin-mini" onClick={() => decide(r.id)}>
+                            <button className="btn-gold admin-mini" onClick={() => decide(r.id)} disabled={busy}>
                               Simpan
                             </button>
                           </div>

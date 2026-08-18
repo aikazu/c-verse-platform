@@ -42,15 +42,18 @@ export function TotpRequired({ onVerified }: { onVerified: () => void }) {
 
   return (
     <div className="admin-auth-page">
-      <div className="admin-login-card" style={{ borderLeft: "4px solid #eab308" }}>
+      <div className="admin-login-card" style={{ borderLeft: "4px solid var(--gold)" }}>
         <h3 style={{ fontWeight: 800 }}>Verifikasi dua langkah (aal1 → aal2)</h3>
         <p className="muted" style={{ fontSize: 12, marginTop: 6 }}>
           Login berhasil (aal1) — sesi kamu terbatas sebagai view-only. Selesaikan kode TOTP untuk membuka dashboard &amp; mutasi (aal2).
         </p>
         <form onSubmit={onVerify} style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 14 }}>
           <div>
-            <label className="label">Kode TOTP (6 digit)</label>
+            <label className="label" htmlFor="totp-code">
+              Kode TOTP (6 digit)
+            </label>
             <input
+              id="totp-code"
               className="input"
               value={code}
               onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
@@ -67,7 +70,11 @@ export function TotpRequired({ onVerified }: { onVerified: () => void }) {
             Daftar Authenticator
           </button>
         </form>
-        {msg && <div className="admin-msg">{msg}</div>}
+        {msg && (
+          <div className="admin-msg" role="status" aria-live="polite">
+            {msg}
+          </div>
+        )}
         <div className="mono meta" style={{ marginTop: 10 }}>
           Break-glass: admin lain yang sudah aal2 dapat mereset enrollment yang hilang — tercatat di audit log.
         </div>

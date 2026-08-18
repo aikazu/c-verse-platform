@@ -17,6 +17,8 @@ export function DropsPage() {
     dropStartAt: "",
   });
   const [msg, setMsg] = useState<string | null>(null);
+  const [creating, setCreating] = useState(false);
+  const [busy, setBusy] = useState(false);
 
   async function load() {
     setLoading(true);
@@ -35,6 +37,7 @@ export function DropsPage() {
   async function onCreate(e: React.FormEvent) {
     e.preventDefault();
     setMsg(null);
+    setCreating(true);
     try {
       await apiFetch("/api/drops", {
         method: "POST",
@@ -53,27 +56,38 @@ export function DropsPage() {
       load();
     } catch (err) {
       setMsg(errMessage(err));
+    } finally {
+      setCreating(false);
     }
   }
 
   async function setStatus(id: string, status: string) {
+    const labels: Record<string, string> = { published: "publish", live: "jadikan live", closed: "tutup" };
+    if (!window.confirm(`Ubah status drop menjadi "${status}" (${labels[status] ?? status})?`)) return;
     setMsg(null);
+    setBusy(true);
     try {
       await apiFetch(`/api/drops/${id}/status`, { method: "PATCH", body: JSON.stringify({ status }) });
       load();
     } catch (err) {
       setMsg(errMessage(err));
+    } finally {
+      setBusy(false);
     }
   }
 
   async function draw(id: string) {
+    if (!window.confirm("Jalankan draw undian sekarang? Pemenang ditentukan permanen dan tidak bisa diulang.")) return;
     setMsg(null);
+    setBusy(true);
     try {
       const { winners } = await apiFetch<{ winners: number }>(`/api/drops/${id}/draw`, { method: "POST" });
       setMsg(`Draw selesai — ${winners} pemenang`);
       load();
     } catch (err) {
       setMsg(errMessage(err));
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -85,64 +99,104 @@ export function DropsPage() {
       </div>
       <form onSubmit={onCreate} className="card card-pad" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         <div style={{ fontWeight: 700, fontSize: 13 }}>Buat Drop</div>
+        <label className="label" htmlFor="drop-title">
+          Judul
+        </label>
         <input
+          id="drop-title"
           className="input"
           placeholder="Judul"
           value={form.title}
           onChange={(e) => setForm((s) => ({ ...s, title: e.target.value }))}
           required
         />
+        <label className="label" htmlFor="drop-series">
+          Seri
+        </label>
         <input
+          id="drop-series"
           className="input"
           placeholder="Seri"
           value={form.series}
           onChange={(e) => setForm((s) => ({ ...s, series: e.target.value }))}
           required
         />
+        <label className="label" htmlFor="drop-narrative">
+          Deskripsi
+        </label>
         <textarea
+          id="drop-narrative"
           className="input"
           placeholder="Deskripsi (min. 10 karakter)"
           value={form.narrative}
           onChange={(e) => setForm((s) => ({ ...s, narrative: e.target.value }))}
           required
+          minLength={10}
           rows={2}
         />
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <input
-            className="input"
-            placeholder="URL artwork"
-            value={form.artworkUrl}
-            onChange={(e) => setForm((s) => ({ ...s, artworkUrl: e.target.value }))}
-            style={{ flex: 1, minWidth: 160 }}
-          />
-          <input
-            className="input"
-            type="number"
-            min={1}
-            max={1000}
-            value={form.totalUnits}
-            onChange={(e) => setForm((s) => ({ ...s, totalUnits: Number(e.target.value) }))}
-            style={{ width: 120 }}
-          />
-          <input
-            className="input"
-            type="number"
-            min={1}
-            value={form.priceCcoin}
-            onChange={(e) => setForm((s) => ({ ...s, priceCcoin: Number(e.target.value) }))}
-            style={{ width: 120 }}
-          />
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "flex-end" }}>
+          <div style={{ flex: 1, minWidth: 160 }}>
+            <label className="label" htmlFor="drop-artwork">
+              URL artwork
+            </label>
+            <input
+              id="drop-artwork"
+              className="input"
+              type="url"
+              placeholder="https://…"
+              value={form.artworkUrl}
+              onChange={(e) => setForm((s) => ({ ...s, artworkUrl: e.target.value }))}
+              style={{ width: "100%" }}
+            />
+          </div>
+          <div style={{ width: 120 }}>
+            <label className="label" htmlFor="drop-units">
+              Total unit
+            </label>
+            <input
+              id="drop-units"
+              className="input"
+              type="number"
+              min={1}
+              max={1000}
+              value={form.totalUnits}
+              onChange={(e) => setForm((s) => ({ ...s, totalUnits: Number(e.target.value) }))}
+              style={{ width: "100%" }}
+            />
+          </div>
+          <div style={{ width: 120 }}>
+            <label className="label" htmlFor="drop-price">
+              Harga (C)
+            </label>
+            <input
+              id="drop-price"
+              className="input"
+              type="number"
+              min={1}
+              value={form.priceCcoin}
+              onChange={(e) => setForm((s) => ({ ...s, priceCcoin: Number(e.target.value) }))}
+              style={{ width: "100%" }}
+            />
+          </div>
         </div>
+        <label className="label" htmlFor="drop-start">
+          Waktu rilis (opsional)
+        </label>
         <input
+          id="drop-start"
           className="input"
           type="datetime-local"
           value={form.dropStartAt}
           onChange={(e) => setForm((s) => ({ ...s, dropStartAt: e.target.value }))}
         />
-        <button className="btn-gold" style={{ alignSelf: "start" }}>
-          Buat Draft
+        <button className="btn-gold" style={{ alignSelf: "start" }} disabled={creating}>
+          {creating ? "Membuat…" : "Buat Draft"}
         </button>
-        {msg && <div className="admin-msg">{msg}</div>}
+        {msg && (
+          <div className="admin-msg" role="status" aria-live="polite">
+            {msg}
+          </div>
+        )}
       </form>
       <div className="card">
         <div className="admin-table-head">Daftar — {rows.length}</div>
@@ -186,17 +240,17 @@ export function DropsPage() {
                       </td>
                       <td>{r.price_ccoin ?? r.price_unsigned_ccoin ?? "—"} C</td>
                       <td className="flex-gap-6 flex-wrap">
-                        <button className="btn-ghost admin-mini" onClick={() => setStatus(r.id, "published")}>
+                        <button className="btn-ghost admin-mini" onClick={() => setStatus(r.id, "published")} disabled={busy}>
                           Publish
                         </button>
-                        <button className="btn-ghost admin-mini" onClick={() => setStatus(r.id, "live")}>
+                        <button className="btn-ghost admin-mini" onClick={() => setStatus(r.id, "live")} disabled={busy}>
                           Live
                         </button>
-                        <button className="btn-ghost admin-mini" onClick={() => setStatus(r.id, "closed")}>
+                        <button className="btn-ghost admin-mini" onClick={() => setStatus(r.id, "closed")} disabled={busy}>
                           Tutup
                         </button>
                         {r.raffle_end_at && !r.drawn_at && (
-                          <button className="btn-gold admin-mini" onClick={() => draw(r.id)}>
+                          <button className="btn-gold admin-mini" onClick={() => draw(r.id)} disabled={busy}>
                             Draw
                           </button>
                         )}

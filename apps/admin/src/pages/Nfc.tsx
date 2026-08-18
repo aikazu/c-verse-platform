@@ -31,7 +31,11 @@ export function NfcPage() {
         <h2>NFC</h2>
         <p className="muted">Pantau batch dan verifikasi kartu (read-only — provisioning via backend)</p>
       </div>
-      {msg && <div className="admin-msg">{msg}</div>}
+      {msg && (
+        <div className="admin-msg" role="status" aria-live="polite">
+          {msg}
+        </div>
+      )}
       <div style={{ display: "flex", gap: 8 }}>
         <button className="btn-ghost" onClick={load}>
           Refresh

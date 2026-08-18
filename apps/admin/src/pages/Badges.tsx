@@ -7,6 +7,7 @@ import { errMessage } from "../lib/utils";
 export function BadgesPage() {
   const [rows, setRows] = useState<BadgeRow[]>([]);
   const [msg, setMsg] = useState<string | null>(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
 
   async function load() {
     const { data } = await supabase.from("badges").select("*").order("created_at", { ascending: false });
@@ -18,12 +19,15 @@ export function BadgesPage() {
 
   async function toggleActive(b: BadgeRow) {
     setMsg(null);
+    setBusyId(b.id);
     try {
       const isActive = !(b.is_active ?? true);
       await apiFetch(`/api/gamification/badges/${b.id}`, { method: "PATCH", body: JSON.stringify({ isActive }) });
       load();
     } catch (err) {
       setMsg(errMessage(err));
+    } finally {
+      setBusyId(null);
     }
   }
 
@@ -33,7 +37,11 @@ export function BadgesPage() {
         <h2>Lencana</h2>
         <p className="muted">Aktifkan/nonaktifkan lencana (via API, ter-audit)</p>
       </div>
-      {msg && <div className="admin-msg">{msg}</div>}
+      {msg && (
+        <div className="admin-msg" role="status" aria-live="polite">
+          {msg}
+        </div>
+      )}
       <div className="card">
         <div className="admin-table-head">Daftar — {rows.length}</div>
         <div className="table-wrap">
@@ -66,7 +74,7 @@ export function BadgesPage() {
                     </td>
                     <td>{String(r.is_active ?? true)}</td>
                     <td>
-                      <button className="btn-ghost admin-mini" onClick={() => toggleActive(r)}>
+                      <button className="btn-ghost admin-mini" onClick={() => toggleActive(r)} disabled={busyId === r.id}>
                         {(r.is_active ?? true) ? "Nonaktifkan" : "Aktifkan"}
                       </button>
                     </td>

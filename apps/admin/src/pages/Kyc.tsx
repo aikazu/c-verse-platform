@@ -6,6 +6,7 @@ import { errMessage, maskNik } from "../lib/utils";
 export function KycPage() {
   const [rows, setRows] = useState<KycRow[]>([]);
   const [msg, setMsg] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
 
   async function load() {
     try {
@@ -20,13 +21,19 @@ export function KycPage() {
   }, []);
 
   async function decide(id: string, action: "approve" | "reject") {
+    const confirmMsg =
+      action === "approve" ? "Setujui pengajuan KYC ini? User bisa menarik dana setelah disetujui." : "Tolak pengajuan KYC ini?";
+    if (!window.confirm(confirmMsg)) return;
     setMsg(null);
+    setBusy(true);
     try {
       await apiFetch(`/api/kyc/${id}/${action}`, { method: "POST" });
       setMsg(`KYC ${id.slice(0, 8)} ${action === "approve" ? "disetujui" : "ditolak"}`);
       load();
     } catch (err) {
       setMsg(errMessage(err));
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -36,7 +43,11 @@ export function KycPage() {
         <h2>KYC</h2>
         <p className="muted">Review KYC untuk payout &amp; top-up besar (via API, ter-audit)</p>
       </div>
-      {msg && <div className="admin-msg">{msg}</div>}
+      {msg && (
+        <div className="admin-msg" role="status" aria-live="polite">
+          {msg}
+        </div>
+      )}
       <div className="card">
         <div className="admin-table-head">Daftar — {rows.length}</div>
         <div className="table-wrap">
@@ -71,10 +82,10 @@ export function KycPage() {
                     <td className="flex-gap-6">
                       {r.status === "pending" ? (
                         <>
-                          <button className="btn-gold admin-mini" onClick={() => decide(r.id, "approve")}>
+                          <button className="btn-gold admin-mini" onClick={() => decide(r.id, "approve")} disabled={busy}>
                             Setujui
                           </button>
-                          <button className="btn-ghost admin-mini" onClick={() => decide(r.id, "reject")}>
+                          <button className="btn-ghost admin-mini" onClick={() => decide(r.id, "reject")} disabled={busy}>
                             Tolak
                           </button>
                         </>

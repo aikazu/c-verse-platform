@@ -10,6 +10,7 @@ export function OrdersPage() {
   const [loading, setLoading] = useState(true);
   const [msg, setMsg] = useState<string | null>(null);
   const [trackInputs, setTrackInputs] = useState<Record<string, string>>({});
+  const [busyId, setBusyId] = useState<string | null>(null);
 
   async function load() {
     setLoading(true);
@@ -35,7 +36,9 @@ export function OrdersPage() {
   }
 
   async function updateShipment(shipmentId: string, status: string, trackingNumber?: string) {
+    if (status === "cancelled" && !window.confirm("Batalkan pengiriman ini? Aksi ini tidak dapat dibatalkan.")) return;
     setMsg(null);
+    setBusyId(shipmentId);
     try {
       await apiFetch(`/api/shipments/${shipmentId}/status`, {
         method: "PATCH",
@@ -44,6 +47,8 @@ export function OrdersPage() {
       load();
     } catch (err) {
       setMsg(errMessage(err));
+    } finally {
+      setBusyId(null);
     }
   }
 
@@ -56,6 +61,7 @@ export function OrdersPage() {
       return <span className="muted fs-11">Tidak ada shipment — order shipping tanpa record pengiriman</span>;
     }
     const tracking = trackInputs[shipment.id] ?? "";
+    const rowBusy = busyId === shipment.id;
     return (
       <div className="flex-gap-6 flex-wrap" style={{ alignItems: "center" }}>
         <span className="pill pill-info" style={{ fontSize: 10 }}>
@@ -63,10 +69,10 @@ export function OrdersPage() {
         </span>
         {shipment.status === "requested" && (
           <>
-            <button className="btn-ghost admin-mini" onClick={() => updateShipment(shipment.id, "packed")}>
+            <button className="btn-ghost admin-mini" onClick={() => updateShipment(shipment.id, "packed")} disabled={rowBusy}>
               Packing
             </button>
-            <button className="btn-ghost admin-mini" onClick={() => updateShipment(shipment.id, "cancelled")}>
+            <button className="btn-ghost admin-mini" onClick={() => updateShipment(shipment.id, "cancelled")} disabled={rowBusy}>
               Batal
             </button>
           </>
@@ -75,18 +81,23 @@ export function OrdersPage() {
           <>
             <input
               className="input"
+              aria-label="Nomor resi"
               placeholder="No. resi"
               value={tracking}
               onChange={(e) => setTrackInputs((prev) => ({ ...prev, [shipment.id]: e.target.value }))}
               style={{ width: 110, fontSize: 11, padding: "4px 8px" }}
             />
-            <button className="btn-ghost admin-mini" onClick={() => updateShipment(shipment.id, "shipped", tracking || undefined)}>
+            <button
+              className="btn-ghost admin-mini"
+              onClick={() => updateShipment(shipment.id, "shipped", tracking || undefined)}
+              disabled={rowBusy}
+            >
               Kirim
             </button>
           </>
         )}
         {shipment.status === "shipped" && (
-          <button className="btn-gold admin-mini" onClick={() => updateShipment(shipment.id, "delivered")}>
+          <button className="btn-gold admin-mini" onClick={() => updateShipment(shipment.id, "delivered")} disabled={rowBusy}>
             Selesai
           </button>
         )}
@@ -102,7 +113,11 @@ export function OrdersPage() {
         <h2>Pesanan</h2>
         <p className="muted">Kelola pengiriman — transisi divalidasi server-side via /api/shipments</p>
       </div>
-      {msg && <div className="admin-msg">{msg}</div>}
+      {msg && (
+        <div className="admin-msg" role="status" aria-live="polite">
+          {msg}
+        </div>
+      )}
       <div className="card">
         <div className="admin-table-head">100 terbaru</div>
         {loading ? (

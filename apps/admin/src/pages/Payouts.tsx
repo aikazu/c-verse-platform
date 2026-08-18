@@ -31,6 +31,7 @@ export function PayoutsPage() {
   }, []);
 
   async function triggerBatch() {
+    if (!window.confirm("Jalankan batch payout sekarang? Semua payout eligible akan dikelompokkan dan dana dikunci.")) return;
     setBusy(true);
     setMsg(null);
     try {
@@ -54,7 +55,11 @@ export function PayoutsPage() {
         <h2>Payout</h2>
         <p className="muted">Kelola pencairan dan rekonsiliasi — batch via API (ter-audit)</p>
       </div>
-      {msg && <div className="admin-msg">{msg}</div>}
+      {msg && (
+        <div className="admin-msg" role="status" aria-live="polite">
+          {msg}
+        </div>
+      )}
       <div style={{ display: "flex", gap: 8 }}>
         <button className="btn-gold" onClick={triggerBatch} disabled={busy}>
           {busy ? "Menjalankan…" : "Jalankan Batch"}
