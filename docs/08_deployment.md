@@ -164,7 +164,7 @@ test endpoint `/health` & CMAC verify di device nyata (C-03).
 
 # 2) API → Workers (variabel + secret sudah di-set):
 pnpm --filter api deploy     # = wrangler deploy
-pnpm --filter api migrate    # drizzle-kit ke Supabase prod (hati-hati)
+supabase db push             # apply supabase/migrations ke Supabase prod (hati-hati)
 pnpm dlx wrangler deploy --cron dist/cron.js   # buat cron Jobs
 
 # 3) Verifikasi:

@@ -26,7 +26,7 @@ Auth saat ini custom in-memory — tidak bisa dibawa ke produksi:
 - Supabase Auth: **Google OAuth + email OTP (6 digit, magic link OFF)**.
 - **Captcha Turnstile wajib** untuk register + email OTP request.
 - API Hono verifikasi **Supabase JWT** (JWKS), ambil `sub` sebagai user id.
-- `public.users.id` → `references auth.users(id)` (UUID), drop kolom password.
+- `public.users.id` = UUID sama dengan `auth.users.id` (di-isi trigger `on_auth_user_created`, bukan FK constraint eksplisit); tidak ada kolom password.
 - Admin app tetap: service-role + Cloudflare Access + TOTP `aal2` (sudah ada).
 
 ## 3. Langkah Eksekusi
@@ -68,9 +68,12 @@ Auth saat ini custom in-memory — tidak bisa dibawa ke produksi:
 
 ### 3,4 Database
 1. Struktur auth di-squash ke fase migration `20260817010000_auth.sql`
-   (bagian dari rantai 6 fase; `20260817000000_foundation.sql` sudah
+   (bagian dari rantai 7 fase: 6 fase inti `1/6`..`6/6` + hardening
+   `20260817060000` phase 7/7; `20260817000000_foundation.sql` sudah
    mendefinisikan `users.id` uuid, tanpa `password_hash` dan tanpa tabel `sessions`):
-   - `users.id` → `uuid not null references auth.users(id) on delete cascade`.
+   - `users.id` = `uuid primary key` — di-isi trigger dari `auth.users.id`;
+     TANPA FK constraint eksplisit `references auth.users(id)` (delete cascade
+     tidak diterapkan di schema).
    - Username default manusiawi + flag `username_is_auto`: `generate_default_username()`
      (prefix-email + 4 digit acak, anti-duplikat).
    - Dedup akun per email kanonik: `canonical_email()` + unique index

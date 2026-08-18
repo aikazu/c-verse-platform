@@ -180,7 +180,7 @@ wallet_credit(...)  -- mirip, untuk release/refund/royalty/settlement
 
 | Gelombang | Route | Dari → Ke |
 |---|---|---|
-| 1 (read) | drops, browse, marketplace, publicProfile, seo, creators stats | store → `supabase.from().select()` (drizzle boleh, raw SQL ok) |
+| 1 (read) | drops, browse, marketplace, publicProfile, seo, creators stats | store → `supabase.from().select()` (Supabase client langsung, raw SQL ok) |
 | 2 | wallet (top-up/payout/ledger), gamification | store → RPC wallet_credit/debit + select |
 | 3 | orders (checkout, orders list/detail), shipments | store → RPC checkout + select |
 | 4 | bids (place/cancel/accept), cards buyout set/cabut | store → RPC `place_bid` (hold+outbid release atomic), `accept_bid` (transfer+split fee 7,5/7,5/85 + ownership_history) |

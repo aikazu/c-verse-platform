@@ -135,7 +135,8 @@ checkout -> debit WalletTransaction (immutable, append-only)
 ```
 
 - Ledger: `wallet_transactions` append-only, tidak ada UPDATE/
-  DELETE. Saldo = SUM dari transaksi.
+  DELETE. Saldo = kolom `wallets.balance_ccoin` (di-maintain atomik
+  oleh RPC wallet_credit/debit; invarian ≡ SUM transaksi).
 - Cap saldo (founder 2026-08-16): top-up non-KYC maks 500 C-Coin
   (ditolak 422 sebelum Snap dibuat); KYC approved = tanpa cap.
 - Rekonsiliasi harian: top-up webhook vs ledger vs float riil
