@@ -123,7 +123,7 @@ semua dok sekaligus (mubazir token, AI kehilangan fokus):
 | Format kartu | 63x88mm, 350-400gsm, holo, acrylic hardcase | `01_scope.md` |
 | Web NFC | Chrome Android 89+ only (scan terprogram); iOS tap-to-verify via SUN URL | `06_tech_decisions.md`, `07_constraints.md` |
 | Pricing kreator (tier) | Emerging (100-300k) = 20 C-Coin, Established (300k-1jt) = 30 C-Coin, Top (1jt+) = 50 C-Coin, Hype = 40-60 C-Coin | `01_scope.md` F004 |
-|| Signed card pricing | unsigned + 20 C-Coin **FLAT** (founder 2026-08-16; contoh: unsigned 30 → signed 50 C-Coin) | `01_scope.md` F004 |
+| Signed card pricing | unsigned + 20 C-Coin **FLAT** (founder 2026-08-16; contoh: unsigned 30 → signed 50 C-Coin) | `01_scope.md` F004 |
 | Mekanisme drop | Raffle hybrid (C-15): entry window 24 jam (pilih pool reguler/premium/keduanya, hold C-Coin) → draw otomatis → sisa unit FCFS "siapa cepat dia dapat" | `03_flows.md` Flow 1, `07_constraints.md` C-15 |
 | Signed card pool | Buyer pilih pool EKSPLISIT (signed = ceil(total/10) di pool premium) — tidak ada random surprise 1:10 | `03_flows.md` Flow 1 |
 | Quality gate kreator | Engagement rate ≥ 5% dari 10 post terakhir (IG/Twitter 5%+, TikTok 10%+) — wajib sebelum deal memo | `07_constraints.md` C-05 |

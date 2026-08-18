@@ -15,7 +15,7 @@
 - `apps/api/src/routes/orders.ts`: default parameter checkout ke
   `vault`; shipping = opt-in eksplisit.
 - Migration: `orders.delivery_option` default `'vault'` sudah jadi bagian
-  defiisi tabel di fase 1 (`20260817000000_foundation.sql`), bukan migration
+  definisi tabel di fase 1 (`20260817000000_foundation.sql`), bukan migration
   terpisah.
 - UI `/drops/:id/checkout`: opsi terpilih default = "Simpan di vault
   (gratis)"; kirim fisik = pilihan kedua.
