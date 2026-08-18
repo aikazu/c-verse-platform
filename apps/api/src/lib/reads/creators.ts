@@ -1,5 +1,6 @@
 import { mapCreatorRow, mapUserRow, type Row, readDb } from "../reads.js";
 import type { CreatorPageView, CreatorRec, User } from "../store.js";
+import { randomHex } from "../store.js";
 
 // Domain reads: creators + creator page-view analytics (docs 05 creator_page_views, docs 09 3.5).
 
@@ -63,7 +64,7 @@ export interface CreatorPageViewInput {
 export function recordCreatorPageView(input: CreatorPageViewInput): void {
   const db = readDb();
   // id is plain text without DB default — generate client-side; viewed_at defaults to now()
-  const id = `pv-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+  const id = `pv-${Date.now().toString(36)}-${randomHex(4)}`;
   // PostgrestFilterBuilder is PromiseLike (not a full Promise) — wrap to attach .catch
   void Promise.resolve(
     db

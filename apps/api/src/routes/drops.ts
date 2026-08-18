@@ -9,7 +9,7 @@ import { type DropFilter, getDropById, listCardsByDrop, listDrops } from "../lib
 import { logAuditDb } from "../lib/reads/kyc.js";
 import { getUserById } from "../lib/reads/users.js";
 import { pageMeta, parsePageParams, slicePage } from "../lib/reads.js";
-import type { DropStatus } from "../lib/store.js";
+import { type DropStatus, randomHex } from "../lib/store.js";
 import { getSupabase } from "../lib/supabase.js";
 
 const app = new Hono();
@@ -144,7 +144,7 @@ app.post(
     if (!dropStartAt) return c.json({ error: "dropStartAt tidak valid" }, 400);
     // Drop selalu raffle: window entry 24 jam sejak rilis, draw otomatis via cron (docs 03 Flow 5)
     const raffleEndAt = new Date(new Date(dropStartAt).getTime() + 24 * 3600 * 1000).toISOString();
-    const id = `drop-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 5)}`;
+    const id = `drop-${Date.now().toString(36)}-${randomHex(3)}`;
     const db = getSupabase();
     const { error: dropError } = await db.from("drops").insert({
       id,
@@ -183,7 +183,8 @@ app.post(
         nfc_configured: false,
         qc_status: "pending",
         owner_id: null,
-        nfc_uid: `04A1${Math.random().toString(16).slice(2, 10).padEnd(8, "0").toUpperCase()}${String(unit).padStart(2, "0")}`,
+        // 7-byte UID (14 hex): fixed prefix + 4 crypto-random bytes + unit tail
+        nfc_uid: `04A1${randomHex(4).toUpperCase()}${String(unit).padStart(2, "0")}`,
         nfc_short_id: `${id.slice(0, 4)}-${String(unit).padStart(3, "0")}`,
         // 'verified' HANYA via tap CMAC — kartu baru belum terverifikasi (docs 12)
         verify_status: "unknown",

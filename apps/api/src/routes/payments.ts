@@ -9,6 +9,7 @@ import { getProvider } from "../lib/payments/index.js";
 import { mapTransactionStatus } from "../lib/payments/midtrans.js";
 import { getKycByUser, logAuditDb } from "../lib/reads/kyc.js";
 import { getWalletByUser } from "../lib/reads/profile.js";
+import { randomHex } from "../lib/store.js";
 import { getSupabase } from "../lib/supabase.js";
 
 // Payments (docs/14): uang masuk HANYA via webhook terverifikasi signature —
@@ -17,7 +18,7 @@ import { getSupabase } from "../lib/supabase.js";
 const app = new Hono();
 
 function newOrderId(userId: string): string {
-  const rand = Math.random().toString(36).slice(2, 6);
+  const rand = randomHex(3);
   return `top-${userId}-${Math.floor(Date.now() / 1000)}-${rand}`;
 }
 

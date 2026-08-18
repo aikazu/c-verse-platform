@@ -251,8 +251,18 @@ export interface QcDefect {
 }
 
 // ── Id/timestamp helpers (pure — no data access) ───────────────────────────
+/** Cryptographically-strong lowercase hex string, `byteLength` bytes (2× chars). */
+export function randomHex(byteLength: number): string {
+  const buf = new Uint8Array(byteLength);
+  crypto.getRandomValues(buf);
+  let hex = "";
+  for (const b of buf) hex += b.toString(16).padStart(2, "0");
+  return hex;
+}
 export function uid(prefix = ""): string {
-  return prefix + Math.random().toString(36).slice(2, 9) + Date.now().toString(36).slice(-4);
+  // crypto randomness (not Math.random) so ids are collision-safe as DB primary keys;
+  // time suffix keeps them roughly sortable by creation.
+  return prefix + randomHex(6) + Date.now().toString(36).slice(-4);
 }
 export function nowIso(): string {
   return new Date().toISOString();
