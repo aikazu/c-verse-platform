@@ -31,6 +31,18 @@ Dokumen perencanaan **canonical = `docs/`** (`00_readme` → `09_recommendations
 - Lint: `pnpm run lint` — `biome check .` (0 error/warning hard gate, lihat `biome.json`). Format: `pnpm run format`.
 - CI: `.github/workflows/ci.yml` (PR + main): `pnpm install → typecheck → lint → test → build` + `supabase db lint` di PR.
 
+## Commit workflow
+
+Sebelum setiap commit, WAJIB jalankan:
+1. `pnpm run format` — biome auto-format
+2. `pnpm run lint:fix` — biome auto-fix (import ordering, dll)
+3. `pnpm run typecheck` — tsc strict di 4 workspace
+4. `pnpm run test` — vitest (50+ test, harus PASS)
+5. `pnpm run lint` — 0 error, 0 warning
+6. `pnpm run build` — semua workspace build
+
+Jika salah satu dari langkah 3-6 gagal, jangan commit. Fix dulu. Gunakan `git add -A && git commit -m "..."` hanya setelah semua gate hijau.
+
 ## Project layout
 
 - `apps/api/src/index.ts` — Hono app (CORS + logger, mounts `/api/*`, JSON 404). `apps/api/src/server.ts` — Node entry lokal.
