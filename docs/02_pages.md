@@ -21,6 +21,10 @@ Dua aplikasi terpisah (satu monorepo):
 Tidak ada route admin di API publik. Admin app akses Supabase
 langsung via service-role key. Detail: `06_tech_decisions.md`.
 
+Konvensi UI lintas-halaman (a11y baseline, state error + retry,
+konfirmasi aksi destruktif, `StatusBadge`/label status shared, token
+warna): lihat `06_tech_decisions.md` D7–D8.
+
 ## 2. Istilah Pasar
 
 | Istilah | Arti |

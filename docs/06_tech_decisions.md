@@ -174,6 +174,33 @@ Retensi: minimum 1 tahun (UU PDP + forensik fraud).
 
 - `packages/shared`: schema Zod (Zod 4) untuk semua DTO yang
   dipakai web + admin + api. Satu sumber kebenaran validasi.
+- Selain schema, `packages/shared` juga menampung peta label status UI
+  (`dropStatusLabel`, `orderStatusLabel`, `shipmentStatusLabel`,
+  `cardLocationLabel`, `kycStatusLabel`, `walletTxTypeLabel`) — enum
+  backend (snake_case/English) dipetakan ke label Indonesia di satu
+  tempat, fallback ke nilai mentah agar status tak dikenal tidak
+  membuat UI crash. Web & admin merender status lewat `StatusBadge`
+  yang memakai peta ini.
+
+### D8 — Frontend UI Conventions [baru 2026-08-19]
+
+- **Aksesibilitas baseline**: toast `role="status"`/`aria-live`
+  (error → `role="alert"`); setiap input terhubung label via
+  `htmlFor`/`id` atau `aria-label`; modal = `role="dialog"` +
+  `aria-modal` + tutup via Escape; skip link "Lompat ke konten"
+  (`#main-content`); `:focus-visible` + `prefers-reduced-motion` global.
+- **State query**: list/detail wajib menangani `isError` (bukan hanya
+  `isLoading`) — komponen bersama `apps/web/src/lib/QueryStates.tsx`
+  (`LoadingState`/`ErrorState` + retry); akses `data` di-guard agar
+  gagal fetch tidak crash ke ErrorBoundary. Di admin, kegagalan load
+  ditampilkan (bukan tampil `0`/stuck "Memuat…").
+- **Aksi mutasi**: tombol di-`disable` saat request in-flight; aksi
+  destruktif/finansial (batal drop, suspend, fraud-hold, approve KYC,
+  batch payout, draw, resolve sengketa, batal kirim) minta konfirmasi.
+- **Konsistensi visual**: warna lewat CSS var (`--gold-bg`,
+  `--signal-bg`, `--alert-bg`, `--info-bg`, dst) — jangan hardcode
+  rgba; komponen berulang diekstrak (`StatusBadge`, `LevelBar`); IDR
+  via `formatIdr` + kurs dari `C_COIN_RATE_IDR` (jangan `* 10000`).
 
 ## 3. Yang BELUM Diputuskan (Open Items)
 

@@ -51,6 +51,7 @@ test -> build`. Deploy job hanya `main` (lihat `08_deployment.md`).
 | `calcLevel` | xp 0 → level 1; 9 → 1; 10 → 2; 999 → 100 (clamp) |
 | `isCcoinInteger` | 1.5 → false; 0 → false; 1 → true |
 | fee split | 100 C sale → 7,5 / 7,5 / 85 (integer rounding!) |
+| label status | `dropStatusLabel`/`orderStatusLabel`/`cardLocationLabel`/`kycStatusLabel`/`walletTxTypeLabel` → label Indonesia benar; kode tak dikenal → fallback nilai mentah (tanpa crash) |
 
 ### 3,2 Unit — `apps/api/src/lib`
 | Target | Kasus |
@@ -81,6 +82,10 @@ test -> build`. Deploy job hanya `main` (lihat `08_deployment.md`).
 8. Ship-from-vault → ongkir tercatat.
 9. Admin login 2FA → buat drop → provisioning 1 tag.
 10. `/investor` menampilkan GMV sesuai transaksi di atas.
+11. A11y & state: keyboard-only bisa capai konten via skip link,
+    input punya label (screen reader), toast diumumkan; matikan
+    jaringan → list menampilkan error + retry (bukan "kosong" palsu);
+    aksi destruktif admin minta konfirmasi.
 
 ## 4. Coverage & Lint Targets
 
