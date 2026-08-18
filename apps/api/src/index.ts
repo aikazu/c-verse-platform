@@ -98,3 +98,6 @@ export default {
     ctx.waitUntil(runCron(controller.cron, (env ?? {}) as Record<string, string | undefined>));
   },
 };
+
+// Test hook: export Hono instance untuk route test (Vitest)
+export { app };

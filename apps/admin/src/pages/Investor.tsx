@@ -48,7 +48,7 @@ export function InvestorPage() {
       <div className="admin-page-head">
         <h2>
           Investor Data Pack{" "}
-          <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--dim)", fontWeight: 400 }}>
+          <span className="mono fs-11" style={{ color: "var(--dim)", fontWeight: 400 }}>
             ADM-10 · bukan untuk publik
           </span>
         </h2>
@@ -99,8 +99,8 @@ export function InvestorPage() {
                       {d.status}
                     </span>
                   </td>
-                  <td style={{ fontFamily: "monospace" }}>{d.sold_count ?? 0}</td>
-                  <td style={{ fontFamily: "monospace" }}>{d.total_units}</td>
+                  <td className="mono">{d.sold_count ?? 0}</td>
+                  <td className="mono">{d.total_units}</td>
                 </tr>
               ))}
             </tbody>

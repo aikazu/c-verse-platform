@@ -51,7 +51,7 @@ export function BadgesPage() {
             <tbody>
               {rows.length === 0 ? (
                 <tr>
-                  <td colSpan={6} style={{ textAlign: "center", padding: 20 }} className="muted">
+                  <td colSpan={6} className="empty-state">
                     Belum ada data
                   </td>
                 </tr>

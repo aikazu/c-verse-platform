@@ -78,14 +78,14 @@ export function PayoutsPage() {
             <tbody>
               {batches.length === 0 ? (
                 <tr>
-                  <td colSpan={4} style={{ textAlign: "center", padding: 20 }} className="muted">
+                  <td colSpan={4} className="empty-state">
                     Belum ada batch
                   </td>
                 </tr>
               ) : (
                 batches.map((b) => (
                   <tr key={b.id}>
-                    <td style={{ fontFamily: "monospace", fontSize: 11 }}>{b.batch_code}</td>
+                    <td className="mono fs-11">{b.batch_code}</td>
                     <td>
                       <span className="pill pill-info">{b.status}</span>
                     </td>
@@ -115,21 +115,21 @@ export function PayoutsPage() {
             <tbody>
               {payouts.length === 0 ? (
                 <tr>
-                  <td colSpan={6} style={{ textAlign: "center", padding: 20 }} className="muted">
+                  <td colSpan={6} className="empty-state">
                     Belum ada payout
                   </td>
                 </tr>
               ) : (
                 payouts.map((p) => (
                   <tr key={p.id}>
-                    <td style={{ fontFamily: "monospace", fontSize: 11 }}>{p.user_id.slice(0, 8)}</td>
+                    <td className="mono fs-11">{p.user_id.slice(0, 8)}</td>
                     <td>{p.type}</td>
                     <td>{p.ccoin_amount}</td>
                     <td>{p.idr_amount ?? "—"}</td>
                     <td>
                       <span className="pill pill-info">{p.status}</span>
                     </td>
-                    <td style={{ fontFamily: "monospace", fontSize: 11 }}>{p.batch_id ? p.batch_id.slice(0, 8) : "—"}</td>
+                    <td className="mono fs-11">{p.batch_id ? p.batch_id.slice(0, 8) : "—"}</td>
                   </tr>
                 ))
               )}

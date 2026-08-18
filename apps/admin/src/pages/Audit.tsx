@@ -53,7 +53,7 @@ export function AuditPage() {
             <tbody>
               {visible.length === 0 ? (
                 <tr>
-                  <td colSpan={5} style={{ textAlign: "center", padding: 20 }} className="muted">
+                  <td colSpan={5} className="empty-state">
                     Belum ada aktivitas
                   </td>
                 </tr>
@@ -61,7 +61,7 @@ export function AuditPage() {
                 visible.map((r) => (
                   <tr key={r.id}>
                     <td style={{ fontSize: 11, color: "var(--muted)" }}>{new Date(r.created_at).toLocaleString("id-ID")}</td>
-                    <td style={{ fontFamily: "monospace", fontSize: 11 }}>{r.admin_user_id.slice(0, 10)}</td>
+                    <td className="mono fs-11">{r.admin_user_id.slice(0, 10)}</td>
                     <td>
                       <span className="pill pill-info">{r.action}</span>
                     </td>

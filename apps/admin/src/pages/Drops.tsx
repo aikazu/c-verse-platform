@@ -165,7 +165,7 @@ export function DropsPage() {
               <tbody>
                 {rows.length === 0 ? (
                   <tr>
-                    <td colSpan={5} style={{ textAlign: "center", padding: 20 }} className="muted">
+                    <td colSpan={5} className="empty-state">
                       Belum ada data
                     </td>
                   </tr>
@@ -185,7 +185,7 @@ export function DropsPage() {
                         {r.sold_count ?? 0}/{r.total_units}
                       </td>
                       <td>{r.price_ccoin ?? r.price_unsigned_ccoin ?? "—"} C</td>
-                      <td style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                      <td className="flex-gap-6 flex-wrap">
                         <button className="btn-ghost admin-mini" onClick={() => setStatus(r.id, "published")}>
                           Publish
                         </button>

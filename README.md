@@ -87,7 +87,7 @@ pnpm --filter @c-verse/admin dev      # Vite :3000  (127.0.0.1 only)
 # Quality gates
 pnpm run typecheck   # tsc --noEmit × 4 workspaces
 pnpm run build       # shared + web/dist + admin/dist (api = tsc only)
-pnpm run lint        # no-op
+pnpm run lint        # biome check . (0 error/warning hard gate)
 ```
 
 ### Environment

@@ -63,7 +63,7 @@ export function DisputesPage() {
             <tbody>
               {rows.length === 0 ? (
                 <tr>
-                  <td colSpan={4} style={{ textAlign: "center", padding: 20 }} className="muted">
+                  <td colSpan={4} className="empty-state">
                     Belum ada laporan
                   </td>
                 </tr>
@@ -88,12 +88,11 @@ export function DisputesPage() {
                             Selesai
                           </span>
                         ) : (
-                          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", minWidth: 260 }}>
+                          <div className="flex-gap-6 flex-wrap" style={{ minWidth: 260 }}>
                             <select
-                              className="input"
+                              className="input fs-11 input-mini"
                               value={drafts[r.id]?.status ?? "under_review"}
                               onChange={(e) => setDraft(r.id, { status: e.target.value })}
-                              style={{ width: 160, fontSize: 11, padding: "4px 8px" }}
                             >
                               {RESOLUTIONS.map((s) => (
                                 <option key={s} value={s}>

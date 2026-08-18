@@ -52,14 +52,14 @@ export function NfcPage() {
               <tbody>
                 {batches.length === 0 ? (
                   <tr>
-                    <td colSpan={3} style={{ textAlign: "center", padding: 20 }} className="muted">
+                    <td colSpan={3} className="empty-state">
                       Belum ada batch
                     </td>
                   </tr>
                 ) : (
                   batches.map((b) => (
                     <tr key={b.id}>
-                      <td style={{ fontFamily: "monospace", fontSize: 11 }}>{b.batch_code}</td>
+                      <td className="mono fs-11">{b.batch_code}</td>
                       <td>{b.qty}</td>
                       <td>
                         <span className="pill pill-info">{b.status}</span>
@@ -86,15 +86,15 @@ export function NfcPage() {
               <tbody>
                 {cards.length === 0 ? (
                   <tr>
-                    <td colSpan={4} style={{ textAlign: "center", padding: 20 }} className="muted">
+                    <td colSpan={4} className="empty-state">
                       Belum ada data
                     </td>
                   </tr>
                 ) : (
                   cards.map((c) => (
                     <tr key={c.id}>
-                      <td style={{ fontFamily: "monospace", fontSize: 11 }}>{c.nfc_short_id}</td>
-                      <td style={{ fontFamily: "monospace", fontSize: 11 }}>{(c.nfc_uid ?? "").slice(0, 12)}</td>
+                      <td className="mono fs-11">{c.nfc_short_id}</td>
+                      <td className="mono fs-11">{(c.nfc_uid ?? "").slice(0, 12)}</td>
                       <td>
                         <span className="pill pill-info">{c.qc_status ?? "—"}</span>
                       </td>

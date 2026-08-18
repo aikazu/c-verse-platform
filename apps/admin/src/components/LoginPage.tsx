@@ -32,11 +32,11 @@ export function LoginPage() {
           <div className="admin-login-sub">Admin</div>
         </div>
         <h1 className="admin-login-title">Masuk</h1>
-        <p className="muted" style={{ fontSize: 12, textAlign: "center", marginBottom: 18 }}>
+        <p className="muted fs-12 align-center" style={{ marginBottom: 18 }}>
           Hanya untuk pengelola platform — verifikasi TOTP diminta setelah login.
         </p>
 
-        <form onSubmit={onLogin} style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        <form onSubmit={onLogin} className="flex-gap-8" style={{ flexDirection: "column" }}>
           <div>
             <label className="label">Email</label>
             <input

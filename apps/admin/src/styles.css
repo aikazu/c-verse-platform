@@ -200,3 +200,17 @@ html, body { margin: 0; }
   .admin-nav { flex-direction: row; overflow-x: auto; flex-wrap: nowrap; }
   .admin-nav-link { white-space: nowrap; }
 }
+
+/* ── Utility classes (ekstrak dari inline styles) ─────────────────── */
+.flex-gap-8 { display: flex; gap: 8px; }
+.flex-gap-6 { display: flex; gap: 6px; }
+.flex-wrap { flex-wrap: wrap; }
+.fw-700 { font-weight: 700; }
+.fs-10 { font-size: 10px; }
+.fs-11 { font-size: 11px; }
+.fs-12 { font-size: 12px; }
+.mono { font-family: var(--font-mono); }
+.meta { font-size: 10px; color: var(--muted); }
+.empty-state { text-align: center; padding: 20px; color: var(--muted); }
+.input-mini { font-size: 11px; padding: 4px 8px; }
+.align-center { text-align: center; }

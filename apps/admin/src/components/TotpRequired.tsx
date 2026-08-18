@@ -68,7 +68,7 @@ export function TotpRequired({ onVerified }: { onVerified: () => void }) {
           </button>
         </form>
         {msg && <div className="admin-msg">{msg}</div>}
-        <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--dim)", marginTop: 10 }}>
+        <div className="mono meta" style={{ marginTop: 10 }}>
           Break-glass: admin lain yang sudah aal2 dapat mereset enrollment yang hilang — tercatat di audit log.
         </div>
       </div>

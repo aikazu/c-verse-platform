@@ -50,7 +50,7 @@ export function OrdersPage() {
   function actionsFor(order: OrderRow) {
     if (order.delivery_option === "vault") {
       return (
-        <span className="muted" style={{ fontSize: 11 }}>
+        <span className="muted fs-11">
           Vault — settled otomatis
         </span>
       );
@@ -58,14 +58,14 @@ export function OrdersPage() {
     const shipment = shipmentFor(order);
     if (!shipment) {
       return (
-        <span className="muted" style={{ fontSize: 11 }}>
+        <span className="muted fs-11">
           Tidak ada shipment — order shipping tanpa record pengiriman
         </span>
       );
     }
     const tracking = trackInputs[shipment.id] ?? "";
     return (
-      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+      <div className="flex-gap-6 flex-wrap" style={{ alignItems: "center" }}>
         <span className="pill pill-info" style={{ fontSize: 10 }}>
           {shipment.status}
         </span>
@@ -99,12 +99,12 @@ export function OrdersPage() {
           </button>
         )}
         {shipment.status === "delivered" && (
-          <span className="muted" style={{ fontSize: 11 }}>
+          <span className="muted fs-11">
             Selesai
           </span>
         )}
         {shipment.status === "cancelled" && (
-          <span className="muted" style={{ fontSize: 11 }}>
+          <span className="muted fs-11">
             Dibatalkan
           </span>
         )}

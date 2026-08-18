@@ -54,21 +54,21 @@ export function KycPage() {
             <tbody>
               {rows.length === 0 ? (
                 <tr>
-                  <td colSpan={6} style={{ textAlign: "center", padding: 20 }} className="muted">
+                  <td colSpan={6} className="empty-state">
                     Belum ada pengajuan
                   </td>
                 </tr>
               ) : (
                 rows.map((r) => (
                   <tr key={r.id}>
-                    <td style={{ fontFamily: "monospace", fontSize: 11 }}>{r.user_id.slice(0, 8)}</td>
+                    <td className="mono fs-11">{r.user_id.slice(0, 8)}</td>
                     <td style={{ fontSize: 12, fontWeight: 600 }}>{r.full_name}</td>
-                    <td style={{ fontFamily: "monospace", fontSize: 11 }}>{r.nik}</td>
+                    <td className="mono fs-11">{r.nik}</td>
                     <td>
                       <span className="pill pill-info">{r.status}</span>
                     </td>
                     <td style={{ fontSize: 11 }}>{new Date(r.created_at).toLocaleDateString("id-ID")}</td>
-                    <td style={{ display: "flex", gap: 6 }}>
+                    <td className="flex-gap-6">
                       {r.status === "pending" ? (
                         <>
                           <button className="btn-gold admin-mini" onClick={() => decide(r.id, "approve")}>

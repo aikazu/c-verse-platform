@@ -28,7 +28,7 @@ Dokumen perencanaan **canonical = `docs/`** (`00_readme` → `09_recommendations
 - Test: `pnpm test` (Vitest; proyek `packages/shared` + `apps/api`). Lint: `pnpm lint` (Biome, 0 error/warning hard gate). Format: `pnpm format`.
 - Integration SQL (RPC/RLS) butuh `npx supabase start` (Docker): `psql ... -f supabase/tests/rls_test.sql`.
 - Build: `pnpm run build` (`pnpm -r build`); `pnpm --filter @c-verse/web build` → `apps/web/dist`, `pnpm --filter @c-verse/admin build` → `apps/admin/dist`, `pnpm --filter @c-verse/api build` = `tsc --noEmit` only. Workers deploy: `pnpm --filter @c-verse/api deploy` (`wrangler deploy`).
-- Lint: `pnpm run lint` = no-op (`echo "no lint configured"`).
+- Lint: `pnpm run lint` — `biome check .` (0 error/warning hard gate, lihat `biome.json`). Format: `pnpm run format`.
 - CI: `.github/workflows/ci.yml` (PR + main): `pnpm install → typecheck → lint → test → build` + `supabase db lint` di PR.
 
 ## Project layout

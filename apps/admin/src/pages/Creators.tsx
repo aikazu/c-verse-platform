@@ -96,7 +96,7 @@ export function CreatorsPage() {
             <tbody>
               {pending.length === 0 ? (
                 <tr>
-                  <td colSpan={4} style={{ textAlign: "center", padding: 20 }} className="muted">
+                  <td colSpan={4} className="empty-state">
                     Tidak ada pendaftaran pending
                   </td>
                 </tr>
@@ -104,7 +104,7 @@ export function CreatorsPage() {
                 pending.map((c) => (
                   <tr key={c.id}>
                     <td style={{ fontWeight: 700 }}>{c.handle ?? c.id}</td>
-                    <td style={{ fontFamily: "monospace", fontSize: 11 }}>{c.user_id ?? "—"}</td>
+                    <td className="mono fs-11">{c.user_id ?? "—"}</td>
                     <td style={{ fontSize: 11 }}>{new Date(c.created_at).toLocaleDateString("id-ID")}</td>
                     <td>
                       {c.user_id ? (
@@ -161,7 +161,7 @@ export function CreatorsPage() {
                     </td>
                     <td>{u.flag_reason ? <span className="pill">Suspended</span> : <span className="pill pill-info">Aktif</span>}</td>
                     <td>{holds[u.id] ? <span className="pill">Hold</span> : <span className="pill pill-info">Normal</span>}</td>
-                    <td style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                    <td className="flex-gap-6 flex-wrap">
                       {u.role !== "creator" && u.role !== "admin" && (
                         <button className="btn-gold admin-mini" onClick={() => promote(u.id)}>
                           Jadikan Creator

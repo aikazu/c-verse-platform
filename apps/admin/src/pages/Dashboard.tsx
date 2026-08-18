@@ -49,22 +49,22 @@ export function DashboardPage() {
       <div className="grid-3">
         <div className="card card-pad admin-dash-card">
           <div className="admin-dash-icon">◈</div>
-          <div style={{ fontWeight: 700 }}>Drops</div>
-          <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
+          <div className="fw-700">Drops</div>
+          <div className="muted fs-12" style={{ marginTop: 4 }}>
             Buat dan atur jadwal rilis
           </div>
         </div>
         <div className="card card-pad admin-dash-card">
           <div className="admin-dash-icon">⧉</div>
           <div style={{ fontWeight: 700 }}>Pesanan</div>
-          <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
+          <div className="muted fs-12" style={{ marginTop: 4 }}>
             Proses hingga selesai
           </div>
         </div>
         <div className="card card-pad admin-dash-card">
           <div className="admin-dash-icon">₵</div>
           <div style={{ fontWeight: 700 }}>Payout</div>
-          <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
+          <div className="muted fs-12" style={{ marginTop: 4 }}>
             Batch dan rekonsiliasi
           </div>
         </div>
@@ -73,21 +73,21 @@ export function DashboardPage() {
         <div className="card card-pad admin-dash-card">
           <div className="admin-dash-icon">⬡</div>
           <div style={{ fontWeight: 700 }}>NFC</div>
-          <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
+          <div className="muted fs-12" style={{ marginTop: 4 }}>
             Batch dan QC kartu
           </div>
         </div>
         <div className="card card-pad admin-dash-card">
           <div className="admin-dash-icon">✦</div>
           <div style={{ fontWeight: 700 }}>Lencana</div>
-          <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
+          <div className="muted fs-12" style={{ marginTop: 4 }}>
             Atur penghargaan
           </div>
         </div>
         <div className="card card-pad admin-dash-card">
           <div className="admin-dash-icon">◷</div>
           <div style={{ fontWeight: 700 }}>Audit</div>
-          <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
+          <div className="muted fs-12" style={{ marginTop: 4 }}>
             Riwayat perubahan
           </div>
         </div>

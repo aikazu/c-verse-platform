@@ -43,7 +43,7 @@ function Shell({ email, onLogout, children }: { email: string; onLogout: () => v
           <div className="admin-user">
             <div className="admin-user-avatar">{email.slice(0, 1).toUpperCase()}</div>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 12, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              <div className="fs-12 fw-700" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                 {email}
               </div>
               <div style={{ fontSize: 10, color: "var(--muted)" }}>Supabase · aal2</div>
