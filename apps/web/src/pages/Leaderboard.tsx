@@ -13,7 +13,7 @@ export default function Leaderboard() {
   const tierStyle: Record<string, { bg: string; color: string }> = {
     bronze: { bg: "rgba(205,127,50,0.14)", color: "#d4a574" },
     silver: { bg: "rgba(148,163,184,0.14)", color: "#cbd5e1" },
-    gold: { bg: "rgba(201,163,82,0.18)", color: "#E0BF6B" },
+    gold: { bg: "var(--gold-bg)", color: "#E0BF6B" },
     platinum: { bg: "rgba(125,211,252,0.14)", color: "#7dd3fc" },
     diamond: { bg: "rgba(165,180,252,0.14)", color: "#a5b4fc" },
   };
@@ -52,7 +52,7 @@ export default function Leaderboard() {
                   const href = `/u/${e.username ?? e.userId}`;
                   const t = tierStyle[e.tier] ?? tierStyle.bronze;
                   return (
-                    <tr key={e.userId} style={e.rank <= 3 ? { background: "rgba(201,163,82,0.04)" } : {}}>
+                    <tr key={e.userId} style={e.rank <= 3 ? { background: "var(--gold-bg-soft)" } : {}}>
                       <td style={{ fontFamily: "var(--font-mono)", fontWeight: 700, fontSize: 12 }}>
                         {e.rank === 1 ? "🥇" : e.rank === 2 ? "🥈" : e.rank === 3 ? "🥉" : String(e.rank).padStart(2, "0")}
                       </td>

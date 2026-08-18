@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
+import { StatusBadge } from "../components/StatusBadge";
 import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { ErrorState, LoadingState } from "../lib/QueryStates";
@@ -71,12 +72,7 @@ export default function Orders() {
                     <td style={{ fontSize: 12, color: "var(--text-muted)" }}>{o.dropId}</td>
                     <td style={{ fontWeight: 700, fontFamily: "var(--font-mono)", fontSize: 12 }}>{o.totalCCoin} C</td>
                     <td>
-                      <span
-                        className={`pill ${o.status === "delivered" ? "pill-success" : o.status === "shipped" ? "pill-info" : "pill-warn"}`}
-                        style={{ fontSize: 10 }}
-                      >
-                        {o.status}
-                      </span>
+                      <StatusBadge status={o.status} kind="order" style={{ fontSize: 10 }} />
                     </td>
                     <td style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--text-muted)" }}>
                       {o.deliveryOption ?? (o.shippingAddress ? "kirim" : "vault")}

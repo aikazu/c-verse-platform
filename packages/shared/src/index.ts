@@ -388,3 +388,85 @@ export const ESCROW_RELEASE_DELAY_DAYS = 7; // escrow shipping auto-release DELI
 export function isCcoinInteger(n: number): boolean {
   return Number.isInteger(n) && n >= 1;
 }
+
+// ── UI status labels (canonical) ────────────────────────────────────────────
+// Enum backend disimpan snake_case/English; UI berbahasa Indonesia. Pusatkan
+// pemetaan di sini agar semua halaman menampilkan label yang sama, dan fallback
+// ke nilai mentah supaya status tak dikenal tidak pernah membuat UI crash.
+function labelFrom(map: Record<string, string>, value: string): string {
+  return map[value] ?? value;
+}
+
+const DROP_STATUS_LABELS: Record<string, string> = {
+  draft: "Draft",
+  scheduled: "Segera",
+  published: "Live",
+  live: "Live",
+  sold_out: "Habis",
+  closed: "Berakhir",
+  cancelled: "Dibatalkan",
+};
+export function dropStatusLabel(status: string): string {
+  return labelFrom(DROP_STATUS_LABELS, status);
+}
+
+const ORDER_STATUS_LABELS: Record<string, string> = {
+  paid: "Dibayar",
+  qc: "Pemeriksaan",
+  shipped: "Dikirim",
+  delivered: "Diterima",
+  settled: "Selesai",
+  refunded: "Dana kembali",
+  disputed: "Sengketa",
+  cancelled: "Dibatalkan",
+};
+export function orderStatusLabel(status: string): string {
+  return labelFrom(ORDER_STATUS_LABELS, status);
+}
+
+const SHIPMENT_STATUS_LABELS: Record<string, string> = {
+  requested: "Diminta",
+  packed: "Dikemas",
+  shipped: "Dikirim",
+  delivered: "Diterima",
+  cancelled: "Dibatalkan",
+};
+export function shipmentStatusLabel(status: string): string {
+  return labelFrom(SHIPMENT_STATUS_LABELS, status);
+}
+
+const CARD_LOCATION_LABELS: Record<string, string> = {
+  platform_stock: "Stok platform",
+  platform_vault: "Di vault",
+  with_owner: "Dimiliki",
+};
+export function cardLocationLabel(location: string): string {
+  return labelFrom(CARD_LOCATION_LABELS, location);
+}
+
+const KYC_STATUS_LABELS: Record<string, string> = {
+  pending: "Menunggu",
+  approved: "Disetujui",
+  rejected: "Ditolak",
+};
+export function kycStatusLabel(status: string): string {
+  return labelFrom(KYC_STATUS_LABELS, status);
+}
+
+const WALLET_TX_TYPE_LABELS: Record<string, string> = {
+  top_up: "Top-up",
+  topup: "Top-up",
+  checkout: "Pembelian",
+  escrow_hold: "Escrow ditahan",
+  escrow_release: "Escrow lepas",
+  settlement: "Settlement",
+  payout: "Penarikan",
+  royalty: "Royalti",
+  refund: "Dana kembali",
+  adjustment: "Penyesuaian",
+  platform_buy: "Pembelian platform",
+  platform_revenue: "Pendapatan platform",
+};
+export function walletTxTypeLabel(type: string): string {
+  return labelFrom(WALLET_TX_TYPE_LABELS, type);
+}

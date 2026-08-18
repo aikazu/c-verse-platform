@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import type React from "react";
 import { useState } from "react";
+import { StatusBadge } from "../components/StatusBadge";
 import { api, formatIdr } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { useToast } from "../lib/toast";
@@ -322,12 +323,7 @@ export default function CreatorDashboard() {
                         Batalkan
                       </button>
                     )}
-                    <span
-                      className={`pill ${d.status === "live" ? "pill-success" : d.status === "draft" ? "pill-warn" : "pill-info"}`}
-                      style={{ fontSize: 10 }}
-                    >
-                      {d.status}
-                    </span>
+                    <StatusBadge status={d.status} kind="drop" style={{ fontSize: 10 }} />
                   </div>
                 </div>
               ))

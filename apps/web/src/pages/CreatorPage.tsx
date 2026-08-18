@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link, useParams } from "react-router-dom";
+import { StatusBadge } from "../components/StatusBadge";
 import { api } from "../lib/api";
 
 export default function CreatorPage() {
@@ -106,9 +107,7 @@ export default function CreatorPage() {
                 <div style={{ padding: 12 }}>
                   <div style={{ fontWeight: 600, fontSize: 13 }}>{d.title}</div>
                   <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--text-muted)" }}>{d.series}</div>
-                  <span className="pill pill-info" style={{ marginTop: 8, display: "inline-block", fontSize: 10 }}>
-                    {d.status}
-                  </span>
+                  <StatusBadge status={d.status} kind="drop" style={{ marginTop: 8, display: "inline-block", fontSize: 10 }} />
                 </div>
               </Link>
             ))}

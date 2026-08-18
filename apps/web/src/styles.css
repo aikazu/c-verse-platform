@@ -48,9 +48,16 @@
   --dim: var(--text-dim);
   --gold-dim: var(--gold-deep);
   --gold-bg: rgba(255, 201, 77, 0.12);
+  --gold-bg-soft: rgba(255, 201, 77, 0.07);
+  --gold-border: rgba(255, 201, 77, 0.22);
+  --signal-bg: rgba(82, 242, 160, 0.10);
+  --signal-border: rgba(82, 242, 160, 0.22);
+  --alert-bg: rgba(255, 92, 119, 0.10);
+  --alert-border: rgba(255, 92, 119, 0.22);
+  --info-bg: rgba(91, 230, 255, 0.08);
+  --info-border: rgba(91, 230, 255, 0.20);
   --success: var(--signal);
   --error: var(--alert);
-  --info: #5BE6FF;
   --radius: var(--r-3);
   --radius-sm: var(--r-2);
 

@@ -1,3 +1,4 @@
+import { kycStatusLabel } from "@c-verse/shared";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { api } from "../lib/api";
@@ -46,12 +47,8 @@ export default function Kyc() {
               padding: "14px 16px",
               borderRadius: 10,
               background:
-                kyc.status === "approved"
-                  ? "rgba(108,195,166,0.10)"
-                  : kyc.status === "rejected"
-                    ? "rgba(210,122,110,0.10)"
-                    : "rgba(201,163,82,0.08)",
-              border: `1px solid ${kyc.status === "approved" ? "rgba(108,195,166,0.2)" : kyc.status === "rejected" ? "rgba(210,122,110,0.2)" : "rgba(201,163,82,0.18)"}`,
+                kyc.status === "approved" ? "var(--signal-bg)" : kyc.status === "rejected" ? "var(--alert-bg)" : "var(--gold-bg-soft)",
+              border: `1px solid ${kyc.status === "approved" ? "var(--signal-border)" : kyc.status === "rejected" ? "var(--alert-border)" : "var(--gold-border)"}`,
             }}
           >
             <div
@@ -64,7 +61,7 @@ export default function Kyc() {
                 color: kyc.status === "approved" ? "var(--signal)" : kyc.status === "rejected" ? "var(--alert)" : "var(--gold)",
               }}
             >
-              {kyc.status}
+              {kycStatusLabel(kyc.status)}
             </div>
             <div style={{ fontWeight: 600, fontSize: 13, marginTop: 4 }}>
               {kyc.fullName ?? "—"} · {kyc.nik ?? ""}

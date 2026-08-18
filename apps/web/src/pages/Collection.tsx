@@ -1,24 +1,9 @@
+import { cardLocationLabel } from "@c-verse/shared";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
+import { LevelBar } from "../components/LevelBar";
 import { api } from "../lib/api";
 import { ErrorState, LoadingState } from "../lib/QueryStates";
-
-function LevelBar({ level, tier, progressPct, hint }: { level: number; tier: string; progressPct: number; hint: string }) {
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-        <div style={{ fontFamily: "var(--font-display)", fontSize: 16, fontWeight: 500 }}>
-          Level {level}{" "}
-          <span style={{ fontWeight: 400, fontSize: 12, color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>· {tier}</span>
-        </div>
-        <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--text-muted)" }}>{hint}</div>
-      </div>
-      <div className="progress" style={{ height: 6 }}>
-        <div className="progress-fill" style={{ width: `${progressPct}%` }} />
-      </div>
-    </div>
-  );
-}
 
 export default function Collection() {
   const { user } = useAuth();
@@ -62,7 +47,7 @@ export default function Collection() {
             <em style={{ fontStyle: "italic", fontWeight: 300, color: "var(--gold)" }}>· {p.stats?.totalCards ?? cards.length} C.Card</em>
           </h1>
           <div className="card card-pad" style={{ marginTop: 14, background: "var(--surface-2)" }}>
-            <LevelBar level={level} tier={tier} progressPct={progressPct} hint={progressLabel} />
+            <LevelBar level={level} tier={tier} pct={progressPct} hint={progressLabel} />
           </div>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
@@ -153,7 +138,7 @@ export default function Collection() {
                       className={`pill ${ca.location === "platform_vault" ? "pill-warn" : ca.location === "with_owner" ? "pill-success" : "pill-info"}`}
                       style={{ fontSize: 10 }}
                     >
-                      {ca.location ?? ca.status}
+                      {ca.location ? cardLocationLabel(ca.location) : (ca.status ?? "")}
                     </span>
                     {ca.activeBid ? (
                       <span className="pill pill-success" style={{ fontSize: 10 }}>

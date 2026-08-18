@@ -1,3 +1,4 @@
+import { walletTxTypeLabel } from "@c-verse/shared";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -119,8 +120,8 @@ export default function Wallet() {
         <div
           className="card card-pad"
           style={{
-            background: "rgba(239,68,68,0.08)",
-            border: "1px solid rgba(239,68,68,0.25)",
+            background: "var(--alert-bg)",
+            border: "1px solid var(--alert-border)",
             fontSize: 12,
             color: "var(--text-muted)",
           }}
@@ -175,8 +176,8 @@ export default function Wallet() {
           </div>
           <div
             style={{
-              background: "rgba(234,179,8,0.08)",
-              border: "1px solid rgba(234,179,8,0.18)",
+              background: "var(--gold-bg-soft)",
+              border: "1px solid var(--gold-border)",
               borderRadius: 10,
               padding: "10px 12px",
               fontSize: 11,
@@ -191,8 +192,8 @@ export default function Wallet() {
           </div>
           <div
             style={{
-              background: "rgba(56,189,248,0.07)",
-              border: "1px solid rgba(56,189,248,0.18)",
+              background: "var(--info-bg)",
+              border: "1px solid var(--info-border)",
               borderRadius: 10,
               padding: "10px 12px",
               fontSize: 11,
@@ -320,7 +321,7 @@ export default function Wallet() {
                         className={`pill ${t.type === "topup" || t.type === "top_up" ? "pill-success" : t.type === "checkout" ? "pill-warn" : t.type === "payout" ? "pill-info" : "pill-warn"}`}
                         style={{ fontSize: 10 }}
                       >
-                        {t.type}
+                        {walletTxTypeLabel(t.type)}
                       </span>
                     </td>
                     <td

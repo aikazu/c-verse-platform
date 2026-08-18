@@ -112,7 +112,7 @@ export default function Checkout() {
               border: `1px solid ${delivery === "vault" ? "var(--gold)" : "var(--border)"}`,
               borderRadius: 10,
               cursor: "pointer",
-              background: delivery === "vault" ? "rgba(201,163,82,0.06)" : "transparent",
+              background: delivery === "vault" ? "var(--gold-bg-soft)" : "transparent",
               transition: "all var(--motion-fast)",
             }}
           >
@@ -139,7 +139,7 @@ export default function Checkout() {
               border: `1px solid ${delivery === "shipping" ? "var(--gold)" : "var(--border)"}`,
               borderRadius: 10,
               cursor: "pointer",
-              background: delivery === "shipping" ? "rgba(201,163,82,0.06)" : "transparent",
+              background: delivery === "shipping" ? "var(--gold-bg-soft)" : "transparent",
               transition: "all var(--motion-fast)",
             }}
           >

@@ -5,11 +5,16 @@ import {
   calcSignedCount,
   calcSignedPrice,
   calcUnsignedCount,
+  cardLocationLabel,
   ccoinToIdr,
+  dropStatusLabel,
   idrToCCoin,
   isCcoinInteger,
+  kycStatusLabel,
   MAX_ACTIVE_BIDS_PER_USER,
+  orderStatusLabel,
   splitSecondaryFeeCcoin,
+  walletTxTypeLabel,
   xpForNextLevel,
 } from "./index";
 
@@ -119,5 +124,36 @@ describe("splitSecondaryFeeCcoin (7,5 / 7,5 / 85)", () => {
     expect(split.platformCcoin).toBe(8);
     expect(split.royaltyCcoin).toBe(8);
     expect(split.sellerCcoin).toBe(84);
+  });
+});
+
+describe("status label maps (snake_case/English enum → Indonesian UI copy)", () => {
+  it("maps drop status to Indonesian labels", () => {
+    expect(dropStatusLabel("live")).toBe("Live");
+    expect(dropStatusLabel("scheduled")).toBe("Segera");
+    expect(dropStatusLabel("sold_out")).toBe("Habis");
+    expect(dropStatusLabel("cancelled")).toBe("Dibatalkan");
+  });
+
+  it("maps order status to Indonesian labels", () => {
+    expect(orderStatusLabel("paid")).toBe("Dibayar");
+    expect(orderStatusLabel("shipped")).toBe("Dikirim");
+    expect(orderStatusLabel("settled")).toBe("Selesai");
+  });
+
+  it("maps card location and kyc status", () => {
+    expect(cardLocationLabel("platform_vault")).toBe("Di vault");
+    expect(cardLocationLabel("with_owner")).toBe("Dimiliki");
+    expect(kycStatusLabel("approved")).toBe("Disetujui");
+  });
+
+  it("maps wallet transaction type", () => {
+    expect(walletTxTypeLabel("top_up")).toBe("Top-up");
+    expect(walletTxTypeLabel("payout")).toBe("Penarikan");
+  });
+
+  it("falls back to the raw value for unknown codes (never crashes)", () => {
+    expect(dropStatusLabel("mystery")).toBe("mystery");
+    expect(orderStatusLabel("")).toBe("");
   });
 });

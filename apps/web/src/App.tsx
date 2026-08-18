@@ -115,9 +115,9 @@ function UserMenu() {
               className="pill"
               style={{
                 marginTop: 8,
-                background: "rgba(201,163,82,0.12)",
+                background: "var(--gold-bg)",
                 color: "var(--gold)",
-                border: "1px solid rgba(201,163,82,0.2)",
+                border: "1px solid var(--gold-border)",
                 fontSize: 10,
               }}
             >

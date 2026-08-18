@@ -232,10 +232,10 @@ export default function CardInfo() {
                 <div
                   style={{
                     padding: "10px 12px",
-                    background: "rgba(201,163,82,0.08)",
+                    background: "var(--gold-bg-soft)",
                     borderRadius: 8,
                     fontSize: 13,
-                    border: "1px solid rgba(201,163,82,0.18)",
+                    border: "1px solid var(--gold-border)",
                   }}
                 >
                   <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--gold)", letterSpacing: "0.06em" }}>

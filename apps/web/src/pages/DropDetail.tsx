@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link, useParams } from "react-router-dom";
+import { StatusBadge } from "../components/StatusBadge";
 import { api, formatIdr } from "../lib/api";
 
 export default function DropDetail() {
@@ -47,12 +48,7 @@ export default function DropDetail() {
           </div>
           <div className="card-pad">
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-              <span
-                className={`pill ${isLive ? "pill-success" : drop.status === "scheduled" ? "pill-info" : "pill-warn"}`}
-                style={{ fontFamily: "var(--font-mono)" }}
-              >
-                {drop.status.toUpperCase()}
-              </span>
+              <StatusBadge status={drop.status} kind="drop" style={{ fontFamily: "var(--font-mono)" }} />
               <span className="pill pill-info" style={{ fontFamily: "var(--font-mono)" }}>
                 {drop.series}
               </span>

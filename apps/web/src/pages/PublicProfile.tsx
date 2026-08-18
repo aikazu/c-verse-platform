@@ -1,23 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link, useParams } from "react-router-dom";
+import { LevelBar } from "../components/LevelBar";
 import { api } from "../lib/api";
-
-function LevelBar({ level, tier, pct }: { level: number; tier: string; pct: number }) {
-  return (
-    <div style={{ marginTop: 12 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-        <div style={{ fontFamily: "var(--font-display)", fontWeight: 500, fontSize: 14 }}>
-          Level {level}{" "}
-          <span style={{ fontWeight: 400, fontSize: 11, color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>· {tier}</span>
-        </div>
-        <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--text-muted)" }}>10 XP = 1 Level</div>
-      </div>
-      <div className="progress" style={{ height: 6, marginTop: 8 }}>
-        <div className="progress-fill" style={{ width: `${pct}%` }} />
-      </div>
-    </div>
-  );
-}
 
 export default function PublicProfile() {
   const { username } = useParams();
@@ -64,7 +48,7 @@ export default function PublicProfile() {
           {user.username ? `@${user.username} — ` : ""}
           {user.displayName}
         </h1>
-        <LevelBar level={user.level} tier={user.tier} pct={user.levelProgressPct ?? 0} />
+        <LevelBar level={user.level} tier={user.tier} pct={user.levelProgressPct ?? 0} compact />
         <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--text-muted)", marginTop: 10 }}>
           #{user.rank} · {cards.length} C.Card · {badges.length} lencana
         </div>

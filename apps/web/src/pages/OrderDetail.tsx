@@ -1,6 +1,8 @@
+import { orderStatusLabel, shipmentStatusLabel } from "@c-verse/shared";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
+import { StatusBadge } from "../components/StatusBadge";
 import { api } from "../lib/api";
 import { useToast } from "../lib/toast";
 
@@ -72,12 +74,7 @@ export default function OrderDetail() {
             </h2>
             <div style={{ fontWeight: 600, fontSize: 14, marginTop: 4 }}>{o.totalCCoin} C</div>
           </div>
-          <span
-            className={`pill ${o.status === "delivered" ? "pill-success" : o.status === "shipped" ? "pill-info" : "pill-warn"}`}
-            style={{ fontSize: 11, flexShrink: 0 }}
-          >
-            {o.status}
-          </span>
+          <StatusBadge status={o.status} kind="order" style={{ fontSize: 11, flexShrink: 0 }} />
         </div>
         <div style={{ display: "flex", gap: 20, marginTop: 16, flexWrap: "wrap", fontSize: 13 }}>
           <div>
@@ -129,7 +126,7 @@ export default function OrderDetail() {
                   className={`pill ${o.status === s ? "pill-success" : ""}`}
                   style={{ fontSize: 10, fontFamily: "var(--font-mono)" }}
                 >
-                  {s}
+                  {orderStatusLabel(s)}
                 </span>
               ))}
             </div>
@@ -241,7 +238,7 @@ export default function OrderDetail() {
               {shipments.map((s: any) => (
                 <div key={s.id} style={{ display: "flex", justifyContent: "space-between", fontFamily: "var(--font-mono)", fontSize: 11 }}>
                   <span>
-                    {s.type} → {s.toDest} · {s.status}
+                    {s.type} → {s.toDest} · {shipmentStatusLabel(s.status)}
                   </span>
                   <span style={{ color: "var(--text-muted)" }}>{s.trackingNumber ?? "—"}</span>
                 </div>
