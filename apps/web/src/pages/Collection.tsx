@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { api } from "../lib/api";
+import { ErrorState, LoadingState } from "../lib/QueryStates";
 
 function LevelBar({ level, tier, progressPct, hint }: { level: number; tier: string; progressPct: number; hint: string }) {
   return (
@@ -21,7 +22,7 @@ function LevelBar({ level, tier, progressPct, hint }: { level: number; tier: str
 
 export default function Collection() {
   const { user } = useAuth();
-  const { data, refetch, isLoading } = useQuery({ queryKey: ["profile"], queryFn: () => api.profile(), enabled: !!user });
+  const { data, refetch, isLoading, isError } = useQuery({ queryKey: ["profile"], queryFn: () => api.profile(), enabled: !!user });
   // eslint-disable-next-line react-hooks/rules-of-hooks
   const _u = user;
   void _u;
@@ -37,12 +38,8 @@ export default function Collection() {
         </a>
       </div>
     );
-  if (isLoading)
-    return (
-      <div className="muted" style={{ padding: 24, textAlign: "center" }}>
-        Memuat…
-      </div>
-    );
+  if (isLoading) return <LoadingState />;
+  if (isError || !data) return <ErrorState onRetry={() => refetch()} label="Gagal memuat koleksi" />;
   const p: any = data as any;
   const cards: any[] = p.cards ?? [];
   const badges: any[] = p.badges ?? [];

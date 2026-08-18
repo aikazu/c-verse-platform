@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
+import { ErrorState, LoadingState } from "../lib/QueryStates";
 import { useToast } from "../lib/toast";
 
 export default function Browse() {
@@ -10,13 +11,14 @@ export default function Browse() {
   const { push } = useToast();
   const [q, setQ] = useState("");
   const [bidAmt, setBidAmt] = useState<Record<string, number>>({});
-  const { data, refetch, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteQuery({
+  const { data, refetch, isLoading, isError, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteQuery({
     queryKey: ["browse", q],
     queryFn: ({ pageParam }) => api.browse({ ...(q ? { q } : {}), limit: "60", offset: String(pageParam) }),
     initialPageParam: 0,
     getNextPageParam: (last) => (last.hasMore ? last.offset + last.limit : undefined),
   });
   const cards: any[] = data?.pages.flatMap((p) => p.cards ?? p.results ?? []) ?? [];
+  const [bidBusy, setBidBusy] = useState<string | null>(null);
   async function onBid(cardId: string) {
     if (!user) {
       push("Masuk untuk menawar", "info");
@@ -27,12 +29,15 @@ export default function Browse() {
       push("Minimal 1 C", "info");
       return;
     }
+    setBidBusy(cardId);
     try {
       await api.placeBid(cardId, amt);
       push(`Penawaran ${amt} C terkirim`, "success");
       refetch();
     } catch (e: any) {
       push(e.message, "error");
+    } finally {
+      setBidBusy(null);
     }
   }
   return (
@@ -60,9 +65,9 @@ export default function Browse() {
         </button>
       </div>
       {isLoading ? (
-        <div className="muted" style={{ padding: 24, textAlign: "center" }}>
-          Memuat…
-        </div>
+        <LoadingState />
+      ) : isError ? (
+        <ErrorState onRetry={() => refetch()} label="Gagal memuat C.Card" />
       ) : cards.length === 0 ? (
         <div className="card card-pad muted" style={{ textAlign: "center", padding: 24 }}>
           Tidak ada hasil
@@ -131,13 +136,19 @@ export default function Browse() {
                       className="input"
                       type="number"
                       min={1}
+                      aria-label="Jumlah tawaran C-Coin"
                       placeholder="C"
                       value={bidAmt[card.id] ?? ""}
                       onChange={(e) => setBidAmt((s) => ({ ...s, [card.id]: Number(e.target.value) }))}
                       style={{ flex: 1, fontSize: 12, fontFamily: "var(--font-mono)" }}
                     />
-                    <button className="btn-gold" onClick={() => onBid(card.id)} style={{ padding: "7px 14px", fontSize: 12 }}>
-                      Tawar
+                    <button
+                      className="btn-gold"
+                      onClick={() => onBid(card.id)}
+                      disabled={bidBusy === card.id}
+                      style={{ padding: "7px 14px", fontSize: 12 }}
+                    >
+                      {bidBusy === card.id ? "…" : "Tawar"}
                     </button>
                   </div>
                 </div>

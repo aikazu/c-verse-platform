@@ -2,10 +2,11 @@ import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
+import { ErrorState, LoadingState } from "../lib/QueryStates";
 
 export default function Orders() {
   const { user } = useAuth();
-  const { data, isLoading } = useQuery({ queryKey: ["orders"], queryFn: () => api.orders(), enabled: !!user });
+  const { data, isLoading, isError, refetch } = useQuery({ queryKey: ["orders"], queryFn: () => api.orders(), enabled: !!user });
   if (!user)
     return (
       <div className="card card-pad" style={{ textAlign: "center", padding: 32 }}>
@@ -18,12 +19,8 @@ export default function Orders() {
         </Link>
       </div>
     );
-  if (isLoading)
-    return (
-      <div className="muted" style={{ padding: 24, textAlign: "center" }}>
-        Memuat…
-      </div>
-    );
+  if (isLoading) return <LoadingState />;
+  if (isError) return <ErrorState onRetry={() => refetch()} label="Gagal memuat pesanan" />;
   const orders: any[] = (data as any)?.orders ?? [];
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>

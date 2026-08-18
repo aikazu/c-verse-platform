@@ -1,9 +1,10 @@
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { api, formatIdr } from "../lib/api";
+import { ErrorState, LoadingState } from "../lib/QueryStates";
 
 export default function Marketplace() {
-  const { data, isLoading, refetch, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteQuery({
+  const { data, isLoading, isError, refetch, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteQuery({
     queryKey: ["marketplace"],
     queryFn: ({ pageParam }) => api.listings({ limit: "60", offset: String(pageParam) }),
     initialPageParam: 0,
@@ -38,9 +39,9 @@ export default function Marketplace() {
         </button>
       </div>
       {isLoading ? (
-        <div className="muted" style={{ padding: 24, textAlign: "center" }}>
-          Memuat…
-        </div>
+        <LoadingState />
+      ) : isError ? (
+        <ErrorState onRetry={() => refetch()} label="Gagal memuat marketplace" />
       ) : cards.length === 0 ? (
         <div className="card card-pad muted" style={{ textAlign: "center", padding: 32 }}>
           Belum ada C.Card dijual — pasang harga dari{" "}

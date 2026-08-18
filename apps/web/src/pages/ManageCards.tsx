@@ -13,6 +13,7 @@ export default function ManageCards() {
   const [vaultFee, setVaultFee] = useState<Record<string, number>>({});
   const [acceptDest, setAcceptDest] = useState<Record<string, "buyer_address" | "platform_vault">>({});
   const [acceptAddr, setAcceptAddr] = useState<Record<string, string>>({});
+  const [busyId, setBusyId] = useState<string | null>(null);
   const { data, refetch } = useQuery({ queryKey: ["profile-manage"], queryFn: () => api.profile(), enabled: !!user });
 
   // Seed input dari harga buyout aktif — string supaya kosong ("") terbedakan dari angka.
@@ -47,12 +48,15 @@ export default function ManageCards() {
     if (raw === "") {
       if (!hasExisting) return; // tidak ada perubahan — memang belum dijual
       if (!window.confirm("Hapus harga buyout C.Card ini?")) return;
+      setBusyId(card.id);
       try {
         await api.patchBuyout(card.id, null);
         push("Harga dihapus", "success");
         refetch();
       } catch (e: any) {
         push(e.message, "error");
+      } finally {
+        setBusyId(null);
       }
       return;
     }
@@ -61,12 +65,15 @@ export default function ManageCards() {
       push("Minimal 1 C", "info");
       return;
     }
+    setBusyId(card.id);
     try {
       await api.setBuyout(card.id, v);
       push(`Dijual ${v} C`, "success");
       refetch();
     } catch (e: any) {
       push(e.message, "error");
+    } finally {
+      setBusyId(null);
     }
   }
   async function onVaultShip(card: any) {
@@ -76,12 +83,15 @@ export default function ManageCards() {
       push("Alamat minimal 10 karakter", "info");
       return;
     }
+    setBusyId(card.id);
     try {
       await api.vaultShipout(card.id, addr, fee);
       push("Pengiriman dibuat", "success");
       refetch();
     } catch (e: any) {
       push(e.message, "error");
+    } finally {
+      setBusyId(null);
     }
   }
   async function onAccept(card: any) {
@@ -91,12 +101,15 @@ export default function ManageCards() {
       push("Alamat minimal 10 karakter", "info");
       return;
     }
+    setBusyId(card.id);
     try {
       await api.acceptBidOnCard(card.id, destination, destination === "buyer_address" ? addr : undefined);
       push("Penawaran diterima", "success");
       refetch();
     } catch (e: any) {
       push(e.message, "error");
+    } finally {
+      setBusyId(null);
     }
   }
   return (
@@ -161,7 +174,12 @@ export default function ManageCards() {
                   onChange={(e) => setBuyout((s) => ({ ...s, [card.id]: e.target.value }))}
                   style={{ flex: 1, fontSize: 12, fontFamily: "var(--font-mono)" }}
                 />
-                <button className="btn-gold" onClick={() => onSetBuyout(card)} style={{ fontSize: 12, padding: "7px 14px" }}>
+                <button
+                  className="btn-gold"
+                  onClick={() => onSetBuyout(card)}
+                  disabled={busyId === card.id}
+                  style={{ fontSize: 12, padding: "7px 14px" }}
+                >
                   Simpan
                 </button>
               </div>
@@ -200,7 +218,12 @@ export default function ManageCards() {
                       style={{ fontSize: 12 }}
                     />
                   )}
-                  <button className="btn-gold" onClick={() => onAccept(card)} style={{ fontSize: 12, fontFamily: "var(--font-mono)" }}>
+                  <button
+                    className="btn-gold"
+                    onClick={() => onAccept(card)}
+                    disabled={busyId === card.id}
+                    style={{ fontSize: 12, fontFamily: "var(--font-mono)" }}
+                  >
                     Terima →
                   </button>
                 </div>
@@ -237,7 +260,12 @@ export default function ManageCards() {
                       onChange={(e) => setVaultFee((s) => ({ ...s, [card.id]: Number(e.target.value) }))}
                       style={{ width: 100, fontSize: 12, fontFamily: "var(--font-mono)" }}
                     />
-                    <button className="btn-gold" onClick={() => onVaultShip(card)} style={{ fontSize: 12, flex: 1 }}>
+                    <button
+                      className="btn-gold"
+                      onClick={() => onVaultShip(card)}
+                      disabled={busyId === card.id}
+                      style={{ fontSize: 12, flex: 1 }}
+                    >
                       Kirim
                     </button>
                   </div>

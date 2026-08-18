@@ -6,7 +6,7 @@ import { useAuth } from "../lib/auth";
 export default function Home() {
   const { user } = useAuth();
   const { data: wallet } = useQuery({ queryKey: ["wallet"], queryFn: () => api.wallet(), enabled: !!user });
-  const { data: drops } = useQuery({ queryKey: ["drops-home"], queryFn: () => api.drops({ status: "live" }) });
+  const { data: drops, isLoading: dropsLoading } = useQuery({ queryKey: ["drops-home"], queryFn: () => api.drops({ status: "live" }) });
   if (!user)
     return (
       <div className="card card-pad" style={{ textAlign: "center", padding: 32 }}>
@@ -91,10 +91,16 @@ export default function Home() {
               </div>
             </Link>
           ))}
-          {live.length === 0 && (
+          {dropsLoading ? (
             <div className="muted" style={{ fontFamily: "var(--font-mono)", fontSize: 12 }}>
-              Belum ada drop
+              Memuat…
             </div>
+          ) : (
+            live.length === 0 && (
+              <div className="muted" style={{ fontFamily: "var(--font-mono)", fontSize: 12 }}>
+                Belum ada drop
+              </div>
+            )
           )}
         </div>
       </div>

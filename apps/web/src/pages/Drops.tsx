@@ -2,6 +2,7 @@ import { useInfiniteQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { api, formatIdr } from "../lib/api";
+import { ErrorState, LoadingState } from "../lib/QueryStates";
 
 function Badge({ status }: { status: string }) {
   const map: Record<string, string> = {
@@ -26,7 +27,7 @@ function Badge({ status }: { status: string }) {
 export default function Drops() {
   const [filter, setFilter] = useState("all");
   const [search, setSearch] = useState("");
-  const { data, isLoading, refetch, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteQuery({
+  const { data, isLoading, isError, refetch, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteQuery({
     queryKey: ["drops", filter, search],
     queryFn: ({ pageParam }) =>
       api.drops({ ...(filter !== "all" ? { status: filter } : {}), ...(search ? { search } : {}), limit: "60", offset: String(pageParam) }),
@@ -74,9 +75,9 @@ export default function Drops() {
       </div>
 
       {isLoading ? (
-        <div className="muted" style={{ padding: 24, textAlign: "center" }}>
-          Memuat…
-        </div>
+        <LoadingState />
+      ) : isError ? (
+        <ErrorState onRetry={() => refetch()} label="Gagal memuat drop" />
       ) : !drops.length ? (
         <div className="card card-pad muted" style={{ textAlign: "center", padding: 32 }}>
           Belum ada drop untuk filter ini

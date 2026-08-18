@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ApiError, api, formatIdr } from "../lib/api";
 import { useAuth } from "../lib/auth";
+import { ErrorState, LoadingState } from "../lib/QueryStates";
 import { useToast } from "../lib/toast";
 
 export default function Wallet() {
@@ -16,7 +17,7 @@ export default function Wallet() {
   // Midtrans Snap instruction untuk pembayaran yang tidak melempar redirect (fallback tampilkan token)
   const [snapPanel, setSnapPanel] = useState<{ snapToken: string; amountCcoin: number; expiresLabel: string } | null>(null);
 
-  const { data, refetch, isLoading } = useQuery({ queryKey: ["wallet"], queryFn: () => api.wallet(), enabled: !!user });
+  const { data, refetch, isLoading, isError } = useQuery({ queryKey: ["wallet"], queryFn: () => api.wallet(), enabled: !!user });
   const isCreator = user?.role === "creator"; // payout self-service hanya untuk kreator
 
   // Kembali dari Midtrans: ?order_id=...&status_code=... — saldo dikredit webhook, bukan redirect.
@@ -94,12 +95,8 @@ export default function Wallet() {
         </a>
       </div>
     );
-  if (isLoading)
-    return (
-      <div className="muted" style={{ padding: 24, textAlign: "center" }}>
-        Memuat…
-      </div>
-    );
+  if (isLoading) return <LoadingState />;
+  if (isError || !data) return <ErrorState onRetry={() => refetch()} label="Gagal memuat dompet" />;
   const w: any = (data as any).wallet;
   const txs: any[] = (data as any).transactions ?? [];
   const rate = (data as any).rate ?? 10000;

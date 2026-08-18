@@ -1,16 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { api } from "../lib/api";
+import { ErrorState, LoadingState } from "../lib/QueryStates";
 
 export default function Leaderboard() {
-  const { data, isLoading } = useQuery({ queryKey: ["leaderboard"], queryFn: () => api.leaderboard(20) });
+  const { data, isLoading, isError, refetch } = useQuery({ queryKey: ["leaderboard"], queryFn: () => api.leaderboard(20) });
   const { data: badgesData } = useQuery({ queryKey: ["badges"], queryFn: () => api.badges() });
-  if (isLoading)
-    return (
-      <div className="muted" style={{ padding: 24, textAlign: "center" }}>
-        Memuat…
-      </div>
-    );
+  if (isLoading) return <LoadingState />;
+  if (isError) return <ErrorState onRetry={() => refetch()} label="Gagal memuat peringkat" />;
   const board: any[] = (data as any)?.leaderboard ?? [];
   const badges: any[] = (badgesData as any)?.badges ?? [];
   const tierStyle: Record<string, { bg: string; color: string }> = {

@@ -20,6 +20,8 @@ export default function CreatorDashboard() {
   });
   const [applyBusy, setApplyBusy] = useState(false);
   const [applied, setApplied] = useState(false);
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [creating, setCreating] = useState(false);
 
   const { data: dropsData, refetch } = useQuery({ queryKey: ["creator-drops"], queryFn: () => api.drops({}) });
 
@@ -71,6 +73,13 @@ export default function CreatorDashboard() {
   const myDrops: any[] = (dropsData as any)?.drops?.filter((d: any) => d.creatorId === user.id || (user.role as string) === "admin") ?? [];
 
   async function onPublish(id: string, status: string) {
+    if (
+      status === "cancelled" &&
+      !window.confirm("Batalkan drop ini? Drop yang sedang tayang akan dihentikan dan aksi ini tidak dapat dibatalkan.")
+    ) {
+      return;
+    }
+    setBusyId(id);
     try {
       await api.publishDrop(id, status);
       push(
@@ -80,11 +89,14 @@ export default function CreatorDashboard() {
       refetch();
     } catch (err: any) {
       push(err.message, "error");
+    } finally {
+      setBusyId(null);
     }
   }
 
   async function onCreate(e: React.FormEvent) {
     e.preventDefault();
+    setCreating(true);
     try {
       await api.createDrop({
         title: form.title,
@@ -99,6 +111,8 @@ export default function CreatorDashboard() {
       setForm({ title: "", series: "", narrative: "", totalUnits: 15, priceCcoin: 30, releaseDate: today, releaseTime: "12:00" });
     } catch (err: any) {
       push(err.message, "error");
+    } finally {
+      setCreating(false);
     }
   }
 
@@ -244,8 +258,8 @@ export default function CreatorDashboard() {
           <div className="muted" style={{ fontSize: 11 }}>
             Window raffle 24 jam otomatis setelah rilis; pembagian via draw.
           </div>
-          <button className="btn-gold" style={{ padding: "11px", width: "100%" }}>
-            Buat Draft
+          <button className="btn-gold" disabled={creating} style={{ padding: "11px", width: "100%" }}>
+            {creating ? "Membuat…" : "Buat Draft"}
           </button>
         </form>
         <div className="card">
@@ -292,6 +306,7 @@ export default function CreatorDashboard() {
                       <button
                         className="btn-gold"
                         onClick={() => onPublish(d.id, "scheduled")}
+                        disabled={busyId === d.id}
                         style={{ fontSize: 11, padding: "6px 12px" }}
                       >
                         Publish
@@ -301,6 +316,7 @@ export default function CreatorDashboard() {
                       <button
                         className="btn-ghost"
                         onClick={() => onPublish(d.id, d.status === "scheduled" ? "draft" : "cancelled")}
+                        disabled={busyId === d.id}
                         style={{ fontSize: 11, padding: "6px 12px" }}
                       >
                         Batalkan
