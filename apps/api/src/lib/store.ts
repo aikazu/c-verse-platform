@@ -1,5 +1,5 @@
 // Domain types (docs/05-data-model) — dipakai mapper reads.ts & route responses.
-// Enum types canonical di @c-verse/shared; store.ts import + extend untuk legacy values.
+// Enum types canonical di @c-verse/shared — tidak ada legacy extend.
 
 import type {
   BidStatus as SharedBidStatus,
@@ -19,16 +19,12 @@ import type {
 
 // ── Types (align docs/05-data-model) ───────────────────────────────────────
 export type UserRole = "user" | "creator" | "admin";
-export type LegacyCollector = "collector"; // alias
-export type AnyRole = UserRole | LegacyCollector;
-
-// Legacy extended types: shared + extra values masih ada di DB/migration lama
-export type DropStatus = SharedDropStatus | "review" | "approved" | "production" | "ended";
-export type OrderStatus = SharedOrderStatus | "pending" | "processing" | "cancelled";
+export type DropStatus = SharedDropStatus;
+export type OrderStatus = SharedOrderStatus;
 export type DeliveryOption = SharedDeliveryOption;
 export type EscrowStatus = SharedEscrowStatus;
 export type CardLocation = SharedCardLocation;
-export type CardStatus = SharedCardStatus | "available" | "listed" | "transferred";
+export type CardStatus = SharedCardStatus;
 export type ShipmentType = SharedShipmentType;
 export type ShipmentToDest = SharedShipmentToDest;
 export type ShipmentStatus = SharedShipmentStatus;
@@ -36,24 +32,23 @@ export type BidStatus = SharedBidStatus;
 export type VerifyStatus = SharedVerifyStatus;
 export type KycStatus = SharedKycStatus;
 export type WalletTxType = SharedWalletTxType;
-export type ListingStatus = never; // legacy auction/listing removed (C-07 FINAL)
 
 export interface User {
   id: string;
   email: string;
   displayName: string;
   username?: string | null;
-  usernameIsAuto?: boolean; // true = username masih hasil generate default
-  role: AnyRole;
+  usernameIsAuto?: boolean;
+  role: UserRole;
   avatarUrl: string | null;
-  xp: number; // legacy
+  xp: number; // total_xp dari DB (canonical)
   totalXp: number;
   level: number;
   cumulativeSpendCcoin: number;
   isAnonymous: boolean;
-  flagReason: string | null; // docs 05: fraud flag reason (admin manual)
-  consentAnalyticsDetail: boolean; // docs 09 3.4
-  consentDataMarket: boolean; // docs 09 3.4
+  flagReason: string | null;
+  consentAnalyticsDetail: boolean;
+  consentDataMarket: boolean;
   createdAt: string;
 }
 
@@ -80,13 +75,13 @@ export interface Drop {
   unsignedCount: number;
   priceUnsignedCCoin: number;
   priceSignedCCoin: number;
-  priceCcoin: number; // canonical single price (MVP platform-produced)
+  priceCcoin: number;
   status: DropStatus;
-  dropAt: string | null; // legacy
+  dropAt: string | null; // legacy DB column — fallback jika dropStartAt null
   dropStartAt: string | null;
   dropEndAt: string | null;
-  raffleEndAt?: string | null; // C-15 hybrid raffle window
-  drawnAt?: string | null; // idempotency marker for draw_drop
+  raffleEndAt?: string | null;
+  drawnAt?: string | null;
   creatorId: string;
   creatorName: string;
   soldCount: number;
@@ -100,16 +95,15 @@ export interface Card {
   unitNumber: number;
   variant: "unsigned" | "signed";
   status: CardStatus;
-  // new canonical
   location: CardLocation;
-  buyoutPriceCcoin: number | null; // null = not listed
+  buyoutPriceCcoin: number | null;
   nfcConfigured: boolean;
   qcStatus: "pending" | "passed" | "failed";
   ownerId: string | null;
   nfcUid: string;
   nfcShortId: string;
   verifyStatus: VerifyStatus;
-  lastCtr: number; // NTAG 424 DNA SUN read counter (anti-replay)
+  lastCtr: number;
   createdAt?: string;
 }
 
@@ -118,14 +112,14 @@ export interface Wallet {
   balanceCCoin: number;
   totalTopupCCoin: number;
   totalSpentCCoin: number;
-  holdPayoutUntil: string | null; // docs 05 wallets.hold_payout_until
+  holdPayoutUntil: string | null;
   updatedAt?: string;
 }
 
 export interface WalletTx {
   id: string;
   userId: string;
-  type: string; // topup/checkout/... may be top_up etc.
+  type: string;
   amountCCoin: number;
   balanceAfterCCoin: number;
   refType: string | null;
@@ -139,8 +133,8 @@ export interface Order {
   id: string;
   userId: string;
   dropId: string;
-  cardIds: string[]; // legacy multi
-  cardId: string | null; // canonical 1:1
+  cardIds: string[]; // legacy DB column — multi-card support
+  cardId: string | null;
   totalCCoin: number;
   totalIdr: number;
   status: OrderStatus;
@@ -238,7 +232,7 @@ export interface AuditLog {
 
 export interface CreatorPageView {
   id: string;
-  creatorId: string; // FK creators.id
+  creatorId: string;
   viewedAt: string;
   referrer: string | null;
   city: string | null;
@@ -252,7 +246,7 @@ export interface QcDefect {
   severity: "minor" | "major" | "critical";
   notes: string | null;
   resolution: "redistribute" | "destroy" | "return_vendor" | null;
-  redistributeDiscountPct: number | null; // 10-30 if redistribute
+  redistributeDiscountPct: number | null;
   createdAt: string;
 }
 

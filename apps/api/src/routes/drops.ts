@@ -15,7 +15,7 @@ import { getSupabase } from "../lib/supabase.js";
 const app = new Hono();
 
 // Status yang boleh dilihat publik (paritas RLS drops_select_public).
-const PUBLIC_DROP_STATUSES = ["live", "published", "sold_out", "closed", "ended", "scheduled"];
+const PUBLIC_DROP_STATUSES = ["live", "published", "sold_out", "closed", "scheduled"];
 
 app.get("/", async (c) => {
   const q = c.req.query();
@@ -40,10 +40,6 @@ app.get("/", async (c) => {
     published: 0,
     scheduled: 1,
     draft: 2,
-    review: 2,
-    approved: 2,
-    production: 2,
-    ended: 3,
     sold_out: 3,
     closed: 4,
     cancelled: 4,
@@ -74,7 +70,7 @@ app.get("/:id", async (c) => {
     getUserById(d.creatorId),
     getCreatorByUserId(d.creatorId),
   ]);
-  const soldCards = cards.filter((ca) => ca.status !== "available");
+  const soldCards = cards.filter((ca) => ca.status !== "inventory");
   return c.json({
     ...d,
     dropStartAt: d.dropStartAt ?? d.dropAt,
@@ -87,11 +83,11 @@ app.get("/:id", async (c) => {
     creatorHandle: creatorRec?.handle ?? creatorUser?.username ?? null,
     creatorUsername: creatorUser?.username ?? null,
     cardsPreview: cards.slice(0, 6),
-    stats: { total: cards.length, sold: soldCards.length, available: cards.filter((ca) => ca.status === "available").length },
+    stats: { total: cards.length, sold: soldCards.length, available: cards.filter((ca) => ca.status === "inventory").length },
   });
 });
 
-const LEGACY_STATUS_MAP: Record<string, DropStatus> = { review: "draft", approved: "scheduled", production: "scheduled", ended: "closed" };
+const LEGACY_STATUS_MAP: Record<string, DropStatus> = {};
 
 /**
  * Jadwal raffle drop (docs 03 Flow 5): rilis default HARI INI 12:00 WIB;
@@ -181,7 +177,7 @@ app.post(
         drop_id: id,
         unit_number: unit,
         variant: unit <= signedCount ? "signed" : "unsigned",
-        status: "available",
+        status: "inventory",
         location: "platform_stock",
         buyout_price_ccoin: null,
         nfc_configured: false,
@@ -224,19 +220,7 @@ app.patch(
   zValidator(
     "json",
     z.object({
-      status: z.enum([
-        "draft",
-        "scheduled",
-        "published",
-        "live",
-        "sold_out",
-        "closed",
-        "cancelled",
-        "review",
-        "approved",
-        "production",
-        "ended",
-      ]),
+      status: z.enum(["draft", "scheduled", "published", "live", "sold_out", "closed", "cancelled"]),
     }),
   ),
   async (c) => {

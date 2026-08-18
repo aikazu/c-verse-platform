@@ -157,7 +157,7 @@ app.post("/midtrans/webhook", async (c) => {
     p_user: parsed.userId,
     p_amount: amountCcoin,
     p_type: "top_up",
-    p_ref_type: "topup",
+    p_ref_type: "top_up",
     p_ref_id: payload.orderId,
     p_idem: payload.orderId,
   });

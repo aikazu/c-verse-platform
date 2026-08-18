@@ -26,10 +26,10 @@ export async function listDrops(filter?: DropFilter): Promise<Drop[]> {
   } else if (filter.viewerRole === "admin") {
     // admin lihat semua — tanpa filter status tambahan
   } else if (filter.viewerId) {
-    const publicStatuses = filter.publicStatuses ?? ["live", "published", "sold_out", "closed", "ended", "scheduled"];
+    const publicStatuses = filter.publicStatuses ?? ["live", "published", "sold_out", "closed", "scheduled"];
     query = query.or(`creator_id.eq.${filter.viewerId},status.in.(${publicStatuses.join(",")})`);
   } else {
-    const publicStatuses = filter.publicStatuses ?? ["live", "published", "sold_out", "closed", "ended", "scheduled"];
+    const publicStatuses = filter.publicStatuses ?? ["live", "published", "sold_out", "closed", "scheduled"];
     query = query.in("status", publicStatuses);
   }
 

@@ -61,7 +61,7 @@ app.get("/:id", async (c) => {
   if (user.flagReason) return c.json({ error: "Creator tidak ditemukan" }, 404); // suspended: sembunyikan storefront
   const [rec] = await Promise.all([getCreatorByUserId(user.id), logCreatorView(user.id, c, recByHandle)]);
   const drops = (await listDrops())
-    .filter((d) => d.creatorId === user?.id && ["published", "live", "sold_out", "scheduled", "ended", "closed"].includes(d.status))
+    .filter((d) => d.creatorId === user?.id && ["published", "live", "sold_out", "scheduled", "closed"].includes(d.status))
     .sort(
       (a, b) => new Date(b.dropStartAt ?? b.dropAt ?? b.createdAt).getTime() - new Date(a.dropStartAt ?? a.dropAt ?? a.createdAt).getTime(),
     );

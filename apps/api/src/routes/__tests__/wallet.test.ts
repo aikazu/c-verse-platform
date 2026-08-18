@@ -41,7 +41,7 @@ vi.mock("../../lib/reads/wallet.js", () => ({
       {
         id: "tx-1",
         userId: "user-1",
-        type: "topup",
+        type: "top_up",
         amountCCoin: 100,
         balanceAfterCCoin: 200,
         refType: null,
