@@ -1,4 +1,4 @@
--- C.Verse — Auth & username (squashed phase 2/6)
+-- C.Verse — Auth & username (squashed phase 2/7)
 -- Signup Supabase Auth -> baris public.users otomatis via trigger.
 -- Username default manusiawi (prefix-email + 4 digit acak, anti-duplikat).
 -- Dedup akun berdasarkan EMAIL KANONIK (gmail/googlemail: buang titik & "+tag").

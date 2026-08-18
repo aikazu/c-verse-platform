@@ -1,4 +1,4 @@
--- C.Verse — Privileges + payout batch (squashed phase 5/6)
+-- C.Verse — Privileges + payout batch (squashed phase 5/7)
 -- GRANT minimal per role (jangan `grant all` ke anon/auth — baris tetap difilter RLS)
 -- + revoke/grant EXECUTE RPC (least-privilege, cegah eksploit PostgREST anon)
 -- + RPC cron payout_batch_run.

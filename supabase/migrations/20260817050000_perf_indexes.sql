@@ -1,4 +1,4 @@
--- C.Verse — Performance indexes (squashed phase 6/6)
+-- C.Verse — Performance indexes (squashed phase 6/7)
 -- Index hot-path: checkout/draw_drop (pick kartu tersedia), place_bid/accept_bid
 -- (top bid aktif per kartu), set_buyout/cards guard (count listing aktif/owner),
 -- badge trigger (index-only scan), leaderboard / creator list / admin KYC /

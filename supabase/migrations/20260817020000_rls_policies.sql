@@ -1,4 +1,4 @@
--- C.Verse — RLS policy matrix + write guards (squashed phase 3/6)
+-- C.Verse — RLS policy matrix + write guards (squashed phase 3/7)
 -- Default deny: RLS enable semua tabel publik, policy per-operation per matriks.
 -- service_role bypass otomatis. Guard function prevent tulis langsung kolom
 -- sensitif oleh role authenticated/anon (hanya lewat RPC security definer).

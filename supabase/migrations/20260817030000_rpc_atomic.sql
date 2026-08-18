@@ -1,4 +1,4 @@
--- C.Verse — Atomic RPC + idempotency + badge triggers (squashed phase 4/6)
+-- C.Verse — Atomic RPC + idempotency + badge triggers (squashed phase 4/7)
 -- Semua aksi uang & stok lewat RPC single-transaction (security definer).
 -- Setiap fungsi TULIS SATU KALI dalam versi FINAL (semua bug-fix patch
 -- 16500000–16560000 sudah dilebur ke sini). XP = 1 C-Coin spend = 1 XP.

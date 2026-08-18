@@ -1,4 +1,4 @@
--- C.Verse — Foundation (squashed phase 1/6)
+-- C.Verse — Foundation (squashed phase 1/7)
 -- Semua enum, tabel, constraint, trigger `updated_at`, dan index basis.
 -- DDL FINAL: setiap objek ditulis satu kali (tanpa create-or-replace berantai).
 
