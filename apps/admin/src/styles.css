@@ -25,9 +25,9 @@ html, body { margin: 0; }
   border-bottom: 1px solid var(--border);
 }
 .admin-sidebar-logo {
-  font-family: 'Cormorant Garamond', serif;
-  font-size: 20px;
-  font-weight: 600;
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 400;
   letter-spacing: 0.04em;
 }
 .admin-sidebar-logo span { color: var(--gold); }
@@ -143,7 +143,7 @@ html, body { margin: 0; }
   box-shadow: 0 16px 40px rgba(0,0,0,0.35);
 }
 .admin-login-brand { text-align: center; margin-bottom: 14px; }
-.admin-login-logo { font-family: 'Cormorant Garamond', serif; font-size: 26px; font-weight: 600; letter-spacing: 0.04em; }
+.admin-login-logo { font-family: var(--font-display); font-size: 22px; font-weight: 400; letter-spacing: 0.04em; }
 .admin-login-logo span { color: var(--gold); }
 .admin-login-sub { font-size: 10px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
 .admin-login-title { font-size: 18px; font-weight: 800; text-align: center; }
@@ -161,7 +161,7 @@ html, body { margin: 0; }
 
 /* ── Admin page chrome ──────────────────────────────────────────────────── */
 .admin-page { display: flex; flex-direction: column; gap: 16px; }
-.admin-page-head h2 { font-family: 'Cormorant Garamond', serif; font-size: 22px; font-weight: 600; }
+.admin-page-head h2 { font-family: var(--font-display); font-size: 19px; font-weight: 400; letter-spacing: 0.02em; }
 .admin-page-head .muted { font-size: 12px; }
 .admin-table-head {
   padding: 12px 14px;
