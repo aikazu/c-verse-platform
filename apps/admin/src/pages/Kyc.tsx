@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { apiFetch } from "../lib/api";
 import type { KycRow } from "../lib/types";
-import { errMessage } from "../lib/utils";
+import { errMessage, maskNik } from "../lib/utils";
 
 export function KycPage() {
   const [rows, setRows] = useState<KycRow[]>([]);
@@ -63,7 +63,7 @@ export function KycPage() {
                   <tr key={r.id}>
                     <td className="mono fs-11">{r.user_id.slice(0, 8)}</td>
                     <td style={{ fontSize: 12, fontWeight: 600 }}>{r.full_name}</td>
-                    <td className="mono fs-11">{r.nik}</td>
+                    <td className="mono fs-11">{maskNik(r.nik)}</td>
                     <td>
                       <span className="pill pill-info">{r.status}</span>
                     </td>
