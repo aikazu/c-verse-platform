@@ -195,7 +195,7 @@ begin
   -- Pilih kartu random dari pool (premium = signed)
   select * into v_card from cards
   where drop_id = p_drop_id and owner_id is null
-    and coalesce(card_status_new::text, '') <> 'defect'
+    and coalesce(status::text, '') <> 'defect'
     and variant = (case when p_pool = 'premium' then 'signed'::card_variant else 'unsigned'::card_variant end)
   order by random() limit 1
   for update skip locked;
@@ -210,7 +210,7 @@ begin
           'checkout-' || v_user || '-' || p_drop_id);
 
   update cards set owner_id = v_user,
-    card_status_new = 'bound',
+    status = 'bound',
     location = (case when p_delivery = 'vault' then 'platform_vault'::card_location else 'with_owner'::card_location end)
   where id = v_card.id;
 
@@ -336,7 +336,7 @@ begin
       if not found then exit; end if;
 
       v_price := coalesce(v_drop.price_signed_ccoin, v_drop.price_ccoin, v_drop.price_unsigned_ccoin);
-      update cards set owner_id = v_entry.user_id, card_status_new = 'bound', location = 'platform_vault'::card_location
+      update cards set owner_id = v_entry.user_id, status = 'bound', location = 'platform_vault'::card_location
       where id = v_card.id;
       update drops set sold_count = sold_count + 1,
         status = (case when sold_count + 1 >= total_units then 'sold_out'::drop_status else status end)
@@ -378,7 +378,7 @@ begin
     exit when not found;
 
     v_price := coalesce(v_drop.price_ccoin, v_drop.price_unsigned_ccoin);
-    update cards set owner_id = v_entry.user_id, card_status_new = 'bound', location = 'platform_vault'::card_location
+    update cards set owner_id = v_entry.user_id, status = 'bound', location = 'platform_vault'::card_location
     where id = v_card.id;
     update drops set sold_count = sold_count + 1,
       status = (case when sold_count + 1 >= total_units then 'sold_out'::drop_status else status end)
@@ -535,7 +535,7 @@ begin
     update bids set status = 'outbid', outbid_at = now() where id = v_other.id;
   end loop;
 
-  update cards set owner_id = v_bid.bidder_id, buyout_price_ccoin = null, card_status_new = 'sold',
+  update cards set owner_id = v_bid.bidder_id, buyout_price_ccoin = null, status = 'sold',
     location = (case when p_destination = 'platform_vault' then 'platform_vault'::card_location else 'with_owner'::card_location end)
   where id = p_card_id;
 
@@ -567,10 +567,10 @@ begin
   end if;
 
   update cards set buyout_price_ccoin = p_price,
-    card_status_new = (case
-      when p_price is null and card_status_new = 'listed_buyout'::card_status_new then 'sold'::card_status_new
-      when p_price is not null and card_status_new in ('sold'::card_status_new, 'bound'::card_status_new) then 'listed_buyout'::card_status_new
-      else card_status_new end)
+    status = (case
+      when p_price is null and status = 'listed_buyout'::card_status then 'sold'::card_status
+      when p_price is not null and status in ('sold'::card_status, 'bound'::card_status) then 'listed_buyout'::card_status
+      else status end)
   where id = p_card_id
   returning * into v_card;
   return v_card;
@@ -623,7 +623,7 @@ begin
     update bids set status = 'outbid', outbid_at = now() where id = v_bid.id;
   end loop;
 
-  update cards set owner_id = v_user, buyout_price_ccoin = null, card_status_new = 'sold' where id = p_card_id
+  update cards set owner_id = v_user, buyout_price_ccoin = null, status = 'sold' where id = p_card_id
   returning * into v_card;
 
   insert into ownership_history (id, card_id, owner_id, acquired_via)

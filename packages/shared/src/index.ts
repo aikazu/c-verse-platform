@@ -95,6 +95,7 @@ export const walletTxTypeSchema = z.enum([
   "refund",
   "adjustment",
   "platform_buy",
+  "platform_revenue",
 ]);
 export type WalletTxType = z.infer<typeof walletTxTypeSchema>;
 

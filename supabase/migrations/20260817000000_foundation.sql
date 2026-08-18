@@ -1,23 +1,21 @@
 -- C.Verse — Foundation (squashed phase 1/6)
 -- Semua enum, tabel, constraint, trigger `updated_at`, dan index basis.
 -- DDL FINAL: setiap objek ditulis satu kali (tanpa create-or-replace berantai).
--- State setara dengan hasil 22 migration lama yang telah di-squash.
 
 create extension if not exists "pgcrypto";
 
 -- ══════════════════════════════════════════════════════════════════════════
--- Enums (nilai FINAL)
+-- Enums (nilai FINAL — bersih, tanpa legacy)
 -- ══════════════════════════════════════════════════════════════════════════
-create type public.user_role as enum ('collector','creator','admin','user');
-create type public.drop_status as enum ('draft','review','approved','production','scheduled','live','ended','cancelled','published','sold_out','closed');
-create type public.order_status as enum ('pending','paid','processing','shipped','delivered','cancelled','refunded','qc','settled','disputed');
-create type public.wallet_tx_type as enum ('topup','checkout','refund','payout','royalty','fee','hold','release','top_up','escrow_hold','escrow_release','settlement','adjustment','platform_buy','admin_seed');
+create type public.user_role as enum ('user','creator','admin');
+create type public.drop_status as enum ('draft','scheduled','published','live','sold_out','closed','cancelled');
+create type public.order_status as enum ('paid','qc','shipped','delivered','settled','refunded','disputed');
+create type public.wallet_tx_type as enum ('top_up','checkout','escrow_hold','escrow_release','settlement','payout','royalty','refund','adjustment','platform_buy','platform_revenue');
 create type public.verify_status as enum ('verified','tamper_detected','registered','unknown');
 create type public.kyc_status as enum ('pending','approved','rejected');
 create type public.card_variant as enum ('unsigned','signed');
-create type public.card_status as enum ('available','sold','listed','transferred');
+create type public.card_status as enum ('inventory','bound','listed_buyout','bid_pending','sold','tampered','defect','lost');
 create type public.card_location as enum ('platform_stock','with_owner','platform_vault');
-create type public.card_status_new as enum ('inventory','bound','listed_buyout','bid_pending','sold','tampered','defect','lost');
 create type public.delivery_option as enum ('shipping','vault');
 create type public.escrow_status as enum ('held','released');
 create type public.shipment_type as enum ('primary_shipping','primary_vault','secondary_buyout','secondary_bid','vault_shipout');
@@ -47,7 +45,7 @@ create table public.users (
   id uuid primary key,
   email text not null unique,
   display_name text not null,
-  role user_role not null default 'collector',
+  role user_role not null default 'user',
   avatar_url text,
   xp integer not null default 0,
   created_at timestamptz not null default now(),
@@ -107,7 +105,7 @@ create table public.cards (
   drop_id text not null references public.drops(id) on delete cascade,
   unit_number integer not null check (unit_number >= 1),
   variant card_variant not null,
-  status card_status not null default 'available',
+  status card_status not null default 'inventory',
   owner_id uuid references public.users(id) on delete set null,
   nfc_uid text not null unique,
   nfc_short_id text not null unique,
@@ -118,7 +116,6 @@ create table public.cards (
   buyout_price_ccoin integer check (buyout_price_ccoin is null or buyout_price_ccoin >= 1),
   nfc_configured boolean not null default false,
   qc_status text not null default 'pending' check (qc_status in ('pending','passed','failed')),
-  card_status_new card_status_new,
   last_ctr integer not null default 0,
   unique (drop_id, unit_number)
 );
@@ -383,8 +380,8 @@ create index if not exists idx_ownership_card on public.ownership_history(card_i
 create index if not exists idx_ownership_owner_card on public.ownership_history(owner_id, card_id);
 create index if not exists idx_disputes_reporter on public.disputes(reporter_id);
 create index if not exists idx_audit_admin on public.admin_audit_log(admin_user_id, created_at desc);
-create index if not exists idx_audit_action on public.admin_audit_log(action);
-create index if not exists idx_audit_target on public.admin_audit_log(target_table, target_id);
+create index if not exists idx_audit_action on public.audit_log(action);
+create index if not exists idx_audit_target on public.audit_log(target_table, target_id);
 create index if not exists idx_notifications_user on public.notifications(user_id, created_at desc);
 create index if not exists idx_payouts_user on public.payouts(user_id);
 create index if not exists idx_payouts_batch on public.payouts(batch_id);

@@ -78,7 +78,7 @@ create policy drops_select_public on public.drops for select
 create policy cards_select on public.cards for select
   using (
     owner_id = auth.uid()
-    or coalesce(card_status_new::text, status::text) not in ('inventory','available')
+    or coalesce(status::text, '') <> 'inventory'
   );
 create policy cards_update_owner_buyout on public.cards for update
   using (owner_id = auth.uid()) with check (owner_id = auth.uid());
@@ -89,7 +89,6 @@ begin
   if public.is_service_role() then return new; end if;
   if new.owner_id is distinct from old.owner_id
      or new.status is distinct from old.status
-     or new.card_status_new is distinct from old.card_status_new
      or new.nfc_uid is distinct from old.nfc_uid
      or new.nfc_short_id is distinct from old.nfc_short_id
      or new.verify_status is distinct from old.verify_status

@@ -62,18 +62,17 @@ on conflict (id) do nothing;
 -- ── cards (generate_series mirror store.ts: unit <= sold_count terjual;
 --    owner: i%3=0 demo, i%2=0 admin, selain itu hype; unit 3 aespa listed buyout 45)
 --    verify_status: 'verified' HANYA via tap CMAC — seed 'registered' (sold) / 'unknown'. ──
-insert into public.cards (id, drop_id, unit_number, variant, status, card_status_new, owner_id, nfc_uid, nfc_short_id, verify_status, location, buyout_price_ccoin, nfc_configured, qc_status)
+insert into public.cards (id, drop_id, unit_number, variant, status, owner_id, nfc_uid, nfc_short_id, verify_status, location, buyout_price_ccoin, nfc_configured, qc_status)
 select
   'card-' || d.id || '-' || lpad(i::text, 2, '0'),
   d.id,
   i,
   case when i <= d.signed_count then 'signed' else 'unsigned' end::card_variant,
-  case when i <= d.sold_count then 'sold' else 'available' end::card_status,
   case
-    when d.id = 'drop-aespa-2025' and i = 3 then 'listed_buyout'
-    when i <= d.sold_count then 'bound'
-    else 'inventory'
-  end::card_status_new,
+    when d.id = 'drop-aespa-2025' and i = 3 then 'listed_buyout'::card_status
+    when i <= d.sold_count then 'bound'::card_status
+    else 'inventory'::card_status
+  end,
   case when i <= d.sold_count then
     case when i % 3 = 0 then '00000000-0000-4000-8000-000000000001'
          when i % 2 = 0 then '00000000-0000-4000-8000-000000000002'

@@ -3,7 +3,7 @@
 -- (top bid aktif per kartu), set_buyout/cards guard (count listing aktif/owner),
 -- badge trigger (index-only scan), leaderboard / creator list / admin KYC /
 -- payout_batch_run. Additive — tak menghapus index lain.
--- (Predicate tidak bisa pakai cast enum `card_status_new::text` — ditolak 42P17;
+-- (Predicate tidak bisa pakai cast enum `status::text` — ditolak 42P17;
 --  filter defect diterapkan planner sebagai filter biasa di atas index.)
 
 create index if not exists idx_cards_available_drop_variant
