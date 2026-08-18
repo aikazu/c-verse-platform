@@ -1,6 +1,6 @@
 import { exportJWK, generateKeyPair, SignJWT } from "jose";
 import { describe, expect, it } from "vitest";
-import { type SupabaseJwtConfig, verifySupabaseJwt } from "./auth";
+import { type SupabaseJwtConfig, tokenFingerprint, verifySupabaseJwt } from "./auth";
 
 // Matriks docs/15 §3.2: JWT expired / tampered / aud salah -> ditolak verifier (=> 401 di route).
 
@@ -12,8 +12,8 @@ async function makeConfig() {
   const publicJwk = await exportJWK(publicKey);
   const jwks = { keys: [{ ...publicJwk, kid: "test-key", use: "sig", alg: "RS256" }] };
   const config: SupabaseJwtConfig = { issuer: ISSUER, jwks: jwks };
-  const sign = (opts?: { sub?: string; aud?: string | string[]; issuer?: string; exp?: number }) =>
-    new SignJWT({ role: "authenticated" })
+  const sign = (opts?: { sub?: string; aud?: string | string[]; issuer?: string; exp?: number; aal?: string }) =>
+    new SignJWT({ role: "authenticated", ...(opts?.aal ? { aal: opts.aal } : {}) })
       .setProtectedHeader({ alg: "RS256", kid: "test-key" })
       .setSubject(opts?.sub ?? SUB)
       .setAudience(opts?.aud ?? "authenticated")
@@ -24,10 +24,16 @@ async function makeConfig() {
 }
 
 describe("verifySupabaseJwt", () => {
-  it("accepts a valid token and returns sub", async () => {
+  it("accepts a valid token and returns sub + aal (null when claim absent)", async () => {
     const { config, sign } = await makeConfig();
     const token = await sign();
-    expect(await verifySupabaseJwt(token, config)).toEqual({ sub: SUB });
+    expect(await verifySupabaseJwt(token, config)).toEqual({ sub: SUB, aal: null });
+  });
+
+  it("extracts the aal claim when present (MFA level)", async () => {
+    const { config, sign } = await makeConfig();
+    const token = await sign({ aal: "aal2" });
+    expect(await verifySupabaseJwt(token, config)).toEqual({ sub: SUB, aal: "aal2" });
   });
 
   it("rejects an expired token", async () => {
@@ -59,6 +65,20 @@ describe("verifySupabaseJwt", () => {
     const { config } = await makeConfig();
     expect(await verifySupabaseJwt("not-a-jwt", config)).toBeNull();
     expect(await verifySupabaseJwt("", config)).toBeNull();
+  });
+});
+
+describe("tokenFingerprint", () => {
+  it("returns a stable sha256 fingerprint, never the raw token", async () => {
+    const header = "Bearer eyJhbGciOiJSUzI1NiIsImtpZCI6InRlc3QifQ.payload.sig";
+    const fp = await tokenFingerprint(header);
+    expect(fp).toMatch(/^sha256:[0-9a-f]{16}$/);
+    expect(fp).not.toContain("eyJ");
+    expect(await tokenFingerprint(header)).toBe(fp); // deterministic
+  });
+
+  it("returns null when no token is present", async () => {
+    expect(await tokenFingerprint(undefined)).toBeNull();
   });
 });
 

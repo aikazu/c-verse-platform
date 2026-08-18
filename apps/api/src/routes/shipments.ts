@@ -1,7 +1,7 @@
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import { z } from "zod";
-import { requireUser } from "../lib/auth.js";
+import { adminGateError, requireAdmin, requireUser, tokenFingerprint } from "../lib/auth.js";
 import { getDropById } from "../lib/reads/drops.js";
 import { logAuditDb } from "../lib/reads/kyc.js";
 import { getCardById, getShipmentById, listShipmentsByRequester } from "../lib/reads/orders.js";
@@ -46,9 +46,12 @@ app.patch(
     z.object({ status: z.enum(["requested", "packed", "shipped", "delivered", "cancelled"]), trackingNumber: z.string().optional() }),
   ),
   async (c) => {
-    const authRes = await requireUser(c);
-    const user = "error" in authRes ? null : authRes.user;
-    if (!user || (user.role as string) !== "admin") return c.json({ error: "Hanya admin" }, 403);
+    const authRes = await requireAdmin(c);
+    if ("error" in authRes) {
+      const e = adminGateError(authRes);
+      return c.json(e.body, e.status);
+    }
+    const user = authRes.user;
     const { status, trackingNumber } = c.req.valid("json");
     // direct table writes (non-money) — shipments + cards.location + orders lifecycle sync.
     const db = readDb();
@@ -93,7 +96,7 @@ app.patch(
       existing.id,
       { status, trackingNumber: trackingNumber ?? null },
       c.req.header("x-forwarded-for") ?? null,
-      c.req.header("authorization") ?? null,
+      await tokenFingerprint(c.req.header("authorization")),
     );
     return c.json({ shipment: mapShipmentRow(data as Row) });
   },

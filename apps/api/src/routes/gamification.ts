@@ -1,8 +1,9 @@
 import { calcLevel } from "@c-verse/shared";
 import { Hono } from "hono";
-import { requireUser } from "../lib/auth.js";
+import { adminGateError, requireAdmin, tokenFingerprint } from "../lib/auth.js";
 import { countCardsByOwner, listBadges, listTopUsersByXp, listUserBadges } from "../lib/reads/gamification.js";
 import { logAuditDb } from "../lib/reads/kyc.js";
+import { getUserById } from "../lib/reads/users.js";
 import { readDb } from "../lib/reads.js";
 
 const app = new Hono();
@@ -34,14 +35,20 @@ app.get("/badges", async (c) => {
 });
 
 app.get("/badges/:userId", async (c) => {
+  // Hormati privasi: user is_anonymous menyembunyikan koleksi/level/badge (sama seperti profil publik).
+  const target = await getUserById(c.req.param("userId"));
+  if (!target || target.isAnonymous || target.flagReason) return c.json({ badges: [] });
   return c.json({ badges: await listUserBadges(c.req.param("userId")) });
 });
 
 // PATCH /badges/:id — admin toggle badge availability (ADM-07)
 app.patch("/badges/:id", async (c) => {
-  const authRes = await requireUser(c);
-  const user = "error" in authRes ? null : authRes.user;
-  if (!user || (user.role as string) !== "admin") return c.json({ error: "Hanya admin" }, 403);
+  const authRes = await requireAdmin(c);
+  if ("error" in authRes) {
+    const e = adminGateError(authRes);
+    return c.json(e.body, e.status);
+  }
+  const user = authRes.user;
   let body: { isActive?: boolean } = {};
   try {
     body = (await c.req.json()) as typeof body;
@@ -58,7 +65,7 @@ app.patch("/badges/:id", async (c) => {
     String(data.id),
     { isActive: body.isActive },
     c.req.header("x-forwarded-for") ?? null,
-    c.req.header("authorization") ?? null,
+    await tokenFingerprint(c.req.header("authorization")),
   );
   return c.json({ badge: data });
 });

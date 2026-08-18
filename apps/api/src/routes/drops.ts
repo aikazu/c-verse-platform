@@ -2,7 +2,7 @@ import { C_COIN_RATE_IDR } from "@c-verse/shared";
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import { z } from "zod";
-import { requireUser } from "../lib/auth.js";
+import { adminGateError, requireAdmin, requireUser, tokenFingerprint } from "../lib/auth.js";
 import { RpcError, rpcDropEntry, userDb } from "../lib/db.js";
 import { getCreatorByUserId } from "../lib/reads/creators.js";
 import { type DropFilter, getDropById, listCardsByDrop, listDrops } from "../lib/reads/drops.js";
@@ -201,7 +201,7 @@ app.post(
       id,
       { title: body.title, dropStartAt, raffleEndAt },
       c.req.header("x-forwarded-for") ?? null,
-      c.req.header("authorization") ?? null,
+      await tokenFingerprint(c.req.header("authorization")),
     );
     const drop = await getDropById(id);
     return c.json({ drop }, 201);
@@ -248,7 +248,7 @@ app.patch(
       String(data.id),
       { status, prevStatus: drop.status },
       c.req.header("x-forwarded-for") ?? null,
-      c.req.header("authorization") ?? null,
+      await tokenFingerprint(c.req.header("authorization")),
     );
     const updated = await getDropById(String(data.id));
     return c.json({ drop: updated });
@@ -277,9 +277,11 @@ app.post("/:id/entry", zValidator("json", z.object({ pool: z.enum(["regular", "p
 
 // Draw raffle (admin/cron) — idempotent via drops.drawn_at
 app.post("/:id/draw", async (c) => {
-  const authRes = await requireUser(c);
-  if ("error" in authRes) return c.json({ error: authRes.error === 403 ? "Akun disuspend" : "Unauthorized" }, authRes.error);
-  if (authRes.user.role !== "admin") return c.json({ error: "Hanya admin" }, 403);
+  const authRes = await requireAdmin(c);
+  if ("error" in authRes) {
+    const e = adminGateError(authRes);
+    return c.json(e.body, e.status);
+  }
   const supabase = getSupabase();
   const { data, error } = await supabase.rpc("draw_drop", { p_drop_id: c.req.param("id") });
   if (error) return c.json({ error: error.message }, 400);

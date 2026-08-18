@@ -2,7 +2,7 @@ import { C_COIN_RATE_IDR } from "@c-verse/shared";
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import { z } from "zod";
-import { requireUser } from "../lib/auth.js";
+import { requireUser, tokenFingerprint } from "../lib/auth.js";
 import { RpcError, rpcCheckout, userDb } from "../lib/db.js";
 import { getDropById, listCardsByIds } from "../lib/reads/drops.js";
 import { logAuditDb } from "../lib/reads/kyc.js";
@@ -114,7 +114,7 @@ app.post("/:id/confirm-delivered", async (c) => {
     String(data.id),
     { status: "delivered", escrowNote: "release H+7 via cron" },
     c.req.header("x-forwarded-for") ?? null,
-    c.req.header("authorization") ?? null,
+    await tokenFingerprint(c.req.header("authorization")),
   );
   return c.json({ order: mapOrderRow(data as Row) });
 });
@@ -150,7 +150,7 @@ app.post("/:id/dispute", zValidator("json", z.object({ reason: z.string().min(10
     disputeId,
     { orderId: id },
     c.req.header("x-forwarded-for") ?? null,
-    c.req.header("authorization") ?? null,
+    await tokenFingerprint(c.req.header("authorization")),
   );
   return c.json({ dispute: { id: disputeId, orderId: id, status: "open" } }, 201);
 });
@@ -228,7 +228,7 @@ app.post(
       shipId,
       { cardId, feeCcoin },
       c.req.header("x-forwarded-for") ?? null,
-      c.req.header("authorization") ?? null,
+      await tokenFingerprint(c.req.header("authorization")),
     );
     const walletAfter = await getWalletByUser(user.id);
     return c.json({

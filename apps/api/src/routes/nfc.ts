@@ -190,7 +190,7 @@ app.get("/cards/:cardId", async (c) => {
       location: card.location,
       buyoutPriceCcoin: card.buyoutPriceCcoin,
       nfcShortId: card.nfcShortId,
-      nfcUid: card.nfcUid,
+      // nfcUid sengaja TIDAK diekspos — itu input diversifikasi kunci CMAC (docs/12); publik cukup nfcShortId.
       verifyStatus: card.verifyStatus,
       ownerId: card.ownerId,
     },

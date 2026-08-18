@@ -36,8 +36,8 @@ function getRemoteJwks(issuer: string) {
   return cachedRemoteJwks;
 }
 
-/** Verify a Supabase JWT. Returns { sub } (= users.id) or null. Injectable config for tests. */
-export async function verifySupabaseJwt(token: string, injected?: SupabaseJwtConfig): Promise<{ sub: string } | null> {
+/** Verify a Supabase JWT. Returns { sub, aal } (sub = users.id) or null. Injectable config for tests. */
+export async function verifySupabaseJwt(token: string, injected?: SupabaseJwtConfig): Promise<{ sub: string; aal: string | null } | null> {
   const issuer = injected?.issuer ?? supabaseIssuer();
   if (!issuer) return null;
   try {
@@ -45,9 +45,11 @@ export async function verifySupabaseJwt(token: string, injected?: SupabaseJwtCon
     const { payload } = await jwtVerify(token, key, {
       issuer,
       audience: "authenticated",
+      // Pin to Supabase's asymmetric signing algorithms — never accept HS*/none (key-confusion).
+      algorithms: ["RS256", "ES256"],
     });
     if (typeof payload.sub !== "string" || payload.sub.length === 0) return null;
-    return { sub: payload.sub };
+    return { sub: payload.sub, aal: typeof payload.aal === "string" ? payload.aal : null };
   } catch {
     return null;
   }
@@ -74,13 +76,27 @@ function dbUserToStoreUser(row: Record<string, unknown>): User {
   };
 }
 
-export type RequireUserResult = { user: User; token: string } | { error: 401 } | { error: 403; reason: "suspended" };
+export type RequireUserResult = { user: User; token: string; aal: string | null } | { error: 401 } | { error: 403; reason: "suspended" };
 
 /** Extract the bearer token from an Authorization header value. */
 export function authHeaderToToken(authHeader: string | undefined): string | undefined {
   if (!authHeader) return undefined;
   const m = authHeader.match(/^Bearer\s+(.+)$/i);
   return m ? m[1] : authHeader;
+}
+
+/**
+ * Non-reversible fingerprint of a bearer token for audit correlation — NEVER store
+ * the raw JWT (replayable until expiry). SHA-256, truncated to 16 hex chars.
+ */
+export async function tokenFingerprint(authHeader: string | undefined): Promise<string | null> {
+  const token = authHeaderToToken(authHeader);
+  if (!token) return null;
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(token));
+  const bytes = new Uint8Array(digest).subarray(0, 8);
+  let hex = "";
+  for (const b of bytes) hex += b.toString(16).padStart(2, "0");
+  return `sha256:${hex}`;
 }
 
 /**
@@ -102,5 +118,30 @@ export async function requireUser(c: { req: { header: (k: string) => string | un
   if (error || !data) return { error: 401 };
   const user = dbUserToStoreUser(data as Record<string, unknown>);
   if (user.flagReason) return { error: 403, reason: "suspended" };
-  return { user, token };
+  return { user, token, aal: verified.aal };
+}
+
+export type RequireAdminResult =
+  | { user: User; token: string }
+  | { error: 401 }
+  | { error: 403; reason: "suspended" | "not_admin" | "mfa_required" };
+
+/**
+ * Admin gate: authenticated + role=admin + MFA aal2 (docs: admin behind MFA TOTP).
+ * aal2 is enforced SERVER-SIDE here — the admin SPA guard is UX only and bypassable.
+ */
+export async function requireAdmin(c: { req: { header: (k: string) => string | undefined } }): Promise<RequireAdminResult> {
+  const res = await requireUser(c);
+  if ("error" in res) return res;
+  if (res.user.role !== "admin") return { error: 403, reason: "not_admin" };
+  if (res.aal !== "aal2") return { error: 403, reason: "mfa_required" };
+  return { user: res.user, token: res.token };
+}
+
+/** Map a requireAdmin error result to a body + status for `c.json(body, status)`. */
+export function adminGateError(res: { error: 401 | 403; reason?: string }): { body: { error: string }; status: 401 | 403 } {
+  if (res.error === 401) return { body: { error: "Unauthorized" }, status: 401 };
+  const msg =
+    res.reason === "mfa_required" ? "MFA (aal2) wajib untuk aksi admin" : res.reason === "suspended" ? "Akun disuspend" : "Hanya admin";
+  return { body: { error: msg }, status: 403 };
 }

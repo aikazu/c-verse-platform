@@ -3,7 +3,7 @@ import { BALANCE_CAP_CCOIN, C_COIN_RATE_IDR } from "@c-verse/shared";
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import { z } from "zod";
-import { requireUser } from "../lib/auth.js";
+import { adminGateError, requireAdmin, requireUser, tokenFingerprint } from "../lib/auth.js";
 import { userDb } from "../lib/db.js";
 import { getProvider } from "../lib/payments/index.js";
 import { mapTransactionStatus } from "../lib/payments/midtrans.js";
@@ -87,9 +87,12 @@ app.post("/payout", zValidator("json", z.object({ amountCcoin: z.number().int().
 
 // POST /admin/payout-run — admin trigger batch payout mingguan (manual override cron).
 app.post("/admin/payout-run", async (c) => {
-  const authRes = await requireUser(c);
-  const user = "error" in authRes ? null : authRes.user;
-  if (!user || (user.role as string) !== "admin") return c.json({ error: "Hanya admin" }, 403);
+  const authRes = await requireAdmin(c);
+  if ("error" in authRes) {
+    const e = adminGateError(authRes);
+    return c.json(e.body, e.status);
+  }
+  const user = authRes.user;
   const supabase = getSupabase();
   const { data, error } = await supabase.rpc("payout_batch_run");
   if (error) return c.json({ error: error.message }, 500);
@@ -100,7 +103,7 @@ app.post("/admin/payout-run", async (c) => {
     String(data ?? "-"),
     { batchId: data },
     c.req.header("x-forwarded-for") ?? null,
-    c.req.header("authorization") ?? null,
+    await tokenFingerprint(c.req.header("authorization")),
   );
   return c.json({ batchId: data });
 });

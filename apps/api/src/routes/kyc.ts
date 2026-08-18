@@ -1,7 +1,7 @@
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import { z } from "zod";
-import { requireUser } from "../lib/auth.js";
+import { adminGateError, requireAdmin, requireUser, tokenFingerprint } from "../lib/auth.js";
 import { getKycByUser, listKycRecords, logAuditDb, setKycStatus, upsertKycSubmission } from "../lib/reads/kyc.js";
 
 const app = new Hono();
@@ -40,9 +40,12 @@ app.post(
 );
 
 app.post("/:id/approve", async (c) => {
-  const authRes = await requireUser(c);
-  const user = "error" in authRes ? null : authRes.user;
-  if (!user || (user.role as string) !== "admin") return c.json({ error: "Hanya admin" }, 403);
+  const authRes = await requireAdmin(c);
+  if ("error" in authRes) {
+    const e = adminGateError(authRes);
+    return c.json(e.body, e.status);
+  }
+  const user = authRes.user;
   const rec = await setKycStatus(c.req.param("id"), "approved");
   if (!rec) return c.json({ error: "Not found" }, 404);
   // Badge "verified" + XP di-award OLEH TRIGGER badge_on_kyc (sekali, idempotent) —
@@ -54,15 +57,18 @@ app.post("/:id/approve", async (c) => {
     c.req.param("id"),
     { status: "approved" },
     c.req.header("x-forwarded-for") ?? null,
-    c.req.header("authorization") ?? null,
+    await tokenFingerprint(c.req.header("authorization")),
   );
   return c.json({ kyc: rec });
 });
 
 app.post("/:id/reject", async (c) => {
-  const authRes = await requireUser(c);
-  const user = "error" in authRes ? null : authRes.user;
-  if (!user || (user.role as string) !== "admin") return c.json({ error: "Hanya admin" }, 403);
+  const authRes = await requireAdmin(c);
+  if ("error" in authRes) {
+    const e = adminGateError(authRes);
+    return c.json(e.body, e.status);
+  }
+  const user = authRes.user;
   const rec = await setKycStatus(c.req.param("id"), "rejected");
   if (!rec) return c.json({ error: "Not found" }, 404);
   await logAuditDb(
@@ -72,15 +78,17 @@ app.post("/:id/reject", async (c) => {
     c.req.param("id"),
     { status: "rejected" },
     c.req.header("x-forwarded-for") ?? null,
-    c.req.header("authorization") ?? null,
+    await tokenFingerprint(c.req.header("authorization")),
   );
   return c.json({ kyc: rec });
 });
 
 app.get("/admin/all", async (c) => {
-  const authRes = await requireUser(c);
-  const user = "error" in authRes ? null : authRes.user;
-  if (!user || (user.role as string) !== "admin") return c.json({ error: "Hanya admin" }, 403);
+  const authRes = await requireAdmin(c);
+  if ("error" in authRes) {
+    const e = adminGateError(authRes);
+    return c.json(e.body, e.status);
+  }
   return c.json({ kyc: await listKycRecords() });
 });
 

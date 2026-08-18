@@ -1,7 +1,7 @@
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import { z } from "zod";
-import { requireUser } from "../lib/auth.js";
+import { adminGateError, requireAdmin, tokenFingerprint } from "../lib/auth.js";
 import { logAuditDb } from "../lib/reads/kyc.js";
 import { readDb } from "../lib/reads.js";
 import { getSupabase } from "../lib/supabase.js";
@@ -14,9 +14,11 @@ const app = new Hono();
 
 // GET /audit — admin baca audit log (RLS deny utk authenticated; API = service-role)
 app.get("/audit", async (c) => {
-  const authRes = await requireUser(c);
-  const admin = "error" in authRes ? null : authRes.user;
-  if (!admin || (admin.role as string) !== "admin") return c.json({ error: "Hanya admin" }, 403);
+  const authRes = await requireAdmin(c);
+  if ("error" in authRes) {
+    const e = adminGateError(authRes);
+    return c.json(e.body, e.status);
+  }
   const db = readDb();
   const limit = Math.min(500, Math.max(10, Number(c.req.query("limit") || 100)));
   const { data, error } = await db.from("admin_audit_log").select("*").order("created_at", { ascending: false }).limit(limit);
@@ -35,9 +37,12 @@ app.patch(
     }),
   ),
   async (c) => {
-    const authRes = await requireUser(c);
-    const admin = "error" in authRes ? null : authRes.user;
-    if (!admin || (admin.role as string) !== "admin") return c.json({ error: "Hanya admin" }, 403);
+    const authRes = await requireAdmin(c);
+    if ("error" in authRes) {
+      const e = adminGateError(authRes);
+      return c.json(e.body, e.status);
+    }
+    const admin = authRes.user;
     const { role, flagReason } = c.req.valid("json");
     if (role == null && flagReason === undefined) return c.json({ error: "role atau flagReason wajib" }, 400);
     if (c.req.param("id") === admin.id && (role != null || (flagReason != null && flagReason !== ""))) {
@@ -66,7 +71,7 @@ app.patch(
       String(data.id),
       { role, flagReason: flagReason ?? null },
       c.req.header("x-forwarded-for") ?? null,
-      c.req.header("authorization") ?? null,
+      await tokenFingerprint(c.req.header("authorization")),
     );
     return c.json({ user: data });
   },
@@ -74,9 +79,12 @@ app.patch(
 
 // PATCH /users/:id/wallet-hold — fraud hold payout (hold_payout_until)
 app.patch("/users/:id/wallet-hold", zValidator("json", z.object({ holdPayoutUntil: z.string().nullable() })), async (c) => {
-  const authRes = await requireUser(c);
-  const admin = "error" in authRes ? null : authRes.user;
-  if (!admin || (admin.role as string) !== "admin") return c.json({ error: "Hanya admin" }, 403);
+  const authRes = await requireAdmin(c);
+  if ("error" in authRes) {
+    const e = adminGateError(authRes);
+    return c.json(e.body, e.status);
+  }
+  const admin = authRes.user;
   const { holdPayoutUntil } = c.req.valid("json");
   const parsed = holdPayoutUntil === null ? null : new Date(holdPayoutUntil);
   if (holdPayoutUntil !== null && (!parsed || !Number.isFinite(parsed.getTime()))) {
@@ -96,16 +104,18 @@ app.patch("/users/:id/wallet-hold", zValidator("json", z.object({ holdPayoutUnti
     c.req.param("id"),
     { holdPayoutUntil: parsed?.toISOString() ?? null },
     c.req.header("x-forwarded-for") ?? null,
-    c.req.header("authorization") ?? null,
+    await tokenFingerprint(c.req.header("authorization")),
   );
   return c.json({ wallet: data });
 });
 
 // GET /disputes — admin list semua dispute
 app.get("/disputes", async (c) => {
-  const authRes = await requireUser(c);
-  const admin = "error" in authRes ? null : authRes.user;
-  if (!admin || (admin.role as string) !== "admin") return c.json({ error: "Hanya admin" }, 403);
+  const authRes = await requireAdmin(c);
+  if ("error" in authRes) {
+    const e = adminGateError(authRes);
+    return c.json(e.body, e.status);
+  }
   const db = readDb();
   const { data, error } = await db.from("disputes").select("*").order("created_at", { ascending: false });
   if (error) throw new Error(error.message);
@@ -123,9 +133,12 @@ app.patch(
     }),
   ),
   async (c) => {
-    const authRes = await requireUser(c);
-    const admin = "error" in authRes ? null : authRes.user;
-    if (!admin || (admin.role as string) !== "admin") return c.json({ error: "Hanya admin" }, 403);
+    const authRes = await requireAdmin(c);
+    if ("error" in authRes) {
+      const e = adminGateError(authRes);
+      return c.json(e.body, e.status);
+    }
+    const admin = authRes.user;
     const { status, decisionNotes } = c.req.valid("json");
     const db = getSupabase();
     const { data, error } = await db
@@ -155,7 +168,7 @@ app.patch(
       c.req.param("id"),
       { status, decisionNotes: decisionNotes ?? null },
       c.req.header("x-forwarded-for") ?? null,
-      c.req.header("authorization") ?? null,
+      await tokenFingerprint(c.req.header("authorization")),
     );
     return c.json({ dispute: data });
   },
