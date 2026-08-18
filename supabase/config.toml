@@ -223,10 +223,13 @@ token_verifications = 30
 web3 = 30
 
 # Configure one of the supported captcha providers: `hcaptcha`, `turnstile`.
+# C.Verse pakai Turnstile — web sudah mengirim captchaToken ke signInWithOtp.
+# Uncomment + set TURNSTILE_SECRET_KEY (dev test key: 1x0000000000000000000000000000000AA)
+# agar OTP/registrasi diverifikasi server-side (anti bot mass-signup).
 # [auth.captcha]
 # enabled = true
-# provider = "hcaptcha"
-# secret = ""
+# provider = "turnstile"
+# secret = "env(TURNSTILE_SECRET_KEY)"
 
 [auth.email]
 # Allow/disallow new user signups via email to your project.

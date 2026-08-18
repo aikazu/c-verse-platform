@@ -40,14 +40,21 @@ app.use(
   "*",
   cors({
     origin: (origin) => {
-      if (!origin) return "https://c-verse.co";
-      if (origin.includes("localhost") || origin.includes("127.0.0.1") || origin.includes("pages.dev")) return origin;
-      if (origin === "https://c-verse.co" || origin === "https://www.c-verse.co") return origin;
-      if (origin === "https://api.c-verse.co" || origin.endsWith(".c-verse.co")) return origin;
-      if (origin === "https://c-verse.id" || origin === "https://www.c-verse.id") return origin;
-      return "https://c-verse.co";
+      const fallback = "https://c-verse.co";
+      if (!origin) return fallback;
+      let host: string;
+      try {
+        host = new URL(origin).hostname;
+      } catch {
+        return fallback;
+      }
+      // Parse hostname (not substring) to avoid bypass like https://localhost.evil.com.
+      const isDev = host === "localhost" || host === "127.0.0.1";
+      const isProd = host === "c-verse.co" || host === "c-verse.id" || host.endsWith(".c-verse.co") || host.endsWith(".c-verse.id");
+      const isPreview = host.endsWith(".pages.dev");
+      return isDev || isProd || isPreview ? origin : fallback;
     },
-    allowHeaders: ["Content-Type", "Authorization", "x-forwarded-for"],
+    allowHeaders: ["Content-Type", "Authorization"],
     allowMethods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
   }),
 );
@@ -70,26 +77,38 @@ const supabaseIsLocal = (typeof process !== "undefined" ? process.env.SUPABASE_U
 const isProduction = !isTsxDev && envMode !== "development" && !supabaseIsLocal;
 
 if (isProduction) {
+  // Behind Cloudflare: trust CF-Connecting-IP first; x-forwarded-for is client-spoofable so it is last resort.
+  const clientKey = (c: { req: { header: (k: string) => string | undefined } }) =>
+    c.req.header("cf-connecting-ip") ?? c.req.header("x-real-ip") ?? c.req.header("x-forwarded-for")?.split(",")[0]?.trim() ?? "loopback";
+
   const authLimiter = rateLimiter({
     windowMs: 60 * 1000,
     limit: 30,
     standardHeaders: "draft-6",
-    keyGenerator: (c) =>
-      c.req.header("x-forwarded-for")?.split(",")[0]?.trim() ?? c.req.header("cf-connecting-ip") ?? c.req.header("x-real-ip") ?? "loopback",
+    keyGenerator: clientKey,
     message: { error: "Too many requests — coba lagi nanti" },
+  });
+
+  // NFC verify is unauthenticated + does crypto/DB writes — throttle tighter than global.
+  const nfcLimiter = rateLimiter({
+    windowMs: 60 * 1000,
+    limit: 60,
+    standardHeaders: "draft-6",
+    keyGenerator: clientKey,
+    message: { error: "Terlalu banyak percobaan verifikasi — coba lagi nanti" },
   });
 
   const globalLimiter = rateLimiter({
     windowMs: 60 * 1000,
     limit: 600,
     standardHeaders: "draft-6",
-    keyGenerator: (c) =>
-      c.req.header("x-forwarded-for")?.split(",")[0]?.trim() ?? c.req.header("cf-connecting-ip") ?? c.req.header("x-real-ip") ?? "loopback",
+    keyGenerator: clientKey,
     message: { error: "Too many requests — coba lagi nanti" },
   });
 
   app.use("/api/auth/*", authLimiter);
   app.use("/api/payments/*", authLimiter);
+  app.use("/api/nfc/*", nfcLimiter);
   app.use("*", globalLimiter);
 }
 
