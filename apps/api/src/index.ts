@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
+import { rateLimiter } from "hono-rate-limiter";
 import { runCron } from "./lib/cron.js";
 import admin from "./routes/admin.js";
 import auth from "./routes/auth.js";
@@ -44,14 +45,55 @@ app.use(
       if (origin === "https://c-verse.co" || origin === "https://www.c-verse.co") return origin;
       if (origin === "https://api.c-verse.co" || origin.endsWith(".c-verse.co")) return origin;
       if (origin === "https://c-verse.id" || origin === "https://www.c-verse.id") return origin;
-      return origin;
+      return "https://c-verse.co";
     },
     allowHeaders: ["Content-Type", "Authorization", "x-forwarded-for"],
     allowMethods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
   }),
 );
 
-app.get("/", (c) => c.json({ name: "C.Verse API", version: "0.1.0", tagline: "Revolusi Ekonomi Kreator", status: "ok" }));
+// ── Security Headers (M-02) ──
+app.use("*", async (c, next) => {
+  await next();
+  c.header("X-Frame-Options", "DENY");
+  c.header("X-Content-Type-Options", "nosniff");
+  c.header("Referrer-Policy", "strict-origin-when-cross-origin");
+  c.header("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+});
+
+// ── Rate Limiter (I-01) ──
+// Hanya aktif di production/staging — development skip biar gak ganggu dev workflow
+// Deteksi dev: process.argv via tsx, ENV=development, atau SUPABASE_URL localhost
+const isTsxDev = typeof process !== "undefined" && (process.argv?.[1]?.includes("tsx") ?? false);
+const envMode = typeof process !== "undefined" ? process.env.ENV : undefined;
+const supabaseIsLocal = (typeof process !== "undefined" ? process.env.SUPABASE_URL : undefined)?.includes("localhost") ?? false;
+const isProduction = !isTsxDev && envMode !== "development" && !supabaseIsLocal;
+
+if (isProduction) {
+  const authLimiter = rateLimiter({
+    windowMs: 60 * 1000,
+    limit: 30,
+    standardHeaders: "draft-6",
+    keyGenerator: (c) =>
+      c.req.header("x-forwarded-for")?.split(",")[0]?.trim() ?? c.req.header("cf-connecting-ip") ?? c.req.header("x-real-ip") ?? "loopback",
+    message: { error: "Too many requests — coba lagi nanti" },
+  });
+
+  const globalLimiter = rateLimiter({
+    windowMs: 60 * 1000,
+    limit: 600,
+    standardHeaders: "draft-6",
+    keyGenerator: (c) =>
+      c.req.header("x-forwarded-for")?.split(",")[0]?.trim() ?? c.req.header("cf-connecting-ip") ?? c.req.header("x-real-ip") ?? "loopback",
+    message: { error: "Too many requests — coba lagi nanti" },
+  });
+
+  app.use("/api/auth/*", authLimiter);
+  app.use("/api/payments/*", authLimiter);
+  app.use("*", globalLimiter);
+}
+
+app.get("/", (c) => c.json({ name: "C.Verse API", tagline: "Revolusi Ekonomi Kreator", status: "ok" }));
 app.get("/health", (c) => c.json({ ok: true, ts: new Date().toISOString() }));
 app.get("/api/health", (c) => c.json({ ok: true, ts: new Date().toISOString() }));
 
@@ -85,7 +127,13 @@ app.route("/api/listings", marketplace);
 app.notFound((c) => c.json({ error: "Not found", path: c.req.path }, 404));
 app.onError((err, c) => {
   console.error(err);
-  return c.json({ error: err.message || "Internal error" }, 500);
+  // M-03: sanitasi HTML leak dari upstream (Cloudflare block page, dll)
+  const raw = err.message || "Internal error";
+  const sanitized =
+    raw.includes("<!DOCTYPE") || raw.includes("<html") || raw.includes("<script") ? "External service blocked the request" : raw;
+  // I-02: jangan expose detail error yang panjang (Zod schema, stack trace)
+  const message = sanitized.length > 300 ? "Internal server error" : sanitized;
+  return c.json({ error: message }, 500);
 });
 
 // Cron Triggers (docs/08 §3.3) — escrow/draw tiap 5 menit, payout batch Selasa 06:00 WIB.
