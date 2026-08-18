@@ -7,7 +7,6 @@ function Badge({ status }: { status: string }) {
   const map: Record<string, string> = {
     live: "badge-live",
     scheduled: "badge-scheduled",
-    ended: "badge-ended",
     draft: "badge-ended",
     published: "badge-live",
     sold_out: "badge-ended",
@@ -16,7 +15,6 @@ function Badge({ status }: { status: string }) {
   const label: Record<string, string> = {
     live: "Live",
     scheduled: "Segera",
-    ended: "Ended",
     draft: "Draft",
     published: "Live",
     sold_out: "Habis",
@@ -60,7 +58,7 @@ export default function Drops() {
             <option value="all">Semua</option>
             <option value="live">Live</option>
             <option value="scheduled">Segera</option>
-            <option value="ended">Ended</option>
+            <option value="closed">Ended</option>
           </select>
           <button className="btn-ghost" onClick={() => refetch()} style={{ fontFamily: "var(--font-mono)", fontSize: 12 }}>
             Refresh
