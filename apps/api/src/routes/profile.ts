@@ -1,5 +1,7 @@
 import { C_COIN_RATE_IDR } from "@c-verse/shared";
+import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
+import { z } from "zod";
 import { requireUser } from "../lib/auth.js";
 import { listBids } from "../lib/reads/bids.js";
 import { listCards, listDrops } from "../lib/reads/drops.js";
@@ -94,17 +96,11 @@ app.get("/cards", async (c) => {
 });
 
 // PATCH /privacy — toggle isAnonymous (02-pages PG-USR-10 / PG-PROF-01)
-app.patch("/privacy", async (c) => {
+app.patch("/privacy", zValidator("json", z.object({ isAnonymous: z.boolean() }).strict()), async (c) => {
   const authRes = await requireUser(c);
   if ("error" in authRes) return c.json({ error: authRes.error === 403 ? "Akun disuspend" : "Unauthorized" }, authRes.error);
   const user = authRes.user;
-  let body: { isAnonymous?: boolean } = {};
-  try {
-    body = (await c.req.json()) as typeof body;
-  } catch {
-    // no body
-  }
-  const isAnonymous = Boolean(body.isAnonymous);
+  const { isAnonymous } = c.req.valid("json");
   // direct users update (non-money column)
   const db = readDb();
   const { error } = await db.from("users").update({ is_anonymous: isAnonymous }).eq("id", user.id);
@@ -113,77 +109,87 @@ app.patch("/privacy", async (c) => {
 });
 
 // PATCH /consent — data consent toggles (docs 09 3.4: consent_analytics_detail + consent_data_market)
-app.patch("/consent", async (c) => {
-  const authRes = await requireUser(c);
-  if ("error" in authRes) return c.json({ error: authRes.error === 403 ? "Akun disuspend" : "Unauthorized" }, authRes.error);
-  const user = authRes.user;
-  let body: { consentAnalyticsDetail?: boolean; consentDataMarket?: boolean } = {};
-  try {
-    body = (await c.req.json()) as typeof body;
-  } catch {}
-  const patch: Record<string, unknown> = {};
-  let consentAnalyticsDetail = user.consentAnalyticsDetail ?? false;
-  let consentDataMarket = user.consentDataMarket ?? false;
-  if (typeof body.consentAnalyticsDetail === "boolean") {
-    patch.consent_analytics_detail = body.consentAnalyticsDetail;
-    consentAnalyticsDetail = body.consentAnalyticsDetail;
-  }
-  if (typeof body.consentDataMarket === "boolean") {
-    patch.consent_data_market = body.consentDataMarket;
-    consentDataMarket = body.consentDataMarket;
-  }
-  // direct users update (non-money columns)
-  if (Object.keys(patch).length > 0) {
-    const db = readDb();
-    const { error } = await db.from("users").update(patch).eq("id", user.id);
-    if (error) throw new Error(error.message);
-  }
-  return c.json({ ok: true, consentAnalyticsDetail, consentDataMarket });
-});
-
-// PATCH / — update displayName / avatar / username
-app.patch("/", async (c) => {
-  const authRes = await requireUser(c);
-  if ("error" in authRes) return c.json({ error: authRes.error === 403 ? "Akun disuspend" : "Unauthorized" }, authRes.error);
-  const user = authRes.user;
-  let body: { displayName?: string; avatarUrl?: string; username?: string } = {};
-  try {
-    body = (await c.req.json()) as typeof body;
-  } catch {}
-  const patch: Record<string, unknown> = {};
-  let displayName = user.displayName;
-  let username = user.username ?? null;
-  let usernameIsAuto = user.usernameIsAuto ?? false;
-  if (body.displayName != null) {
-    const s = String(body.displayName).trim();
-    if (s.length >= 2 && s.length <= 40) {
-      patch.display_name = s;
-      displayName = s;
+app.patch(
+  "/consent",
+  zValidator("json", z.object({ consentAnalyticsDetail: z.boolean().optional(), consentDataMarket: z.boolean().optional() }).strict()),
+  async (c) => {
+    const authRes = await requireUser(c);
+    if ("error" in authRes) return c.json({ error: authRes.error === 403 ? "Akun disuspend" : "Unauthorized" }, authRes.error);
+    const user = authRes.user;
+    const body = c.req.valid("json");
+    const patch: Record<string, unknown> = {};
+    let consentAnalyticsDetail = user.consentAnalyticsDetail ?? false;
+    let consentDataMarket = user.consentDataMarket ?? false;
+    if (body.consentAnalyticsDetail !== undefined) {
+      patch.consent_analytics_detail = body.consentAnalyticsDetail;
+      consentAnalyticsDetail = body.consentAnalyticsDetail;
     }
-  }
-  if (body.username != null) {
-    const s = String(body.username).trim().toLowerCase();
-    if (/^[a-z0-9_]{3,20}$/.test(s) && !(await isUsernameTaken(s, user.id))) {
-      patch.username = s;
+    if (body.consentDataMarket !== undefined) {
+      patch.consent_data_market = body.consentDataMarket;
+      consentDataMarket = body.consentDataMarket;
+    }
+    // direct users update (non-money columns)
+    if (Object.keys(patch).length > 0) {
+      const db = readDb();
+      const { error } = await db.from("users").update(patch).eq("id", user.id);
+      if (error) throw new Error(error.message);
+    }
+    return c.json({ ok: true, consentAnalyticsDetail, consentDataMarket });
+  },
+);
+
+// PATCH / — update displayName / username
+app.patch(
+  "/",
+  zValidator(
+    "json",
+    z
+      .object({
+        displayName: z.string().trim().min(2).max(40).optional(),
+        username: z
+          .string()
+          .trim()
+          .toLowerCase()
+          .regex(/^[a-z0-9_]{3,20}$/)
+          .optional(),
+      })
+      .strict(),
+  ),
+  async (c) => {
+    const authRes = await requireUser(c);
+    if ("error" in authRes) return c.json({ error: authRes.error === 403 ? "Akun disuspend" : "Unauthorized" }, authRes.error);
+    const user = authRes.user;
+    const body = c.req.valid("json");
+    const patch: Record<string, unknown> = {};
+    let displayName = user.displayName;
+    let username = user.username ?? null;
+    let usernameIsAuto = user.usernameIsAuto ?? false;
+    if (body.displayName !== undefined) {
+      patch.display_name = body.displayName;
+      displayName = body.displayName;
+    }
+    if (body.username !== undefined) {
+      if (await isUsernameTaken(body.username, user.id)) return c.json({ error: "Username sudah dipakai — pilih yang lain" }, 409);
+      patch.username = body.username;
       patch.username_is_auto = false;
-      username = s;
+      username = body.username;
       usernameIsAuto = false;
     }
-  }
-  // direct users update (non-money columns)
-  if (Object.keys(patch).length > 0) {
-    const db = readDb();
-    const { error } = await db.from("users").update(patch).eq("id", user.id);
-    if (error) {
-      // Race TOCTOU isUsernameTaken -> unique index idx_users_username menolak di sini.
-      if (/duplicate key|unique constraint/i.test(error.message)) {
-        return c.json({ error: "Username sudah dipakai — pilih yang lain" }, 409);
+    // direct users update (non-money columns)
+    if (Object.keys(patch).length > 0) {
+      const db = readDb();
+      const { error } = await db.from("users").update(patch).eq("id", user.id);
+      if (error) {
+        // Race TOCTOU isUsernameTaken -> unique index idx_users_username menolak di sini.
+        if (/duplicate key|unique constraint/i.test(error.message)) {
+          return c.json({ error: "Username sudah dipakai — pilih yang lain" }, 409);
+        }
+        throw new Error(error.message);
       }
-      throw new Error(error.message);
     }
-  }
-  return c.json({ user: { id: user.id, displayName, username, usernameIsAuto } });
-});
+    return c.json({ user: { id: user.id, displayName, username, usernameIsAuto } });
+  },
+);
 
 /** Username uniqueness; true when another user already claims it. */
 async function isUsernameTaken(username: string, selfId: string): Promise<boolean> {
