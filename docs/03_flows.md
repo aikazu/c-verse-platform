@@ -362,10 +362,24 @@ ADM-06: dispute masuk -> review bukti -> keputusan
       fisik — tidak ada kerusakan baru
     - TIDAK BOLEH kartu terjual sementara fisik masih di kreator
       tanpa verifikasi vault
+    - TERIMPLEMENTASI (2026-08-21): gate di RPC accept_bid &
+      buyout_card (migration 20260821000000_seed_card) — jika drop
+      induk kartu drops.is_seed = true TAPI location <> platform_vault
+      ATAU verify_status <> verified -> RPC raise exception
+      SEED_VAULT_IN_REQUIRED (settle ditolak, rollback atomik).
+      Provenance seed = flag level drop drops.is_seed (bukan kolom
+      di cards) — lihat C-17 & 05_data_model.
 [9] RELEASE KE BUYER
     - setelah vault-in verified: ownership pindah di ledger + fisik
       release dari vault (kirim fisik / tetap vault atas nama buyer,
       pilihan buyer)
+    - TERIMPLEMENTASI (2026-08-21): release otomatis oleh RPC saat
+      settle sukses (ownership_history baru + shipment secondary
+      sesuai pilihan tujuan buyer, perilaku Flow 7 normal); path
+      vault-in fisik = PATCH /api/admin/cards/:id/vault-in (admin —
+      set cards.location='platform_vault' + audit pemeriksaan fisik;
+      verified NFC tetap hanya dari tap — lihat C-17 / keputusan
+      desain 2026-08-21 di 07_constraints)
 ```
 
 Split penjualan pertama seed card (secondary 85/7,5/7,5): karena

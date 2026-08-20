@@ -272,4 +272,55 @@ app.post(
   },
 );
 
+// ── Creator Seed C.Card vault-in (Flow 10 langkah [8], keputusan 2026-08-20) ──
+// PATCH /cards/:id/vault-in — admin menandai KEDATANGAN FISIK kartu ke vault
+// platform (location -> 'platform_vault'), prasyarat settle seed card.
+//
+// KEPUTUSAN DESAIN (akses aman, tidak memalsukan verified NFC):
+// gate vault-in di RPC (accept_bid/buyout_card, migration 20260821000000)
+// mengecek KEDUA syarat: (a) cards.location = 'platform_vault' (fisik ada di
+// vault — penilaian admin/ops) DAN (b) cards.verify_status = 'verified'
+// (UID cocok — HANYA dari tap NFC via apps/api/src/routes/nfc.ts, CMAC
+// crypto yang tidak bisa dipalsu). Endpoint ini hanya memenuhi (a) + mencatat
+// pemeriksaan kondisi fisik ke audit; verify_status 'verified' TIDAK PERNAH
+// di-set di sini — kalau belum verified via NFC, gate tetap menolak hingga
+// tap NFC sukses. Dengan begitu admin tidak bisa memalsukan keaslian kartu.
+app.patch("/cards/:id/vault-in", zValidator("json", z.object({ physicalCheckNote: z.string().max(2000).optional() })), async (c) => {
+  const authRes = await requireAdmin(c);
+  if ("error" in authRes) {
+    const e = adminGateError(authRes);
+    return c.json(e.body, e.status);
+  }
+  const admin = authRes.user;
+  const cardId = c.req.param("id");
+  const db = getSupabase();
+  const { data: existing } = await db.from("cards").select("id, location, verify_status, drop_id").eq("id", cardId).maybeSingle();
+  if (!existing) return c.json({ error: "Kartu tidak ditemukan" }, 404);
+  const { data, error } = await db
+    .from("cards")
+    .update({ location: "platform_vault" })
+    .eq("id", cardId)
+    .select("id, location, verify_status, drop_id")
+    .maybeSingle();
+  if (error) return c.json({ error: error.message }, 400);
+  const { physicalCheckNote } = c.req.valid("json");
+  await logAuditDb(
+    admin.id,
+    "update",
+    "cards",
+    cardId,
+    {
+      action: "vault_in",
+      location: "platform_vault",
+      // verify_status tidak diubah di sini — verified hanya via tap NFC (nfc.ts).
+      verify_status_untouched: existing.verify_status,
+      physicalCheckNote: physicalCheckNote ?? null,
+      from: existing.location,
+    },
+    c.req.header("x-forwarded-for") ?? null,
+    await tokenFingerprint(c.req.header("authorization")),
+  );
+  return c.json({ card: data });
+});
+
 export default app;

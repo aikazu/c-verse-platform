@@ -189,6 +189,16 @@
   tidak lagi bergantung flag manual. Berlaku juga untuk seed card:
   kreator pemilik seed card dilarang membeli kembali kartu seed
   miliknya dalam 30 hari pertama.
+- **PERLUASAN SEED (TERIMPLEMENTASI 2026-08-21, migration
+  20260821000000_seed_card)**: untuk kartu dari seed drop
+  (`drops.is_seed = true`), guard 30 hari TIDAK lagi bergantung
+  `drop_start_at`/`drop_at`/`created_at` (seed BUKAN raffle — drop
+  tidak punya jadwal bermakna). Basis pragmatis yang dipakai di RPC
+  `buyout_card`: `ownership_history` terakhir milik kreator
+  (`drops.creator_id` — menandai serah hadiah ke kreator, Flow 10
+  langkah [3]) dengan fallback `cards.created_at`; kreator seed
+  dilarang buyout balik dalam 30 hari sejak anchor itu. Hanya
+  memblok kreator seed — buyer normal tidak terpengaruh.
 - Split seed card (Creator Seed C.Card, 2026-08-20) = **85% owner
   + 7,5% royalti kreator lifetime + 7,5% platform** (secondary
   normal); pada penjualan pertama oleh kreator-owner: kreator
@@ -249,6 +259,21 @@
 - **BUKAN primary raffle/drop**: seed card TIDAK pernah lewat
   entry window/draw (Flow 1) — selalu secondary normal (C-07).
   Beri nama flow tersendiri (jangan tertukar primary drop).
+- **Provenance seed = flag level drop `drops.is_seed` (TERIMPLEMENTASI
+  2026-08-21, migration 20260821000000_seed_card)**: seed card =
+  kartu yang drop induknya `is_seed = true`; seed drop dibuat dengan
+  `creator_id` = kreator target, sehingga royalti 7,5% otomatis ke
+  kreator via kode existing (tanpa kolom fallback). Kolom baru di
+  `05_data_model.md`.
+- **Gate vault-in TERIMPLEMENTASI (2026-08-21)**: RPC `accept_bid` &
+  `buyout_card` mengecek `drops.is_seed`; jika seed card TIDAK di
+  `platform_vault` ATAU `verify_status <> 'verified'` -> raise
+  `SEED_VAULT_IN_REQUIRED`. **verified hanya bisa dicapai via tap
+  NFC** (SUN/CMAC crypto — `nfc.ts`); admin path vault-in
+  `PATCH /api/admin/cards/:id/vault-in` HANYA menandai kedatangan
+  fisik (`location='platform_vault'`) + audit pemeriksaan kondisi
+  fisik — TIDAK pernah memalsukan `verify_status='verified'`
+  (keputusan desain 2026-08-21). Gate mengecek KEDUANYA.
 - Split penjualan pertama: **85% owner + 7,5% royalti kreator
   lifetime + 7,5% platform** (secondary normal) — kreator-owner
   efektif **92,5%** / platform 7,5% (bukan fee 12%/6%).
