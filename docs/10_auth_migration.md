@@ -37,8 +37,7 @@ Auth saat ini custom in-memory — tidak bisa dibawa ke produksi:
   (tanpa password, `email_confirm: true`) → set
   `profiles.role = 'creator'` → isi `creators.user_id` → kirim email
   akses via SumoPod SMTP. Ini menutup gap G1/G2 (`creators.user_id`
-  nullable tanpa flow pengisian) — rujuk
-  `90_research/29_creator_account_onboarding.md` [VALIDATED].
+  nullable tanpa flow pengisian).
 
 ## 3. Langkah Eksekusi
 
@@ -80,7 +79,8 @@ Auth saat ini custom in-memory — tidak bisa dibawa ke produksi:
 ### 3,4 Database
 1. Struktur auth di-squash ke fase migration `20260817010000_auth.sql`
    (bagian dari rantai 7 fase: 6 fase inti `1/6`..`6/6` + hardening
-   `20260817060000` phase 7/7; `20260817000000_foundation.sql` sudah
+   `20260817060000` phase 7/7; migration phase 1 `foundation`
+   (timestamp `20260817000000`) sudah
    mendefinisikan `users.id` uuid, tanpa `password_hash` dan tanpa tabel `sessions`):
    - `users.id` = `uuid primary key` — di-isi trigger dari `auth.users.id`;
      TANPA FK constraint eksplisit `references auth.users(id)` (delete cascade
@@ -113,7 +113,7 @@ Auth saat ini custom in-memory — tidak bisa dibawa ke produksi:
   4. Kirim email akses via **SumoPod SMTP** (abstraction layer).
 - Kreator login OTP email / Google OAuth — email harus sama dengan
   yang di-set admin. Pencatatan `admin_audit_log` wajib (aksinya
-  account-provisioning). Detail: `90_research/29_creator_account_onboarding.md`.
+  account-provisioning).
 
 ## 4. Jangan Dilakukan
 
@@ -138,7 +138,8 @@ Auth saat ini custom in-memory — tidak bisa dibawa ke produksi:
 - `dev-strategy/08_deployment.md` §Supabase setup (Auth Google+OTP+captcha).
 - Audit Platform 2026-08-15: `apps/api/src/routes/auth.ts` (plaintext,
   in-memory session).
-- `90_research/29_creator_account_onboarding.md` [VALIDATED] — akun
-  kreator admin-provisioned + passwordless (keputusan 2026-08-20).
-- `90_research/30_creator_seed_card.md` [VALIDATED] — seed card
-  1-of-1 memerlukan akun kreator aktif (2026-08-20).
+- Keputusan akun kreator admin-provisioned + passwordless
+  (2026-08-20, [VALIDATED]) — dasar section 3,6.
+- Keputusan Creator Seed C.Card (2026-08-20, [VALIDATED]) — seed
+  card 1-of-1 memerlukan akun kreator aktif (Flow 11 provision
+  sebelum listing).

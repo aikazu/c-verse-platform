@@ -272,9 +272,11 @@ Secrets CI yang wajib diset (GitHub Settings → Secrets):
 
 - `06_tech_decisions.md` (stack, open items O-5/O-7 — dijawab
   runbook ini).
-- `40_operations/01_tech_stack.md` (full-edge, CI/CD O5, domain O7).
-- `90_research/20_tech_stack_decision.md` (monorepo,
-  free tier).
+- 01_tech_stack (full-edge, CI/CD O5: GitHub Actions → wrangler
+  deploy, domain O7).
+- 20_tech_stack_decision (keputusan full-edge 2026-08-05/2026-08-11:
+  monorepo, free tier cukup Y1, C-Coin medium tunggal + email
+  SumoPod abstraction).
 - `05_data_model.md` (RLS → step 4.5).
 - Konvensi angka: A024 build time **6-8 bulan** (`01_scope.md`
   §5); opex Y1 **Rp 38 jt/thn (~3,2 jt/bulan)** per financial

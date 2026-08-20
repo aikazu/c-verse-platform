@@ -15,8 +15,8 @@
 - `apps/api/src/routes/orders.ts`: default parameter checkout ke
   `vault`; shipping = opt-in eksplisit.
 - Migration: `orders.delivery_option` default `'vault'` sudah jadi bagian
-  definisi tabel di fase 1 (`20260817000000_foundation.sql`), bukan migration
-  terpisah.
+  definisi tabel di fase 1 (migration phase 1 `foundation`,
+  timestamp `20260817000000`), bukan migration terpisah.
 - UI `/drops/:id/checkout`: opsi terpilih default = "Simpan di vault
   (gratis)"; kirim fisik = pilihan kedua.
 
@@ -26,15 +26,18 @@
   `bidSchema` (versi listingId), interface `Listing`.
 - Hapus route `apps/api/src/routes/listings.ts` (mount di index juga).
 - Migration: tabel `listings` & enum `listing_status`/`listing_type` tidak
-  pernah dibuat — dihilangkan langsung di fase 1 (`20260817000000_foundation.sql`);
+  pernah dibuat — dihilangkan langsung di fase 1 (migration phase 1
+  `foundation`, timestamp `20260817000000`);
   `bids` dibuat langsung ke `card_id` (tanpa `listing_id`).
 - UI `Marketplace.tsx`/`Browse.tsx`: pastikan tidak ada sisa
   "duration/endsAt/expired".
 
 ### F-03 KYC threshold top-up
 - `packages/shared/src/index.ts`: `KYC_TRIGGER_THRESHOLD_CCOIN = 99`
-  → ganti nilai **1000** (1.000 C-Coin = Rp 10 jt, usulan
-  `40_operations/10_kyc_policy.md` [DRAFT]) + komentar:
+  → ganti nilai **1000** (1.000 C-Coin = Rp 10 jt, usulan kebijakan
+  KYC [DRAFT]: trigger payout/disbursement ke IDR + akumulasi top-up
+  besar; verifikasi manual Y1, SLA 1x24 jam, rekening atas nama KTP,
+  retensi 5 tahun UU PDP) + komentar:
   `// finalisasi sebelum launch (10_kyc_policy) — jangan dipakai
   // untuk demo tanpa env override`.
 - Tambah `KYC_TOPUP_THRESHOLD_DEMO = 99` (khusus seed demo) bila
@@ -98,4 +101,6 @@
 
 - Audit foundation Platform 2026-08-15 (dev-strategy session).
 - `07_constraints.md` C-07, C-10, C-08 (FINAL yang dilanggar code).
-- `40_operations/10_kyc_policy.md` (threshold top-up usulan).
+- Kebijakan KYC (threshold top-up usulan: 1.000 C-Coin = Rp 10 jt,
+  trigger payout + akumulasi top-up besar; [DRAFT] — finalisasi
+  sebelum launch).

@@ -181,7 +181,10 @@
   setelah drop. Pelanggaran: suspend 14 hari + hold payout 30 hari.
 - **ENFORCEABLE sejak 2026-08-20**: akun kreator kini
   TERIDENTIFIKASI (admin-provisioned, auth passwordless — lihat
-  `10_auth_migration.md` & `90_research/29_creator_account_onboarding.md`),
+  `10_auth_migration.md` & keputusan akun kreator admin-provisioned
+  (FINAL 2026-08-20: admin create auth user passwordless via Supabase
+  Auth admin API, set `profiles.role = 'creator'`, isi
+  `creators.user_id`, kirim akses via SumoPod SMTP)),
   sehingga larangan ini bisa di-enforce per akun (RULE/RLS + audit),
   tidak lagi bergantung flag manual. Berlaku juga untuk seed card:
   kreator pemilik seed card dilarang membeli kembali kartu seed
@@ -190,7 +193,8 @@
   + 7,5% royalti kreator lifetime + 7,5% platform** (secondary
   normal); pada penjualan pertama oleh kreator-owner: kreator
   efektif **92,5%** / platform 7,5%. BUKAN fee 12%/6% — konsisten
-  glossary & `90_research/19_revenue_split.md`.
+  glossary & 19_revenue_split (secondary = 85% owner + 7,5% royalti
+  kreator lifetime + 7,5% platform; keputusan 2026-07-27/2026-08-04).
 
 ### C-14 [DRAFT] Target Y1 realistis
 - Drop: 40-65/tahun (bukan 150). Unit: 400-650 kartu (bukan 1.500).
@@ -202,8 +206,9 @@
   (A029), C-14 menghasilkan **EBITDA base ≈ -Rp 4,8 jt**, bukan
   -120,6 jt. Modal Rp 50-100 jt TIDAK habis dalam Y1 — risiko
   utama pindah dari burn ke **demand/sold-out** (working capital
-  produksi tidak kembali bila kartu tak laku). Detail di
-  `50_finance/01_financial_model.md`.
+  produksi 52,8 jt Y1 tidak kembali bila kartu tak laku; arti
+  angka: GMV primary Rp 112 jt, revenue platform 78,4 jt, kas
+  akhir Y1 +44,6 jt di modal 50 jt).
 
 ### C-15 [FINAL 2026-08-15] Primary sale = raffle hybrid + pilihan pool
 - **Entry window 24 jam pertama** setelah drop live (default,
@@ -249,9 +254,10 @@
   efektif **92,5%** / platform 7,5% (bukan fee 12%/6%).
 - **COGS seed card = biaya AKUISISI** (marketing-in-kind, bukan
   penjualan); sunk bila tak laku. Volume fleksibel: min ~3
-  kartu/bulan, TANPA cap keras. Detail & langkah:
-  `90_research/30_creator_seed_card.md` [VALIDATED], Flow 10
-  (`03_flows.md`).
+  kartu/bulan, TANPA cap keras. Statistik COGS: unsigned ~Rp
+  104.000, signed +Rp 16.000 = Rp 120.000 (signed = kreator
+  menandatangani); asumsi 40 kreator Y1 ≈ Rp 4,8 jt (A031).
+  Langkah lengkap di Flow 10 (`03_flows.md`).
 
 ## 4. Batasan Teknis yang Diterima
 
@@ -307,22 +313,30 @@
 
 ## Sumber
 
-- `90_research/14_legal_consultation_brief.md` (Sesi A-D).
-- `40_operations/02_legal_compliance.md` (2,2 C-Coin — status [VALIDATED]).
-- `90_research/18_nfc_decision.md` (N5, N5b).
-- `90_research/open_questions_tracker.csv` (Q027-Q030,
-  R6, O1-O7).
-- `00_foundation/05_assumptions.md` (A015 status hukum
-  C-Coin — confidence HIGH, tervalidasi lawyer; A029 burn sejati;
-  A027-A031 asumsi 2026-08-20).
+- 14_legal_consultation_brief (Sesi A-D; Sesi A gate launch —
+  dijawab lawyer fintech 2026-08-13).
+- 02_legal_compliance (2,2 C-Coin / struktur Opsi A — status
+  [VALIDATED 2026-08-13]: C-Coin bukan e-money, "Gamified Point
+  Redemption" bukan lelang, KYC cash-out only).
+- 18_nfc_decision (N5: SUN/SDM — ISO 7816-4 file system, SDM mirror
+  UID+counter+CMAC ke NDEF, server-side CMAC verify; N5b: iOS via
+  SUN URL).
+- Open questions tracker (Q027-Q030: payout mekanisme final,
+  akuntansi float liability, pajak payout fee 1%, refund saldo +
+  penutupan akun; R6: deposit secondary; O1-O7: open items ops).
+- 05_assumptions (A015 status hukum C-Coin — confidence HIGH,
+  tervalidasi lawyer 2026-08-13; A027-A031 keputusan 2026-08-20:
+  A027 marketing=0, A028 AI one-time 16-24 jt, A029 burn sejati
+  ~Rp 1 jt/bln, A030 legal+domain sekali, A031 seed card 4,8 jt).
 - Diskusi founder 2026-08-12.
 - Validasi lawyer fintech 2026-08-13.
 - Keputusan user 2026-08-20 (marketing=0, AI one-time, pemisahan
   burn/working-capital/akuisisi) — selaras C-14 & T-2 di atas;
-  detail arithmetic di `50_finance/01_financial_model.md`.
-- `90_research/30_creator_seed_card.md` [VALIDATED] — Creator Seed
-  C.Card: flow 1-of-1, split 85/7,5/7,5, C-13 enforceable
-  (keputusan 2026-08-20).
-- `90_research/29_creator_account_onboarding.md` [VALIDATED] —
-  akun kreator admin-provisioned + passwordless (keputusan
+  angka kunci: Opex Y1 Rp 38 jt, EBITDA base ≈ -Rp 4,8 jt,
+  burn pasca-launch ~Rp 1 jt/bln (base), kas akhir Y1 +44,6 jt.
+- Creator Seed C.Card (keputusan 2026-08-20) — flow 1-of-1:
+  produksi → tanda tangan → serah + pitch → daftar ownership
+  kreator → listing → bid publik → accept → vault-in wajib +
+  verifikasi NFC → release; split 85/7,5/7,5; C-13 enforceable.
+- Akun kreator admin-provisioned + passwordless (keputusan
   2026-08-20) — dasar C-13 enforceable.

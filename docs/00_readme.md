@@ -145,17 +145,17 @@ HARUS sinkron dengan tabel di atas (dua arah).
 
 | Topik | Dok sumber |
 |-------|------------|
-| Visi & problem | `00_foundation/01_vision.md`, `02_problem_statement.md` |
-| Persona | `00_foundation/03_target_users.md` |
-| Asumsi angka | `00_foundation/05_assumptions.md` |
-| Fitur MVP (orisinal) | `20_product/03_features_mvp.md` |
-| NFC & arsitektur verifikasi | `90_research/18_nfc_decision.md`, `20_product/05_nfc_ux.md` |
-| Revenue split | `90_research/19_revenue_split.md` |
-| GTM off-platform | `90_research/17_mvp_off_platform_gtm.md` |
-| Tech stack | `40_operations/01_tech_stack.md`, `90_research/20_tech_stack_decision.md` |
-| Flow MVP (orisinal) | `40_operations/05_mvp_flow.md` |
-| Legal & C-Coin | `40_operations/02_legal_compliance.md`, `90_research/14_legal_consultation_brief.md` |
-| SOP operasional | `40_operations/03_operations_playbook.md` |
+| Visi & problem | 01_vision (Visi 1 kalimat: collectible limited edition analog trading card, long-term multi-tier; Misi 3 pilar — kreator, kolektor, ekosistem), 02_problem_statement (pain point #1-#3) |
+| Persona | 03_target_users (5 persona: Kreator Indie Aurel, Kreator Established Bara, Kolektor Pemula Nara, Kolektor Serius Dharma, Brand Celcius) |
+| Asumsi angka | 05_assumptions (A002 provenance, A019 AOV Rp 300k/Rp 500k, A027-A031 koreksi 2026-08-20) |
+| Fitur MVP (orisinal) | 03_features_mvp (gaya RICE+MoSCoW, F001-F036) |
+| NFC & arsitektur verifikasi | 18_nfc_decision (N5 SUN/SDM: ISO 7816-4, SDM mirror UID+counter+CMAC ke NDEF, server-side CMAC verify; N5b iOS via SUN URL), 05_nfc_ux (tap flow Skenario A, edge cases E1-E5) |
+| Revenue split | 19_revenue_split (primary 70/30 platform-produced; secondary total 15% = 7,5% platform + 7,5% royalti kreator lifetime + 85% owner; keputusan 2026-07-27/2026-08-04) |
+| GTM off-platform | 17_mvp_off_platform_gtm (rekrut via personal relationship + 1-2 agency partner, 30-50 kreator; TANPA aplikasi/approval in-platform; keputusan 2026-08-12) |
+| Tech stack | 01_tech_stack (full-edge: React/Vite di CF Pages + Hono di CF Workers + Supabase + R2, konsolidasi 2026-08-11), 20_tech_stack_decision (monorepo, free tier cukup Y1) |
+| Flow MVP (orisinal) | 05_mvp_flow (Flow 1-10: primary raffle+C FCFS, fulfillment, payment/settlement, NFC tap, QR fallback, ownership transfer, secondary Marketplace+Browse, pendukung/onboarding, top-up & payout; Flow 10 seed card 2026-08-20) |
+| Legal & C-Coin | 02_legal_compliance (2,2 [VALIDATED 2026-08-13]: C-Coin bukan e-money, struktur Opsi A closed-loop + payout fee 1%), 14_legal_consultation_brief (Sesi A gate launch — A1-A3 dijawab lawyer fintech 2026-08-13) |
+| SOP operasional | 03_operations_playbook (SOP 1-6: produksi & QC, inventory, fulfillment/shipping, CS, trust & safety, finance & payout) |
 
 ## 8. Perubahan Terhadap Dokumen Sumber (2026-08-12)
 
@@ -226,9 +226,8 @@ Dok di folder ini meng-override dokumen sumber workspace:
 
 ## Sumber
 
-- Workspace `00_Dream_Project/` (INDEX.md, AGENTS.md, dok
-  sumber di atas).
+- Workspace `00_Dream_Project/` (AGENTS.md aturan self-contained
+  2026-08-20, dok sumber brainstorm di atas).
 - Diskusi founder 2026-08-12 (keputusan threshold, onboarding
   off-platform, admin app terpisah, struktur folder).
-- Audit foundation `C:\Users\iqbal\Documents\C-Verse\Platform`
-  2026-08-15 (lahiran spec 10-16).
+- Audit foundation `Platform` repo 2026-08-15 (lahiran spec 10-16).

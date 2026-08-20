@@ -35,7 +35,9 @@ Mekanisme inti yang WAJIB jalan di MVP:
    → bid publik → accept → **vault-in wajib + verifikasi NFC** →
    release. BUKAN primary raffle — seed card langsung ke secondary
    (Marketplace/Browse); split secondary normal 85/7,5/7,5 (kreator
-   efektif 92,5% di penjualan pertama). Detail: `90_research/30_creator_seed_card.md`.
+   efektif 92,5% di penjualan pertama karena kreator = owner
+   sekaligus pemegang royalti; syarat akun kreator aktif
+   admin-provisioned — Flow 11).
 
 Non-goals MVP (eksplisit): mobile native, B2B portal, web3,
 multi-currency, voting komunitas, subscription kreator, AR,
@@ -95,7 +97,7 @@ loyalty (semua post-MVP).
 
 | ID | Fitur | Deskripsi |
 |----|-------|-----------|
-| ADM-01 | Kelola kreator | CRUD data kreator hasil rekrutan off-platform (bukan approval). Set status akun, payment info, threshold terpenuhi. **2026-08-20: + "Buat akun kreator"** — provision akun login passwordless (auth user via Supabase Auth admin API, role `creator`, isi `creators.user_id`, kirim akses via SumoPod SMTP; rujuk `90_research/29_creator_account_onboarding.md`) |
+| ADM-01 | Kelola kreator | CRUD data kreator hasil rekrutan off-platform (bukan approval). Set status akun, payment info, threshold terpenuhi. **2026-08-20: + "Buat akun kreator"** — provision akun login passwordless via RPC `admin_provision_creator` (Supabase Auth admin API create user TANPA password + `email_confirm=true`, `user_metadata.role='creator'`, set `profiles.role='creator'`, isi `creators.user_id`, kirim akses login via SumoPod SMTP) |
 | ADM-02 | Kelola drop | Buat drop (artwork final yang sudah di-approve off-platform, harga, unit, waktu), schedule, publish, tutup drop |
 | ADM-03 | Kelola order & fulfillment | Lihat semua order, update status (paid → QC → shipped → delivered), handle return, input no resi |
 | ADM-04 | NFC provisioning & QC | Register batch tag (assign UUID↔UID), konfigurasi NDEF/SDM, catat hasil QC + defect |
@@ -173,14 +175,21 @@ section 3 adalah mekanisme kontrolnya.
 
 ## Sumber
 
-- `20_product/03_features_mvp.md` (gaya RICE/MoSCoW, fitur
-  F001-F036).
-- `40_operations/05_mvp_flow.md` (Flow 1-9).
-- `40_operations/03_operations_playbook.md` (SOP 1-6 → dasar
-  fitur ADM-01..06).
+- 03_features_mvp (gaya RICE/MoSCoW, fitur F001-F036).
+- 05_mvp_flow (Flow 1-9 + Flow 10 seed card & Flow 8.1
+  provisioning akun kreator).
+- 03_operations_playbook (SOP 1-6 → dasar fitur ADM-01..06).
 - Diskusi founder 2026-08-12: admin terpisah, tanpa approval
   onboarding, threshold 100rb+ combined.
-- `90_research/29_creator_account_onboarding.md` [VALIDATED] — akun
-  kreator admin-provisioned (keputusan 2026-08-20).
-- `90_research/30_creator_seed_card.md` [VALIDATED] — fitur Creator
-  Seed C.Card (keputusan 2026-08-20).
+- Keputusan akun kreator admin-provisioned (2026-08-20,
+  [VALIDATED]): platform passwordless — Google OAuth + email OTP;
+  akun kreator dibuat admin via RPC `admin_provision_creator`
+  (create auth user tanpa password, `profiles.role='creator'`,
+  isi `creators.user_id`, email akses via SumoPod SMTP); tidak ada
+  self-register kreator & tidak ada halaman invite publik.
+- Fitur Creator Seed C.Card (2026-08-20, [VALIDATED]): produksi
+  1-of-1 → tanda tangan kreator → serah hadiah + pitch → daftar
+  ownership kreator → listing → bid publik → accept → vault-in
+  wajib + verifikasi NFC → release; split 85/7,5/7,5, kreator
+  efektif 92,5% di penjualan pertama; menggantikan marketing
+  berbayar (Rp 0).

@@ -146,9 +146,14 @@ apps/api/src/routes/payments.ts
 
 ## 8. Sumber
 
-- `40_operations/05_mvp_flow.md` Flow 9 (top-up & payout Opsi A).
+- 05_mvp_flow Flow 9 (top-up & payout Opsi A: C-Coin medium
+  tunggal, rate Rp 10.000/C-Coin, saldo buyer closed-loop TANPA
+  withdraw, disburse IDR kena payout fee 1%, siklus Selasa kreator /
+  otomatis seller secondary, rekonsiliasi harian via SOP 6,1).
 - `dev-strategy/07_constraints.md` C-08 (cap), C-09/C-09b (payout,
   min 10 C-Coin).
-- `40_operations/10_kyc_policy.md` (rekening atas nama KTP).
+- Kebijakan KYC (rekening atas nama KTP; wajib untuk payout/
+  disbursement ke IDR + akumulasi top-up besar; verifikasi manual
+  Y1 SLA 1x24 jam; [DRAFT]).
 - Midtrans docs: Snap API, Payment Notification Verifikasi Signature,
   Disbursement/IRIS API.

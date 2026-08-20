@@ -59,8 +59,11 @@ creators
 > (off-platform), bukan auto-check di sistem.
 > **`user_id` diisi via ADMIN-PROVISIONING (keputusan 2026-08-20)**:
 > admin app create auth user + set `profiles.role='creator'` +
-> isi `creators.user_id` (RPC `admin_provision_creator`, service-role;
-> detail `90_research/29_creator_account_onboarding.md`). Field ini
+> isi `creators.user_id` (RPC `admin_provision_creator`, service-role:
+> `supabase.auth.admin.createUser({ email, email_confirm: true,
+> user_metadata: { role: 'creator' } })` — TANPA password; set
+> `profiles.role='creator'`; update `creators.user_id` = auth uid;
+> kirim email akses via SumoPod SMTP). Field ini
 > dulu nullable tanpa flow pengisian (gap G1/G2) — sekarang selalu
 > terisi saat akun kreator dibuat; kreator login OTP/OAuth passwordless.
 
@@ -520,10 +523,11 @@ profiles 1─N user_badges
 ## Sumber
 
 - `03_flows.md` (Flow 1-9 → struktur data).
-- `40_operations/05_mvp_flow.md` (Wallet + WalletTransaction
-  ledger, escrow, payout).
-- `20_product/06_auction_mechanics.md` (rules → invariant
-  listing/bid).
-- `40_operations/01_tech_stack.md` (Supabase, Drizzle, RLS).
-- `90_research/29_creator_account_onboarding.md` [VALIDATED] —
-  creators.user_id via RPC admin (keputusan 2026-08-20).
+- 05_mvp_flow (Wallet + WalletTransaction ledger, escrow, payout,
+  Flow 8.1 provisioning akun kreator).
+- 06_auction_mechanics (rules → invariant listing/bid: max 20
+  buyout aktif/user, min buyout 1 C-Coin, bid tanpa expire, max 1
+  kartu primer / 10 sekunder per user, KYC payout).
+- 01_tech_stack (Supabase, Drizzle, RLS).
+- Akun kreator admin-provisioned (keputusan 2026-08-20,
+  [VALIDATED]) — `creators.user_id` diisi via RPC `admin_provision_creator`.

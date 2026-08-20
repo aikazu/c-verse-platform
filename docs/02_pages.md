@@ -169,8 +169,10 @@ Halaman login/dashboard/wallet — SPA murni, skip Worker.
 ## Sumber
 
 - `01_scope.md` (fitur → mapping halaman).
-- `40_operations/05_mvp_flow.md` (Flow 1-9 → dasar route).
-- `90_research/13_demo_platform_internal.md` (6 screen
-  demo → referensi visual flow user).
+- 05_mvp_flow (Flow 1-9 → dasar route; Flow 8.1 provisioning
+  akun kreator, Flow 10 seed card).
+- 13_demo_platform_internal (6 screen demo: Landing → Drop Detail
+  → Checkout → Order Success → NFC Tap → 3D Viewer, floating nav;
+  referensi visual flow user).
 - Diskusi founder 2026-08-12 (revisi halaman: marketplace,
   browse, leaderboard, kartu 3D + info; verifikasi di-merge).

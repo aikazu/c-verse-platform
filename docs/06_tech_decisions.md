@@ -217,10 +217,14 @@ Retensi: minimum 1 tahun (UU PDP + forensik fraud).
 
 ## Sumber
 
-- `40_operations/01_tech_stack.md` (full-edge, 2026-08-11).
-- `90_research/20_tech_stack_decision.md`.
-- `90_research/18_nfc_decision.md` (N5 arsitektur
-  verifikasi, SUN URL).
-- `40_operations/05_mvp_flow.md` (Flow 1-9).
-- `40_operations/02_legal_compliance.md` 2,2 (C-Coin validasi).
+- 01_tech_stack (full-edge, konsolidasi 2026-08-11).
+- 20_tech_stack_decision (keputusan full-edge 2026-08-05/2026-08-11:
+  React/Vite + Hono di Cloudflare Pages/Workers, Supabase, R2;
+  monorepo; free tier cukup Y1).
+- 18_nfc_decision (N5 arsitektur verifikasi — SUN/SDM: ISO 7816-4
+  file system, SDM mirror UID+counter+CMAC ke NDEF, server-side CMAC
+  verify; N5b iOS via SUN URL).
+- 05_mvp_flow (Flow 1-9).
+- 02_legal_compliance 2,2 (C-Coin [VALIDATED 2026-08-13]: bukan
+  e-money, struktur Opsi A closed-loop + payout fee 1%).
 - Diskusi founder 2026-08-12 (D1, D2).

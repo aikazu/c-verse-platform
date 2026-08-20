@@ -6,7 +6,9 @@
 > `cmac`+`counter` lalu MENGABAIKANNYA; verdict "verified" hanya dari lookup
 > UID. Badge "Verified Card" bisa dipalsukan siapa pun yang tahu UID.
 > Estimasi: 2-4 hari AI-assisted. Dependency: tidak ada (paralel dengan 10/11).
-> Mengimplement: `90_research/18_nfc_decision.md` N5, `06_tech_decisions.md`
+> Mengimplement: keputusan NFC N5 (SUN/SDM — ISO 7816-4 file
+> system, SDM mirror UID+counter+CMAC ke NDEF, server-side CMAC
+> verify; N5b iOS via SUN URL) + `06_tech_decisions.md`
 > D2+D4, `07_constraints.md` C-03.
 
 ## 1. Desain Kripto (sesuai keputusan docs)
@@ -77,7 +79,8 @@ verifySun({ uidHex, ctrHex, cmacHex, tamperBit }, master): {
 - HAPUS: `POST /simulate-tamper/:cardId` dari route publik (pindah ke
   admin service-role untuk demo/QC).
 
-### 2,3 Schema NFC (di fase 1 `20260817000000_foundation.sql`)
+### 2,3 Schema NFC (di fase 1 migration `foundation`,
+timestamp `20260817000000`)
 - `cards.last_ctr integer not null default 0` (anti-replay).
 - `cards.nfc_uid` & `cards.nfc_short_id` (sudah unique — dipakai lookup).
 - `cards.verify_status` enum: `unknown | registered | verified |
@@ -135,8 +138,12 @@ Hasil C-03 dicatat di `07_constraints.md` (update status DRAFT → hasil).
 
 ## 7. Sumber
 
-- `90_research/18_nfc_decision.md` N5 (arsitektur SUN/SDM, key derivation,
-  validation flow 5 langkah), N5b (iOS SUN URL).
+- Keputusan NFC N5 (arsitektur SUN/SDM: ISO 7816-4 file system,
+  SDM mirror UID+counter+CMAC ke NDEF, key derivation master key +
+  UID, validation flow 5 langkah dari tap → lookup → derive CMAC →
+  compare → parse TagTamper status), N5b (iOS SUN URL — Web NFC
+  API TIDAK support di iOS, tapi tap-to-verify jalan via SUN URL,
+  koreksi 2026-08-12).
 - `dev-strategy/06_tech_decisions.md` D2, D4 (CMAC < 1ms, master key di
   Workers Secrets, O-1).
 - `dev-strategy/07_constraints.md` C-03, C-04.

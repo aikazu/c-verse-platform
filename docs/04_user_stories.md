@@ -473,9 +473,15 @@ And catatan TIDAK bisa di-edit atau dihapus (retensi ≥ 1 tahun)
 
 - `02_pages.md` (halaman), `01_scope.md` (fitur),
   `03_flows.md` (alur).
-- `20_product/02_user_journey.md` (per persona).
-- `20_product/05_nfc_ux.md` (edge cases E1-E5).
-- `20_product/06_auction_mechanics.md` (limit & anti-fraud).
+- 02_user_journey (per persona: Journeys 1-5 — Kreator Indie
+  [Tahap 1-2 OUTDATED, superseded GTM off-platform], Kolektor Pemula,
+  Kolektor Serius, Brand/Studio, Reseller).
+- 05_nfc_ux (edge cases E1-E5: tag tak terdeteksi → QR fallback,
+  tag ter-bind user lain, tamper → status once-opened irreversibel,
+  HP tanpa NFC → QR, verify tanpa akun → halaman publik).
+- 06_auction_mechanics (limit & anti-fraud: 1 bid active tertinggi/
+  kartu, hold C-Coin, outbid/cancel release, max 20 buyout aktif,
+  anti-shill/anti-bot rate limit 20 bid/hari, KYC payout).
 - Diskusi founder 2026-08-12: tanpa approval onboarding;
   secondary = Marketplace (buyout) + Browse (bid langsung di
   kartu); verifikasi melekat di halaman kartu (3D dari tap,

@@ -322,20 +322,23 @@ ADM-06: dispute masuk -> review bukti -> keputusan
 
 ## Flow 10: Creator Seed C.Card (akuisisi kreator + seeding secondary)
 
-> **KEPUTUSAN USER 2026-08-20 [VALIDATED]** — rujuk
-> `90_research/30_creator_seed_card.md`. **BUKAN primary raffle**:
+> **KEPUTUSAN USER 2026-08-20 [VALIDATED]** — Creator Seed C.Card.
+> **BUKAN primary raffle**:
 > seed card masuk LANGSUNG ke secondary (Marketplace/Browse normal),
 > TIDAK pernah lewat entry window/draw primary (Flow 1). Flow ini
 > menggantikan marketing berbayar (Rp 0) sekaligus seeding 1-of-1
 > untuk secondary market. Volume fleksibel: min ~3 kartu/bulan,
-> tanpa cap keras.
+> tanpa cap keras. COGS seed card = biaya akuisisi (marketing-in-kind,
+> bukan penjualan; Rp 104.000 unsigned / Rp 120.000 signed), sunk
+> bila tak laku.
 
 ```
 [1] PRODUKSI 1-of-1 (tim internal, in-house design)
     - artboard tentang kreator target (edisi tunggal, unik)
     - 1 unit kartu + NFC provisioning (ADM-04)
     - COGS dicatat sebagai BIAYA AKUISISI (marketing-in-kind,
-      BUKAN penjualan); sunk bila tak laku; rujuk 50_finance
+      BUKAN penjualan); sunk bila tak laku (Rp 104.000 unsigned /
+      Rp 120.000 signed; asumsi 40 kreator Y1 ≈ Rp 4,8 jt)
 [2] TANDA TANGAN KREATOR
     - tim mendatangi kreator; kartu ditandatangani kreator
 [3] SERAH + PITCH
@@ -374,8 +377,8 @@ penjualan — tidak ada split/gateway/escrow.
 
 ## Flow 11: Provision Akun Kreator (admin) — passwordless
 
-> **KEPUTUSAN USER 2026-08-20 [VALIDATED]** — rujuk
-> `90_research/29_creator_account_onboarding.md`. Menggantikan gap
+> **KEPUTUSAN USER 2026-08-20 [VALIDATED]** — akun kreator
+> admin-provisioned + passwordless. Menggantikan gap
 > "kreator terdaftar tapi tidak pernah bisa login": `creators.user_id`
 > selama ini nullable tanpa flow pengisian (G1/G2 closed). Kreator
 > TIDAK self-register — TIDAK ada halaman invite publik.
@@ -411,5 +414,11 @@ penjualan — tidak ada split/gateway/escrow.
 - `06_tech_decisions.md` (arsitektur).
 - `07_constraints.md` (gate & aturan).
 - `02_pages.md` (halaman user & admin).
-- `90_research/30_creator_seed_card.md` [VALIDATED] (Flow 10, 2026-08-20).
-- `90_research/29_creator_account_onboarding.md` [VALIDATED] (Flow 11, 2026-08-20).
+- Creator Seed C.Card (keputusan 2026-08-20, [VALIDATED]) — Flow 10:
+  produksi 1-of-1 → tanda tangan → serah + pitch → daftar ownership
+  kreator → listing → bid publik → accept → vault-in wajib +
+  verifikasi NFC → release.
+- Akun kreator admin-provisioned (keputusan 2026-08-20, [VALIDATED])
+  — Flow 11: RPC `admin_provision_creator` (create auth user tanpa
+  password, `profiles.role='creator'`, isi `creators.user_id`, email
+  akses via SumoPod SMTP); login OTP email / Google OAuth.
