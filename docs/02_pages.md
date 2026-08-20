@@ -1,7 +1,9 @@
 # 02 — Peta Halaman MVP
 
 > Status: [VALIDATED]
-> Last updated: 2026-08-13 (konten divalidasi — domain final,
+> Last updated: 2026-08-21 (badge "Seed 1-of-1" di kartu
+> Marketplace & Browse untuk drop is_seed — Flow 10 [5])
+> Previous: 2026-08-13 (konten divalidasi — domain final,
 > halaman kartu; marketplace = secondary buyout; browse = bid
 > langsung di kartu tanpa harga; leaderboard jadi halaman;
 > top-up di area user; profil publik + privacy anonymous;
@@ -42,8 +44,8 @@ warna): lihat `06_tech_decisions.md` D7–D8.
 | PG-LAND-01 | `/` | Landing page | Hero, drop terbaru, cara kerja, CTA register |
 | PG-DROP-01 | `/drops` | Daftar drop (primary) | Grid drop aktif + upcoming, filter kreator |
 | PG-DROP-02 | `/drops/:dropId` | Detail drop | Countdown fase (raffle entry window / FCFS), artwork, harga per pool (reguler/premium), jumlah entry live per pool + unit tersisa; fase raffle: tombol "Ikuti" (pilih pool, login gate); fase FCFS (setelah draw): tombol "Beli" (login gate) |
-| PG-MARKET-01 | `/marketplace` | Marketplace (secondary buyout) | Kartu dengan buyout price, filter, beli langsung |
-| PG-BROWSE-01 | `/browse` | Browse (cari kartu) | **Search by kartu/kreator**, bid langsung di kartu walau tanpa harga |
+| PG-MARKET-01 | `/marketplace` | Marketplace (secondary buyout) | Kartu dengan buyout price, filter, beli langsung; **badge "Seed 1-of-1"** untuk kartu dari seed drop (Flow 10) |
+| PG-BROWSE-01 | `/browse` | Browse (cari kartu) | **Search by kartu/kreator**, bid langsung di kartu walau tanpa harga; **badge "Seed 1-of-1"** untuk kartu dari seed drop (Flow 10) |
 | PG-CARD-01 | `/cards/:shortId` | Halaman kartu (info) | Sertifikat, **jejak ownership**, bid tertinggi, harga buyout (jika ada), QR fallback |
 | PG-CARD-02 | `/cards/:shortId/3d` | Halaman kartu (3D view) — **simple** | 3D viewer + info singkat: **Series** (link ke detail drop), **Unit number** (#X dari Y), **Kreator** (link ke halaman kreator), **Release date**, **Owner** (link ke halaman owner) + **verified badge "Verified Card"** (hanya muncul lewat tap NFC). Ownership history TIDAK di halaman 3D — ada di halaman info (`PG-CARD-01`) |
 | PG-LB-01 | `/leaderboard` | Leaderboard | Peringkat kolektor (F019) |

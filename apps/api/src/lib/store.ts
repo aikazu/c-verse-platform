@@ -87,6 +87,7 @@ export interface Drop {
   soldCount: number;
   createdAt: string;
   createdBy?: string | null;
+  isSeed: boolean;
 }
 
 export interface Card {

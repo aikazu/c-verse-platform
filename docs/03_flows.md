@@ -3,7 +3,9 @@
 > Status: [VALIDATED — partial: open items payout (SLA, disbursement,
 > cap Rp 5-10 jt) & validasi C-03 iPhone masih [DRAFT] — lihat
 > `07_constraints.md`]
-> Last updated: 2026-08-20 (Flow 10 Creator Seed C.Card + Flow 11
+> Last updated: 2026-08-21 (badge "Seed 1-of-1" di Marketplace/
+> Browse — Flow 10 langkah [5])
+> Previous: 2026-08-20 (Flow 10 Creator Seed C.Card + Flow 11
 > provision akun kreator admin — keputusan 2026-08-20)
 > Previous: 2026-08-15 (Flow 1 → raffle hybrid + pilihan pool;
 > audit konsistensi: harga signed eksplisit di decision point SALDO)
@@ -351,6 +353,9 @@ ADM-06: dispute masuk -> review bukti -> keputusan
 [5] LISTING MARKETPLACE
     - tampil di /marketplace + /browse; owner bisa set buyout price
       ATAU biarkan bid langsung (perilaku secondary normal)
+    - TERIMPLEMENTASI (2026-08-21): kartu dari seed drop tampil
+      dengan badge "Seed 1-of-1" di kartu Marketplace & Browse
+      (drops.is_seed dikirim via API ke web — store.ts/reads.ts)
 [6] BID PUBLIK -> [7] ACCEPT (kreator-owner, tanpa reject)
     - mekanik Flow 7 normal (1 bid active tertinggi/kartu, hold
       C-Coin, outbid/cancel release)

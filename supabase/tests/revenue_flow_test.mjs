@@ -75,15 +75,15 @@ async function mkDrop(id, opts) {
   await admin.query(
     `insert into public.drops (id, title, series, narrative, artwork_url, total_units, signed_count, unsigned_count,
        price_unsigned_ccoin, price_signed_ccoin, price_ccoin, status, drop_start_at, drop_end_at, raffle_end_at, drawn_at, creator_id, creator_name, sold_count)
-     values ($1,'Flow Test','FT','fixture','/x.jpg',$2,$3,$4,$5,$6,$5,'${status}',${start},${end ?? "null"},${raffleEnd},${drawn ?? "null"},$7,'Creator FT',0)
+     values ($1,'Flow Test','FTS','fixture','/x.jpg',$2,$3,$4,$5,$6,$5,'${status}',${start},${end ?? "null"},${raffleEnd},${drawn ?? "null"},$7,'Creator FT',0)
      on conflict (id) do nothing`,
     [id, units, signed, units - signed, priceU, priceS, U.creator],
   );
   await admin.query(
-    `insert into public.cards (id, drop_id, unit_number, variant, status, card_status_new, owner_id, nfc_uid, nfc_short_id, verify_status, location, nfc_configured, qc_status)
+    `insert into public.cards (id, drop_id, unit_number, variant, status, owner_id, nfc_uid, nfc_short_id, verify_status, location, nfc_configured, qc_status)
      select 'card-' || $1 || '-' || lpad(i::text, 2, '0'), $1, i,
-       case when i <= $2 then 'signed' else 'unsigned' end::card_variant, 'available', 'inventory', null,
-       md5($1 || i::text), right(regexp_replace($1, '[^a-z0-9]', '', 'g'), 4) || '-' || lpad(i::text, 3, '0'),
+       case when i <= $2 then 'signed' else 'unsigned' end::card_variant, 'inventory', null,
+       md5($1 || i::text), left(md5($1), 4) || '-' || lpad(i::text, 3, '0'),
        'unknown', 'platform_stock', false, 'pending'
      from generate_series(1, $3::int) i
      on conflict (id) do nothing`,
@@ -165,7 +165,7 @@ try {
     await mkUser(owner, "T3 Owner", 0);
     const drop = `flow-t3-${stamp}`;
     await mkDrop(drop, { units: 4, signed: 0, priceU: 10, raffleEnd: "now() - interval '25 hours'", drawn: "now() - interval '24 hours'" });
-    await admin.query(`update public.cards set owner_id = $2, card_status_new = 'bound' where drop_id = $1`, [drop, owner]);
+    await admin.query(`update public.cards set owner_id = $2, status = 'bound' where drop_id = $1`, [drop, owner]);
     const c = await asUser(bidder);
     let limited = false;
     const cards = (await admin.query("select id from public.cards where drop_id = $1 order by unit_number", [drop])).rows;
@@ -219,7 +219,7 @@ try {
     }
     let minPayout = false;
     await admin.query(
-      "insert into public.kyc_records (id, user_id, full_name, nik, address, status) values ($1, $2, 'Kyc5', '320123456789013', 'Jl. Test No. 2 Jakarta', 'approved') on conflict (user_id) do nothing",
+      "insert into public.kyc_records (id, user_id, full_name, nik, address, status) values ($1, $2, 'Kyc5', '3201234567890134', 'Jl. Test No. 2 Jakarta', 'approved') on conflict (user_id) do nothing",
       [`kyc5-${stamp}`, p5],
     );
     try {
@@ -227,7 +227,13 @@ try {
     } catch (e) {
       minPayout = errCode(e) === "MIN_PAYOUT";
     }
-    const payout = await c.query("select public.payout_request(50)");
+    await c.query("select public.payout_request(50)");
+    // Node-postgres mengembalikan composite type sebagai string "(...)" —
+    // baca status langsung dari tabel (admin role) untuk asersi.
+    const payout = await admin.query(
+      "select status, ccoin_amount from public.payouts where user_id = $1 order by requested_at desc limit 1",
+      [p5],
+    );
     await admin.query("update public.wallets set hold_payout_until = now() + interval '7 days' where user_id = $1", [p5]);
     let held = false;
     try {
@@ -254,10 +260,7 @@ try {
     await mkUser(buyer, "T6 Buyer", 500);
     await mkDrop(drop, { units: 1, signed: 0, priceU: 10, raffleEnd: "now() - interval '25 hours'", drawn: "now() - interval '24 hours'" });
     const card = (await admin.query("select id from public.cards where drop_id = $1", [drop])).rows[0].id;
-    await admin.query("update public.cards set owner_id = $2, card_status_new = 'sold', buyout_price_ccoin = 100 where id = $1", [
-      card,
-      seller,
-    ]);
+    await admin.query("update public.cards set owner_id = $2, status = 'sold', buyout_price_ccoin = 100 where id = $1", [card, seller]);
     const before = await walletBalance(TREASURY);
     const c = await asUser(buyer);
     await c.query("select public.buyout_card($1, 'buyer_address', 'Jl. Test No. 3 Bandung')", [card]);
@@ -292,7 +295,7 @@ try {
     await mkUser(bidder, "T7 Bidder", 100);
     await mkDrop(drop, { units: 1, signed: 0, priceU: 10, raffleEnd: "now() - interval '25 hours'", drawn: "now() - interval '24 hours'" });
     const card = (await admin.query("select id from public.cards where drop_id = $1", [drop])).rows[0].id;
-    await admin.query("update public.cards set owner_id = $2, card_status_new = 'sold' where id = $1", [card, seller]);
+    await admin.query("update public.cards set owner_id = $2, status = 'sold' where id = $1", [card, seller]);
     const cb = await asUser(bidder);
     await cb.query("select public.place_bid($1, 60)", [card]);
     await cb.end();

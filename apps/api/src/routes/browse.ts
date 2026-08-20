@@ -64,7 +64,14 @@ app.get("/", async (c) => {
         ownerId: card.ownerId,
       },
       drop: drop
-        ? { id: drop.id, title: drop.title, series: drop.series, artworkUrl: drop.artworkUrl, creatorName: drop.creatorName }
+        ? {
+            id: drop.id,
+            title: drop.title,
+            series: drop.series,
+            artworkUrl: drop.artworkUrl,
+            creatorName: drop.creatorName,
+            isSeed: drop.isSeed,
+          }
         : null,
       owner: owner ? { id: owner.id, displayName: owner.displayName } : null,
       buyoutIdr: card.buyoutPriceCcoin != null ? card.buyoutPriceCcoin * C_COIN_RATE_IDR : null,

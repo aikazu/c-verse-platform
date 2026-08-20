@@ -79,6 +79,11 @@ export default function Marketplace() {
                     {drop?.title ?? card?.id ?? r.listingId} · #{card?.unitNumber ?? "?"}
                   </div>
                   <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--text-muted)" }}>{drop?.series ?? ""}</div>
+                  {drop?.isSeed && (
+                    <span className="pill pill-warn" style={{ alignSelf: "start", fontSize: 10, marginTop: 6 }}>
+                      Seed 1-of-1
+                    </span>
+                  )}
                   <div style={{ marginTop: 10, display: "flex", alignItems: "baseline", gap: 6 }}>
                     <span style={{ fontWeight: 700, fontSize: 15 }}>{price} C</span>
                     <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--text-muted)" }}>

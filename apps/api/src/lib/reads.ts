@@ -43,6 +43,7 @@ export function mapDropRow(r: Row): Drop {
     soldCount: num(r.sold_count),
     createdAt: str(r.created_at),
     createdBy: nstr(r.created_by),
+    isSeed: bool(r.is_seed),
   };
 }
 

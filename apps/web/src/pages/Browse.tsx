@@ -97,6 +97,11 @@ export default function Browse() {
                     {drop?.title ?? card.id} · #{card.unitNumber}
                   </div>
                   <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--text-muted)" }}>{drop?.series}</div>
+                  {drop?.isSeed && (
+                    <span className="pill pill-warn" style={{ alignSelf: "start", fontSize: 10 }}>
+                      Seed 1-of-1
+                    </span>
+                  )}
                   {activeBid ? (
                     <span className="pill pill-success" style={{ alignSelf: "start", fontSize: 10 }}>
                       Tertinggi {activeBid.amountCCoin} C

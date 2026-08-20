@@ -48,7 +48,14 @@ app.get("/", async (c) => {
         kind: "buyout" as const,
         card,
         drop: drop
-          ? { id: drop.id, title: drop.title, series: drop.series, artworkUrl: drop.artworkUrl, creatorName: drop.creatorName }
+          ? {
+              id: drop.id,
+              title: drop.title,
+              series: drop.series,
+              artworkUrl: drop.artworkUrl,
+              creatorName: drop.creatorName,
+              isSeed: drop.isSeed,
+            }
           : null,
         seller: seller ? { id: seller.id, displayName: seller.displayName } : null,
         buyoutPriceCcoin: card.buyoutPriceCcoin,
