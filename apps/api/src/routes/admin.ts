@@ -2,8 +2,10 @@ import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import { z } from "zod";
 import { adminGateError, requireAdmin, tokenFingerprint } from "../lib/auth.js";
+import { sendCreatorAccessEmail } from "../lib/email.js";
 import { logAuditDb } from "../lib/reads/kyc.js";
 import { readDb } from "../lib/reads.js";
+import { uid } from "../lib/store.js";
 import { getSupabase } from "../lib/supabase.js";
 
 // Admin mutations (role-gated; jalankan server-side dengan service-role client).
@@ -171,6 +173,102 @@ app.patch(
       await tokenFingerprint(c.req.header("authorization")),
     );
     return c.json({ dispute: data });
+  },
+);
+
+// POST /users/provision — buat akun kreator admin-provisioned (FINAL 2026-08-20).
+// Alur: create auth user (tanpa password, email_confirm) -> trigger buat row
+// public.users -> set role='creator' -> insert creators -> audit log -> email akses.
+app.post(
+  "/users/provision",
+  zValidator(
+    "json",
+    z.object({
+      email: z.string().email(),
+      displayName: z.string().min(1).max(120),
+      handle: z.string().min(1).max(60),
+      totalFollowersCombined: z.number().int().min(0).optional(),
+      notes: z.string().max(500).optional(),
+    }),
+  ),
+  async (c) => {
+    const authRes = await requireAdmin(c);
+    if ("error" in authRes) {
+      const e = adminGateError(authRes);
+      return c.json(e.body, e.status);
+    }
+    const admin = authRes.user;
+    const { email, displayName, handle, totalFollowersCombined, notes } = c.req.valid("json");
+    const db = getSupabase();
+
+    // Cek duplikat eksplisit (lebih ramah daripada error unik) — email kanonik
+    // juga dicek DB via unique index users_canonical_email_uidx.
+    const { data: dup } = await db.from("users").select("id").eq("email", email).maybeSingle();
+    if (dup) return c.json({ error: "Email sudah terdaftar" }, 409);
+
+    // 1) Auth user tanpa password — trigger `on_auth_user_created` membuat row public.users.
+    const created = await db.auth.admin.createUser({
+      email,
+      email_confirm: true,
+      user_metadata: { full_name: displayName, role: "creator" },
+    });
+    if (created.error) {
+      const msg = created.error.message.toLowerCase();
+      if (msg.includes("already") || msg.includes("exists") || msg.includes("registered") || msg.includes("duplicate")) {
+        return c.json({ error: "Email sudah terdaftar" }, 409);
+      }
+      return c.json({ error: created.error.message }, 400);
+    }
+    const uidNew = created.data.user.id;
+
+    // 2) Role + display name (trigger default role='user').
+    const { error: userErr } = await db.from("users").update({ role: "creator", display_name: displayName }).eq("id", uidNew);
+    if (userErr) return c.json({ error: userErr.message }, 400);
+
+    // 3) Row creators (handle unique). Handle bentrok -> rollback best-effort:
+    // hapus auth user agar tidak ada akun yatim, lalu 409.
+    const creatorId = uid("cr-");
+    const { error: creatorErr } = await db.from("creators").insert({
+      id: creatorId,
+      user_id: uidNew,
+      handle,
+      total_followers_combined: totalFollowersCombined ?? 0,
+      status: "active",
+      notes: notes ?? null,
+    });
+    if (creatorErr) {
+      const msg = creatorErr.message.toLowerCase();
+      if (msg.includes("unique") || msg.includes("duplicate") || msg.includes("handle")) {
+        try {
+          await db.auth.admin.deleteUser(uidNew);
+        } catch (rollbackErr) {
+          console.error("[admin] rollback deleteUser gagal:", rollbackErr instanceof Error ? rollbackErr.message : String(rollbackErr));
+        }
+        return c.json({ error: "Handle sudah dipakai" }, 409);
+      }
+      try {
+        await db.auth.admin.deleteUser(uidNew);
+      } catch (rollbackErr) {
+        console.error("[admin] rollback deleteUser gagal:", rollbackErr instanceof Error ? rollbackErr.message : String(rollbackErr));
+      }
+      return c.json({ error: creatorErr.message }, 400);
+    }
+
+    // 4) Email akses (flag EMAIL_ENABLED default OFF di dev -> { sent:false, reason:'disabled' }).
+    const emailResult = await sendCreatorAccessEmail({ to: email, displayName });
+
+    // 5) Audit log — action 'create' valid (enum audit_action).
+    await logAuditDb(
+      admin.id,
+      "create",
+      "users",
+      uidNew,
+      { provision: true, handle, emailSent: emailResult.sent },
+      c.req.header("x-forwarded-for") ?? null,
+      await tokenFingerprint(c.req.header("authorization")),
+    );
+
+    return c.json({ user: { id: uidNew, email, role: "creator" }, creator: { handle }, emailSent: emailResult.sent }, 201);
   },
 );
 

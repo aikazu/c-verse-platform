@@ -11,6 +11,7 @@ ENV = "production"
 # Secrets (set via `wrangler secret put` — see docs/08 §3.3 + §7):
 # SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY,
 # SMTP_HOST (smtp.sumopod.com), SMTP_PORT (465), SMTP_USER, SMTP_PASS,
+# EMAIL_ENABLED (flag email akses kreator — docs/10 §3.6; 'true' enable, default OFF di dev),
 # MIDTRANS_SERVER_KEY, NFC_MASTER_KEY, PAYOUT_WEBHOOK_SIGNING_KEY,
 # FCM_SERVICE_ACCOUNT (JSON), JWT_SECRET.
 

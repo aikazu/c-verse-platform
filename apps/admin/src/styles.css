@@ -158,6 +158,7 @@ html, body { margin: 0; }
   word-break: break-word;
 }
 .admin-mini { font-size: 11px; padding: 4px 10px; }
+.admin-mini-form .input { margin-bottom: 0; }
 
 /* ── Admin page chrome ──────────────────────────────────────────────────── */
 .admin-page { display: flex; flex-direction: column; gap: 16px; }

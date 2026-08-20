@@ -101,18 +101,27 @@ Auth saat ini custom in-memory — tidak bisa dibawa ke produksi:
 - Salah OTP 5x → lock 15 menit (tabel `auth_retry_lock` atau claim di users).
 
 ### 3,6 Provisioning akun kreator (admin-provisioned, FINAL 2026-08-20)
-- Admin app (service-role, bukan web publik) aksi **"Buat akun
-  kreator"**: input email (dari deal memo) + data kreator → RPC
-  `admin_provision_creator`:
-  1. `supabase.auth.admin.createUser({ email, email_confirm: true,
-     user_metadata: { role: 'creator' } })` — TANPA password; email
-     langsung bisa dipakai login OTP/OAuth.
-  2. Insert/update `profiles` → `role = 'creator'`.
-  3. Update `creators.user_id` = auth uid baru (menutup gap field
-     nullable tanpa flow).
-  4. Kirim email akses via **SumoPod SMTP** (abstraction layer).
-- Kreator login OTP email / Google OAuth — email harus sama dengan
-  yang di-set admin. Pencatatan `admin_audit_log` wajib (aksinya
+- **STATUS: TERIMPLEMENTASI (2026-08-21)** — endpoint nyata
+  `POST /api/admin/users/provision` (gate admin + MFA aal2, service-role,
+  ter-audit) menggantikan rencana awal RPC `admin_provision_creator`:
+  1. Cek duplikat email (409 "Email sudah terdaftar").
+  2. `auth.admin.createUser({ email, email_confirm: true, user_metadata:
+     { full_name, role: 'creator' } })` — TANPA password; trigger DB
+     otomatis membuat baris `public.users` (role default 'user').
+  3. Update `public.users` → `role='creator'`, `display_name`.
+  4. Insert baris `creators` (handle unique; `status='active'`,
+     `total_followers_combined` default 0). Handle bentrok → 409
+     "Handle sudah dipakai" + rollback best-effort hapus auth user
+     (tidak ada akun yatim).
+  5. Kirim email akses via modul email ber-flag: `EMAIL_ENABLED` default
+     **OFF di dev** (kirim dilewati, respons `emailSent:false`); saat
+     `true`, kirim via SumoPod SMTP (configurable `SMTP_HOST`/`SMTP_PORT`/
+     `SMTP_USER`/`SMTP_PASS`).
+  6. Audit log `admin_audit_log` (action `create`, payload berisi
+     `provision:true` + handle + status email).
+  Admin app menampilkan form "Buat akun kreator" yang memanggil endpoint
+  ini. Kreator login OTP email / Google OAuth — email harus sama dengan
+  yang di-set admin. Pencatatan `admin_audit_log` wajib (aksi
   account-provisioning).
 
 ## 4. Jangan Dilakukan

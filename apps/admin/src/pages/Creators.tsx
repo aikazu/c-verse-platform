@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { StatusBadge } from "../components/StatusBadge";
 import { apiFetch } from "../lib/api";
 import { supabase } from "../lib/supabase";
-import type { CreatorRow, UserRow } from "../lib/types";
+import type { CreatorRow, ProvisionResult, UserRow } from "../lib/types";
 import { errMessage } from "../lib/utils";
 
 export function CreatorsPage() {
@@ -13,6 +13,13 @@ export function CreatorsPage() {
   const [search, setSearch] = useState("");
   const [msg, setMsg] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [form, setForm] = useState({
+    email: "",
+    displayName: "",
+    handle: "",
+    totalFollowersCombined: "",
+    notes: "",
+  });
 
   async function load() {
     setLoading(true);
@@ -85,6 +92,32 @@ export function CreatorsPage() {
       setBusy(false);
     }
   }
+  async function provision() {
+    if (!form.email.trim() || !form.displayName.trim() || !form.handle.trim()) {
+      setMsg("Email, nama tampilan, dan handle wajib diisi.");
+      return;
+    }
+    setBusy(true);
+    try {
+      const res = await apiFetch<ProvisionResult>("/api/admin/users/provision", {
+        method: "POST",
+        body: JSON.stringify({
+          email: form.email.trim(),
+          displayName: form.displayName.trim(),
+          handle: form.handle.trim(),
+          totalFollowersCombined: form.totalFollowersCombined ? Number(form.totalFollowersCombined) : undefined,
+          notes: form.notes.trim() || undefined,
+        }),
+      });
+      setMsg(`Akun kreator ${res.user.email} dibuat (email akses: ${res.emailSent ? "terkirim" : "nonaktif-dev"})`);
+      setForm({ email: "", displayName: "", handle: "", totalFollowersCombined: "", notes: "" });
+      load();
+    } catch (err) {
+      setMsg(errMessage(err));
+    } finally {
+      setBusy(false);
+    }
+  }
 
   const pending = creators.filter((c) => c.status === "inactive");
   const term = search.trim().toLowerCase();
@@ -103,6 +136,57 @@ export function CreatorsPage() {
           {msg}
         </div>
       )}
+
+      <div className="card" style={{ marginBottom: 14 }}>
+        <div className="admin-table-head">Buat akun kreator</div>
+        <div className="admin-mini-form">
+          <div className="flex-gap-6 flex-wrap">
+            <input
+              className="input"
+              placeholder="Email kreator (dari deal memo)"
+              value={form.email}
+              onChange={(e) => setForm({ ...form, email: e.target.value })}
+              style={{ width: 260, fontSize: 12 }}
+            />
+            <input
+              className="input"
+              placeholder="Nama tampilan"
+              value={form.displayName}
+              onChange={(e) => setForm({ ...form, displayName: e.target.value })}
+              style={{ width: 200, fontSize: 12 }}
+            />
+            <input
+              className="input"
+              placeholder="Handle (IG/TikTok/YT/X)"
+              value={form.handle}
+              onChange={(e) => setForm({ ...form, handle: e.target.value })}
+              style={{ width: 180, fontSize: 12 }}
+            />
+            <input
+              className="input"
+              type="number"
+              min={0}
+              placeholder="Followers combined"
+              value={form.totalFollowersCombined}
+              onChange={(e) => setForm({ ...form, totalFollowersCombined: e.target.value })}
+              style={{ width: 160, fontSize: 12 }}
+            />
+            <input
+              className="input"
+              placeholder="Catatan (opsional)"
+              value={form.notes}
+              onChange={(e) => setForm({ ...form, notes: e.target.value })}
+              style={{ width: 240, fontSize: 12 }}
+            />
+            <button className="btn-gold admin-mini" onClick={provision} disabled={busy}>
+              Buat Akun
+            </button>
+          </div>
+          <p className="muted" style={{ fontSize: 11, marginTop: 6 }}>
+            Akun login passwordless (OTP email / Google) dibuat langsung di Supabase Auth + row kreator aktif.
+          </p>
+        </div>
+      </div>
 
       <div className="card">
         <div className="admin-table-head">Pendaftaran menunggu approval — {pending.length}</div>

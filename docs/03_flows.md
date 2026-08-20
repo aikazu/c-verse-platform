@@ -385,17 +385,27 @@ penjualan — tidak ada split/gateway/escrow.
 
 ```
 [ADMIN] admin app: "Buat akun kreator" — email dari deal memo
-   -> RPC admin_provision_creator (service-role):
-        1. create auth user (TANPA password, email_confirm: true,
-           user_metadata: { role: 'creator' }) — Supabase Auth admin API
-        2. set profiles.role = 'creator'
-        3. isi creators.user_id = auth uid (menutup field nullable)
-        4. kirim email akses via SumoPod SMTP (abstraction layer)
+   -> POST /api/admin/users/provision (gate admin aal2) — TERIMPLEMENTASI:
+        1. cek duplikat email -> 409 "Email sudah terdaftar"
+        2. create auth user (TANPA password, email_confirm: true,
+           user_metadata: { full_name, role: 'creator' }) — Supabase Auth
+           admin API; trigger DB otomatis buat row public.users
+        3. update public.users -> role='creator', display_name
+        4. insert creators (handle unique, status='active',
+           total_followers_combined default 0) — handle bentrok -> 409
+           "Handle sudah dipakai" + rollback hapus auth user
+        5. kirim email akses via modul email ber-flag EMAIL_ENABLED
+           (default OFF di dev -> emailSent:false; SumoPod SMTP saat ON)
+        6. audit log admin_audit_log (action 'create', payload
+           { provision:true, handle, emailSent })
    -> [KREATOR] login pertama & seterusnya via OTP email ATAU Google
       OAuth (passwordless) — email harus sama dengan yang di-set admin
    -> dashboard /creator aktif langsung; payout self-service (Flow 8)
       langsung jalan (akun ter-link sebelum login pertama)
 ```
+- **Status: langkah 1–6 TERIMPLEMENTASI (2026-08-21)** via endpoint nyata
+  + form admin "Buat akun kreator"; login OTP/OAuth kreator tetap
+  mengikuti alur passwordless Supabase Auth (Google/OTP) di web.
 
 - Aturan anti-fraud: akun kreator kini TERIDENTIFIKASI → C-13
   (creator self-dealing dilarang 30 hari) enforceable.
@@ -419,6 +429,7 @@ penjualan — tidak ada split/gateway/escrow.
   kreator → listing → bid publik → accept → vault-in wajib +
   verifikasi NFC → release.
 - Akun kreator admin-provisioned (keputusan 2026-08-20, [VALIDATED])
-  — Flow 11: RPC `admin_provision_creator` (create auth user tanpa
-  password, `profiles.role='creator'`, isi `creators.user_id`, email
-  akses via SumoPod SMTP); login OTP email / Google OAuth.
+  — Flow 11: endpoint `POST /api/admin/users/provision` (create auth
+  user tanpa password, `profiles.role='creator'`, isi `creators.user_id`,
+  email akses via SumoPod SMTP); login OTP email / Google OAuth.
+  TERIMPLEMENTASI 2026-08-21.

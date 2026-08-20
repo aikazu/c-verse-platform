@@ -59,13 +59,19 @@ creators
 > (off-platform), bukan auto-check di sistem.
 > **`user_id` diisi via ADMIN-PROVISIONING (keputusan 2026-08-20)**:
 > admin app create auth user + set `profiles.role='creator'` +
-> isi `creators.user_id` (RPC `admin_provision_creator`, service-role:
+> isi `creators.user_id` (service-role:
 > `supabase.auth.admin.createUser({ email, email_confirm: true,
 > user_metadata: { role: 'creator' } })` — TANPA password; set
 > `profiles.role='creator'`; update `creators.user_id` = auth uid;
 > kirim email akses via SumoPod SMTP). Field ini
 > dulu nullable tanpa flow pengisian (gap G1/G2) — sekarang selalu
 > terisi saat akun kreator dibuat; kreator login OTP/OAuth passwordless.
+> **TERIMPLEMENTASI (2026-08-21)**: `creators.user_id` + row `users`
+> (role 'creator') kini diisi oleh endpoint provision
+> `POST /api/admin/users/provision` (gate admin aal2, service-role,
+> ter-audit) — bukan RPC. Insert `creators` dilakukan endpoint tsb
+> langsung (id `cr-…`, `status='active'`, `total_followers_combined`
+> default 0); `users.id` tetap = `auth.users.id` (trigger).
 
 ### drops
 ```
@@ -530,4 +536,5 @@ profiles 1─N user_badges
   kartu primer / 10 sekunder per user, KYC payout).
 - 01_tech_stack (Supabase, Drizzle, RLS).
 - Akun kreator admin-provisioned (keputusan 2026-08-20,
-  [VALIDATED]) — `creators.user_id` diisi via RPC `admin_provision_creator`.
+  [VALIDATED]) — `creators.user_id` diisi via endpoint provision
+  (`POST /api/admin/users/provision`). TERIMPLEMENTASI 2026-08-21.

@@ -17,6 +17,11 @@ export type CreatorRow = {
   notes: string | null;
   created_at: string;
 };
+export type ProvisionResult = {
+  user: { id: string; email: string; role: string };
+  creator: { handle: string };
+  emailSent: boolean;
+};
 export type DropRow = {
   id: string;
   title: string;
