@@ -2,7 +2,7 @@
 
 Monorepo `pnpm` workspaces: React 19/Vite SPA (`apps/web` → Cloudflare Pages) + Hono 4 API (`apps/api` → Cloudflare Workers / Node) + React 19/Vite Admin (`apps/admin` → VPS + Cloudflare Tunnel + Access) + shared Zod schemas/constants (`packages/shared`). C.Card MVP — 9 flows. Supabase Postgres (SG) + Cloudflare R2.
 
-Dokumen perencanaan **canonical = `docs/`** (`00_readme` → `16_foundation_cleanup`, 17 files, `[VALIDATED]`). Jangan baca `00_Dream_Project/`.
+Dokumen perencanaan **canonical = `docs/`** (`00_readme` → `16_foundation_cleanup`, 17 files, `[VALIDATED]`) — cukup ini untuk kerja codebase, jangan perlu baca repo spec. `docs/` adalah **MIRROR byte-identik** dari `00_Dream_Project/dev-strategy/` (repo spec terpisah: `C:\Users\iqbal\Documents\C-Verse\00_Dream_Project`), disinkron **DUA ARAH**: keputusan/temuan saat implementasi di sini → propagasi balik ke repo spec; ide baru dari repo spec → dibawa ke sini untuk diimplementasi. **Codebase = source of truth.** Tiap edit `docs/` WAJIB disalin identik ke `dev-strategy/` lalu commit di kedua repo (AGENTS.md tidak di-mirror).
 
 ## Dev environment
 
