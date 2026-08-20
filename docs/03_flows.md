@@ -3,10 +3,10 @@
 > Status: [VALIDATED — partial: open items payout (SLA, disbursement,
 > cap Rp 5-10 jt) & validasi C-03 iPhone masih [DRAFT] — lihat
 > `07_constraints.md`]
-> Last updated: 2026-08-15 (Flow 1 → raffle hybrid + pilihan pool;
+> Last updated: 2026-08-20 (Flow 10 Creator Seed C.Card + Flow 11
+> provision akun kreator admin — keputusan 2026-08-20)
+> Previous: 2026-08-15 (Flow 1 → raffle hybrid + pilihan pool;
 > audit konsistensi: harga signed eksplisit di decision point SALDO)
-> Previous: 2026-08-13 (Q026 resolved — semua gate legal dihapus;
-> KYC trigger di-simplify)
 > Semua fitur dibangun penuh. Top-up uang riil bisa diterima
 > setelah T&C final + cap saldo diimplementasi.
 
@@ -312,12 +312,92 @@ ADM-02: buat drop -> set artwork final, harga (C-Coin), unit,
    drop_start + 24 jam), waktu drop -> publish (H-7)
 ADM-01: register kreator baru (hasil rekrutan off-platform)
    -> profile + payment info -> aktif
+   -> (+ 2026-08-20: buat akun login kreator via Flow 11)
 ADM-05: rekonsiliasi harian -> cocokkan top-up webhook vs ledger
    vs float -> trigger payout batch
 ADM-04: provisioning batch tag baru -> assign UUID<->UID ->
    config NDEF/SDM -> marking QC
 ADM-06: dispute masuk -> review bukti -> keputusan
 ```
+
+## Flow 10: Creator Seed C.Card (akuisisi kreator + seeding secondary)
+
+> **KEPUTUSAN USER 2026-08-20 [VALIDATED]** — rujuk
+> `90_research/30_creator_seed_card.md`. **BUKAN primary raffle**:
+> seed card masuk LANGSUNG ke secondary (Marketplace/Browse normal),
+> TIDAK pernah lewat entry window/draw primary (Flow 1). Flow ini
+> menggantikan marketing berbayar (Rp 0) sekaligus seeding 1-of-1
+> untuk secondary market. Volume fleksibel: min ~3 kartu/bulan,
+> tanpa cap keras.
+
+```
+[1] PRODUKSI 1-of-1 (tim internal, in-house design)
+    - artboard tentang kreator target (edisi tunggal, unik)
+    - 1 unit kartu + NFC provisioning (ADM-04)
+    - COGS dicatat sebagai BIAYA AKUISISI (marketing-in-kind,
+      BUKAN penjualan); sunk bila tak laku; rujuk 50_finance
+[2] TANDA TANGAN KREATOR
+    - tim mendatangi kreator; kartu ditandatangani kreator
+[3] SERAH + PITCH
+    - kartu diserahkan ke kreator sebagai HADIAH (kreator TIDAK
+      top-up / tidak membayar) sambil pitch kolaborasi
+[4] DAFTAR 1-OF-1 — OWNERSHIP KREATOR
+    - kartu didaftarkan sebagai 1-of-1; current_owner_id = kreator
+      (syarat: akun kreator AKTIF via Flow 11 — rekening kreator
+      aktif SEBELUM listing)
+[5] LISTING MARKETPLACE
+    - tampil di /marketplace + /browse; owner bisa set buyout price
+      ATAU biarkan bid langsung (perilaku secondary normal)
+[6] BID PUBLIK -> [7] ACCEPT (kreator-owner, tanpa reject)
+    - mekanik Flow 7 normal (1 bid active tertinggi/kartu, hold
+      C-Coin, outbid/cancel release)
+[8] VAULT-IN WAJIB + VERIFIKASI NFC (GATE — TIDAK BOLEH LEWAT)
+    - SEBELUM settle/serah ke buyer, kartu fisik WAJIB masuk vault
+      platform dulu (kartu ada di tangan kreator sejak [3];
+      kreator kirim ke vault)
+    - verifikasi: (a) NFC tap — UID sesuai record, (b) kondisi
+      fisik — tidak ada kerusakan baru
+    - TIDAK BOLEH kartu terjual sementara fisik masih di kreator
+      tanpa verifikasi vault
+[9] RELEASE KE BUYER
+    - setelah vault-in verified: ownership pindah di ledger + fisik
+      release dari vault (kirim fisik / tetap vault atas nama buyer,
+      pilihan buyer)
+```
+
+Split penjualan pertama seed card (secondary 85/7,5/7,5): karena
+kreator = OWNER sekaligus kreator kartu, kreator efektif menerima
+**85% + 7,5% royalti lifetime = 92,5%**, platform 7,5% (bukan fee
+12%/6% — lihat glossary). Semua transaksi tetap C-Coin; payout /
+escrow normal (Flow 3 & 7). Serah hadiah [3] BUKAN transaksi
+penjualan — tidak ada split/gateway/escrow.
+
+## Flow 11: Provision Akun Kreator (admin) — passwordless
+
+> **KEPUTUSAN USER 2026-08-20 [VALIDATED]** — rujuk
+> `90_research/29_creator_account_onboarding.md`. Menggantikan gap
+> "kreator terdaftar tapi tidak pernah bisa login": `creators.user_id`
+> selama ini nullable tanpa flow pengisian (G1/G2 closed). Kreator
+> TIDAK self-register — TIDAK ada halaman invite publik.
+
+```
+[ADMIN] admin app: "Buat akun kreator" — email dari deal memo
+   -> RPC admin_provision_creator (service-role):
+        1. create auth user (TANPA password, email_confirm: true,
+           user_metadata: { role: 'creator' }) — Supabase Auth admin API
+        2. set profiles.role = 'creator'
+        3. isi creators.user_id = auth uid (menutup field nullable)
+        4. kirim email akses via SumoPod SMTP (abstraction layer)
+   -> [KREATOR] login pertama & seterusnya via OTP email ATAU Google
+      OAuth (passwordless) — email harus sama dengan yang di-set admin
+   -> dashboard /creator aktif langsung; payout self-service (Flow 8)
+      langsung jalan (akun ter-link sebelum login pertama)
+```
+
+- Aturan anti-fraud: akun kreator kini TERIDENTIFIKASI → C-13
+  (creator self-dealing dilarang 30 hari) enforceable.
+- Audit: setiap provisioning dicatat `admin_audit_log`; role
+  promotion hanya via RPC admin.
 
 ## Matriks Gate (tersisa)
 
@@ -331,3 +411,5 @@ ADM-06: dispute masuk -> review bukti -> keputusan
 - `06_tech_decisions.md` (arsitektur).
 - `07_constraints.md` (gate & aturan).
 - `02_pages.md` (halaman user & admin).
+- `90_research/30_creator_seed_card.md` [VALIDATED] (Flow 10, 2026-08-20).
+- `90_research/29_creator_account_onboarding.md` [VALIDATED] (Flow 11, 2026-08-20).

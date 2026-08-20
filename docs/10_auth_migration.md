@@ -1,7 +1,7 @@
 # 10 — Auth Migration: Supabase Auth + Turnstile
 
 > Status: [IMPLEMENTED 2026-08-16]
-> Created: 2026-08-15; updated: 2026-08-18
+> Created: 2026-08-15; updated: 2026-08-20
 > Basis audit awal: `apps/api/src/routes/auth.ts` (password plaintext, token
 > in-memory). Migration selesai: route auth.ts sudah clean (hanya `/me`),
 > JWT verify via `jose` + JWKS, tidak ada password/in-memory session.
@@ -28,6 +28,17 @@ Auth saat ini custom in-memory — tidak bisa dibawa ke produksi:
 - API Hono verifikasi **Supabase JWT** (JWKS), ambil `sub` sebagai user id.
 - `public.users.id` = UUID sama dengan `auth.users.id` (di-isi trigger `on_auth_user_created`, bukan FK constraint eksplisit); tidak ada kolom password.
 - Admin app tetap: service-role + Cloudflare Access + TOTP `aal2` (sudah ada).
+- **PASSWORDLESS (FINAL 2026-08-20)**: platform TANPA password sama
+  sekali untuk SEMUA user (kolektor & kreator) — autentikasi hanya
+  Google OAuth ATAU email OTP. Tidak ada register berbasis password
+  di jalur manapun; OTP tetap wajib captcha Turnstile.
+- **Akun kreator ADMIN-PROVISIONED (FINAL 2026-08-20)**: kreator
+  TIDAK self-register. Admin app (service-role) create auth user
+  (tanpa password, `email_confirm: true`) → set
+  `profiles.role = 'creator'` → isi `creators.user_id` → kirim email
+  akses via SumoPod SMTP. Ini menutup gap G1/G2 (`creators.user_id`
+  nullable tanpa flow pengisian) — rujuk
+  `90_research/29_creator_account_onboarding.md` [VALIDATED].
 
 ## 3. Langkah Eksekusi
 
@@ -89,6 +100,21 @@ Auth saat ini custom in-memory — tidak bisa dibawa ke produksi:
   (pakai Cloudflare Rate Limiting binding, fallback KV counter).
 - Salah OTP 5x → lock 15 menit (tabel `auth_retry_lock` atau claim di users).
 
+### 3,6 Provisioning akun kreator (admin-provisioned, FINAL 2026-08-20)
+- Admin app (service-role, bukan web publik) aksi **"Buat akun
+  kreator"**: input email (dari deal memo) + data kreator → RPC
+  `admin_provision_creator`:
+  1. `supabase.auth.admin.createUser({ email, email_confirm: true,
+     user_metadata: { role: 'creator' } })` — TANPA password; email
+     langsung bisa dipakai login OTP/OAuth.
+  2. Insert/update `profiles` → `role = 'creator'`.
+  3. Update `creators.user_id` = auth uid baru (menutup gap field
+     nullable tanpa flow).
+  4. Kirim email akses via **SumoPod SMTP** (abstraction layer).
+- Kreator login OTP email / Google OAuth — email harus sama dengan
+  yang di-set admin. Pencatatan `admin_audit_log` wajib (aksinya
+  account-provisioning). Detail: `90_research/29_creator_account_onboarding.md`.
+
 ## 4. Jangan Dilakukan
 
 - Jangan simpan JWT di localStorage (pakai persistSession supabase — httpOnly
@@ -112,3 +138,7 @@ Auth saat ini custom in-memory — tidak bisa dibawa ke produksi:
 - `dev-strategy/08_deployment.md` §Supabase setup (Auth Google+OTP+captcha).
 - Audit Platform 2026-08-15: `apps/api/src/routes/auth.ts` (plaintext,
   in-memory session).
+- `90_research/29_creator_account_onboarding.md` [VALIDATED] — akun
+  kreator admin-provisioned + passwordless (keputusan 2026-08-20).
+- `90_research/30_creator_seed_card.md` [VALIDATED] — seed card
+  1-of-1 memerlukan akun kreator aktif (2026-08-20).

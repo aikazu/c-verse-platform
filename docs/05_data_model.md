@@ -1,7 +1,7 @@
 # 05 — Data Model (Skema Logis)
 
 > Status: [VALIDATED]
-> Last updated: 2026-08-18 (sinkronisasi dengan migration SQL — hapus Drizzle, +20 flat, legacy enum)
+> Last updated: 2026-08-20 (creators.user_id diisi via admin-provisioning RPC; role 'creator' di-set admin — keputusan 2026-08-20)
 > Skema LOGIS (tabel + relasi + enum), bukan DDL final.
 > Database: Supabase Postgres (region SG). Query: Supabase client langsung (tanpa ORM).
 > Nama kolom: `snake_case`. PK: `uuid` (default `gen_random_uuid()`).
@@ -57,6 +57,12 @@ creators
 ```
 > Threshold 100rb+ combined di-validasi manual saat rekrutan
 > (off-platform), bukan auto-check di sistem.
+> **`user_id` diisi via ADMIN-PROVISIONING (keputusan 2026-08-20)**:
+> admin app create auth user + set `profiles.role='creator'` +
+> isi `creators.user_id` (RPC `admin_provision_creator`, service-role;
+> detail `90_research/29_creator_account_onboarding.md`). Field ini
+> dulu nullable tanpa flow pengisian (gap G1/G2) — sekarang selalu
+> terisi saat akun kreator dibuat; kreator login OTP/OAuth passwordless.
 
 ### drops
 ```
@@ -519,3 +525,5 @@ profiles 1─N user_badges
 - `20_product/06_auction_mechanics.md` (rules → invariant
   listing/bid).
 - `40_operations/01_tech_stack.md` (Supabase, Drizzle, RLS).
+- `90_research/29_creator_account_onboarding.md` [VALIDATED] —
+  creators.user_id via RPC admin (keputusan 2026-08-20).

@@ -1,7 +1,8 @@
 # 08 — Deployment Runbook (Step-by-Step)
 
 > Status: [VALIDATED]
-> Last updated: 2026-08-18 (sinkronisasi dengan codebase: pnpm workspace
+> Last updated: 2026-08-20 (konvensi angka opex Y1 → Rp 38 jt, burn ~1 jt/bln)
+> Previous: 2026-08-18 (sinkronisasi dengan codebase: pnpm workspace
 > tanpa Turborepo, migrasi via Supabase CLI, 2 cron trigger)
 > Menjawab open items O-5 (CI/CD pipeline) & O-7 (domain/SSL)
 > di `06_tech_decisions.md`. Dok ini self-contained — semua
@@ -265,7 +266,7 @@ Secrets CI yang wajib diset (GitHub Settings → Secrets):
 | VPS admin (tunnel) | 1 vCPU/1 GB | Rp 100-200rb |
 | SumoPod SMTP | sesuaikan plan (cek kuota vendor) | cek vendor |
 | Midtrans/Xendit | fee top-up + disbursement | variabel (cost of goods) |
-| **Total infra Y1** | | **≤ Rp 1 juta/bln** (dalam opex Rp 135 jt/thn) |
+| **Total infra Y1** | | **≤ Rp 1 juta/bln** (dalam opex Rp 38 jt/thn, recompute 2026-08-20; angka lama 135 jt dibatalkan) |
 
 ## Sumber
 
@@ -276,6 +277,7 @@ Secrets CI yang wajib diset (GitHub Settings → Secrets):
   free tier).
 - `05_data_model.md` (RLS → step 4.5).
 - Konvensi angka: A024 build time **6-8 bulan** (`01_scope.md`
-  §5); opex Y1 **Rp 135 jt/thn (~Rp 11 jt/bulan)** per financial
-  model — burn kas bootstrap ~Rp 10-15 jt/bulan (termasuk
-  kebutuhan founder di luar opex tercatat).
+  §5); opex Y1 **Rp 38 jt/thn (~3,2 jt/bulan)** per financial
+  model (recompute 2026-08-20: marketing 0, AI one-time, infra
+  free tier) — burn kas bootstrap pasca-launch ~Rp 1 jt/bulan
+  (A029; versi lama 135 jt/10-15 jt per bulan dibatalkan).

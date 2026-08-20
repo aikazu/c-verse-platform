@@ -1,7 +1,11 @@
 # 07 — Constraints, Gates & Open Items
 
 > Status: [VALIDATED] (C-01/C-02 resolved 2026-08-13)
-> Last updated: 2026-08-13
+> Last updated: 2026-08-20 (C-13 enforceable via akun kreator
+> admin-provisioned + C-17 Creator Seed C.Card — keputusan 2026-08-20;
+> C-14 & T-2 diselaraskan koreksi user: burn sejati ~Rp 1 jt/bln,
+> modal tidak habis Y1)
+> Previous: 2026-08-20 (C-14 & T-2 koreksi finansial)
 > Dok ini menjawab: **apa yang TIDAK boleh dibangun / di-live**
 > dulu, dan apa yang masih menunggu keputusan.
 
@@ -175,12 +179,31 @@
 - Kreator (dan akun terafiliasi yang terdeteksi) dilarang membeli
   kartu drop mereka sendiri di secondary untuk 30 hari pertama
   setelah drop. Pelanggaran: suspend 14 hari + hold payout 30 hari.
+- **ENFORCEABLE sejak 2026-08-20**: akun kreator kini
+  TERIDENTIFIKASI (admin-provisioned, auth passwordless — lihat
+  `10_auth_migration.md` & `90_research/29_creator_account_onboarding.md`),
+  sehingga larangan ini bisa di-enforce per akun (RULE/RLS + audit),
+  tidak lagi bergantung flag manual. Berlaku juga untuk seed card:
+  kreator pemilik seed card dilarang membeli kembali kartu seed
+  miliknya dalam 30 hari pertama.
+- Split seed card (Creator Seed C.Card, 2026-08-20) = **85% owner
+  + 7,5% royalti kreator lifetime + 7,5% platform** (secondary
+  normal); pada penjualan pertama oleh kreator-owner: kreator
+  efektif **92,5%** / platform 7,5%. BUKAN fee 12%/6% — konsisten
+  glossary & `90_research/19_revenue_split.md`.
 
 ### C-14 [DRAFT] Target Y1 realistis
 - Drop: 40-65/tahun (bukan 150). Unit: 400-650 kartu (bukan 1.500).
 - Quarter: Q1=0 (build), Q2=5-10 (pilot), Q3=15-25, Q4=20-30.
 - Konsekuensi: revenue model, COGS, dan unit economics perlu
   direvisi dengan volume realistis ini.
+- **Catatan 2026-08-20 (selaras koreksi user)**: dengan Opex Y1
+  recompute Rp 38 jt dan burn sejati pasca-launch ~Rp 1 jt/bulan
+  (A029), C-14 menghasilkan **EBITDA base ≈ -Rp 4,8 jt**, bukan
+  -120,6 jt. Modal Rp 50-100 jt TIDAK habis dalam Y1 — risiko
+  utama pindah dari burn ke **demand/sold-out** (working capital
+  produksi tidak kembali bila kartu tak laku). Detail di
+  `50_finance/01_financial_model.md`.
 
 ### C-15 [FINAL 2026-08-15] Primary sale = raffle hybrid + pilihan pool
 - **Entry window 24 jam pertama** setelah drop live (default,
@@ -210,12 +233,32 @@
 - **Codebase/Comments**: 100% Bahasa Inggris.
 - **i18n Readiness**: Default locale `id`, disiapkan arsitektur i18n untuk `en` pada ekspansi Y2+.
 
+### C-17 [FINAL 2026-08-20] Creator Seed C.Card — seeding secondary, BUKAN primary raffle
+- Flow akuisisi kreator (pengganti marketing berbayar, Rp 0) +
+  seeding likuiditas secondary: produksi kartu **1-of-1** tentang
+  kreator → tanda tangan kreator → serah sebagai hadiah + pitch
+  kolaborasi → daftar ownership = kreator (syarat akun kreator
+  aktif, lihat C-13 / Flow 11) → listing Marketplace/Browse →
+  bid publik → accept → **VAULT-IN WAJIB + verifikasi NFC
+  (UID + kondisi fisik) sebelum settle/serah ke buyer** → release.
+- **BUKAN primary raffle/drop**: seed card TIDAK pernah lewat
+  entry window/draw (Flow 1) — selalu secondary normal (C-07).
+  Beri nama flow tersendiri (jangan tertukar primary drop).
+- Split penjualan pertama: **85% owner + 7,5% royalti kreator
+  lifetime + 7,5% platform** (secondary normal) — kreator-owner
+  efektif **92,5%** / platform 7,5% (bukan fee 12%/6%).
+- **COGS seed card = biaya AKUISISI** (marketing-in-kind, bukan
+  penjualan); sunk bila tak laku. Volume fleksibel: min ~3
+  kartu/bulan, TANPA cap keras. Detail & langkah:
+  `90_research/30_creator_seed_card.md` [VALIDATED], Flow 10
+  (`03_flows.md`).
+
 ## 4. Batasan Teknis yang Diterima
 
 | # | Batasan | Konsekuensi |
 |---|---------|-------------|
 | T-1 | Supabase Realtime broadcast < 50 concurrent bidder | Durable Objects tidak dipakai Y1 |
-| T-2 | CF Workers free tier + Supabase cukup Y1 (margin 5-10x) | Upgrade ~Rp 500rb/bln worst case |
+| T-2 | CF Workers free tier + Supabase cukup Y1 (margin 5-10x) | Upgrade ~Rp 500rb/bln worst case. **Burn sejati infra pasca-launch = Rp 0 (free tier) s.d. Rp 500rb/bln (worst) — lihat A029** |
 | T-3 | Web NFC tidak ada di iOS | Jalur verify universal (SUN URL) + fallback QR |
 | T-4 | 3D viewer (F008) effort 4-5 PW | Cut line #1 |
 | T-5 | Admin app lokal = operasi berhenti jika mesin mati | Mitigasi: VPS + Cloudflare Access |
@@ -270,6 +313,16 @@
 - `90_research/open_questions_tracker.csv` (Q027-Q030,
   R6, O1-O7).
 - `00_foundation/05_assumptions.md` (A015 status hukum
-  C-Coin — confidence HIGH, tervalidasi lawyer).
+  C-Coin — confidence HIGH, tervalidasi lawyer; A029 burn sejati;
+  A027-A031 asumsi 2026-08-20).
 - Diskusi founder 2026-08-12.
 - Validasi lawyer fintech 2026-08-13.
+- Keputusan user 2026-08-20 (marketing=0, AI one-time, pemisahan
+  burn/working-capital/akuisisi) — selaras C-14 & T-2 di atas;
+  detail arithmetic di `50_finance/01_financial_model.md`.
+- `90_research/30_creator_seed_card.md` [VALIDATED] — Creator Seed
+  C.Card: flow 1-of-1, split 85/7,5/7,5, C-13 enforceable
+  (keputusan 2026-08-20).
+- `90_research/29_creator_account_onboarding.md` [VALIDATED] —
+  akun kreator admin-provisioned + passwordless (keputusan
+  2026-08-20) — dasar C-13 enforceable.

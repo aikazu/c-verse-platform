@@ -1,7 +1,7 @@
 # 01 — Scope MVP C.Card
 
 > Status: [VALIDATED]
-> Last updated: 2026-08-18 (sinkronisasi harga signed +20 flat per codebase)
+> Last updated: 2026-08-20 (F002 + ADM-01 provisioning akun kreator, fitur Creator Seed C.Card — keputusan 2026-08-20)
 
 ## 1. Definisi MVP
 
@@ -29,6 +29,13 @@ Mekanisme inti yang WAJIB jalan di MVP:
 5. **Leaderboard**: halaman peringkat kolektor (F019).
 6. **Admin/ops**: founder menjalankan operasi tanpa sentuh
    database.
+7. **Creator Seed C.Card** (keputusan 2026-08-20): produksi kartu
+   1-of-1 tentang kreator → tanda tangan → serah sebagai hadiah +
+   pitch kolaborasi → daftar ownership = kreator → listing secondary
+   → bid publik → accept → **vault-in wajib + verifikasi NFC** →
+   release. BUKAN primary raffle — seed card langsung ke secondary
+   (Marketplace/Browse); split secondary normal 85/7,5/7,5 (kreator
+   efektif 92,5% di penjualan pertama). Detail: `90_research/30_creator_seed_card.md`.
 
 Non-goals MVP (eksplisit): mobile native, B2B portal, web3,
 multi-currency, voting komunitas, subscription kreator, AR,
@@ -41,7 +48,7 @@ loyalty (semua post-MVP).
 | ID | Fitur | RICE | Catatan |
 |----|-------|------|---------|
 | F001 | Registrasi (Google OAuth + email OTP) — **email OTP wajib captcha anti-spam** | 240 | Supabase Auth |
-| F002 | Onboarding & kurasi kreator | 80 | **Off-platform**: ops input data kreator hasil rekrutan manual. TIDAK ada form aplikasi publik. **Quality gate**: engagement rate dari 10 post terakhir — IG/Twitter ≥ 5%, TikTok ≥ 10%; ER < 3% = skip (detail `07_constraints.md` C-05) — filter manual oleh founder |
+| F002 | Onboarding & kurasi kreator | 80 | **Off-platform**: ops input data kreator hasil rekrutan manual. TIDAK ada form aplikasi publik. **Quality gate**: engagement rate dari 10 post terakhir — IG/Twitter ≥ 5%, TikTok ≥ 10%; ER < 3% = skip (detail `07_constraints.md` C-05) — filter manual oleh founder. **2026-08-20: admin juga PROVISION akun login kreator** (auth user passwordless + `profiles.role='creator'` + `creators.user_id`; kreator login OTP/OAuth) |
 | F003 | Upload artwork + narasi | 60 | Ops/designer upload atas nama kreator (artwork sudah di-approve off-platform) |
 | F004 | Drop scheduling & listing | 200 | Admin bikin drop (set `raffle_end_at`, default +24 jam); publik lihat di catalog. **Harga per tier kreator**: emerging (100-300k) = 20 C-Coin, established (300k-1jt) = 30 C-Coin, top (1jt+) = 50 C-Coin, hype = 40-60 C-Coin. Signed variant = unsigned + 20 C-Coin **FLAT** (founder 2026-08-16). Primary = flat price per pool |
 | F005 | Drop purchase: raffle hybrid + FCFS sisa | 250 | **Raffle 24 jam pertama**: pilih pool reguler/premium/keduanya + hold C-Coin (escrow) → draw otomatis idempotent; **sisa unit FCFS race-safe**; limit 1 entry + 1 kartu/user; **default simpan di inventory (vault) — tanpa alamat/ongkir; OPSIONAL kirim fisik sekarang (isi alamat + ongkir C-Coin)** (C-15) |
@@ -88,7 +95,7 @@ loyalty (semua post-MVP).
 
 | ID | Fitur | Deskripsi |
 |----|-------|-----------|
-| ADM-01 | Kelola kreator | CRUD data kreator hasil rekrutan off-platform (bukan approval). Set status akun, payment info, threshold terpenuhi |
+| ADM-01 | Kelola kreator | CRUD data kreator hasil rekrutan off-platform (bukan approval). Set status akun, payment info, threshold terpenuhi. **2026-08-20: + "Buat akun kreator"** — provision akun login passwordless (auth user via Supabase Auth admin API, role `creator`, isi `creators.user_id`, kirim akses via SumoPod SMTP; rujuk `90_research/29_creator_account_onboarding.md`) |
 | ADM-02 | Kelola drop | Buat drop (artwork final yang sudah di-approve off-platform, harga, unit, waktu), schedule, publish, tutup drop |
 | ADM-03 | Kelola order & fulfillment | Lihat semua order, update status (paid → QC → shipped → delivered), handle return, input no resi |
 | ADM-04 | NFC provisioning & QC | Register batch tag (assign UUID↔UID), konfigurasi NDEF/SDM, catat hasil QC + defect |
@@ -173,3 +180,7 @@ section 3 adalah mekanisme kontrolnya.
   fitur ADM-01..06).
 - Diskusi founder 2026-08-12: admin terpisah, tanpa approval
   onboarding, threshold 100rb+ combined.
+- `90_research/29_creator_account_onboarding.md` [VALIDATED] — akun
+  kreator admin-provisioned (keputusan 2026-08-20).
+- `90_research/30_creator_seed_card.md` [VALIDATED] — fitur Creator
+  Seed C.Card (keputusan 2026-08-20).

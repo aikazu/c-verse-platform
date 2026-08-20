@@ -1,7 +1,7 @@
 # 00 — README: Development Strategy C.Verse MVP
 
 > Status: [VALIDATED]
-> Last updated: 2026-08-18 (sinkronisasi dengan codebase — enum bersih, auth/RLS/RPC/Midtrans implemented)
+> Last updated: 2026-08-20 (Flow 10-11 baru + keputusan auth passwordless / akun kreator admin-provisioned)
 > Konteks: foundation code sudah ada di
 > `C:\Users\iqbal\Documents\C-Verse\Platform` (mulai 2026-08-12).
 > Folder ini = satu-satunya acuan eksekusi; dok ini = pintu masuk.
@@ -13,7 +13,7 @@
 |---|-----|-----|
 | 1 | `01_scope.md` | Fitur final MoSCoW+RICE, admin ADM-01..10, cut lines, DoD |
 | 2 | `02_pages.md` | Sitemap per role (publik/user/kreator/admin), SEO worker |
-| 3 | `03_flows.md` | 9 flow end-to-end + gate |
+| 3 | `03_flows.md` | 11 flow end-to-end + gate (termasuk Flow 10 Creator Seed C.Card & Flow 11 provision akun kreator) |
 | 4 | `04_user_stories.md` | User stories Given/When/Then per halaman |
 
 ### Kelompok B — HOW (cara membangunnya)
