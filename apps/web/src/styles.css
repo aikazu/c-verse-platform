@@ -319,6 +319,42 @@ tbody tr:hover { background: rgba(91, 230, 255, 0.05); }
 .pill-danger { background: rgba(255, 92, 119, 0.1); color: var(--alert); border-color: rgba(255, 92, 119, 0.35); }
 .pill-info { background: rgba(91, 230, 255, 0.08); color: var(--info); border-color: rgba(91, 230, 255, 0.35); }
 
+/* ── Seed 1-of-1 badge — holographic (drops.is_seed, Flow 10) ─────────────── */
+.badge-seed {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px 9px; border-radius: 999px;
+  font-family: var(--font-mono); font-size: 10px; font-weight: 700;
+  letter-spacing: 0.04em; line-height: 1.2; white-space: nowrap;
+  color: #1a1030;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  background: linear-gradient(90deg, #ff9ce6, #a78bfa, #5eead4, #ffd54d, #ff9ce6);
+  background-size: 300% 300%; background-position: 0% 50%;
+  text-shadow: 0 0 6px rgba(255, 255, 255, 0.6);
+  box-shadow: 0 0 10px rgba(167, 139, 250, 0.5);
+  animation: seed-holo 4s linear infinite;
+  position: relative; overflow: hidden;
+}
+.badge-seed::before {
+  content: "";
+  position: absolute; inset: 0;
+  background: linear-gradient(105deg, transparent 40%, rgba(255, 255, 255, 0.55) 50%, transparent 60%);
+  background-size: 250% 100%; background-position: -100% 0;
+  animation: seed-shine 2.6s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes seed-holo {
+  0% { background-position: 0% 50%; }
+  100% { background-position: 300% 50%; }
+}
+@keyframes seed-shine {
+  0% { background-position: -100% 0; }
+  60%, 100% { background-position: 250% 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .badge-seed { animation: none; }
+  .badge-seed::before { animation: none; display: none; }
+}
+
 /* ── Progress — fuel gauge ─────────────────────────────────────────────────── */
 .progress { height: 10px; background: var(--surface-3); border: 1px solid var(--border); border-radius: 999px; overflow: hidden; }
 .progress-fill {

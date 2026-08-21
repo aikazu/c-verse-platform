@@ -46,6 +46,7 @@ export default function Card3D() {
             <span className="pill pill-info" style={{ fontFamily: "var(--font-mono)" }}>
               #{card.unitNumber ?? "?"}
             </span>
+            {d.drop?.isSeed && <span className="badge-seed">✦ Seed 1-of-1</span>}
           </div>
           <div style={{ marginTop: 14, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, fontSize: 13 }}>
             {d.drop && (

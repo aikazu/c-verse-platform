@@ -119,6 +119,11 @@ export default function CardInfo() {
               <span className={verifyBadge.cls} style={{ fontSize: 10, flexShrink: 0 }}>
                 {verifyBadge.label}
               </span>
+              {drop?.isSeed && (
+                <span className="badge-seed" style={{ flexShrink: 0 }}>
+                  ✦ Seed 1-of-1
+                </span>
+              )}
             </div>
             <div className="muted" style={{ fontSize: 12, marginTop: 2 }}>
               {drop?.title ?? ""}

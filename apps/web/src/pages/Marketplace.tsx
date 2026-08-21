@@ -80,8 +80,8 @@ export default function Marketplace() {
                   </div>
                   <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--text-muted)" }}>{drop?.series ?? ""}</div>
                   {drop?.isSeed && (
-                    <span className="pill pill-warn" style={{ alignSelf: "start", fontSize: 10, marginTop: 6 }}>
-                      Seed 1-of-1
+                    <span className="badge-seed" style={{ alignSelf: "start", marginTop: 6 }}>
+                      ✦ Seed 1-of-1
                     </span>
                   )}
                   <div style={{ marginTop: 10, display: "flex", alignItems: "baseline", gap: 6 }}>

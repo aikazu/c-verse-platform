@@ -205,6 +205,7 @@ app.get("/cards/:cardId", async (c) => {
           creatorName: drop.creatorName,
           dropAt: drop.dropStartAt ?? drop.dropAt,
           status: drop.status,
+          isSeed: drop.isSeed,
         }
       : null,
     creator: creator ? { id: creator.id, displayName: creator.displayName, username: creator.username ?? null } : null,
@@ -246,7 +247,14 @@ app.get("/cards/:cardId/3d", async (c) => {
       verifyStatus,
     },
     drop: drop
-      ? { id: drop.id, title: drop.title, series: drop.series, artworkUrl: drop.artworkUrl, artwork3dUrl: drop.artwork3dUrl ?? null }
+      ? {
+          id: drop.id,
+          title: drop.title,
+          series: drop.series,
+          artworkUrl: drop.artworkUrl,
+          artwork3dUrl: drop.artwork3dUrl ?? null,
+          isSeed: drop.isSeed,
+        }
       : null,
     seriesLink: drop ? `/drops/${drop.id}` : null,
     creator: drop
