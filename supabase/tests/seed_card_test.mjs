@@ -1,26 +1,38 @@
-// C.Verse — Creator Seed C.Card vault-in gate tests (migration 20260821000000).
+// C.Verse — Creator Seed C.Card TWO-PHASE SETTLEMENT tests
+// (migration 20260821020000_seed_two_phase, keputusan user 2026-08-21).
 // Jalankan against Supabase lokal (disposable — db reset bebas):
 //   node supabase/tests/seed_card_test.mjs postgresql://postgres:***@127.0.0.1:54322/postgres
-// Prasyarat: `npx supabase db reset` (migration 20260821000000_seed_card ter-apply).
-// Skenario (FASE B, keputusan 2026-08-20):
-//   T-SEED-1: accept_bid/buyout_card kartu seed saat location<>platform_vault
-//             ATAU verify_status<>verified -> SEED_VAULT_IN_REQUIRED
-//   T-SEED-2: setelah vault-in (location=platform_vault) + NFC verified
-//             -> settle SUKSES, split 85/7,5/7,5, royalti ke kreator,
-//             platform_revenue tercatat
-//   T-SEED-3: kartu NON-seed TIDAK terkena gate (settle normal walau
-//             location<>vault) — pastikan gate tidak bocor ke kartu biasa
+// Prasyarat: `npx supabase db reset` (migration 20260821020000 ter-apply).
+// Skenario (FASE C — menggantikan gate-paksa FASE B):
+//   T-SEED-1: accept_bid kartu seed saat location<>platform_vault ATAU
+//             verify<>verified -> PHASE-1 LOCK (bukan tolak): bid->accepted,
+//             kartu 'bid_pending', bid lain di-release, seller BELUM dibayar,
+//             ownership BELUM pindah, uang buyer tetap di escrow.
+//   T-SEED-1b: selama 'bid_pending' place_bid & set_buyout -> SALE_IN_PROGRESS
+//   T-SEED-2b: release_seed_sale SEBELUM vault-in + NFC verified
+//             -> SEED_VAULT_IN_REQUIRED; authenticated TIDAK punya akses
+//             (grants release = service_role HANYA)
+//   T-SEED-2: vault-in (location=platform_vault) + NFC verified
+//             + release_seed_sale -> settle SUKSES split 85/7,5/7,5,
+//             royalti ke kreator, platform_revenue tercatat, ownership &
+//             shipment benar; release kedua -> NO_PENDING_SALE (idempotent)
+//   T-SEED-3: kartu NON-seed TIDAK kena gate — accept langsung settle walau
+//             with_owner/unknown
 //   T-SEED-4: C-13 seed — kreator coba buyout balik kartu seed-nya dalam
 //             30 hari (seed drop di-age >30 hari agar guard lama COALESCED
 //             created_at miss; anchor = ownership_history 'gift' ke kreator
 //             yang baru) -> CREATOR_SELF_DEALING_30D
-//   T-SEED-5: buyer normal tetap bisa beli kartu seed setelah vault-in
-//             verified (gate tidak over-block)
+//   T-SEED-5: buyer normal tetap bisa beli kartu seed vaulted verified
+//             langsung (gate tidak over-block)
+//   T-SEED-6: buyout seed NOT vaulted -> PHASE-1 (order 'paid'/'held' +
+//             kartu 'bid_pending', uang buyer terdebit, seller belum dibayar)
+//             -> vault-in + verified + release -> order 'settled', escrow
+//             'released', seller 85% + royalti kreator, ownership + shipment
 import pgModule from "../../apps/api/node_modules/pg/lib/index.js";
 
 const { Client } = pgModule;
 
-const url = process.argv[2] ?? "postgresql://postgres:postgres@127.0.0.1:54322/postgres";
+const url = process.argv[2] ?? "postgresql://postgres:***@127.0.0.1:54322/postgres";
 
 const results = [];
 function report(id, pass, detail) {
@@ -112,115 +124,196 @@ await mkUser(U.creator, "Seed Creator", 0);
 await mkUser(U.buyer, "Seed Buyer", 5000);
 await mkUser(U.normalSeller, "Normal Seller", 0);
 
-// ── T-SEED-1: gate menolak settle sebelum vault-in + NFC verified ─────────
+const BID_AMOUNT = 150; // split: round(7,5%)=11 platform + 11 royalti + 128 seller
+
+// ── T-SEED-1: accept seed not-vaulted -> PHASE-1 LOCK (bukan tolak) ───────
+// ── T-SEED-1b: place_bid/set_buyout saat bid_pending -> SALE_IN_PROGRESS ──
 {
   const drop = `seed-t1-${stamp}`;
   const card = `seed-card-t1-${stamp}`;
   await mkSeedDrop(drop, card);
+
+  // Buyer bid (kartu di tangan kreator — GATE LAMA TIDAK ADA: bid BOLEH)
+  const cBuyer = await asUser(U.buyer);
+  await cBuyer.query("select public.place_bid($1, $2)", [card, BID_AMOUNT]);
+  const buyerBalanceAfterBid = await walletBalance(U.buyer); // 5000 - 150 (escrow hold)
+
+  // Owner ACCEPT -> PHASE-1: LOCK, bukan tolak
   const cCreator = await asUser(U.creator);
-  await cCreator.query("select public.set_buyout($1, 200)", [card]); // listing kreator
-  await cCreator.end();
-  const c = await asUser(U.buyer);
-  let buyoutBlocked = false;
+  let phase1Ok = false;
   try {
-    await c.query("select public.buyout_card($1, 'buyer_address', 'Jl. Seed Test No. 1 Jakarta')", [card]);
+    await cCreator.query("select public.accept_bid($1, 'buyer_address', 'Jl. Seed Test No. 1 Jakarta')", [card]);
+    phase1Ok = true; // tidak raise SEED_VAULT_IN_REQUIRED
   } catch (e) {
-    buyoutBlocked = errCode(e) === "SEED_VAULT_IN_REQUIRED";
+    console.log(`T-SEED-1 unexpected error: ${errCode(e)}`);
   }
-  let bidAcceptBlocked = false;
+  const cardRow = (
+    await admin.query("select status, owner_id, location, verify_status, buyout_price_ccoin from public.cards where id = $1", [card])
+  ).rows[0];
+  const bidRow = (
+    await admin.query(
+      "select id, status, accepted_at, destination, shipping_address from public.bids where card_id = $1 and status = 'accepted' order by accepted_at desc limit 1",
+      [card],
+    )
+  ).rows[0];
+  const creatorBal = await walletBalance(U.creator);
+
+  // SALE_IN_PROGRESS: bid/buyout/pasang buyout ditolak selama bid_pending
+  let bidBlocked = false;
+  let setBuyoutBlocked = false;
+  const cB = await asUser(U.buyer);
   try {
-    await c.query("select public.place_bid($1, 150)", [card]);
-    const cs = await asUser(U.creator);
-    await cs.query("select public.accept_bid($1, 'buyer_address', 'Jl. Seed Test No. 2 Jakarta')", [card]);
-    await cs.end();
+    await cB.query("select public.place_bid($1, 999)", [card]);
   } catch (e) {
-    bidAcceptBlocked = errCode(e) === "SEED_VAULT_IN_REQUIRED";
+    bidBlocked = errCode(e) === "SALE_IN_PROGRESS";
   }
-  await c.end();
-  const cardRow = (await admin.query("select status, owner_id, location, verify_status from public.cards where id = $1", [card])).rows[0];
-  const acceptedRows = (await admin.query("select count(*)::int as n from public.bids where card_id = $1 and status = 'accepted'", [card]))
-    .rows[0].n;
-  // Gate menolak SETTLE — bid boleh tetap aktif menunggu vault-in (perilaku
-  // benar: buyer boleh bid sejak listing; hanya settle yang di-gate).
+  const cC = await asUser(U.creator);
+  try {
+    await cC.query("select public.set_buyout($1, 500)", [card]);
+  } catch (e) {
+    setBuyoutBlocked = errCode(e) === "SALE_IN_PROGRESS";
+  }
+  await cC.end();
+
   const ok =
-    buyoutBlocked &&
-    bidAcceptBlocked &&
-    cardRow?.status === "listed_buyout" &&
-    cardRow?.owner_id === U.creator &&
+    phase1Ok &&
+    cardRow?.status === "bid_pending" &&
+    cardRow?.owner_id === U.creator && // ownership BELUM pindah
     cardRow?.location === "with_owner" &&
     cardRow?.verify_status === "unknown" &&
-    acceptedRows === 0;
+    cardRow?.buyout_price_ccoin === null &&
+    bidRow?.status === "accepted" &&
+    bidRow?.accepted_at !== null &&
+    bidRow?.destination === "buyer_address" &&
+    bidRow?.shipping_address === "Jl. Seed Test No. 1 Jakarta" &&
+    creatorBal === 0 && // seller BELUM dibayar di PHASE-1
+    buyerBalanceAfterBid === 4850 && // uang buyer tetap escrow (5000-150)
+    bidBlocked &&
+    setBuyoutBlocked;
   report(
-    "T-SEED-1 gate vault-in blok settle",
+    "T-SEED-1 accept owner -> PHASE-1 LOCK (bid accepted, kartu bid_pending, tanpa uang/ownership)",
     ok,
-    `buyout=${buyoutBlocked} acceptBid=${bidAcceptBlocked} loc=${cardRow?.location} vs=${cardRow?.verify_status} status=${cardRow?.status} acceptedBids=${acceptedRows}`,
+    `phase1=${phase1Ok} status=${cardRow?.status} owner=${cardRow?.owner_id === U.creator ? "creator" : cardRow?.owner_id} bidDest=${bidRow?.destination} sellerBal=${creatorBal} buyerBalAfterBid=${buyerBalanceAfterBid} bidBlocked=${bidBlocked} setBuyoutBlocked=${setBuyoutBlocked}`,
   );
+  await cB.end();
 }
 
-// ── T-SEED-2: vault-in (location=vault) + NFC verified -> settle SUKSES ───
+// ── T-SEED-2b: release SEBELUM vault-in -> SEED_VAULT_IN_REQUIRED + mock ──
+// ── T-SEED-2: vault-in + NFC verified -> release SUKSES + idempotent ──────
 {
   const drop = `seed-t2-${stamp}`;
   const card = `seed-card-t2-${stamp}`;
   await mkSeedDrop(drop, card);
-  // Meniru path admin vault-in (apps/api PATCH /cards/:id/vault-in: lokasi saja)
-  // + tap NFC (nfc.ts — satu-satunya jalur verify_status='verified', crypto CMAC).
+  const creatorBalBase = await walletBalance(U.creator);
+  const buyerXpBefore = (await admin.query("select total_xp from public.users where id = $1", [U.buyer])).rows[0].total_xp;
+  const cBuyer = await asUser(U.buyer);
+  await cBuyer.query("select public.place_bid($1, $2)", [card, BID_AMOUNT]);
+  const cCreator = await asUser(U.creator);
+  await cCreator.query("select public.accept_bid($1, 'buyer_address', 'Jl. Seed Test No. 2 Jakarta')", [card]);
+  await cCreator.end();
+  await cBuyer.end();
+
+  // (a) authenticated TIDAK punya akses release_seed_sale (grant service_role HANYA)
+  let userReleaseDenied = false;
+  const cU = await asUser(U.buyer);
+  try {
+    await cU.query("select public.release_seed_sale($1)", [card]);
+  } catch (e) {
+    userReleaseDenied = String(e.message).toLowerCase().includes("permission denied");
+  }
+  await cU.end();
+
+  // (b) release SEBELUM kartu masuk vault + verified -> SEED_VAULT_IN_REQUIRED
+  let preVaultBlocked = false;
+  try {
+    await admin.query("select public.release_seed_sale($1)", [card]);
+  } catch (e) {
+    preVaultBlocked = errCode(e) === "SEED_VAULT_IN_REQUIRED";
+  }
+  const creatorBalBefore = await walletBalance(U.creator);
+  const creatorSettled = creatorBalBefore - creatorBalBase; // 0 — belum settle
+
+  // (c) vault-in (lokasi saja — meniru admin PATCH vault-in) + tap NFC
   await admin.query("update public.cards set location = 'platform_vault' where id = $1", [card]);
   await admin.query("update public.cards set verify_status = 'verified' where id = $1", [card]);
-  await admin.query("update public.cards set buyout_price_ccoin = 200 where id = $1", [card]);
-  const c = await asUser(U.buyer);
-  let settled = false;
-  try {
-    await c.query("select public.buyout_card($1, 'buyer_address', 'Jl. Seed Test No. 3 Bandung')", [card]);
-    settled = true;
-  } catch (e) {
-    console.log(`T-SEED-2 unexpected error: ${errCode(e)}`);
-  }
-  await c.end();
-  const creatorBal = await walletBalance(U.creator);
+
+  // (d) release -> settle SUKSES
+  await admin.query("select public.release_seed_sale($1)", [card]);
+  const creatorBal = await walletBalance(U.creator); // 128 seller + 11 royalti sama akun
   const rev = await admin.query(
-    "select platform_ccoin, royalty_ccoin, seller_ccoin from public.platform_revenue where ref_type = 'buyout' and ref_id in (select id from public.wallet_transactions where ref_id = $1 and type = 'platform_buy')",
+    "select platform_ccoin, royalty_ccoin, seller_ccoin from public.platform_revenue where ref_type = 'bid' and ref_id = (select id from public.bids where card_id = $1 and status = 'accepted' order by accepted_at desc limit 1)",
     [card],
   );
-  const ship = await admin.query("select type, status from public.shipments where card_id = $1", [card]);
+  const ship = await admin.query("select type, from_location, status from public.shipments where card_id = $1 and type = 'secondary_bid'", [
+    card,
+  ]);
   const cardRow = (await admin.query("select owner_id, location, status from public.cards where id = $1", [card])).rows[0];
+  const oh = await admin.query("select acquired_via from public.ownership_history where card_id = $1 and acquired_via = 'secondary_bid'", [
+    card,
+  ]);
+  const buyerXp = (await admin.query("select total_xp from public.users where id = $1", [U.buyer])).rows[0].total_xp;
+  const buyerXpDelta = buyerXp - buyerXpBefore;
+
+  // (e) idempotent: release kedua -> NO_PENDING_SALE
+  let secondReleaseBlocked = false;
+  try {
+    await admin.query("select public.release_seed_sale($1)", [card]);
+  } catch (e) {
+    secondReleaseBlocked = errCode(e) === "NO_PENDING_SALE";
+  }
+
   const ok =
-    settled &&
-    creatorBal === 185 && // seller 85% (170) + royalti kreator 7,5% (15) — kreator-owner efektif 92,5%
-    Number(rev.rows[0]?.platform_ccoin) === 15 &&
-    Number(rev.rows[0]?.royalty_ccoin) === 15 &&
-    Number(rev.rows[0]?.seller_ccoin) === 170 &&
-    ship.rows[0]?.type === "secondary_buyout" &&
+    userReleaseDenied &&
+    preVaultBlocked &&
+    creatorSettled === 0 && // seller BELUM dibayar sebelum release
+    creatorBal - creatorBalBase === 139 && // 128 seller (85%) + 11 royalti kreator (7,5%) — kreator-owner efektif 92,5%
+    Number(rev.rows[0]?.platform_ccoin) === 11 &&
+    Number(rev.rows[0]?.royalty_ccoin) === 11 &&
+    Number(rev.rows[0]?.seller_ccoin) === 128 &&
+    ship.rows[0]?.type === "secondary_bid" &&
+    ship.rows[0]?.from_location === "platform" && // kartu release dari vault
     ship.rows[0]?.status === "requested" &&
     cardRow?.owner_id === U.buyer &&
+    cardRow?.status === "sold" &&
     cardRow?.location === "with_owner" &&
-    cardRow?.status === "sold";
+    oh.rows.length === 1 &&
+    buyerXpDelta >= BID_AMOUNT && // spend = amount, plus badge XP (first_drop +100 via ownership trigger)
+    secondReleaseBlocked;
   report(
-    "T-SEED-2 vault-in + verified -> settle 85/7,5/7,5",
+    "T-SEED-2 vault-in+verified -> release 85/7,5/7,5 (idempotent, service_role only)",
     ok,
-    `creatorBal=${creatorBal} rev=${JSON.stringify(rev.rows[0] ?? {})} ship=${ship.rows[0]?.type} loc=${cardRow?.location}`,
+    `userDenied=${userReleaseDenied} preVault=${preVaultBlocked} creatorDelta=${creatorBal - creatorBalBase} rev=${JSON.stringify(rev.rows[0] ?? {})} shipFrom=${ship.rows[0]?.from_location} loc=${cardRow?.location} xpDelta=${buyerXpDelta} secondRelease=${secondReleaseBlocked}`,
   );
 }
 
-// ── T-SEED-3: kartu NON-seed TIDAK kena gate ───────────────────────────────
+// ── T-SEED-3: kartu NON-seed TIDAK kena gate (accept langsung settle) ─────
 {
   const drop = `seed-t3-${stamp}`;
   const card = `seed-card-t3-${stamp}`;
   await mkNormalCard(drop, card);
-  await admin.query("update public.cards set buyout_price_ccoin = 100 where id = $1", [card]);
-  const c = await asUser(U.buyer);
+  const sellerBalBase = await walletBalance(U.normalSeller);
+  const cBuyer = await asUser(U.buyer);
+  await cBuyer.query("select public.place_bid($1, 100)", [card]);
+  await cBuyer.end();
+  const cSeller = await asUser(U.normalSeller);
   let settled = false;
   try {
-    await c.query("select public.buyout_card($1, 'buyer_address', 'Jl. Seed Test No. 4 Semarang')", [card]);
-    settled = true; // tidak raise SEED_VAULT_IN_REQUIRED
+    await cSeller.query("select public.accept_bid($1, 'buyer_address', 'Jl. Seed Test No. 3 Semarang')", [card]);
+    settled = true; // tidak raise SEED_VAULT_IN_REQUIRED walau with_owner/unknown
   } catch (e) {
     console.log(`T-SEED-3 unexpected error: ${errCode(e)}`);
   }
-  await c.end();
+  await cSeller.end();
   const sellerBal = await walletBalance(U.normalSeller);
   const cardRow = (await admin.query("select owner_id, status from public.cards where id = $1", [card])).rows[0];
   // split 100 -> round(7,5)=8 platform + 8 royalti + 84 seller (round half up)
-  const ok = settled && sellerBal === 84 && cardRow?.owner_id === U.buyer && cardRow?.status === "sold";
-  report("T-SEED-3 non-seed tanpa gate", ok, `settled=${settled} seller=${sellerBal} owner=${cardRow?.owner_id ?? null}`);
+  const sellerDelta = sellerBal - sellerBalBase;
+  const ok = settled && sellerDelta === 84 && cardRow?.owner_id === U.buyer && cardRow?.status === "sold";
+  report(
+    "T-SEED-3 non-seed tanpa gate (accept langsung settle)",
+    ok,
+    `settled=${settled} sellerDelta=${sellerDelta} owner=${cardRow?.owner_id ?? null}`,
+  );
 }
 
 // ── T-SEED-4: C-13 seed — kreator dilarang buyout balik kartu seed-nya ────
@@ -242,7 +335,7 @@ await mkUser(U.normalSeller, "Normal Seller", 0);
     "update public.cards set location = 'platform_vault', verify_status = 'verified', buyout_price_ccoin = 300 where id = $1",
     [card],
   );
-  // Seller normal membeli dulu (path T-SEED-2 sukses) -> kartu pindah ke seller
+  // Seller normal membeli dulu (path vaulted settle langsung) -> kartu pindah ke seller
   const cBuyer = await asUser(U.buyer);
   await cBuyer.query("select public.buyout_card($1, 'platform_vault')", [card]);
   await cBuyer.end();
@@ -265,7 +358,7 @@ await mkUser(U.normalSeller, "Normal Seller", 0);
   );
 }
 
-// ── T-SEED-5: buyer normal masih bisa beli kartu seed (gate tidak over-block) ──
+// ── T-SEED-5: buyer normal tetap bisa beli kartu seed vaulted verified ────
 {
   const drop = `seed-t5-${stamp}`;
   const card = `seed-card-t5-${stamp}`;
@@ -288,6 +381,107 @@ await mkUser(U.normalSeller, "Normal Seller", 0);
     "T-SEED-5 buyer normal bisa beli seed (vault-in verified)",
     bought && ownerAfter === U.buyer,
     `bought=${bought} owner=${ownerAfter === U.buyer ? "buyer" : ownerAfter}`,
+  );
+}
+
+// ── T-SEED-6: buyout seed NOT vaulted -> PHASE-1 order -> release settle ──
+{
+  const drop = `seed-t6-${stamp}`;
+  const card = `seed-card-t6-${stamp}`;
+  await mkSeedDrop(drop, card);
+  const creatorBalBase = await walletBalance(U.creator);
+  const buyerBalBefore = await walletBalance(U.buyer);
+  await admin.query("update public.cards set buyout_price_ccoin = 200 where id = $1", [card]);
+  const c = await asUser(U.buyer);
+  let phase1 = false;
+  try {
+    await c.query("select public.buyout_card($1, 'buyer_address', 'Jl. Seed Test No. 6 Surabaya')", [card]);
+    phase1 = true; // PHASE-1: order dibuat, bukan settle
+  } catch (e) {
+    console.log(`T-SEED-6 unexpected error: ${errCode(e)}`);
+  }
+  await c.end();
+  const orderRow = (
+    await admin.query(
+      "select id, status, escrow_status, source, delivery_option, shipping_address, total_ccoin from public.orders where card_id = $1 and source = 'secondary_buyout' order by created_at desc limit 1",
+      [card],
+    )
+  ).rows[0];
+  const cardPhase1 = (await admin.query("select status, owner_id, buyout_price_ccoin from public.cards where id = $1", [card])).rows[0];
+  const creatorBeforeRelease = await walletBalance(U.creator);
+  const buyerAfterPhase1 = await walletBalance(U.buyer);
+  const buyerDebit = buyerBalBefore - buyerAfterPhase1; // 200 — debit PHASE-1
+
+  // SALE_IN_PROGRESS juga berlaku saat order buyout pending
+  let bidBlocked = false;
+  const cB = await asUser(U.buyer);
+  try {
+    await cB.query("select public.place_bid($1, 999)", [card]);
+  } catch (e) {
+    bidBlocked = errCode(e) === "SALE_IN_PROGRESS";
+  }
+  await cB.end();
+
+  // release SEBELUM vault -> SEED_VAULT_IN_REQUIRED
+  let preVaultBlocked = false;
+  try {
+    await admin.query("select public.release_seed_sale($1)", [card]);
+  } catch (e) {
+    preVaultBlocked = errCode(e) === "SEED_VAULT_IN_REQUIRED";
+  }
+  // vault-in + verified -> release (path B: order pending)
+  await admin.query("update public.cards set location = 'platform_vault' where id = $1", [card]);
+  await admin.query("update public.cards set verify_status = 'verified' where id = $1", [card]);
+  await admin.query("select public.release_seed_sale($1)", [card]);
+
+  const creatorBal = await walletBalance(U.creator); // 170 seller + 15 royalti
+  const rev = await admin.query(
+    "select platform_ccoin, royalty_ccoin, seller_ccoin from public.platform_revenue where ref_type = 'order' and ref_id = $1",
+    [orderRow?.id],
+  );
+  const orderAfter = (await admin.query("select status, escrow_status from public.orders where id = $1", [orderRow?.id])).rows[0];
+  const cardAfter = (await admin.query("select status, owner_id, location from public.cards where id = $1", [card])).rows[0];
+  const ship = await admin.query(
+    "select type, from_location, status from public.shipments where card_id = $1 and type = 'secondary_buyout'",
+    [card],
+  );
+  const oh = await admin.query(
+    "select acquired_via, order_id from public.ownership_history where card_id = $1 and acquired_via = 'secondary_buyout'",
+    [card],
+  );
+
+  const ok =
+    phase1 &&
+    orderRow?.status === "paid" &&
+    orderRow?.escrow_status === "held" &&
+    orderRow?.source === "secondary_buyout" &&
+    orderRow?.delivery_option === "shipping" &&
+    orderRow?.total_ccoin === 200 &&
+    cardPhase1?.status === "bid_pending" &&
+    cardPhase1?.owner_id === U.creator &&
+    cardPhase1?.buyout_price_ccoin === null &&
+    buyerDebit === 200 && // uang buyer terdebit DI PHASE-1 (platform_buy)
+    creatorBeforeRelease - creatorBalBase === 0 && // seller BELUM dibayar
+    bidBlocked &&
+    preVaultBlocked &&
+    creatorBal - creatorBalBase === 185 && // 170 (85%) + 15 (7,5%)
+    Number(rev.rows[0]?.platform_ccoin) === 15 &&
+    Number(rev.rows[0]?.royalty_ccoin) === 15 &&
+    Number(rev.rows[0]?.seller_ccoin) === 170 &&
+    orderAfter?.status === "settled" &&
+    orderAfter?.escrow_status === "released" &&
+    cardAfter?.status === "sold" &&
+    cardAfter?.owner_id === U.buyer &&
+    cardAfter?.location === "with_owner" &&
+    ship.rows[0]?.type === "secondary_buyout" &&
+    ship.rows[0]?.from_location === "platform" &&
+    ship.rows[0]?.status === "requested" &&
+    oh.rows.length === 1 &&
+    oh.rows[0]?.order_id === orderRow?.id;
+  report(
+    "T-SEED-6 buyout seed -> PHASE-1 order held -> release settle (path B)",
+    ok,
+    `phase1=${phase1} order=${orderRow?.status}/${orderRow?.escrow_status} card=${cardPhase1?.status} preVault=${preVaultBlocked} creatorDelta=${creatorBal - creatorBalBase} buyerDebit=${buyerDebit} rev=${JSON.stringify(rev.rows[0] ?? {})} orderAfter=${orderAfter?.status}/${orderAfter?.escrow_status}`,
   );
 }
 

@@ -2,6 +2,7 @@ import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import { z } from "zod";
 import { adminGateError, requireAdmin, tokenFingerprint } from "../lib/auth.js";
+import { RpcError, rpcReleaseSeedSale } from "../lib/db.js";
 import { sendCreatorAccessEmail } from "../lib/email.js";
 import { logAuditDb } from "../lib/reads/kyc.js";
 import { readDb } from "../lib/reads.js";
@@ -274,16 +275,18 @@ app.post(
 
 // ── Creator Seed C.Card vault-in (Flow 10 langkah [8], keputusan 2026-08-20) ──
 // PATCH /cards/:id/vault-in — admin menandai KEDATANGAN FISIK kartu ke vault
-// platform (location -> 'platform_vault'), prasyarat settle seed card.
+// platform (location -> 'platform_vault'), prasyarat RELEASE seed card
+// (release_seed_sale, two-phase settlement 2026-08-21).
 //
 // KEPUTUSAN DESAIN (akses aman, tidak memalsukan verified NFC):
-// gate vault-in di RPC (accept_bid/buyout_card, migration 20260821000000)
-// mengecek KEDUA syarat: (a) cards.location = 'platform_vault' (fisik ada di
-// vault — penilaian admin/ops) DAN (b) cards.verify_status = 'verified'
-// (UID cocok — HANYA dari tap NFC via apps/api/src/routes/nfc.ts, CMAC
-// crypto yang tidak bisa dipalsu). Endpoint ini hanya memenuhi (a) + mencatat
-// pemeriksaan kondisi fisik ke audit; verify_status 'verified' TIDAK PERNAH
-// di-set di sini — kalau belum verified via NFC, gate tetap menolak hingga
+// gate RELEASE seed di RPC release_seed_sale (migration
+// 20260821020000_seed_two_phase) mengecek KEDUA syarat: (a) cards.location
+// = 'platform_vault' (fisik ada di vault — penilaian admin/ops) DAN
+// (b) cards.verify_status = 'verified' (UID cocok — HANYA dari tap NFC
+// via apps/api/src/routes/nfc.ts, CMAC crypto yang tidak bisa dipalsu).
+// Endpoint ini hanya memenuhi (a) + mencatat pemeriksaan kondisi fisik
+// ke audit; verify_status 'verified' TIDAK PERNAH di-set di sini —
+// kalau belum verified via NFC, release_seed_sale tetap menolak hingga
 // tap NFC sukses. Dengan begitu admin tidak bisa memalsukan keaslian kartu.
 app.patch("/cards/:id/vault-in", zValidator("json", z.object({ physicalCheckNote: z.string().max(2000).optional() })), async (c) => {
   const authRes = await requireAdmin(c);
@@ -321,6 +324,57 @@ app.patch("/cards/:id/vault-in", zValidator("json", z.object({ physicalCheckNote
     await tokenFingerprint(c.req.header("authorization")),
   );
   return c.json({ card: data });
+});
+
+// ── Creator Seed C.Card PHASE-2 settlement (Flow 10, keputusan 2026-08-21) ──
+// POST /cards/:id/release-seed-sale — admin memicu RELEASE/settlement
+// two-phase seed sale (service_role-only RPC, bukan aksi user):
+// seller 85% + royalti kreator 7,5% + platform 7,5% + ownership -> buyer +
+// shipment. Prasyarat (di RPC): card.status='bid_pending' (transaksi seed
+// berjalan) DAN kartu fisik SUDAH di vault (location='platform_vault' via
+// PATCH vault-in) + NFC verified (verify_status='verified' — HANYA dari tap
+// crypto nfc.ts, tidak bisa dipalsukan) -> selain itu RPC raise
+// SEED_VAULT_IN_REQUIRED (409) / NO_PENDING_SALE (409) / NOT_SEED_CARD (400).
+app.post("/cards/:id/release-seed-sale", async (c) => {
+  const authRes = await requireAdmin(c);
+  if ("error" in authRes) {
+    const e = adminGateError(authRes);
+    return c.json(e.body, e.status);
+  }
+  const admin = authRes.user;
+  const cardId = c.req.param("id");
+  const db = getSupabase();
+  const { data: existing } = await db.from("cards").select("id, status, location, verify_status, drop_id").eq("id", cardId).maybeSingle();
+  if (!existing) return c.json({ error: "Kartu tidak ditemukan" }, 404);
+  try {
+    await rpcReleaseSeedSale(db, cardId);
+  } catch (err) {
+    if (err instanceof RpcError) {
+      if (err.code === "SEED_VAULT_IN_REQUIRED" || err.code === "NO_PENDING_SALE") {
+        return c.json({ error: err.message }, 409);
+      }
+      if (err.code === "NOT_SEED_CARD") {
+        return c.json({ error: err.message }, 400);
+      }
+      return c.json({ error: err.message }, 400);
+    }
+    return c.json({ error: err instanceof Error ? err.message : String(err) }, 400);
+  }
+  await logAuditDb(
+    admin.id,
+    "update",
+    "cards",
+    cardId,
+    {
+      action: "release_seed_sale",
+      status_before: existing.status,
+      location: existing.location,
+      verify_status: existing.verify_status,
+    },
+    c.req.header("x-forwarded-for") ?? null,
+    await tokenFingerprint(c.req.header("authorization")),
+  );
+  return c.json({ ok: true, cardId });
 });
 
 export default app;

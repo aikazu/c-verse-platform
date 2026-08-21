@@ -1,7 +1,11 @@
 # 07 — Constraints, Gates & Open Items
 
 > Status: [VALIDATED] (C-01/C-02 resolved 2026-08-13)
-> Last updated: 2026-08-20 (C-13 enforceable via akun kreator
+> Last updated: 2026-08-21 (C-17 → two-phase settlement: bid/accept
+> BUKAN lagi di-gate; release yang wajib menunggu vault-in + NFC
+> verified — SEED_VAULT_IN_REQUIRED pindah ke release_seed_sale,
+> migration 20260821020000_seed_two_phase, keputusan 2026-08-21)
+> Previous: 2026-08-20 (C-13 enforceable via akun kreator
 > admin-provisioned + C-17 Creator Seed C.Card — keputusan 2026-08-20;
 > C-14 & T-2 diselaraskan koreksi user: burn sejati ~Rp 1 jt/bln,
 > modal tidak habis Y1)
@@ -265,15 +269,30 @@
   `creator_id` = kreator target, sehingga royalti 7,5% otomatis ke
   kreator via kode existing (tanpa kolom fallback). Kolom baru di
   `05_data_model.md`.
-- **Gate vault-in TERIMPLEMENTASI (2026-08-21)**: RPC `accept_bid` &
-  `buyout_card` mengecek `drops.is_seed`; jika seed card TIDAK di
-  `platform_vault` ATAU `verify_status <> 'verified'` -> raise
-  `SEED_VAULT_IN_REQUIRED`. **verified hanya bisa dicapai via tap
-  NFC** (SUN/CMAC crypto — `nfc.ts`); admin path vault-in
-  `PATCH /api/admin/cards/:id/vault-in` HANYA menandai kedatangan
-  fisik (`location='platform_vault'`) + audit pemeriksaan kondisi
-  fisik — TIDAK pernah memalsukan `verify_status='verified'`
+- **Gate vault-in TERIMPLEMENTASI (2026-08-21) — TWO-PHASE SETTLEMENT
+  (keputusan 2026-08-21)**: bid/accept/checkout BUKAN lagi di-gate —
+  bid BOLEH dari mana saja (kartu di kreator ATAU di vault) selama
+  TIDAK ada transaksi berjalan. Saat owner accept / buyer buyout:
+  **PHASE-1 LOCK** (deal terkunci, kartu `bid_pending`, seller belum
+  dibayar, ownership belum pindah; selama `bid_pending` bid/buyout
+  baru -> `SALE_IN_PROGRESS`). **RELEASE-lah yang wajib menunggu
+  vault-in + NFC verified**: RPC `release_seed_sale` (service_role
+  HANYA, dipicu admin via `POST /api/admin/cards/:id/release-seed-sale`)
+  mengecek `drops.is_seed`; jika seed card TIDAK di `platform_vault`
+  ATAU `verify_status <> 'verified'` -> raise `SEED_VAULT_IN_REQUIRED`
+  (gate SEED_VAULT_IN_REQUIRED lama di `accept_bid`/`buyout_card`
+  dihapus — migration 20260821020000_seed_two_phase). **verified hanya
+  bisa dicapai via tap NFC** (SUN/CMAC crypto — `nfc.ts`); admin path
+  vault-in `PATCH /api/admin/cards/:id/vault-in` HANYA menandai
+  kedatangan fisik (`location='platform_vault'`) + audit pemeriksaan
+  kondisi fisik — TIDAK pernah memalsukan `verify_status='verified'`
   (keputusan desain 2026-08-21). Gate mengecek KEDUANYA.
+- **release_seed_sale idempotent (2026-08-21)**: guard status kartu
+  harus `bid_pending` — setelah release sukses (status -> `sold`)
+  panggilan ulang -> `NO_PENDING_SALE`; settle accepted-bid ATAU
+  order pending (buyout PHASE-1: `paid`/escrow `held`) -> seller 85%
+  + royalti kreator 7,5% + platform 7,5% + ownership ke buyer +
+  shipment (dari `platform` — kartu release dari vault).
 - Split penjualan pertama: **85% owner + 7,5% royalti kreator
   lifetime + 7,5% platform** (secondary normal) — kreator-owner
   efektif **92,5%** / platform 7,5% (bukan fee 12%/6%).
@@ -359,9 +378,10 @@
   burn/working-capital/akuisisi) — selaras C-14 & T-2 di atas;
   angka kunci: Opex Y1 Rp 38 jt, EBITDA base ≈ -Rp 4,8 jt,
   burn pasca-launch ~Rp 1 jt/bln (base), kas akhir Y1 +44,6 jt.
-- Creator Seed C.Card (keputusan 2026-08-20) — flow 1-of-1:
-  produksi → tanda tangan → serah + pitch → daftar ownership
-  kreator → listing → bid publik → accept → vault-in wajib +
-  verifikasi NFC → release; split 85/7,5/7,5; C-13 enforceable.
+- Creator Seed C.Card (keputusan 2026-08-20, diperbarui 2026-08-21
+  two-phase settlement) — flow 1-of-1: produksi → tanda tangan →
+  serah + pitch → daftar ownership kreator → listing → bid publik →
+  accept (PHASE-1 LOCK) → vault-in wajib + verifikasi NFC →
+  release admin (PHASE-2: settle 85/7,5/7,5); C-13 enforceable.
 - Akun kreator admin-provisioned + passwordless (keputusan
   2026-08-20) — dasar C-13 enforceable.

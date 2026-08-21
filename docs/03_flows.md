@@ -3,7 +3,10 @@
 > Status: [VALIDATED — partial: open items payout (SLA, disbursement,
 > cap Rp 5-10 jt) & validasi C-03 iPhone masih [DRAFT] — lihat
 > `07_constraints.md`]
-> Last updated: 2026-08-21 (badge holografik "✦ Seed 1-of-1" di
+> Last updated: 2026-08-21 (Flow 10 → TWO-PHASE SETTLEMENT — bid/accept
+> BUKAN lagi di-gate; release yang wajib menunggu vault-in + NFC
+> verified — migration 20260821020000_seed_two_phase, keputusan 2026-08-21)
+> Previous: 2026-08-21 (badge holografik "✦ Seed 1-of-1" di
 > Marketplace, Browse, halaman kartu (info) & 3D — Flow 10 langkah [5])
 > Previous: 2026-08-20 (Flow 10 Creator Seed C.Card + Flow 11
 > provision akun kreator admin — keputusan 2026-08-20)
@@ -360,32 +363,47 @@ ADM-06: dispute masuk -> review bukti -> keputusan
 [6] BID PUBLIK -> [7] ACCEPT (kreator-owner, tanpa reject)
     - mekanik Flow 7 normal (1 bid active tertinggi/kartu, hold
       C-Coin, outbid/cancel release)
-[8] VAULT-IN WAJIB + VERIFIKASI NFC (GATE — TIDAK BOLEH LEWAT)
-    - SEBELUM settle/serah ke buyer, kartu fisik WAJIB masuk vault
-      platform dulu (kartu ada di tangan kreator sejak [3];
-      kreator kirim ke vault)
+    - BID/CHECKOUT BOLEH dari mana saja (kartu di kreator ATAU sudah
+      di vault) selama TIDAK ada transaksi berjalan (card.status <>
+      'bid_pending')
+[7] ACCEPT = PHASE-1 LOCK (keputusan 2026-08-21)
+    - saat owner accept: deal TERKUNCI — bid terpilih -> 'accepted'
+      (+ accepted_at, destination & shipping_address tersimpan),
+      kartu -> status 'bid_pending', bid lain di-release (outbid),
+      TANPA uang/ownership pindah. Buyout seed juga sama: checkout
+      masuk hold (order 'paid' + escrow 'held'), seller BELUM dibayar
+    - selama 'bid_pending' (transaksi berjalan): place_bid &
+      set_buyout DITOLAK -> error SALE_IN_PROGRESS (bid boleh kalau
+      nggak lagi proses transaksi)
+[8] VAULT-IN WAJIB + VERIFIKASI NFC (GATE RELEASE — TIDAK BOLEH LEWAT)
+    - SEBELUM RELEASE/settle ke buyer, kartu fisik WAJIB masuk vault
+      platform (kartu ada di tangan kreator sejak [3]; kreator
+      kirim ke vault) — TIDAK BOLEH settle sementara fisik masih di
+      kreator tanpa verifikasi vault
     - verifikasi: (a) NFC tap — UID sesuai record, (b) kondisi
       fisik — tidak ada kerusakan baru
-    - TIDAK BOLEH kartu terjual sementara fisik masih di kreator
-      tanpa verifikasi vault
-    - TERIMPLEMENTASI (2026-08-21): gate di RPC accept_bid &
-      buyout_card (migration 20260821000000_seed_card) — jika drop
-      induk kartu drops.is_seed = true TAPI location <> platform_vault
-      ATAU verify_status <> verified -> RPC raise exception
-      SEED_VAULT_IN_REQUIRED (settle ditolak, rollback atomik).
-      Provenance seed = flag level drop drops.is_seed (bukan kolom
-      di cards) — lihat C-17 & 05_data_model.
-[9] RELEASE KE BUYER
-    - setelah vault-in verified: ownership pindah di ledger + fisik
-      release dari vault (kirim fisik / tetap vault atas nama buyer,
-      pilihan buyer)
-    - TERIMPLEMENTASI (2026-08-21): release otomatis oleh RPC saat
-      settle sukses (ownership_history baru + shipment secondary
-      sesuai pilihan tujuan buyer, perilaku Flow 7 normal); path
-      vault-in fisik = PATCH /api/admin/cards/:id/vault-in (admin —
-      set cards.location='platform_vault' + audit pemeriksaan fisik;
-      verified NFC tetap hanya dari tap — lihat C-17 / keputusan
-      desain 2026-08-21 di 07_constraints)
+    - TERIMPLEMENTASI (2026-08-21): gate SEED_VAULT_IN_REQUIRED
+      dipindah dari accept_bid/buyout_card ke release_seed_sale
+      (migration 20260821020000_seed_two_phase) — release ditolak
+      jika drop induk kartu drops.is_seed = true TAPI location <>
+      platform_vault ATAU verify_status <> verified (settle ditolak,
+      rollback atomik). Provenance seed = flag level drop
+      drops.is_seed (bukan kolom di cards) — lihat C-17 &
+      05_data_model.
+[9] RELEASE KE BUYER (PHASE-2 SETTLEMENT — admin)
+    - admin memicu POST /api/admin/cards/:id/release-seed-sale ->
+      RPC release_seed_sale (service_role HANYA): seller 85% +
+      royalti kreator 7,5% (drops.creator_id) + platform 7,5% +
+      ownership pindah ke buyer + shipment (kirim fisik / tetap
+      vault atas nama buyer, pilihan buyer di PHASE-1)
+    - TERIMPLEMENTASI (2026-08-21): idempotent — status kartu harus
+      'bid_pending' (release kedua -> NO_PENDING_SALE); settle
+      accepted-bid ATAU order pending (buyout PHASE-1);
+      ownership_history baru + shipment secondary sesuai pilihan
+      tujuan buyer; path vault-in fisik = PATCH
+      /api/admin/cards/:id/vault-in (admin — set
+      cards.location='platform_vault' + audit pemeriksaan fisik;
+      verified NFC tetap hanya dari tap — lihat C-17)
 ```
 
 Split penjualan pertama seed card (secondary 85/7,5/7,5): karena
@@ -444,10 +462,11 @@ penjualan — tidak ada split/gateway/escrow.
 - `06_tech_decisions.md` (arsitektur).
 - `07_constraints.md` (gate & aturan).
 - `02_pages.md` (halaman user & admin).
-- Creator Seed C.Card (keputusan 2026-08-20, [VALIDATED]) — Flow 10:
-  produksi 1-of-1 → tanda tangan → serah + pitch → daftar ownership
-  kreator → listing → bid publik → accept → vault-in wajib +
-  verifikasi NFC → release.
+- Creator Seed C.Card (keputusan 2026-08-21, [VALIDATED] — perombakan
+  two-phase settlement) — Flow 10: produksi 1-of-1 → tanda tangan →
+  serah + pitch → daftar ownership kreator → listing → bid publik →
+  accept (PHASE-1 LOCK: bid_pending) → vault-in wajib + verifikasi NFC
+  → release admin (PHASE-2: settle 85/7,5/7,5 + ownership + shipment).
 - Akun kreator admin-provisioned (keputusan 2026-08-20, [VALIDATED])
   — Flow 11: endpoint `POST /api/admin/users/provision` (create auth
   user tanpa password, `profiles.role='creator'`, isi `creators.user_id`,

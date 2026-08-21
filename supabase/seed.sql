@@ -92,6 +92,36 @@ on conflict (id) do nothing;
 
 
 
+-- ── Creator Seed C.Card (Flow 10, is_seed) ──
+-- Fixture seed 1-of-1: drop khusus is_seed=true milik Karina (creator_id = Karina,
+-- royalti otomatis ke dia). Kartu 1-of-1 di-hadiahkan ke Karina (ownership_history gift),
+-- status listed_buyout, lokasi with_owner, verify_status unknown → badge "Seed 1-of-1"
+-- nyala di Marketplace. TWO-PHASE (keputusan 2026-08-21): bid/accept/checkout BOLEH
+-- sekarang (PHASE-1 LOCK → card 'bid_pending'); RELEASE (release_seed_sale, admin) yang
+-- wajib menunggu kartu masuk platform_vault + NFC verified (SEED_VAULT_IN_REQUIRED).
+-- Seed drop BUKAN raffle: raffle_end_at/drawn_at = null (kolom nullable).
+insert into public.drops (id, title, series, narrative, artwork_url, total_units, signed_count, unsigned_count, price_unsigned_ccoin, price_signed_ccoin, price_ccoin, status, drop_at, drop_start_at, raffle_end_at, drawn_at, creator_id, creator_name, sold_count, is_seed) values
+ ('drop-seed-karina-01', 'Karina — Seed 1-of-1 (Genesis Creator Card)', 'Creator Seed C.Card', 'Kartu seed 1-of-1 tentang Karina Aespa — hadiah perdana C.Verse untuk kreator (Creator Seed C.Card, Flow 10, keputusan 2026-08-20). Bukan raffle: dijual di secondary normal; dua-fase (keputusan 2026-08-21): accept/checkout = PHASE-1 LOCK, RELEASE wajib vault-in + NFC verified.', '/textures/karina-seed.jpg', 1, 1, 0, 60, 60, 60, 'live', now() - interval '1 hour', now() - interval '1 hour', null, null, '00000000-0000-4000-8000-000000000003', 'Karina Aespa', 0, true)
+on conflict (id) do nothing;
+
+-- Kartu seed: dimiliki Karina, listed_buyout (muncul di Marketplace), masih di tangan
+-- kreator (with_owner) & belum diverifikasi (unknown) → PHASE-1 LOCK aktif:
+-- accept/checkout mengunci deal (bid_pending), release butuh vault-in + verified.
+insert into public.cards (id, drop_id, unit_number, variant, status, owner_id, nfc_uid, nfc_short_id, verify_status, location, buyout_price_ccoin, nfc_configured, qc_status) values
+ ('card-seed-karina-01', 'drop-seed-karina-01', 1, 'signed', 'listed_buyout', '00000000-0000-4000-8000-000000000003', upper(md5('seed-karina-01')), 'seedk-001', 'unknown', 'with_owner', 60, true, 'passed')
+on conflict (id) do nothing;
+
+-- Provenance: Karina menerima kartu seed via GIFT (bukan pembelian) — anchor C-13 (30 hari).
+insert into public.ownership_history (id, card_id, owner_id, acquired_via, order_id, transferred_at) values
+ ('oh-seed-karina-01', 'card-seed-karina-01', '00000000-0000-4000-8000-000000000003', 'gift', null, now() - interval '2 hours')
+on conflict (id) do nothing;
+
+-- Bid demo aktif di kartu seed (wallet demo 120 >= 60) — memperlihatkan flow accept bid
+-- dua-fase: accept = PHASE-1 LOCK (bid_pending), release admin setelah vault-in + NFC.
+insert into public.bids (id, card_id, bidder_id, bidder_name, amount_ccoin, status, created_at, outbid_at) values
+ ('bid-seed-karina-01', 'card-seed-karina-01', '00000000-0000-4000-8000-000000000001', 'Demo Kolektor', 60, 'active', now() - interval '30 minutes', null)
+on conflict (id) do nothing;
+
 -- ── wallets (demo 120 / karina 0 / lainnya 50) ──
 insert into public.wallets (user_id, balance_ccoin, total_topup_ccoin, total_spent_ccoin) values
  ('00000000-0000-4000-8000-000000000001', 120, 150, 30),

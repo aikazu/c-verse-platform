@@ -59,6 +59,10 @@ const ERROR_MESSAGES: Record<string, string> = {
   MIN_PAYOUT: "Payout minimum 10 C-Coin",
   PAYOUT_HELD: "Payout sedang ditahan admin (fraud hold)",
   TOPUP_CAP_EXCEEDED: "Cap saldo top-up non-KYC tercapai (500 C-Coin) — selesaikan KYC untuk membuka tanpa cap",
+  SALE_IN_PROGRESS: "Transaksi sedang berjalan — bid/buyout tidak bisa dipasang sampai transaksi selesai",
+  SEED_VAULT_IN_REQUIRED: "Kartu seed wajib masuk vault platform + terverifikasi NFC sebelum release",
+  NO_PENDING_SALE: "Tidak ada transaksi seed yang menunggu release untuk kartu ini",
+  NOT_SEED_CARD: "Kartu bukan Creator Seed C.Card",
 };
 
 async function callRpc<T>(db: SupabaseClient, fn: string, args: Record<string, unknown>): Promise<T> {
@@ -120,4 +124,9 @@ export function rpcBuyoutCard(
   address: string | null = null,
 ) {
   return callRpc<Record<string, unknown>>(db, "buyout_card", { p_card_id: cardId, p_destination: destination, p_address: address });
+}
+
+// PHASE-2 settlement seed (service_role HANYA — dipanggil admin via API).
+export function rpcReleaseSeedSale(db: SupabaseClient, cardId: string) {
+  return callRpc<Record<string, unknown>>(db, "release_seed_sale", { p_card_id: cardId });
 }

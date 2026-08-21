@@ -100,11 +100,13 @@ drops
                                   -- true = drop 1-of-1 utk Creator Seed C.Card —
                                   -- kartu di-hadiahkan ke kreator (creator_id),
                                   -- dijual di secondary normal (BUKAN raffle).
-                                  -- Gate vault-in: RPC accept_bid/buyout_card
-                                  -- menolak settle (SEED_VAULT_IN_REQUIRED)
-                                  -- selama location <> platform_vault ATAU
-                                  -- verify_status <> verified (migration
-                                  -- 20260821000000_seed_card; lihat C-17)
+                                  -- TWO-PHASE (2026-08-21, migration
+                                  -- 20260821020000_seed_two_phase): bid/accept
+                                  -- BUKAN lagi di-gate; RELEASE (release_seed_sale,
+                                  -- service_role) menolak settle dgn
+                                  -- SEED_VAULT_IN_REQUIRED selama location <>
+                                  -- platform_vault ATAU verify_status <> verified
+                                  -- (lihat C-17)
 ```
 
 ### drop_entries (raffle entry — Flow 1 Phase 1, C-15)
@@ -289,6 +291,10 @@ bids
   amount_ccoin int
   status enum('active','outbid','cancelled','accepted')
   created_at, outbid_at, cancelled_at, accepted_at timestamptz nullable
+  destination enum('buyer_address','platform_vault') nullable  -- TWO-PHASE seed (2026-08-21):
+                                                                -- pilihan buyer disimpan saat PHASE-1 accept,
+                                                                -- dipakai release_seed_sale utk settlement/shipment
+  shipping_address text nullable                               -- alamat buyer saat PHASE-1 accept
 ```
 > Model bid (keputusan 2026-08-12):
 > - Hanya SATU `active` bid per kartu = bid tertinggi saat ini.
