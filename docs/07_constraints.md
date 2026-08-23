@@ -1,7 +1,10 @@
 # 07 — Constraints, Gates & Open Items
 
 > Status: [VALIDATED] (C-01/C-02 resolved 2026-08-13)
-> Last updated: 2026-08-21 (C-17 → two-phase settlement: bid/accept
+> Last updated: 2026-08-23 (C-17 → admin abort path PHASE-1 stuck seed
+> sale: RPC cancel_seed_sale service_role only, refund penuh buyer
+> tanpa fees/XP — migration 20260823050000_seed_sale_abort)
+> Previous: 2026-08-21 (C-17 → two-phase settlement: bid/accept
 > BUKAN lagi di-gate; release yang wajib menunggu vault-in + NFC
 > verified — SEED_VAULT_IN_REQUIRED pindah ke release_seed_sale,
 > migration 20260821020000_seed_two_phase, keputusan 2026-08-21)
@@ -299,6 +302,18 @@
   order pending (buyout PHASE-1: `paid`/escrow `held`) -> seller 85%
   + royalti kreator 7,5% + platform 7,5% + ownership ke buyer +
   shipment (dari `platform` — kartu release dari vault).
+- **Admin abort PHASE-1 stuck sale (2026-08-23)**: jika kartu seed
+  hilang / dispute / tidak pernah di-vault-in sehingga release
+  tidak mungkin, admin memicu `POST /api/admin/cards/:id/cancel-seed-sale`
+  → RPC `cancel_seed_sale` (service_role ONLY, mirror guard pattern
+  release_seed_sale 20260823030000). Buyer di-refund FULL — tanpa fees,
+  tanpa XP (XP granted TEPAT SEKALI di PHASE-2 release per invariant
+  founder 2026-08-23, PHASE-1 tidak grant XP). Path A: bid
+  `accepted` → `cancelled` + `wallet_credit` buyer. Path B: order
+  `paid` → `refunded` + `wallet_credit` buyer. Kartu kembali ke
+  `inventory`. Idempotent (`p_idem='seed-abort-'||card_id`).
+  Tidak touch treasury/platform_revenue — PHASE-1 menulis tidak ada
+  revenue leg. Migration `20260823050000_seed_sale_abort.sql`.
 - Split penjualan pertama: **85% owner + 7,5% royalti kreator
   lifetime + 7,5% platform** (secondary normal) — kreator-owner
   efektif **92,5%** / platform 7,5% (bukan fee 12%/6%).

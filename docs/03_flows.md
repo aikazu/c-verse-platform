@@ -3,7 +3,11 @@
 > Status: [VALIDATED — partial: open items payout (SLA, disbursement,
 > cap Rp 5-10 jt) & validasi C-03 iPhone masih [DRAFT] — lihat
 > `07_constraints.md`]
-> Last updated: 2026-08-23 (seed buyer XP granted TEPAT SEKALI di
+> Last updated: 2026-08-23 (admin abort path PHASE-1 stuck seed sale —
+> RPC cancel_seed_sale, migration 20260823050000_seed_sale_abort;
+> refund penuh ke buyer tanpa fees/XP karena XP granted TEPAT di
+> PHASE-2 release)
+> Previous: 2026-08-23 (seed buyer XP granted TEPAT SEKALI di
 > PHASE-2 release untuk kedua path buyout/accept_bid; trigger
 > auto-unlist buyout_price_ccoin saat kartu non-tradable —
 > migration 20260823020000_seed_xp_unify)
@@ -423,6 +427,30 @@ ADM-06: dispute masuk -> review bukti -> keputusan
       /api/admin/cards/:id/vault-in (admin — set
       cards.location='platform_vault' + audit pemeriksaan fisik;
       verified NFC tetap hanya dari tap — lihat C-17)
+[9b] ADMIN ABORT (PHASE-1 stuck — refund penuh, keputusan 2026-08-23)
+    - Jika kartu seed hilang / dispute / tidak pernah di-vault-in
+      sehingga PHASE-2 release tidak mungkin terjadi, uang buyer
+      PHASE-1 terkunci tanpa jalan keluar. Admin dapat membatalkan:
+      POST /api/admin/cards/:id/cancel-seed-sale → RPC
+      cancel_seed_sale (service_role ONLY, mirror guard pattern
+      release_seed_sale 20260823030000).
+    - Refund FULL ke buyer — tanpa fees, tanpa XP (XP granted TEPAT
+      SEKALI di PHASE-2 release per invariant founder 2026-08-23,
+      PHASE-1 tidak grant XP). Path A (accepted-bid): bid
+      'accepted' → 'cancelled' + wallet_credit buyer
+      `amount=bid.amount_ccoin type='seed_abort'`. Path B (order
+      pending buyout PHASE-1): orders.status → 'refunded' +
+      wallet_credit buyer `amount=order.total_ccoin`. Kartu kembali
+      ke status 'inventory'.
+    - Idempotent: p_idem='seed-abort-'||card_id, replay aman.
+    - Tidak touch treasury/platform_revenue — PHASE-1 menulis tidak
+      ada revenue leg (settlement 85/7,5/7,5 hanya di PHASE-2).
+    - Error mapping: NOT_FOUND 404, NOT_SEED_CARD 400,
+      NO_PENDING_SALE 409 (sama kode dengan release route).
+    - TERIMPLEMENTASI (2026-08-23): migration
+      20260823050000_seed_sale_abort.sql + endpoint admin + section
+      "Seed sale berjalan (PHASE-1)" di admin Nfc page dengan tombol
+      "Batalkan sale" (window.confirm + disable-while-loading).
 ```
 
 Split penjualan pertama seed card (secondary 85/7,5/7,5): karena
