@@ -6,6 +6,7 @@ vi.hoisted(() => {
 
 const control = vi.hoisted(() => ({
   cardExists: true as boolean,
+  isSeed: true as boolean,
   updateError: null as { message: string } | null,
   auditCalls: [] as Record<string, unknown>[],
 }));
@@ -75,6 +76,19 @@ vi.mock("../../lib/supabase.js", () => {
         }),
       };
     }
+    if (table === "drops") {
+      return {
+        select: () => ({
+          eq: () => ({
+            maybeSingle: () =>
+              Promise.resolve({
+                data: { id: "drop-seed-1", is_seed: control.isSeed },
+                error: null,
+              }),
+          }),
+        }),
+      };
+    }
     return { select: () => ({}) };
   });
   const db = { from: fakeFrom };
@@ -94,6 +108,7 @@ function vaultIn(body: Record<string, unknown> | undefined) {
 describe("PATCH /api/admin/cards/:id/vault-in", () => {
   beforeEach(() => {
     control.cardExists = true;
+    control.isSeed = true;
     control.updateError = null;
     control.auditCalls = [];
   });
@@ -134,5 +149,15 @@ describe("PATCH /api/admin/cards/:id/vault-in", () => {
     expect(res.status).toBe(200);
     const body = (await res.json()) as { card: { location: string } };
     expect(body.card.location).toBe("platform_vault");
+  });
+
+  it("non-seed card -> 400 NOT_SEED_CARD, no update, no audit", async () => {
+    control.isSeed = false;
+    const res = await vaultIn({});
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as { error: string; code: string };
+    expect(body.code).toBe("NOT_SEED_CARD");
+    expect(body.error).toMatch(/seed/i);
+    expect(control.auditCalls.length).toBe(0);
   });
 });

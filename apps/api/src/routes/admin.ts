@@ -299,6 +299,13 @@ app.patch("/cards/:id/vault-in", zValidator("json", z.object({ physicalCheckNote
   const db = getSupabase();
   const { data: existing } = await db.from("cards").select("id, location, verify_status, drop_id").eq("id", cardId).maybeSingle();
   if (!existing) return c.json({ error: "Kartu tidak ditemukan" }, 404);
+  // Gate: vault-in hanya untuk Creator Seed C.Card (docs 07 C-12/15,
+  // keputusan 2026-08-21). Kartu non-seed tidak pernah masuk vault —
+  // owner langsung pegang atau kirim.
+  const { data: drop } = await db.from("drops").select("is_seed").eq("id", existing.drop_id).maybeSingle();
+  if (!drop?.is_seed) {
+    return c.json({ error: "Kartu bukan Creator Seed C.Card", code: "NOT_SEED_CARD" }, 400);
+  }
   const { data, error } = await db
     .from("cards")
     .update({ location: "platform_vault" })
