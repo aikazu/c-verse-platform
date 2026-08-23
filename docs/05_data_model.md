@@ -518,7 +518,7 @@ profiles 1─N user_badges
 | I9 | Hanya SATU bid active per kartu (tertinggi); bid lebih tinggi meng-outbid yang lama + release C-Coin | App logic + transaction |
 | I10 | Max 20 kartu buyout aktif per user | App check |
 | I11 | Level = floor(total_xp / 10); total_xp = spend C-Coin (1 C-Coin = 1 XP) + reward badge; top-up tidak menambah XP | Trigger/app logic |
-| I12 | Profil publik hanya jika `is_anonymous = false` | RLS/query filter |
+| I12 | Profil publik hanya jika `is_anonymous = false` AND `flag_reason IS NULL` (suspended) — termasuk leaderboard, sitemap, dan ownership history (historical owner di-mask jadi "Anonim") | RLS/query filter |
 | I13 | Blok rebuy seller 1 hari — kartu tidak bisa dibeli kembali oleh owner sebelumnya dalam 1x24 jam; pembeli bebas listing ulang kapan saja; wash trading diterima (fee 15% tetap kena) | App logic |
 | I14 | Creator self-dealing — kreator dilarang membeli kartu drop sendiri di secondary untuk 30 hari pertama | App logic + flag |
 

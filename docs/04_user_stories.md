@@ -76,6 +76,8 @@ And user bisa mengajukan bid ke kartu WALAU owner tidak
 Given visitor membuka /leaderboard
 When halaman dimuat
 Then tampil peringkat kolektor berdasarkan aktivitas/spending
+And user dengan is_anonymous=true ATAU flag_reason (suspended) TIDAK muncul di leaderboard
+  (filter di SQL sebelum ORDER + LIMIT agar rank survivor tetap benar)
 ```
 
 ### US-PUB-008 — Registrasi & login

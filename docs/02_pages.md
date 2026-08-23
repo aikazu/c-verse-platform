@@ -47,11 +47,11 @@ warna): lihat `06_tech_decisions.md` D7–D8.
 | PG-DROP-02 | `/drops/:dropId` | Detail drop | Countdown fase (raffle entry window / FCFS), artwork, harga per pool (reguler/premium), jumlah entry live per pool + unit tersisa; fase raffle: tombol "Ikuti" (pilih pool, login gate); fase FCFS (setelah draw): tombol "Beli" (login gate) |
 | PG-MARKET-01 | `/marketplace` | Marketplace (secondary buyout) | Kartu dengan buyout price, filter, beli langsung; **badge holografik "✦ Seed 1-of-1"** untuk kartu dari seed drop (Flow 10) |
 | PG-BROWSE-01 | `/browse` | Browse (cari kartu) | **Search by kartu/kreator**, bid langsung di kartu walau tanpa harga; **badge holografik "✦ Seed 1-of-1"** untuk kartu dari seed drop (Flow 10) |
-| PG-CARD-01 | `/cards/:shortId` | Halaman kartu (info) | Sertifikat, **jejak ownership**, bid tertinggi, harga buyout (jika ada), QR fallback; **badge holografik "✦ Seed 1-of-1"** untuk kartu dari seed drop (Flow 10) |
+| PG-CARD-01 | `/cards/:shortId` | Halaman kartu (info) | Sertifikat, **jejak ownership** (ownerName = "Anonim" untuk historical owner yang sekarang `is_anonymous` ATAU `flag_reason` set), bid tertinggi, harga buyout (jika ada), QR fallback; **badge holografik "✦ Seed 1-of-1"** untuk kartu dari seed drop (Flow 10) |
 | PG-CARD-02 | `/cards/:shortId/3d` | Halaman kartu (3D view) — **simple** | 3D viewer + info singkat: **Series** (link ke detail drop), **Unit number** (#X dari Y), **Kreator** (link ke halaman kreator), **Release date**, **Owner** (link ke halaman owner) + **verified badge "Verified Card"** (hanya muncul lewat tap NFC) + **badge holografik "✦ Seed 1-of-1"** untuk kartu dari seed drop (Flow 10). Ownership history TIDAK di halaman 3D — ada di halaman info (`PG-CARD-01`) |
-| PG-LB-01 | `/leaderboard` | Leaderboard | Peringkat kolektor (F019) |
-| PG-CRT-PUB-01 | `/c/:username` | Halaman kreator (publik) | **Handle, bio, link media sosial** + **list drop** (published/live/upcoming, klik ke detail drop). TANPA jumlah follower. Privasi creator TIDAK di-hide (kreator = identitas publik) |
-| PG-PROF-01 | `/u/:username` | Profil kolektor (publik) | Koleksi, level, badge, ranking leaderboard — **kecuali user mengaktifkan privacy anonymous** |
+| PG-LB-01 | `/leaderboard` | Leaderboard | Peringkat kolektor (F019). User suspended (`flag_reason`) dan anonymous (`is_anonymous`) TIDAK muncul; filter di SQL sebelum ORDER + LIMIT agar rank survivor tetap benar |
+| PG-CRT-PUB-01 | `/c/:username` | Halaman kreator (publik) | **Handle, bio, link media sosial** + **list drop** (published/live/upcoming, klik ke detail drop). TANPA jumlah follower. Creator suspended disembunyikan dari listing publik; creator anonymous juga disembunyikan (konsisten dgn privacy rule) |
+| PG-PROF-01 | `/u/:username` | Profil kolektor (publik) | Koleksi, level, badge, ranking leaderboard — **kecuali user mengaktifkan privacy anonymous ATAU di-suspend (`flag_reason`)** |
 | PG-AUTH-01 | `/login` | Login/Register | Google OAuth + email OTP (**email OTP wajib captcha anti-spam** — Cloudflare Turnstile) |
 
 ## 4. Halaman Verifikasi TIDAK ADA (di-merge)
@@ -147,7 +147,7 @@ Worker aktif hanya untuk halaman publik yang butuh SEO:
 - `GET /c/:username` — inject Person schema + OG
 - `GET /cards/:shortId/3d` — inject Product schema + OG
 - `GET /drops/:dropId` — inject OG + Event schema
-- `GET /sitemap.xml` — sitemap dinamis
+- `GET /sitemap.xml` — sitemap dinamis. Sitemap EXCLUDE creator suspended (`flag_reason`) + anonymous (`is_anonymous`) — konsisten dgn `/api/creators` listing dan privacy rule publik.
 
 Halaman login/dashboard/wallet — SPA murni, skip Worker.
 
