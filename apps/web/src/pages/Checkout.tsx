@@ -1,3 +1,4 @@
+import { AOV_UNSIGNED_CCOIN } from "@c-verse/shared";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
@@ -32,7 +33,7 @@ export default function Checkout() {
     );
   const d: any = (data as any).title ? (data as any) : ((data as any).drop ?? data);
   const drop = d.title ? d : d;
-  const price = drop.priceCcoin ?? drop.priceUnsignedCCoin ?? 30;
+  const price = drop.priceCcoin ?? drop.priceUnsignedCCoin ?? AOV_UNSIGNED_CCOIN;
   const total = price + (delivery === "shipping" ? fee : 0);
   async function onCheckout() {
     if (!user) {

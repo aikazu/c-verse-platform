@@ -40,8 +40,10 @@ export default function Card3D() {
               <span className="pill pill-success" style={{ fontWeight: 600 }}>
                 ✓ {d.verifiedBadge}
               </span>
+            ) : d.card?.verifyStatus === "registered" ? (
+              <span className="pill pill-warn">Terdaftar via QR</span>
             ) : (
-              <span className="pill pill-warn">Terverifikasi via NFC</span>
+              <span className="pill pill-warn">Belum diverifikasi — tap NFC untuk verifikasi</span>
             )}
             <span className="pill pill-info" style={{ fontFamily: "var(--font-mono)" }}>
               #{card.unitNumber ?? "?"}

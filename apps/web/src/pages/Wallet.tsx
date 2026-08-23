@@ -1,4 +1,4 @@
-import { walletTxTypeLabel } from "@c-verse/shared";
+import { BALANCE_CAP_CCOIN, walletTxTypeLabel } from "@c-verse/shared";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -19,6 +19,8 @@ export default function Wallet() {
   const [snapPanel, setSnapPanel] = useState<{ snapToken: string; amountCcoin: number; expiresLabel: string } | null>(null);
 
   const { data, refetch, isLoading, isError } = useQuery({ queryKey: ["wallet"], queryFn: () => api.wallet(), enabled: !!user });
+  const { data: kycData } = useQuery({ queryKey: ["kyc"], queryFn: () => api.kyc(), enabled: !!user });
+  const kycApproved = kycData?.kyc?.status === "approved";
   const isCreator = user?.role === "creator"; // payout self-service hanya untuk kreator
 
   // Kembali dari Midtrans: ?order_id=...&status_code=... — saldo dikredit webhook, bukan redirect.
@@ -101,7 +103,7 @@ export default function Wallet() {
   const w: any = (data as any).wallet;
   const txs: any[] = (data as any).transactions ?? [];
   const rate = (data as any).rate ?? 10000;
-  const topupCapNoKyc = (data as any)?.topupCapNoKyc ?? 500;
+  const topupCapNoKyc = (data as any)?.topupCapNoKyc ?? BALANCE_CAP_CCOIN;
   const payoutHeld = (data as any)?.payoutHeld ?? false;
   const payoutHoldUntil: string | null = (data as any)?.payoutHoldUntil ?? null;
   return (
@@ -201,14 +203,31 @@ export default function Wallet() {
               color: "var(--text-muted)",
             }}
           >
-            Cap saldo non-KYC: <strong style={{ color: "var(--text)" }}>{topupCapNoKyc} C-Coin</strong> — KYC untuk tanpa cap.
+            {kycApproved ? (
+              <>
+                KYC terverifikasi — tanpa cap saldo.{" "}
+                <a href="/me/kyc" style={{ color: "var(--gold)", fontWeight: 600 }}>
+                  Lihat status KYC
+                </a>
+              </>
+            ) : (
+              <>
+                Cap saldo non-KYC: <strong style={{ color: "var(--text)" }}>{topupCapNoKyc} C-Coin</strong> —{" "}
+                <a href="/me/kyc" style={{ color: "var(--gold)", fontWeight: 600 }}>
+                  selesaikan KYC
+                </a>{" "}
+                untuk tanpa cap.
+              </>
+            )}
           </div>
           <select className="select" aria-label="Jumlah top-up C-Coin" value={amount} onChange={(e) => setAmount(Number(e.target.value))}>
-            {[10, 20, 30, 50, 100, 200, 500].map((v) => (
-              <option key={v} value={v}>
-                {v} C · {formatIdr(v * rate)}
-              </option>
-            ))}
+            {[10, 20, 30, 50, 100, 200, BALANCE_CAP_CCOIN]
+              .filter((v) => kycApproved || v <= BALANCE_CAP_CCOIN)
+              .map((v) => (
+                <option key={v} value={v}>
+                  {v} C · {formatIdr(v * rate)}
+                </option>
+              ))}
           </select>
           <button className="btn-gold" onClick={onTopup} disabled={busyTopup} style={{ padding: "11px", width: "100%" }}>
             {busyTopup ? "Memproses…" : `Isi ${amount} C →`}

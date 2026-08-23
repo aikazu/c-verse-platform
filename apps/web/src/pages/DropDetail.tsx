@@ -1,3 +1,4 @@
+import { AOV_UNSIGNED_CCOIN } from "@c-verse/shared";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useParams } from "react-router-dom";
 import { StatusBadge } from "../components/StatusBadge";
@@ -23,7 +24,7 @@ export default function DropDetail() {
     );
   const d: any = (data as any).title ? (data as any) : ((data as any).drop ?? data);
   const drop = (d as any).title ? (d as any) : d;
-  const price = drop.priceCcoin ?? drop.priceCcoin ?? drop.priceUnsignedCCoin ?? 30;
+  const price = drop.priceCcoin ?? drop.priceUnsignedCCoin ?? AOV_UNSIGNED_CCOIN;
   const pct = drop.totalUnits ? Math.round((drop.soldCount / drop.totalUnits) * 100) : 0;
   const isLive = drop.status === "live" || drop.status === "published";
   const dropAt = drop.dropStartAt ?? drop.dropAt;

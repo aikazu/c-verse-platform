@@ -1,4 +1,4 @@
-import { C_COIN_RATE_IDR } from "@c-verse/shared";
+import { AOV_UNSIGNED_CCOIN, C_COIN_RATE_IDR } from "@c-verse/shared";
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import { z } from "zod";
@@ -9,7 +9,7 @@ import { type DropFilter, getDropById, listCardsByDrop, listDrops } from "../lib
 import { logAuditDb } from "../lib/reads/kyc.js";
 import { getUserById } from "../lib/reads/users.js";
 import { pageMeta, parsePageParams, slicePage } from "../lib/reads.js";
-import { type DropStatus, randomHex } from "../lib/store.js";
+import { randomHex } from "../lib/store.js";
 import { getSupabase } from "../lib/supabase.js";
 
 const app = new Hono();
@@ -87,8 +87,6 @@ app.get("/:id", async (c) => {
   });
 });
 
-const LEGACY_STATUS_MAP: Record<string, DropStatus> = {};
-
 /**
  * Jadwal raffle drop (docs 03 Flow 5): rilis default HARI INI 12:00 WIB;
  * input date-only juga di-normalisasi ke 12:00 WIB. Window entry = 24 jam.
@@ -136,7 +134,7 @@ app.post(
     const signedCount = calcSignedCount(body.totalUnits);
     const unsignedCount = calcUnsignedCount(body.totalUnits);
     // docs/01 + 05-data-model: drop adalah platform-produced (70/30) dengan SATU harga canonical priceCcoin
-    const priceCcoin = body.priceCcoin ?? body.priceCCoin ?? body.priceUnsignedCCoin ?? 30;
+    const priceCcoin = body.priceCcoin ?? body.priceCCoin ?? body.priceUnsignedCCoin ?? AOV_UNSIGNED_CCOIN;
     const priceUnsigned = body.priceUnsignedCCoin ?? priceCcoin;
     // Founder 2026-08-16: signed = unsigned + 20 C-Coin flat (20/40, 40/60, 50/70)
     const priceSigned = body.priceSignedCCoin ?? calcSignedPrice(priceCcoin);
@@ -228,8 +226,7 @@ app.patch(
     const authRes = await requireUser(c);
     if ("error" in authRes) return c.json({ error: authRes.error === 403 ? "Akun disuspend" : "Unauthorized" }, authRes.error);
     const user = authRes.user;
-    const raw = c.req.valid("json").status;
-    const status = LEGACY_STATUS_MAP[raw] ?? raw;
+    const status = c.req.valid("json").status;
     const drop = await getDropById(c.req.param("id"));
     if (!drop) return c.json({ error: "Drop tidak ditemukan" }, 404);
     const isOwner = drop.creatorId === user.id;
