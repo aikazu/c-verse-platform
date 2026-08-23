@@ -5,10 +5,14 @@ import type { BadgeDef, User, UserBadge } from "../store.js";
 
 export async function listTopUsersByXp(limit: number): Promise<User[]> {
   const db = readDb();
-  // leaderboard cuma butuh identitas + XP — jangan tarik email/consent/flag kolom lain
+  // leaderboard cuma butuh identitas + XP — jangan tarik email/consent/flag kolom lain.
+  // Privacy: hide suspended + anonymous users. Filter di SQL (sebelum ORDER + LIMIT)
+  // agar rank tetap benar untuk survivors — post-filter akan menggeser rank.
   const { data, error } = await db
     .from("users")
-    .select("id, display_name, username, role, total_xp, level, is_anonymous")
+    .select("id, display_name, username, role, total_xp, level, is_anonymous, flag_reason")
+    .eq("is_anonymous", false)
+    .is("flag_reason", null)
     .order("total_xp", { ascending: false })
     .limit(limit);
   if (error) throw new Error(error.message);

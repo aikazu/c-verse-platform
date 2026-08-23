@@ -180,7 +180,9 @@ app.get("/cards/:cardId", async (c) => {
     drop ? getUserById(drop.creatorId) : Promise.resolve(null),
     listUsersByIds([...new Set(history.map((h) => h.ownerId))]),
   ]);
-  const ownerNames = new Map(users.map((u) => [u.id, u.displayName] as const));
+  // Privacy: owner yang sekarang is_anonymous atau suspended HARUS disamarkan jadi "Anonim" — biar
+  // orang tidak bisa melacak displayName historis user yang sudah memilih jadi anon.
+  const ownerNames = new Map(users.map((u) => [u.id, u.isAnonymous || u.flagReason ? "Anonim" : u.displayName] as const));
   return c.json({
     card: {
       id: card.id,

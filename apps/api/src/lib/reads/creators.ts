@@ -38,10 +38,19 @@ export async function getCreatorByUserId(userId: string): Promise<CreatorRec | n
   return data ? mapCreatorRow(data as Row) : null;
 }
 
-/** Users carrying role=creator (creator listing/SEO derive from users, creators table only adds handle/followers). */
+/** Users carrying role=creator (creator listing/SEO derive from users, creators table only adds handle/followers).
+ * Privacy: hide suspended (flag_reason) + anonymous creators — konsisten dengan profile/creator store
+ * yang menyembunyikan user suspended dari permukaan publik. Filter di SQL.
+ */
 export async function listCreatorUsers(): Promise<User[]> {
   const db = readDb();
-  const { data, error } = await db.from("users").select("*").eq("role", "creator").order("created_at");
+  const { data, error } = await db
+    .from("users")
+    .select("*")
+    .eq("role", "creator")
+    .eq("is_anonymous", false)
+    .is("flag_reason", null)
+    .order("created_at");
   if (error) throw new Error(error.message);
   return (data ?? []).map((r) => mapUserRow(r as Row));
 }
