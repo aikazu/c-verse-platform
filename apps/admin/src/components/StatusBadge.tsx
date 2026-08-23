@@ -1,10 +1,10 @@
 import { dropStatusLabel, kycStatusLabel, orderStatusLabel, shipmentStatusLabel } from "@c-verse/shared";
 
-type StatusKind = "drop" | "order" | "shipment" | "kyc" | "generic";
-type PillVariant = "success" | "warn" | "danger" | "info";
+export type StatusKind = "drop" | "order" | "shipment" | "kyc" | "generic";
+export type PillVariant = "success" | "warn" | "danger" | "info";
 
 // Variant heuristik lintas-domain: warna status admin tidak lagi seragam biru.
-const VARIANT: Record<string, PillVariant> = {
+export const STATUS_VARIANT: Record<string, PillVariant> = {
   live: "success",
   published: "success",
   settled: "success",
@@ -38,7 +38,11 @@ const VARIANT: Record<string, PillVariant> = {
   failed: "danger",
 };
 
-function labelFor(kind: StatusKind, status: string): string {
+export function variantFor(status: string): PillVariant {
+  return STATUS_VARIANT[status] ?? "info";
+}
+
+export function labelFor(kind: StatusKind, status: string): string {
   if (kind === "order") return orderStatusLabel(status);
   if (kind === "shipment") return shipmentStatusLabel(status);
   if (kind === "kyc") return kycStatusLabel(status);
@@ -47,7 +51,7 @@ function labelFor(kind: StatusKind, status: string): string {
 }
 
 export function StatusBadge({ status, kind = "generic", style }: { status: string; kind?: StatusKind; style?: React.CSSProperties }) {
-  const variant = VARIANT[status] ?? "info";
+  const variant = variantFor(status);
   return (
     <span className={`pill pill-${variant}`} style={style}>
       {labelFor(kind, status)}
