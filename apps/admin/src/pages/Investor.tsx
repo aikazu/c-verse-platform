@@ -19,7 +19,7 @@ export function InvestorPage() {
     async function load() {
       setError(false);
       const [wtx, us, dr] = await Promise.all([
-        supabase.from("wallet_transactions").select("amount_ccoin,type").limit(1000),
+        supabase.from("wallet_transactions").select("amount_ccoin,type,ref_type").limit(1000),
         supabase.from("users").select("id,total_xp").limit(1000),
         supabase.from("drops").select("id,title,status,total_units,sold_count").limit(100),
       ]);
@@ -27,10 +27,15 @@ export function InvestorPage() {
         setError(true);
         return;
       }
-      const w = (wtx.data ?? []) as { amount_ccoin: number; type: string }[];
+      const w = (wtx.data ?? []) as { amount_ccoin: number; type: string; ref_type: string | null }[];
       const users = (us.data ?? []) as { id: string }[];
       const drops = (dr.data ?? []) as { id: string; title: string; status: string; total_units: number; sold_count: number | null }[];
-      const gmv = w.filter((t) => t.type === "checkout" || t.type === "platform_buy").reduce((n, t) => n + Math.abs(t.amount_ccoin), 0);
+      // GMV: primary checkout ('checkout' ref='drop'), settled secondary buyout ('platform_buy'),
+      // dan seed buyout PHASE-1 escrow ('escrow_hold' ref_type='card' — L127 20260823020000).
+      // Place-bid escrow ('escrow_hold' ref_type='bid') TIDAK masuk GMV karena belum settled.
+      const gmv = w
+        .filter((t) => t.type === "checkout" || t.type === "platform_buy" || (t.type === "escrow_hold" && t.ref_type === "card"))
+        .reduce((n, t) => n + Math.abs(t.amount_ccoin), 0);
       const secondaryVol = w.filter((t) => t.type === "payout" || t.type === "royalty").reduce((n, t) => n + Math.abs(t.amount_ccoin), 0);
       setData({
         gmv,
