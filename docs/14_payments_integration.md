@@ -2,8 +2,9 @@
 
 > Status: [IMPLEMENTED 2026-08-16 — top-up Snap + webhook idempotent +
 > cap saldo KYC-gated (C-08 FINAL) + payout_request self-service;
-> disbursement IRIS via ops (belum auto-call dari code)]
-> Created: 2026-08-15; updated: 2026-08-16.
+> disbursement IRIS MANUAL via ops dashboard (2026-08-23 — auto-call
+> dari code = post-MVP) + admin refund endpoint untuk payout failed/aborted]
+> Created: 2026-08-15; updated: 2026-08-23.
 > Gate legal: integrasi sandbox BOLEH jalan kapan pun; **top-up uang
 > riil hanya setelah T&C final** — cap saldo sudah live (C-08).
 
@@ -63,7 +64,28 @@ User pilih nominal C-Coin (min 1, max 10000; cap saldo lihat C-08)
   TIDAK ADA refund top-up yang sudah settlement (Opsi A closed-loop;
   refund hanya reversal untuk pembatalan transaksi spesifik, via ops).
 
-## 3. Payout / Disbursement (Midtrans Disbursement API)
+## 3. Payout / Disbursement (Midtrans Disbursement API — MANUAL)
+
+### 3.0 Locked flow (founder 2026-08-23)
+Disbursement = **manual**: admin transfer via dashboard IRIS (atau kanal
+lain) by hand. Tidak ada auto-call `provider.disburse()` dari code
+untuk MVP — itu post-MVP. Yang sudah jalan:
+
+- creator request via `POST /api/payments/payout` (RPC `payout_request`,
+  KYC-gated, min 10 C-Coin, hold-aware) — dana di-debit, row payouts
+  status `pending`.
+- admin trigger batch via `POST /api/payments/admin/payout-run`
+  (RPC `payout_batch_run`) — grup payout eligible ke satu batch (status
+  `processing`). Cron Workers Selasa 06:00 WIB.
+- admin transfer dana via IRIS dashboard / channel lain (manual,
+  di luar code).
+- (opsional) webhook `POST /api/payments/midtrans/payout-webhook`
+  untuk update status `disbursed`/`failed` jika Midtrans mengirim
+  notifikasi.
+- **Gagal / batal disbursement** → admin `POST
+  /api/payments/admin/payouts/:id/refund` (RPC `payout_refund`) →
+  kredit wallet kreator + status payout `refunded`. Ter-audit
+  `admin_audit_log` (action `payout_refund`).
 
 ### 3,1 Register beneficiary (sekali per user, saat KYC approve)
 ```
@@ -83,19 +105,22 @@ RPC payout_batch_run():
   - ambil semua payout pending (approved KYC, >= min 10 C-Coin,
     hold_payout_until is null)
   - per payout: net_idr = (ccoin - ceil(ccoin x 0.01)) x 10.000
-    -> insert payout_batches + payouts (status 'queued')
-  -> API loop: create disbursement per payout (amount = net_idr,
-     beneficiary_id, with_reference)
-  -> webhook status disbursement:
+    -> update payouts.batch_id + idr_amount, status tetap 'pending'
+       (admin transfer MANUAL via IRIS dashboard).
+  -> (opsional) webhook status disbursement:
      POST /api/payments/midtrans/payout-webhook
        (verify PAYOUT_WEBHOOK_SIGNING_KEY / signature IRIS)
-       paid   -> payouts.status='paid' + wallet tx type='payout' final
-       failed -> payouts.status='failed' -> masuk retry queue
-                 (max 3x) -> gagal total: notifikasi user + ops review
+       paid   -> payouts.status='disbursed'
+       failed -> payouts.status='failed'
+  -> GAGAL / BATAL disbursement: admin refund via
+     POST /api/payments/admin/payouts/:id/refund
+       (RPC payout_refund — kredit wallet + status 'refunded',
+        idempotent by 'payout-refund-<id>')
 ```
-- Gagal disbursement TIDAK mengembalikan ke saldo C-Coin begitu saja —
-  tetap di antrian payout (konsisten `05_mvp_flow.md` Flow 9).
-- Log semua tahap ke `admin_audit_log` (payout_trigger).
+- Gagal disbursement TIDAK mengembalikan ke saldo C-Coin otomatis —
+  admin harus eksekusi refund endpoint (ter-audit).
+- Log semua tahap ke `admin_audit_log` (`payout_trigger`,
+  `payout_refund`).
 
 ## 4. Struktur Code
 
@@ -104,11 +129,15 @@ apps/api/src/lib/payments/
   provider.ts        # interface PaymentProvider
   midtrans.ts        # impl: createSnapTopup, verifyNotification,
                      #        getStatus, registerBeneficiary, disburse
+                     #        (disburse() tidak dipanggil di MVP)
   index.ts           # export getProvider() (env-driven)
 apps/api/src/routes/payments.ts
   POST /topup
-  POST /midtrans/webhook        (signature verify + idempotent)
-  POST /midtrans/payout-webhook
+  POST /payout                      (creator request, self-service)
+  POST /admin/payout-run            (admin trigger batch)
+  POST /admin/payouts/:id/refund    (admin refund locked funds)
+  POST /midtrans/webhook            (signature verify + idempotent)
+  POST /midtrans/payout-webhook     (signature verify + status update)
 ```
 - Semua nominal C-Coin integer ≥ 1 (pakai `@c-verse/shared`, tidak
   hardcode rate).
