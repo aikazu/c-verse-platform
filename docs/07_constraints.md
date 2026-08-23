@@ -287,6 +287,12 @@
   kedatangan fisik (`location='platform_vault'`) + audit pemeriksaan
   kondisi fisik — TIDAK pernah memalsukan `verify_status='verified'`
   (keputusan desain 2026-08-21). Gate mengecek KEDUANYA.
+- **Pre-gate seed-only vault-in (2026-08-23)**: route
+  `PATCH /api/admin/cards/:id/vault-in` menolak kartu non-seed
+  (`drops.is_seed = false`) dengan `400 NOT_SEED_CARD` sebelum
+  menyentuh tabel `cards`/audit. Non-seed C.Card tidak pernah
+  masuk vault — owner pegang langsung atau kirim. Hanya kartu dari
+  drop `is_seed = true` yang memenuhi prasyarat RELEASE.
 - **release_seed_sale idempotent (2026-08-21)**: guard status kartu
   harus `bid_pending` — setelah release sukses (status -> `sold`)
   panggilan ulang -> `NO_PENDING_SALE`; settle accepted-bid ATAU
