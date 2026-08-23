@@ -48,14 +48,12 @@ export function mapDropRow(r: Row): Drop {
 }
 
 export function mapCardRow(r: Row): Card {
-  // card_status_new canonical; status kolom legacy (spec 05 migration)
-  const status = r.card_status_new ?? r.status;
   return {
     id: str(r.id),
     dropId: str(r.drop_id),
     unitNumber: num(r.unit_number),
     variant: str(r.variant) as Card["variant"],
-    status: str(status) as Card["status"],
+    status: str(r.status) as Card["status"],
     location: str(r.location) as Card["location"],
     buyoutPriceCcoin: nnum(r.buyout_price_ccoin),
     nfcConfigured: bool(r.nfc_configured),
