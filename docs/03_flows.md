@@ -121,6 +121,13 @@ Status order:
 
 SOP fulfillment: admin packing, panggil kurir, input no resi, update status order. QC: periksa dus (cetak, lipatan), acrylic (retak, gores, magnet), kartu (cetak, holo, NFC tap). Defect rate > 2% = investigasi batch.
 
+> Admin update status shipment (`PATCH /api/shipments/:id/status`) dilakukan
+> secara **atomik** via RPC `admin_fulfill_shipment(p_id, p_status, p_tracking)`
+> (migration `20260823010000`): update shipments + orders (delivery_option=
+> 'shipping' sesuai status prereq) + `cards.location='with_owner'` (saat
+> delivered) dalam satu transaksi. service_role only. Precheck transisi
+> tetap di route untuk respons 409 yang ramah.
+
 ## Flow 3: Payment & Settlement (C-Coin)
 
 ```

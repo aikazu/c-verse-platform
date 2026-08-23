@@ -64,6 +64,7 @@ const ERROR_MESSAGES: Record<string, string> = {
   NO_PENDING_SALE: "Tidak ada transaksi seed yang menunggu release untuk kartu ini",
   NOT_SEED_CARD: "Kartu bukan Creator Seed C.Card",
   INVALID_STATE: "Payout tidak bisa di-refund (status disbursed / refunded)",
+  INVALID_TRANSITION: "Transisi tidak valid",
   INVALID_ARG: "Argumen tidak valid",
 };
 
@@ -137,4 +138,15 @@ export function rpcReleaseSeedSale(db: SupabaseClient, cardId: string) {
 // disbursement will not / did not happen. service_role only.
 export function rpcPayoutRefund(db: SupabaseClient, payoutId: string) {
   return callRpc<Record<string, unknown>>(db, "payout_refund", { p_payout_id: payoutId });
+}
+
+// Admin shipment fulfillment (audit refactor 2026-08-23): moves the
+// sequential shipments/orders/cards writes from PATCH /api/shipments/:id/status
+// into a single SECURITY DEFINER RPC. service_role only.
+export function rpcAdminFulfillShipment(db: SupabaseClient, shipmentId: string, status: string, tracking: string | null) {
+  return callRpc<Record<string, unknown>>(db, "admin_fulfill_shipment", {
+    p_id: shipmentId,
+    p_status: status,
+    p_tracking: tracking,
+  });
 }

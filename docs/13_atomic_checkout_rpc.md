@@ -182,7 +182,7 @@ wallet_credit(...)  -- mirip, untuk release/refund/royalty/settlement
 |---|---|---|
 | 1 (read) | drops, browse, marketplace, publicProfile, seo, creators stats | store → `supabase.from().select()` (Supabase client langsung, raw SQL ok) |
 | 2 | wallet (top-up/payout/ledger), gamification | store → RPC wallet_credit/debit + select |
-| 3 | orders (checkout, orders list/detail), shipments | store → RPC checkout + select |
+| 3 | orders (checkout, orders list/detail), shipments | store → RPC checkout + select. PATCH /api/shipments/:id/status (admin fulfillment) atomic via RPC `admin_fulfill_shipment` (migration 20260823010000) — bukan sequential writes ke shipments/orders/cards lagi. |
 | 4 | bids (place/cancel/accept), cards buyout set/cabut | store → RPC `place_bid` (hold+outbid release atomic), `accept_bid` (transfer+split fee 7,5/7,5/85 + ownership_history) |
 | 5 | kyc, disputes, admin reads | select via anon + RLS / role-gated API |
 | 6 | `store.ts` disusutkan jadi type + helper murni (bukan data); seed SQL-only (`supabase/seed.sql` satu sumber seed) |
