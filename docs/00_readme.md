@@ -136,7 +136,10 @@ HARUS sinkron dengan tabel di atas (dua arah).
 
 ## 6. Istilah yang DILARANG
 
-- "merchandise" / "merch" (pakai "collectible" / "kartu").
+- "merchandise" / "merch" (pakai "collectible" / "kartu") — **larangan
+  berlaku untuk menyebut PRODUK**; frasa negasi landing seperti
+  "Bukan sekadar merch." founder-approved (2026-08-16) tetap
+  dipakai. Produk = selalu "C.Card".
 - "konveksi" / "garment" (pakai "vendor kartu/acrylic/packaging").
 - "item" lowercase di prose (pakai "kartu" / "Card").
 - "fee 12%" / "fee 6%" (model lama — pakai revenue share).

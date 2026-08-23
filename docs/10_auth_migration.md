@@ -124,6 +124,19 @@ Auth saat ini custom in-memory — tidak bisa dibawa ke produksi:
   yang di-set admin. Pencatatan `admin_audit_log` wajib (aksi
   account-provisioning).
 
+### 3,6,1 Prod email checklist (2026-08-23)
+- Set `EMAIL_ENABLED=true` + `SMTP_HOST`/`SMTP_PORT`/`SMTP_USER`/
+  `SMTP_PASS` di API env (sama dengan dev). Modul `apps/api/src/lib/email.ts`
+  memuat `nodemailer` via dynamic import — runtime **Node only**.
+- Di Cloudflare Workers (prod) `nodemailer` tidak tersedia → email
+  akan error eksplisit. Opsi MVP: pindahkan dispatch ke deployment
+  Node (worker cron/queue) atau pakai email HTTP API eksternal
+  post-MVP. Sampai itu jalan, kreator yang di-provision admin
+  cukup menerima info akses dari UI admin ("akun sudah dibuat —
+  login via OTP/Google dengan email berikut") tanpa email keluar.
+- Tidak ada fallback silent; flag OFF atau transport gagal = audit
+  log tetap merekam `emailSent:false`.
+
 ## 4. Jangan Dilakukan
 
 - Jangan simpan JWT di localStorage (pakai persistSession supabase — httpOnly

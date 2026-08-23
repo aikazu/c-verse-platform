@@ -32,16 +32,17 @@
 - UI `Marketplace.tsx`/`Browse.tsx`: pastikan tidak ada sisa
   "duration/endsAt/expired".
 
-### F-03 KYC threshold top-up
-- `packages/shared/src/index.ts`: `KYC_TRIGGER_THRESHOLD_CCOIN = 99`
-  → ganti nilai **1000** (1.000 C-Coin = Rp 10 jt, usulan kebijakan
-  KYC [DRAFT]: trigger payout/disbursement ke IDR + akumulasi top-up
-  besar; verifikasi manual Y1, SLA 1x24 jam, rekening atas nama KTP,
-  retensi 5 tahun UU PDP) + komentar:
-  `// finalisasi sebelum launch (10_kyc_policy) — jangan dipakai
-  // untuk demo tanpa env override`.
-- Tambah `KYC_TOPUP_THRESHOLD_DEMO = 99` (khusus seed demo) bila
-  akun demo butuh trigger rendah.
+### F-03 KYC threshold top-up — [DEFERRED — 2026-08-23]
+- **Status pra-launch**: payout flow diubah jadi request + admin
+  approval + disbursement manual (founder 2026-08-23). Threshold
+  auto-trigger tidak dibutuhkan pra-launch karena tidak ada alur
+  payout otomatis yang harus di-gate.
+- Tunda implementasi `KYC_TRIGGER_THRESHOLD_CCOIN` & demo override
+  sampai ada disbursement otomatis (Y2+). Tidak ada konstanta
+  `KYC_TOPUP_THRESHOLD_DEMO` yang ditambahkan ke `packages/shared`.
+- Kapasitas saldo non-KYC 500 C-Coin (`BALANCE_CAP_CCOIN`) tetap
+  satu-satunya gate KYC yang dipakai MVP — lihat `07_constraints.md`
+  C-08.
 
 ### F-04 Tipe `WalletTransaction` tertinggal
 - `packages/shared/src/index.ts` interface `WalletTransaction`:
@@ -54,10 +55,11 @@
   pindah ke route admin service-role (atau hapus total; set status
   tamper cukup via admin app ADM-04).
 
-### F-06 Dead code `calcLevel`
-- `packages/shared/src/index.ts` `calcLevel`: variabel `level`
-  (baris pertama) tidak pernah dipakai — hapus; sisakan versi
-  clamp `lvl` + tier.
+### F-06 Dead code `calcLevel` — [RESOLVED-INVALID 2026-08-23]
+- Premis audit salah: `packages/shared/src/index.ts:357-366`
+  `calcLevel` memang **menggunakan** `level` — return
+  `{ level, tier }` (dipakai `xpForNextLevel` dan UI leaderboard).
+- Tidak ada perubahan kode; item dihapus dari daftar perbaikan.
 
 ### F-07 Halaman `Admin.tsx` di web publik
 - `apps/web/src/pages/Admin.tsx` — hapus beserta route-nya.
@@ -70,14 +72,24 @@
   required in production')` — jangan silent fallback in-memory di
   produksi. (Fallback in-memory hanya dev/demo lokal.)
 
-### F-09 `.env.example` sinkron
-- Tambah variabel baru dari spec 10/12/14:
-  `SUPABASE_SERVICE_ROLE_KEY` (komentar: server/admin only),
-  `NFC_MASTER_KEY`, `MIDTRANS_SERVER_KEY`, `MIDTRANS_CLIENT_KEY`,
-  `MIDTRANS_IS_PRODUCTION`, `TURNSTILE_SITE_KEY`,
-  `TURNSTILE_SECRET_KEY`, `PAYOUT_WEBHOOK_SIGNING_KEY`.
-- Verifikasi `.env` tidak pernah ter-commit (sudah benar saat audit:
-  hanya `.env.example` yang tracked — pertahankan).
+### F-09 `.env.example` sinkron — [RESOLVED 2026-08-23]
+- Status aktual `apps/api/.env.example` sudah mencantumkan semua env
+  yang dibaca kode:
+  - `SUPABASE_URL` / `SUPABASE_ANON_KEY` / `SUPABASE_SERVICE_ROLE_KEY`
+    (WAJIB; service-role hanya server/admin).
+  - `EMAIL_ENABLED` + `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` /
+    `SMTP_PASS` (Node-runtime only — lihat catatan prod di T5).
+  - `NFC_MASTER_KEY` (16 byte hex / 32 char; key diversification per-UID N5).
+  - `MIDTRANS_SERVER_KEY` + `MIDTRANS_IS_PRODUCTION` (sandbox dulu).
+  - `PAYOUT_WEBHOOK_SIGNING_KEY` (docs/14 §3.2).
+- **Tidak** ditambah ke `apps/api/.env.example` (dan memang tidak
+  dipakai API):
+  - `TURNSTILE_SECRET_KEY` — diset via dashboard Supabase Auth
+    provider (server verify token), bukan di env API.
+  - `TURNSTILE_SITE_KEY` / `MIDTRANS_CLIENT_KEY` — frontend/web
+    saja, masing-masing `apps/web/.env.example`. API tidak butuh.
+- Verifikasi `.env` / `.dev.vars` / `.wrangler/` tetap gitignored —
+  hanya `.env.example` yang di-track.
 
 ### F-10 README klaim vs realita
 - `README.md` Platform: bagian "Keamanan & Anti-Fraud" mengklaim
@@ -101,6 +113,5 @@
 
 - Audit foundation Platform 2026-08-15 (dev-strategy session).
 - `07_constraints.md` C-07, C-10, C-08 (FINAL yang dilanggar code).
-- Kebijakan KYC (threshold top-up usulan: 1.000 C-Coin = Rp 10 jt,
-  trigger payout + akumulasi top-up besar; [DRAFT] — finalisasi
-  sebelum launch).
+- Keputusan founder 2026-08-23: payout = request + admin approval +
+  disbursement manual → F-03 KYC threshold auto-trigger di-defer.
