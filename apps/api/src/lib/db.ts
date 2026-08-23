@@ -66,6 +66,7 @@ const ERROR_MESSAGES: Record<string, string> = {
   INVALID_STATE: "Payout tidak bisa di-refund (status disbursed / refunded)",
   INVALID_TRANSITION: "Transisi tidak valid",
   INVALID_ARG: "Argumen tidak valid",
+  PERMISSION_DENIED: "Akses ditolak — RPC ini hanya boleh dipanggil oleh service_role",
 };
 
 async function callRpc<T>(db: SupabaseClient, fn: string, args: Record<string, unknown>): Promise<T> {

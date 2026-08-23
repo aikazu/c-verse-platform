@@ -229,4 +229,19 @@ describe("PATCH /api/shipments/:id/status — admin atomic fulfillment", () => {
     expect(control.rpcCalls.length).toBe(0);
     expect(control.auditCalls.length).toBe(0);
   });
+
+  it("RPC PERMISSION_DENIED (audit 2026-08-23: in-body guard bocor) -> 400 + tanpa audit", async () => {
+    // admin_fulfill_shipment ditambah is_service_role() guard (paritas dengan
+    // release_seed_sale). EXECUTE grant service_role only + guard in-body =
+    // defense-in-depth. Admin route via service_role → guard lewat.
+    control.fulfillError = {
+      code: "PERMISSION_DENIED",
+      message: "Akses ditolak — RPC ini hanya boleh dipanggil oleh service_role",
+    };
+    const res = await patchStatus("ship-1", { status: "shipped" });
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as { error: string };
+    expect(body.error).toContain("service_role");
+    expect(control.auditCalls.length).toBe(0);
+  });
 });

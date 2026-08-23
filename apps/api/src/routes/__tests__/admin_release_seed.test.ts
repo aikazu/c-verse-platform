@@ -152,4 +152,18 @@ describe("POST /api/admin/cards/:id/release-seed-sale", () => {
     expect(res.status).toBe(400);
     expect(control.auditCalls.length).toBe(0);
   });
+
+  it("RPC PERMISSION_DENIED (guard service_role bocor) -> 400 + tanpa audit", async () => {
+    // Audit 2026-08-23: release_seed_sale body menambah is_service_role() guard.
+    // EXECUTE grant service_role only + guard in-body = defense-in-depth.
+    control.releaseError = {
+      code: "PERMISSION_DENIED",
+      message: "Akses ditolak — RPC ini hanya boleh dipanggil oleh service_role",
+    };
+    const res = await releaseSeedSale();
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as { error: string };
+    expect(body.error).toContain("service_role");
+    expect(control.auditCalls.length).toBe(0);
+  });
 });
