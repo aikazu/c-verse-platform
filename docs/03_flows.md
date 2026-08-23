@@ -3,7 +3,11 @@
 > Status: [VALIDATED — partial: open items payout (SLA, disbursement,
 > cap Rp 5-10 jt) & validasi C-03 iPhone masih [DRAFT] — lihat
 > `07_constraints.md`]
-> Last updated: 2026-08-21 (Flow 10 → TWO-PHASE SETTLEMENT — bid/accept
+> Last updated: 2026-08-23 (seed buyer XP granted TEPAT SEKALI di
+> PHASE-2 release untuk kedua path buyout/accept_bid; trigger
+> auto-unlist buyout_price_ccoin saat kartu non-tradable —
+> migration 20260823020000_seed_xp_unify)
+> Previous: 2026-08-21 (Flow 10 → TWO-PHASE SETTLEMENT — bid/accept
 > BUKAN lagi di-gate; release yang wajib menunggu vault-in + NFC
 > verified — migration 20260821020000_seed_two_phase, keputusan 2026-08-21)
 > Previous: 2026-08-21 (badge holografik "✦ Seed 1-of-1" di
@@ -269,7 +273,10 @@ Aturan:
    - **Maks 3 bid aktif per user** (founder 2026-08-16; RPC BID_LIMIT).
    - Bidder bisa cancel bidnya sendiri; owner tidak bisa reject.
    - Max 20 kartu buyout aktif per user (guard).
-   - Kartu tampered/defect/lost tidak tradable (RPC CARD_NOT_TRADABLE).
+   - Kartu tampered/defect/lost tidak tradable (RPC CARD_NOT_TRADABLE);
+     trigger SQL auto-unlist (20260823020000) clear `buyout_price_ccoin`
+     saat status berubah ke non-tradable — listing tidak stays live
+     dengan diam-diam.
 ```
 
 Anti-fraud Y1 (rule-based, bukan ML):
@@ -403,6 +410,11 @@ ADM-06: dispute masuk -> review bukti -> keputusan
       royalti kreator 7,5% (drops.creator_id) + platform 7,5% +
       ownership pindah ke buyer + shipment (kirim fisik / tetap
       vault atas nama buyer, pilihan buyer di PHASE-1)
+    - Buyer XP granted TEPAT SEKALI di PHASE-2 release untuk kedua
+      path (buyout & accept_bid) — keputusan founder 2026-08-23
+      (migration 20260823020000). XP merefleksikan 'uang keluar escrow
+      ke settled', bukan saat escrow terbentuk. Konsisten dengan
+      aturan hold/escrow bukan spend XP (C-05c).
     - TERIMPLEMENTASI (2026-08-21): idempotent — status kartu harus
       'bid_pending' (release kedua -> NO_PENDING_SALE); settle
       accepted-bid ATAU order pending (buyout PHASE-1);
