@@ -28,6 +28,13 @@ function errCode(e) {
 
 const admin = new Client({ connectionString: url });
 await admin.connect();
+await admin.query("set role service_role"); // bypass RLS on cloud transaction pooler
+// Cloud transaction pooler occasionally rotates role; wrap to re-assert before each query.
+const _adminQuery = admin.query.bind(admin);
+admin.query = async (text, params) => {
+  await _adminQuery("set role service_role");
+  return _adminQuery(text, params);
+};
 
 // ── Fixture: test users + wallets + drop sisa 1 unit ────────────────────────
 const stamp = Date.now().toString(36);
@@ -62,8 +69,8 @@ await admin.query(
   [drop1],
 );
 await admin.query(
-  `insert into public.cards (id, drop_id, unit_number, variant, status, card_status_new, nfc_uid, nfc_short_id, verify_status, location, nfc_configured, qc_status)
-   values ($1, $2, 1, 'unsigned', 'available', 'inventory', $3, $4, 'unknown', 'platform_stock', false, 'pending')`,
+  `insert into public.cards (id, drop_id, unit_number, variant, status, nfc_uid, nfc_short_id, verify_status, location, nfc_configured, qc_status)
+   values ($1, $2, 1, 'unsigned', 'inventory', $3, $4, 'unknown', 'platform_stock', false, 'pending')`,
   [`card-${drop1}-01`, drop1, `RACE${stamp}01`, `rc1-${stamp}`],
 );
 await admin.query(
@@ -75,8 +82,8 @@ await admin.query(
 );
 for (const i of [1, 2]) {
   await admin.query(
-    `insert into public.cards (id, drop_id, unit_number, variant, status, card_status_new, nfc_uid, nfc_short_id, verify_status, location, nfc_configured, qc_status)
-     values ($1, $2, $3, 'unsigned', 'available', 'inventory', $4, $5, 'unknown', 'platform_stock', false, 'pending')`,
+    `insert into public.cards (id, drop_id, unit_number, variant, status, nfc_uid, nfc_short_id, verify_status, location, nfc_configured, qc_status)
+     values ($1, $2, $3, 'unsigned', 'inventory', $4, $5, 'unknown', 'platform_stock', false, 'pending')`,
     [`card-${drop2}-0${i}`, drop2, i, `RACE${stamp}0${i + 1}`, `rc2-${stamp}-${i}`],
   );
 }
@@ -89,8 +96,8 @@ await admin.query(
 );
 for (const i of Array.from({ length: 10 }, (_, k) => k + 1)) {
   await admin.query(
-    `insert into public.cards (id, drop_id, unit_number, variant, status, card_status_new, nfc_uid, nfc_short_id, verify_status, location, nfc_configured, qc_status)
-     values ($1, $2, $3, 'unsigned', 'available', 'inventory', $4, $5, 'unknown', 'platform_stock', false, 'pending')`,
+    `insert into public.cards (id, drop_id, unit_number, variant, status, nfc_uid, nfc_short_id, verify_status, location, nfc_configured, qc_status)
+     values ($1, $2, $3, 'unsigned', 'inventory', $4, $5, 'unknown', 'platform_stock', false, 'pending')`,
     [`card-${drop3}-${String(i).padStart(2, "0")}`, drop3, i, `RACE${stamp}1${i}`, `rc3-${stamp}-${i}`],
   );
 }
@@ -229,8 +236,8 @@ await admin.query("commit");
     [drop4],
   );
   await admin.query(
-    `insert into public.cards (id, drop_id, unit_number, variant, status, card_status_new, nfc_uid, nfc_short_id, verify_status, location, nfc_configured, qc_status)
-     values ($1, $2, 1, 'unsigned', 'available', 'inventory', $3, $4, 'unknown', 'platform_stock', false, 'pending')`,
+    `insert into public.cards (id, drop_id, unit_number, variant, status, nfc_uid, nfc_short_id, verify_status, location, nfc_configured, qc_status)
+     values ($1, $2, 1, 'unsigned', 'inventory', $3, $4, 'unknown', 'platform_stock', false, 'pending')`,
     [`card-${drop4}-01`, drop4, `RACE${stamp}D1`, `rc4-${stamp}`],
   );
   for (const [i, u] of users.entries()) {

@@ -45,6 +45,13 @@ function errCode(e) {
 
 const admin = new Client({ connectionString: url });
 await admin.connect();
+await admin.query("set role service_role"); // bypass RLS on cloud transaction pooler
+// Cloud transaction pooler occasionally rotates role; wrap to re-assert before each query.
+const _adminQuery = admin.query.bind(admin);
+admin.query = async (text, params) => {
+  await _adminQuery("set role service_role");
+  return _adminQuery(text, params);
+};
 
 /** Client dengan identitas user (JWT sub) — meniru PostgREST authenticated. */
 async function asUser(userId) {

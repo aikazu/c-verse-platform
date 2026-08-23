@@ -28,6 +28,13 @@ function errCode(e) {
 
 const admin = new Client({ connectionString: url });
 await admin.connect();
+await admin.query("set role service_role"); // bypass RLS on cloud transaction pooler
+// Cloud transaction pooler occasionally rotates role; wrap to re-assert before each query.
+const _adminQuery = admin.query.bind(admin);
+admin.query = async (text, params) => {
+  await _adminQuery("set role service_role");
+  return _adminQuery(text, params);
+};
 
 const stamp = Date.now().toString(36);
 const U = {
@@ -83,11 +90,11 @@ let unit = 0;
 async function insertCard(id, ownerId) {
   unit += 1;
   await admin.query(
-    `insert into public.cards (id, drop_id, unit_number, variant, status, card_status_new, owner_id, nfc_uid, nfc_short_id, verify_status, location, nfc_configured, qc_status)
-     values ($1, 'cov-drop-main', $2, 'unsigned', $3, $4, $5, $6, $7, $8, $9, true, $10)`,
+    `insert into public.cards (id, drop_id, unit_number, variant, status, owner_id, nfc_uid, nfc_short_id, verify_status, location, nfc_configured, qc_status)
+     values ($1, 'cov-drop-main', $2, 'unsigned', $3, $4, $5, $6, $7, $8, true, $9)`,
     ownerId
-      ? [id, unit, "sold", "sold", ownerId, `COV${stamp}${unit}`, `cv-${stamp}-${unit}`, "verified", "with_owner", "passed"]
-      : [id, unit, "available", "inventory", null, `COV${stamp}${unit}`, `cv-${stamp}-${unit}`, "unknown", "platform_stock", "pending"],
+      ? [id, unit, "sold", ownerId, `COV${stamp}${unit}`, `cv-${stamp}-${unit}`, "verified", "with_owner", "passed"]
+      : [id, unit, "inventory", null, `COV${stamp}${unit}`, `cv-${stamp}-${unit}`, "unknown", "platform_stock", "pending"],
   );
 }
 for (const id of ["cov-card-s1", "cov-card-m1", "cov-card-m3", "cov-card-m4", "cov-card-m5", "cov-card-m6", "cov-card-m7"]) {
@@ -185,7 +192,7 @@ await admin.query("commit");
   const creatorAfter = await balance(U.creator);
   const xpAfter = await admin.query("select total_xp::int as xp from public.users where id = $1", [U.a]);
   const card = await admin.query(
-    "select owner_id, buyout_price_ccoin, card_status_new::text as st, location::text as loc from public.cards where id = 'cov-card-s1'",
+    "select owner_id, buyout_price_ccoin, status::text as st, location::text as loc from public.cards where id = 'cov-card-s1'",
   );
   const history = await admin.query(
     "select count(*)::int as n from public.ownership_history where card_id = 'cov-card-s1' and acquired_via = 'secondary_bid'",
@@ -236,11 +243,9 @@ await admin.query("commit");
 {
   const s = await userClient(U.seller);
   await s.query("select public.set_buyout('cov-card-m1', 45)");
-  const listed = await admin.query(
-    "select buyout_price_ccoin::int as p, card_status_new::text as st from public.cards where id = 'cov-card-m1'",
-  );
+  const listed = await admin.query("select buyout_price_ccoin::int as p, status::text as st from public.cards where id = 'cov-card-m1'");
   await s.query("select public.set_buyout('cov-card-m1', null)");
-  const unlisted = await admin.query("select buyout_price_ccoin, card_status_new::text as st from public.cards where id = 'cov-card-m1'");
+  const unlisted = await admin.query("select buyout_price_ccoin, status::text as st from public.cards where id = 'cov-card-m1'");
   for (let i = 1; i <= 20; i++) {
     await s.query("select public.set_buyout($1, 10)", [`cov-card-max-${String(i).padStart(2, "0")}`]);
   }
@@ -276,9 +281,7 @@ await admin.query("commit");
   const creatorAfter = await balance(U.creator);
   const b1After = await balance(U.b1);
   const b2After = await balance(U.b2);
-  const card = await admin.query(
-    "select owner_id, buyout_price_ccoin, card_status_new::text as st from public.cards where id = 'cov-card-m3'",
-  );
+  const card = await admin.query("select owner_id, buyout_price_ccoin, status::text as st from public.cards where id = 'cov-card-m3'");
   const bidStatus = await admin.query("select status from public.bids where card_id = 'cov-card-m3' order by created_at desc limit 1");
   const history = await admin.query(
     "select count(*)::int as n from public.ownership_history where card_id = 'cov-card-m3' and acquired_via = 'secondary_buyout'",
@@ -444,8 +447,8 @@ await admin.query("commit");
     [U.creator],
   );
   await admin.query(
-    `insert into public.cards (id, drop_id, unit_number, variant, status, card_status_new, nfc_uid, nfc_short_id, verify_status, location, nfc_configured, qc_status)
-     values ('cov-card-draw-01', 'cov-drop-draw', 1, 'unsigned', 'available', 'inventory', 'COVDRAW1', 'cvd-1', 'unknown', 'platform_stock', false, 'pending')`,
+    `insert into public.cards (id, drop_id, unit_number, variant, status, nfc_uid, nfc_short_id, verify_status, location, nfc_configured, qc_status)
+     values ('cov-card-draw-01', 'cov-drop-draw', 1, 'unsigned', 'inventory', 'COVDRAW1', 'cvd-1', 'unknown', 'platform_stock', false, 'pending')`,
   );
   await admin.query(
     "insert into public.drop_entries (id, drop_id, user_id, pool, hold_ccoin, status) values (gen_random_uuid()::text, 'cov-drop-draw', $1, 'regular', 10, 'held')",
