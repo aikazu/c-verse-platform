@@ -51,6 +51,30 @@ export function PayoutsPage() {
     }
   }
 
+  async function refundPayout(id: string, amount: number) {
+    if (
+      !window.confirm(
+        `Refund payout ${id.slice(0, 8)} (${amount} C-Coin)? Dana akan dikembalikan ke wallet kreator dan status payout menjadi 'refunded'.`,
+      )
+    )
+      return;
+    setBusy(true);
+    setMsg(null);
+    try {
+      await apiFetch<{ payout: { id: string; status: string } }>(`/api/payments/admin/payouts/${id}/refund`, { method: "POST" });
+      setMsg(`Payout ${id.slice(0, 8)} di-refund — dana kembali ke wallet kreator`);
+      load();
+    } catch (err) {
+      setMsg(errMessage(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function canRefund(status: string): boolean {
+    return status === "pending" || status === "processing" || status === "failed";
+  }
+
   return (
     <div className="admin-page">
       <div className="admin-page-head">
@@ -117,12 +141,13 @@ export function PayoutsPage() {
                 <th>IDR</th>
                 <th>Status</th>
                 <th>Batch</th>
+                <th>Aksi</th>
               </tr>
             </thead>
             <tbody>
               {payouts.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="empty-state">
+                  <td colSpan={7} className="empty-state">
                     Belum ada payout
                   </td>
                 </tr>
@@ -137,6 +162,15 @@ export function PayoutsPage() {
                       <StatusBadge status={p.status} />
                     </td>
                     <td className="mono fs-11">{p.batch_id ? p.batch_id.slice(0, 8) : "—"}</td>
+                    <td>
+                      {canRefund(p.status) ? (
+                        <button className="btn-ghost admin-mini" disabled={busy} onClick={() => refundPayout(p.id, p.ccoin_amount)}>
+                          Refund
+                        </button>
+                      ) : (
+                        <span className="muted fs-11">—</span>
+                      )}
+                    </td>
                   </tr>
                 ))
               )}

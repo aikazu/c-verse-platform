@@ -4,7 +4,7 @@ import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import { z } from "zod";
 import { adminGateError, requireAdmin, requireUser, tokenFingerprint } from "../lib/auth.js";
-import { userDb } from "../lib/db.js";
+import { RpcError, rpcPayoutRefund, userDb } from "../lib/db.js";
 import { getProvider } from "../lib/payments/index.js";
 import { mapTransactionStatus } from "../lib/payments/midtrans.js";
 import { getKycByUser, logAuditDb } from "../lib/reads/kyc.js";
@@ -106,6 +106,50 @@ app.post("/admin/payout-run", async (c) => {
     await tokenFingerprint(c.req.header("authorization")),
   );
   return c.json({ batchId: data });
+});
+
+// POST /admin/payouts/:id/refund — admin mengembalikan dana payout yang terkunci
+// ke wallet kreator saat disbursement tidak/belum terjadi (founder 2026-08-23:
+// disbursement manual via dashboard IRIS; refund endpoint untuk failed/aborted).
+// RPC payout_refund mengunci row, tolak status disbursed/refunded, kredit wallet
+// via wallet_credit (idempotent), set status 'refunded'.
+app.post("/admin/payouts/:id/refund", async (c) => {
+  const authRes = await requireAdmin(c);
+  if ("error" in authRes) {
+    const e = adminGateError(authRes);
+    return c.json(e.body, e.status);
+  }
+  const admin = authRes.user;
+  const payoutId = c.req.param("id");
+  const supabase = getSupabase();
+  const { data: existing } = await supabase.from("payouts").select("id, status, user_id, ccoin_amount").eq("id", payoutId).maybeSingle();
+  if (!existing) return c.json({ error: "Payout tidak ditemukan" }, 404);
+  try {
+    const refunded = await rpcPayoutRefund(supabase, payoutId);
+    await logAuditDb(
+      admin.id,
+      "payout_refund",
+      "payouts",
+      payoutId,
+      {
+        action: "payout_refund",
+        status_before: existing.status,
+        status_after: refunded.status ?? "refunded",
+        user_id: existing.user_id,
+        ccoin_amount: existing.ccoin_amount,
+      },
+      c.req.header("x-forwarded-for") ?? null,
+      await tokenFingerprint(c.req.header("authorization")),
+    );
+    return c.json({ payout: refunded });
+  } catch (err) {
+    if (err instanceof RpcError) {
+      if (err.code === "NOT_FOUND") return c.json({ error: "Payout tidak ditemukan" }, 404);
+      if (err.code === "INVALID_STATE") return c.json({ error: err.message }, 409);
+      return c.json({ error: err.message }, 400);
+    }
+    return c.json({ error: err instanceof Error ? err.message : String(err) }, 500);
+  }
 });
 
 app.post("/midtrans/webhook", async (c) => {
