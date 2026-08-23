@@ -130,7 +130,7 @@ describe("SQL fee drift guard — shared constants vs migration literals", () =>
     // Salah satu pattern yang BENAR ada; salah satu pattern SALAH tidak.
     expect(settlerFile.content).toContain(String(SECONDARY_PLATFORM_PCT));
     expect(settlerFile.content).not.toContain("0.999_WRONG");
-    expect(settlerFile.content).not.toContain(String(MAX_BUYOUT_ACTIVE_PER_USER) + "99");
+    expect(settlerFile.content).not.toContain(`${String(MAX_BUYOUT_ACTIVE_PER_USER)}99`);
   });
 });
 

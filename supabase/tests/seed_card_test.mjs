@@ -460,7 +460,7 @@ const BID_AMOUNT = 150; // split: round(7,5%)=11 platform + 11 royalti + 128 sel
     cardPhase1?.status === "bid_pending" &&
     cardPhase1?.owner_id === U.creator &&
     cardPhase1?.buyout_price_ccoin === null &&
-    buyerDebit === 200 && // uang buyer terdebit DI PHASE-1 (platform_buy)
+    buyerDebit === 200 && // uang buyer terdebit DI PHASE-1 (escrow_hold)
     creatorBeforeRelease - creatorBalBase === 0 && // seller BELUM dibayar
     bidBlocked &&
     preVaultBlocked &&
