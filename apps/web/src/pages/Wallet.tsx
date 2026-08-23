@@ -221,7 +221,7 @@ export default function Wallet() {
             )}
           </div>
           <select className="select" aria-label="Jumlah top-up C-Coin" value={amount} onChange={(e) => setAmount(Number(e.target.value))}>
-            {[10, 20, 30, 50, 100, 200, BALANCE_CAP_CCOIN]
+            {([10, 20, 30, 50, 100, 200, 500, 1000, 2000, 5000, 10000] as number[])
               .filter((v) => kycApproved || v <= BALANCE_CAP_CCOIN)
               .map((v) => (
                 <option key={v} value={v}>
