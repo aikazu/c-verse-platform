@@ -2,7 +2,7 @@ import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import { z } from "zod";
 import { adminGateError, requireAdmin, tokenFingerprint } from "../lib/auth.js";
-import { RpcError, rpcReleaseSeedSale } from "../lib/db.js";
+import { RpcError, rpcCancelSeedSale, rpcReleaseSeedSale } from "../lib/db.js";
 import { sendCreatorAccessEmail } from "../lib/email.js";
 import { logAuditDb } from "../lib/reads/kyc.js";
 import { readDb } from "../lib/reads.js";
@@ -382,6 +382,66 @@ app.post("/cards/:id/release-seed-sale", async (c) => {
     await tokenFingerprint(c.req.header("authorization")),
   );
   return c.json({ ok: true, cardId });
+});
+
+// ── Creator Seed C.Card PHASE-1 ABORT (admin, keputusan 2026-08-23) ──
+// POST /cards/:id/cancel-seed-sale — admin membatalkan transaksi PHASE-1
+// yang STUCK (kartu hilang / dispute / tidak pernah di-vault-in).
+// Buyer di-refund FULL (no fees, no XP — XP granted TEPAT SEKALI di
+// PHASE-2 release per invariant founder 2026-08-23). Path A (accepted-bid):
+// bid 'accepted' -> 'cancelled' + wallet_credit buyer; Path B (order
+// pending buyout PHASE-1): order 'paid' -> 'refunded' + wallet_credit.
+// service_role only RPC (cancel_seed_sale, mirror guard pattern dari
+// release_seed_sale 20260823030000). TIDAK touch treasury /
+// platform_revenue — PHASE-1 menulis tidak ada revenue leg.
+app.post("/cards/:id/cancel-seed-sale", async (c) => {
+  const authRes = await requireAdmin(c);
+  if ("error" in authRes) {
+    const e = adminGateError(authRes);
+    return c.json(e.body, e.status);
+  }
+  const admin = authRes.user;
+  const cardId = c.req.param("id");
+  const db = getSupabase();
+  const { data: existing } = await db.from("cards").select("id, status, location, verify_status, drop_id").eq("id", cardId).maybeSingle();
+  if (!existing) return c.json({ error: "Kartu tidak ditemukan" }, 404);
+  let summary: Record<string, unknown> = {};
+  try {
+    summary = (await rpcCancelSeedSale(db, cardId)) as Record<string, unknown>;
+  } catch (err) {
+    if (err instanceof RpcError) {
+      if (err.code === "NO_PENDING_SALE") {
+        return c.json({ error: err.message }, 409);
+      }
+      if (err.code === "NOT_SEED_CARD") {
+        return c.json({ error: err.message }, 400);
+      }
+      if (err.code === "PERMISSION_DENIED") {
+        return c.json({ error: err.message }, 400);
+      }
+      return c.json({ error: err.message }, 400);
+    }
+    return c.json({ error: err instanceof Error ? err.message : String(err) }, 400);
+  }
+  await logAuditDb(
+    admin.id,
+    "update",
+    "cards",
+    cardId,
+    {
+      action: "seed_sale_abort",
+      status_before: existing.status,
+      location: existing.location,
+      verify_status: existing.verify_status,
+      refundedCcoin: summary.refundedCcoin ?? null,
+      buyerId: summary.buyerId ?? null,
+      path: summary.path ?? null,
+      alreadyAborted: summary.alreadyAborted ?? false,
+    },
+    c.req.header("x-forwarded-for") ?? null,
+    await tokenFingerprint(c.req.header("authorization")),
+  );
+  return c.json({ ok: true, cardId, ...summary });
 });
 
 export default app;

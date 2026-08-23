@@ -63,6 +63,7 @@ const ERROR_MESSAGES: Record<string, string> = {
   SEED_VAULT_IN_REQUIRED: "Kartu seed wajib masuk vault platform + terverifikasi NFC sebelum release",
   NO_PENDING_SALE: "Tidak ada transaksi seed yang menunggu release untuk kartu ini",
   NOT_SEED_CARD: "Kartu bukan Creator Seed C.Card",
+  SEED_ABORT_DUPLICATE: "Transaksi seed ini sudah pernah di-abort sebelumnya",
   INVALID_STATE: "Payout tidak bisa di-refund (status disbursed / refunded)",
   INVALID_TRANSITION: "Transisi tidak valid",
   INVALID_ARG: "Argumen tidak valid",
@@ -133,6 +134,13 @@ export function rpcBuyoutCard(
 // PHASE-2 settlement seed (service_role HANYA — dipanggil admin via API).
 export function rpcReleaseSeedSale(db: SupabaseClient, cardId: string) {
   return callRpc<Record<string, unknown>>(db, "release_seed_sale", { p_card_id: cardId });
+}
+
+// PHASE-1 admin abort path (service_role HANYA) — refund buyer untuk stuck
+// seed sales (kartu hilang / tidak pernah di-vault). Returns json
+// {cardId, refundedCcoin, buyerId, path, alreadyAborted?}.
+export function rpcCancelSeedSale(db: SupabaseClient, cardId: string) {
+  return callRpc<Record<string, unknown>>(db, "cancel_seed_sale", { p_card_id: cardId });
 }
 
 // Admin refund path (docs/14 §3.3): return locked payout funds to creator when
