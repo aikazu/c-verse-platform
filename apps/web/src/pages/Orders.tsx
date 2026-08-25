@@ -1,13 +1,19 @@
+import type { Order } from "@c-verse/shared";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { StatusBadge } from "../components/StatusBadge";
 import { api } from "../lib/api";
+import type { ApiOrdersResponse } from "../lib/api-types";
 import { useAuth } from "../lib/auth";
 import { ErrorState, LoadingState } from "../lib/QueryStates";
 
 export default function Orders() {
   const { user } = useAuth();
-  const { data, isLoading, isError, refetch } = useQuery({ queryKey: ["orders"], queryFn: () => api.orders(), enabled: !!user });
+  const { data, isLoading, isError, refetch } = useQuery<ApiOrdersResponse>({
+    queryKey: ["orders"],
+    queryFn: () => api.orders(),
+    enabled: !!user,
+  });
   if (!user)
     return (
       <div className="card card-pad" style={{ textAlign: "center", padding: 32 }}>
@@ -22,7 +28,7 @@ export default function Orders() {
     );
   if (isLoading) return <LoadingState />;
   if (isError) return <ErrorState onRetry={() => refetch()} label="Gagal memuat pesanan" />;
-  const orders: any[] = (data as any)?.orders ?? [];
+  const orders: Order[] = data?.orders ?? [];
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: 12 }}>
@@ -59,7 +65,7 @@ export default function Orders() {
                   </td>
                 </tr>
               ) : (
-                orders.map((o: any) => (
+                orders.map((o) => (
                   <tr key={o.id}>
                     <td>
                       <Link

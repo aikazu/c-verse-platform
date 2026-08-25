@@ -1,15 +1,17 @@
+import type { Badge } from "@c-verse/shared";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { api } from "../lib/api";
+import type { ApiBadgesResponse, ApiLeaderboardEntry } from "../lib/api-types";
 import { ErrorState, LoadingState } from "../lib/QueryStates";
 
 export default function Leaderboard() {
   const { data, isLoading, isError, refetch } = useQuery({ queryKey: ["leaderboard"], queryFn: () => api.leaderboard(20) });
-  const { data: badgesData } = useQuery({ queryKey: ["badges"], queryFn: () => api.badges() });
+  const { data: badgesData } = useQuery<ApiBadgesResponse>({ queryKey: ["badges"], queryFn: () => api.badges() });
   if (isLoading) return <LoadingState />;
   if (isError) return <ErrorState onRetry={() => refetch()} label="Gagal memuat peringkat" />;
-  const board: any[] = (data as any)?.leaderboard ?? [];
-  const badges: any[] = (badgesData as any)?.badges ?? [];
+  const board: ApiLeaderboardEntry[] = data?.leaderboard ?? [];
+  const badges: Badge[] = badgesData?.badges ?? [];
   const tierStyle: Record<string, { bg: string; color: string }> = {
     bronze: { bg: "rgba(205,127,50,0.14)", color: "#d4a574" },
     silver: { bg: "rgba(148,163,184,0.14)", color: "#cbd5e1" },
@@ -48,7 +50,7 @@ export default function Leaderboard() {
                   </td>
                 </tr>
               ) : (
-                board.map((e: any) => {
+                board.map((e) => {
                   const href = `/u/${e.username ?? e.userId}`;
                   const t = tierStyle[e.tier] ?? tierStyle.bronze;
                   return (
@@ -105,9 +107,9 @@ export default function Leaderboard() {
             Lencana — {badges.length}
           </div>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            {badges.map((b: any) => (
+            {badges.map((b) => (
               <span key={b.id} className="pill pill-warn" title={b.description} style={{ padding: "7px 12px", fontSize: 12 }}>
-                {b.icon ?? b.icon_url} {b.name}
+                {b.icon} {b.name}
               </span>
             ))}
           </div>

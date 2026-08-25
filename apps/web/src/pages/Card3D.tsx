@@ -2,14 +2,19 @@ import { useQuery } from "@tanstack/react-query";
 import { useRef } from "react";
 import { Link, useParams } from "react-router-dom";
 import { api } from "../lib/api";
+import type { ApiCard3dResponse, ApiDrop } from "../lib/api-types";
 import { useCardViewer } from "../lib/viewer";
 
 export default function Card3D() {
   const { cardId } = useParams();
   const viewerRef = useRef<HTMLDivElement>(null);
-  const { data, isLoading } = useQuery({ queryKey: ["card3d", cardId], queryFn: () => api.card3d(cardId!), enabled: !!cardId });
-  const drop = (data as any)?.drop ?? {};
-  useCardViewer(viewerRef as any, drop.artwork3dUrl ?? null, drop.artworkUrl ?? null);
+  const { data, isLoading } = useQuery<ApiCard3dResponse>({
+    queryKey: ["card3d", cardId],
+    queryFn: () => api.card3d(cardId!),
+    enabled: !!cardId,
+  });
+  const drop: ApiDrop | null = data?.drop ?? null;
+  useCardViewer(viewerRef, drop?.artwork3dUrl ?? null, drop?.artworkUrl ?? null);
   if (isLoading)
     return (
       <div className="muted" style={{ padding: 24, textAlign: "center" }}>
@@ -25,8 +30,8 @@ export default function Card3D() {
         </p>
       </div>
     );
-  const d: any = data as any;
-  const card = d.card ?? d;
+  const d = data;
+  const card = d.card;
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       <Link to={`/cards/${card.id ?? cardId}`} style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--text-muted)" }}>

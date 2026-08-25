@@ -9,7 +9,7 @@
 // sini adalah mirror statis — kalau server menambah field, tipe ini ikut
 // melebar secara opt-in (partial / unknown-friendly), bukan ditiru ulang.
 
-import type { Badge, Bid, Card, LeaderboardEntry, Order, Shipment, UserBadge, Wallet, WalletTransaction } from "@c-verse/shared";
+import type { Badge, Bid, Card, Order, Shipment, UserBadge, Wallet, WalletTransaction } from "@c-verse/shared";
 
 import type { PagedMeta } from "./api";
 
@@ -44,6 +44,15 @@ export interface ApiDrop {
   createdAt: string;
   createdBy?: string | null;
   isSeed: boolean;
+  // Fields ditambahkan route /api/drops GET (lihat apps/api/src/routes/drops.ts:52-88)
+  remainingUnits?: number;
+  idrPrice?: number;
+  idrUnsigned?: number;
+  idrSigned?: number;
+  creatorHandle?: string | null;
+  creatorUsername?: string | null;
+  stats?: { total: number; sold: number; available: number };
+  cardsPreview?: Card[];
 }
 
 // ── Auth ───────────────────────────────────────────────────────────────────
@@ -128,26 +137,47 @@ export interface ApiCheckoutResponse {
 }
 
 // ── NFC / Cards ────────────────────────────────────────────────────────────
+// GET /api/nfc/cards/:cardId (apps/api/src/routes/nfc.ts:188) — info lengkap:
+//   card ringkas + drop ringkas + owner + bids aktif + ownership history.
+// Owner ditampilkan anonim jika user.isAnonymous || user.flagReason (route:204).
+export interface ApiCardOwnerRef {
+  id: string;
+  displayName: string;
+  username?: string | null;
+  isAnonymous?: boolean;
+}
+
 export interface ApiCardOwnershipRow {
-  ownerId: string | null;
-  ownerName: string | null;
-  ownerHandle?: string | null;
-  displayName: string | null;
-  isAnonymous: boolean;
-  flagReason: string | null;
-  acquiredAt: string;
-  acquiredVia: "primary" | "secondary_buyout" | "secondary_bid" | "gift" | string;
+  id: string;
+  cardId: string;
+  ownerId: string;
+  acquiredVia: string;
+  orderId: string | null;
+  bidId: string | null;
+  transferredAt: string;
+  ownerName: string;
 }
 
 export interface ApiCardDetailResponse {
   card: Card;
-  drop: ApiDrop;
-  ownershipHistory?: ApiCardOwnershipRow[];
+  drop: ApiDrop | null;
+  creator: { id: string; displayName: string; username?: string | null } | null;
+  owner: ApiCardOwnerRef | null;
+  activeBid: Bid | null;
+  bids: Bid[];
+  ownershipHistory: ApiCardOwnershipRow[];
 }
 
+// GET /api/nfc/cards/:cardId/3d — data untuk viewer 3D + VerifiedBadge.
 export interface ApiCard3dResponse {
-  card: Card;
-  drop: ApiDrop;
+  card: Card & { totalUnits?: number | null };
+  drop: ApiDrop | null;
+  seriesLink: string | null;
+  creator: { id: string; name: string; link: string } | null;
+  owner: { id: string; name: string; link: string } | null;
+  releaseDate: string | null;
+  verifiedBadge: string | null;
+  hint: string | null;
 }
 
 export interface ApiVerifyShortIdResponse {
@@ -205,12 +235,22 @@ export interface ApiPatchBuyoutResponse {
 }
 
 // ── Browse ─────────────────────────────────────────────────────────────────
+// GET /api/browse — kartu ber-pemilik dengan buyout aktif + bid tertinggi.
+// `activeBid` adalah Bid lengkap dari listBids(active); `canBid` flag server.
 export interface ApiBrowseEntry {
   card: Card;
-  drop: ApiDrop;
-  buyoutPriceCcoin: number | null;
-  highestBidCcoin?: number | null;
-  activeBidsCount?: number;
+  drop: {
+    id: string;
+    title: string;
+    series: string;
+    artworkUrl: string;
+    creatorName: string;
+    isSeed: boolean;
+  } | null;
+  owner: { id: string; displayName: string } | null;
+  buyoutIdr: number | null;
+  activeBid: Bid | null;
+  canBid: boolean;
 }
 
 export interface ApiBrowseResponse extends PagedMeta {
@@ -274,25 +314,42 @@ export interface ApiPatchProfileResponse {
 }
 
 // ── Public profile / creator ──────────────────────────────────────────────
+// GET /api/public/u/:username — profile publik kolektor (docs 11-anon + 02-pages).
+// Hidden profile = `{ user, hidden: true }` tanpa cards/badges.
+export interface ApiPublicProfileCard extends Card {
+  drop: { id: string; title: string; series: string } | null;
+}
+
 export interface ApiPublicProfileResponse {
-  user: ApiUser;
+  hidden?: boolean;
+  user: ApiUser & {
+    level?: number;
+    tier?: string;
+    levelProgressPct?: number;
+    rank?: number;
+  };
+  cards?: ApiPublicProfileCard[];
+  badges?: UserBadge[];
   drops?: ApiDrop[];
   collection?: Card[];
   totalCards?: number;
+  stats?: { totalCards?: number };
 }
 
 export interface ApiCreatorPublicResponse {
   creator: {
     id: string;
-    handle: string;
-    displayName?: string | null;
-    bannerUrl?: string | null;
-    avatarUrl?: string | null;
-    bio?: string | null;
-    totalFollowersCombined: number;
+    displayName: string;
+    username: string | null;
+    handle: string | null;
+    totalFollowersCombined: number | null;
+    xp?: number;
     drops?: ApiDrop[];
-    isActive: boolean;
-    stats?: Record<string, number>;
+    stats?: {
+      totalViews?: number;
+      uniqueViewers?: number;
+      topReferrer?: { domain: string; count: number } | null;
+    };
   };
 }
 
@@ -305,12 +362,25 @@ export interface ApiApplyCreatorResponse {
 }
 
 // ── Gamification ──────────────────────────────────────────────────────────
-export interface ApiLeaderboardResponse {
-  leaderboard: LeaderboardEntry[];
+// GET /api/gamification/leaderboard — derived from listTopUsersByXp,
+// field tambahan: username, totalCards (lihat apps/api/src/routes/gamification.ts:16-28).
+export interface ApiLeaderboardEntry {
+  rank: number;
+  userId: string;
+  displayName: string;
+  username: string | null;
+  level: number;
+  tier: string;
+  totalCards: number;
 }
 
+export interface ApiLeaderboardResponse {
+  leaderboard: ApiLeaderboardEntry[];
+}
+
+// GET /api/gamification/badges → list def Badge (shared Badge type reusable).
 export interface ApiBadgesResponse {
-  badges: (UserBadge & { badge: Badge })[];
+  badges: Badge[];
 }
 
 // ── KYC ────────────────────────────────────────────────────────────────────

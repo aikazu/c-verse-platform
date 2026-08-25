@@ -1,12 +1,20 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { api } from "../lib/api";
+import type { ApiDrop, ApiDropsResponse, ApiWalletResponse } from "../lib/api-types";
 import { useAuth } from "../lib/auth";
 
 export default function Home() {
   const { user } = useAuth();
-  const { data: wallet } = useQuery({ queryKey: ["wallet"], queryFn: () => api.wallet(), enabled: !!user });
-  const { data: drops, isLoading: dropsLoading } = useQuery({ queryKey: ["drops-home"], queryFn: () => api.drops({ status: "live" }) });
+  const { data: wallet } = useQuery<ApiWalletResponse>({
+    queryKey: ["wallet"],
+    queryFn: () => api.wallet(),
+    enabled: !!user,
+  });
+  const { data: drops, isLoading: dropsLoading } = useQuery<ApiDropsResponse>({
+    queryKey: ["drops-home"],
+    queryFn: () => api.drops({ status: "live" }),
+  });
   if (!user)
     return (
       <div className="card card-pad" style={{ textAlign: "center", padding: 32 }}>
@@ -19,8 +27,8 @@ export default function Home() {
         </Link>
       </div>
     );
-  const live: any[] = (drops as any)?.drops?.slice(0, 6) ?? [];
-  const w: any = (wallet as any)?.wallet;
+  const live: ApiDrop[] = (drops?.drops ?? []).slice(0, 6);
+  const w = wallet?.wallet;
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
       <div className="card card-pad" style={{ background: "var(--surface-2)" }}>
@@ -64,7 +72,7 @@ export default function Home() {
           </Link>
         </div>
         <div className="grid-3">
-          {live.map((d: any) => (
+          {live.map((d) => (
             <Link
               key={d.id}
               to={`/drops/${d.id}`}

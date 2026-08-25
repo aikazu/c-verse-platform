@@ -2,22 +2,25 @@ import { useInfiniteQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../lib/api";
+import type { ApiBrowseEntry, ApiBrowseResponse } from "../lib/api-types";
 import { useAuth } from "../lib/auth";
 import { ErrorState, LoadingState } from "../lib/QueryStates";
 import { useToast } from "../lib/toast";
+
+const errorMessage = (e: unknown): string => (e instanceof Error ? e.message : String(e));
 
 export default function Browse() {
   const { user } = useAuth();
   const { push } = useToast();
   const [q, setQ] = useState("");
   const [bidAmt, setBidAmt] = useState<Record<string, number>>({});
-  const { data, refetch, isLoading, isError, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteQuery({
+  const { data, refetch, isLoading, isError, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteQuery<ApiBrowseResponse>({
     queryKey: ["browse", q],
     queryFn: ({ pageParam }) => api.browse({ ...(q ? { q } : {}), limit: "60", offset: String(pageParam) }),
     initialPageParam: 0,
     getNextPageParam: (last) => (last.hasMore ? last.offset + last.limit : undefined),
   });
-  const cards: any[] = data?.pages.flatMap((p) => p.cards ?? p.results ?? []) ?? [];
+  const cards: ApiBrowseEntry[] = (data?.pages ?? []).flatMap((p) => p.cards ?? p.results ?? []);
   const [bidBusy, setBidBusy] = useState<string | null>(null);
   async function onBid(cardId: string) {
     if (!user) {
@@ -34,8 +37,8 @@ export default function Browse() {
       await api.placeBid(cardId, amt);
       push(`Penawaran ${amt} C terkirim`, "success");
       refetch();
-    } catch (e: any) {
-      push(e.message, "error");
+    } catch (e: unknown) {
+      push(errorMessage(e), "error");
     } finally {
       setBidBusy(null);
     }
@@ -74,7 +77,7 @@ export default function Browse() {
         </div>
       ) : (
         <div className="grid-3">
-          {cards.map((r: any) => {
+          {cards.map((r) => {
             const card = r.card ?? r;
             const drop = r.drop;
             const activeBid = r.activeBid;

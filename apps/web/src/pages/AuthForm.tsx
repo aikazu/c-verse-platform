@@ -11,6 +11,8 @@ import { isTurnstileEnabled, mountTurnstile, type TurnstileHandle } from "../lib
 //   - email sudah ada  → masuk ke akun tersebut (otomatis)
 // Satu alur, dijalankan dari email + Google.
 
+const errorMessage = (e: unknown): string => (e instanceof Error ? e.message : String(e));
+
 export default function AuthForm() {
   const { loginGoogle, sendOtp, verifyOtp, isSupabaseAuth } = useAuth();
   const { push } = useToast();
@@ -50,8 +52,8 @@ export default function AuthForm() {
       await sendOtp(email, turnstileRefHandle.current?.token(), displayName.trim() ? displayName : undefined);
       setOtpSent(true);
       push(`Kode 6 digit dikirim ke ${email}`, "success");
-    } catch (err: any) {
-      push(err.message ?? "Gagal mengirim kode", "error");
+    } catch (err: unknown) {
+      push(errorMessage(err) || "Gagal mengirim kode", "error");
     } finally {
       setBusy(false);
     }
@@ -64,8 +66,8 @@ export default function AuthForm() {
       await verifyOtp(email, code);
       push("Berhasil masuk", "success");
       nav("/drops");
-    } catch (err: any) {
-      push(err.message ?? "Kode salah atau kedaluwarsa", "error");
+    } catch (err: unknown) {
+      push(errorMessage(err) || "Kode salah atau kedaluwarsa", "error");
     } finally {
       setBusy(false);
     }
@@ -75,8 +77,8 @@ export default function AuthForm() {
     setBusy(true);
     try {
       await loginGoogle(); // redirect ke Google; onAuthStateChange menangani session
-    } catch (err: any) {
-      push(err.message ?? "Gagal membuka Google", "error");
+    } catch (err: unknown) {
+      push(errorMessage(err) || "Gagal membuka Google", "error");
       setBusy(false);
     }
   }

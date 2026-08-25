@@ -2,12 +2,15 @@ import { kycStatusLabel } from "@c-verse/shared";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { api } from "../lib/api";
+import type { ApiKycResponse } from "../lib/api-types";
 import { useToast } from "../lib/toast";
+
+const errorMessage = (e: unknown): string => (e instanceof Error ? e.message : String(e));
 
 export default function Kyc() {
   const { push } = useToast();
-  const { data, refetch } = useQuery({ queryKey: ["kyc"], queryFn: () => api.kyc() });
-  const kyc: any = (data as any)?.kyc;
+  const { data, refetch } = useQuery<ApiKycResponse>({ queryKey: ["kyc"], queryFn: () => api.kyc() });
+  const kyc = data?.kyc;
   const [fullName, setFullName] = useState("");
   const [nik, setNik] = useState("");
   const [address, setAddress] = useState("");
@@ -22,8 +25,8 @@ export default function Kyc() {
       await api.submitKyc({ fullName, nik, address });
       push("Verifikasi terkirim — menunggu persetujuan", "success");
       refetch();
-    } catch (e: any) {
-      push(e.message, "error");
+    } catch (e: unknown) {
+      push(errorMessage(e), "error");
     } finally {
       setSaving(false);
     }

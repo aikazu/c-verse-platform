@@ -3,6 +3,8 @@ import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { useToast } from "../lib/toast";
 
+const errorMessage = (e: unknown): string => (e instanceof Error ? e.message : String(e));
+
 const USERNAME_RE = /^[a-z0-9_]{3,20}$/;
 
 const LATER_FLAG_KEY = "cverse_username_later";
@@ -34,8 +36,8 @@ export default function UsernameSetupModal() {
       try {
         await api.publicProfile(value);
         setStatus("taken");
-      } catch (err: any) {
-        const msg = (err?.message ?? "").toLowerCase();
+      } catch (err: unknown) {
+        const msg = errorMessage(err).toLowerCase();
         if (msg.includes("404") || msg.includes("tidak ditemukan") || msg.includes("not found")) {
           setStatus("available");
         } else {
@@ -69,8 +71,8 @@ export default function UsernameSetupModal() {
       await api.patchProfile({ username: value });
       await refresh();
       push("Username tersimpan!", "success");
-    } catch (err: any) {
-      push(err?.message ?? "Gagal menyimpan username", "error");
+    } catch (err: unknown) {
+      push(errorMessage(err) || "Gagal menyimpan username", "error");
     } finally {
       setBusy(false);
     }

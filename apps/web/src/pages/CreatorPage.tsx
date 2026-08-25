@@ -2,10 +2,11 @@ import { useQuery } from "@tanstack/react-query";
 import { Link, useParams } from "react-router-dom";
 import { StatusBadge } from "../components/StatusBadge";
 import { api } from "../lib/api";
+import type { ApiCreatorPublicResponse, ApiDrop } from "../lib/api-types";
 
 export default function CreatorPage() {
   const { username } = useParams();
-  const { data, isLoading } = useQuery({
+  const { data, isLoading } = useQuery<ApiCreatorPublicResponse>({
     queryKey: ["creator-pub", username],
     queryFn: () => api.creatorPublic(username!),
     enabled: !!username,
@@ -22,9 +23,11 @@ export default function CreatorPage() {
         <p className="muted">Kreator tidak ditemukan</p>
       </div>
     );
-  const c: any = data as any;
-  const creator = c.creator ?? c;
-  const drops: any[] = c.drops ?? [];
+  const creator = data.creator;
+  const drops: ApiDrop[] = creator.drops ?? [];
+  // doc 02 PG-CRT-PUB-01 hanya handle + drop list (tanpa follower count, tanpa bio / links
+  // — API tidak mengembalikan field tersebut saat ini).
+  const handle = creator.handle ?? creator.username ?? null;
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
       <div className="card card-pad">
@@ -32,36 +35,10 @@ export default function CreatorPage() {
         <h1 className="h2" style={{ marginTop: 4 }}>
           {creator.displayName}
         </h1>
-        {(creator.username ?? creator.handle) && (
-          <div style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--text-muted)", marginTop: 4 }}>
-            @{creator.username ?? creator.handle}
-          </div>
-        )}
-        {/* docs/02 PG-CRT-PUB-01: handle + bio + link sosial + list drop; TANPA jumlah follower */}
+        {handle && <div style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--text-muted)", marginTop: 4 }}>@{handle}</div>}
         {creator.handle && (
           <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--text-dim)", marginTop: 8 }}>
             Handle: {creator.handle}
-          </div>
-        )}
-        {creator.bio && (
-          <p className="muted" style={{ marginTop: 8, fontSize: 13, lineHeight: 1.5 }}>
-            {creator.bio}
-          </p>
-        )}
-        {creator.links && Array.isArray(creator.links) && creator.links.length > 0 && (
-          <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
-            {creator.links.map((l: any) => (
-              <a
-                key={l.url}
-                href={l.url}
-                target="_blank"
-                rel="noreferrer"
-                className="pill pill-info"
-                style={{ fontSize: 11, textDecoration: "none" }}
-              >
-                {l.label ?? l.url}
-              </a>
-            ))}
           </div>
         )}
       </div>
@@ -85,7 +62,7 @@ export default function CreatorPage() {
           </div>
         ) : (
           <div className="grid-3">
-            {drops.map((d: any) => (
+            {drops.map((d) => (
               <Link
                 key={d.id}
                 to={`/drops/${d.id}`}

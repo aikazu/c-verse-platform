@@ -2,6 +2,7 @@ import { useInfiniteQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { api, formatIdr } from "../lib/api";
+import type { ApiDrop, ApiDropsResponse } from "../lib/api-types";
 import { ErrorState, LoadingState } from "../lib/QueryStates";
 
 function Badge({ status }: { status: string }) {
@@ -27,14 +28,14 @@ function Badge({ status }: { status: string }) {
 export default function Drops() {
   const [filter, setFilter] = useState("all");
   const [search, setSearch] = useState("");
-  const { data, isLoading, isError, refetch, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteQuery({
+  const { data, isLoading, isError, refetch, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteQuery<ApiDropsResponse>({
     queryKey: ["drops", filter, search],
     queryFn: ({ pageParam }) =>
       api.drops({ ...(filter !== "all" ? { status: filter } : {}), ...(search ? { search } : {}), limit: "60", offset: String(pageParam) }),
     initialPageParam: 0,
     getNextPageParam: (last) => (last.hasMore ? last.offset + last.limit : undefined),
   });
-  const drops: any[] = data?.pages.flatMap((p) => p.drops ?? []) ?? [];
+  const drops: ApiDrop[] = (data?.pages ?? []).flatMap((p) => p.drops ?? []);
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: 12 }}>
@@ -84,7 +85,7 @@ export default function Drops() {
         </div>
       ) : (
         <div className="grid-3">
-          {drops.map((d: any) => (
+          {drops.map((d) => (
             <Link key={d.id} to={`/drops/${d.id}`} className="card drop-card">
               <div className="drop-thumb">
                 <Badge status={d.status} />
@@ -134,7 +135,7 @@ export default function Drops() {
                     <div style={{ fontWeight: 700, fontSize: 14 }}>
                       {d.priceCcoin ?? d.priceUnsignedCCoin} C{" "}
                       <span style={{ fontSize: 11, color: "var(--text-muted)", fontWeight: 400 }}>
-                        · {formatIdr(d.idrPrice ?? d.idrUnsigned)}
+                        · {formatIdr(d.idrPrice ?? d.idrUnsigned ?? 0)}
                       </span>
                     </div>
                   </div>

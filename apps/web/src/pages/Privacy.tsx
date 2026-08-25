@@ -1,14 +1,21 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { api } from "../lib/api";
+import type { ApiProfileResponse } from "../lib/api-types";
 import { useToast } from "../lib/toast";
+
+const errorMessage = (e: unknown): string => (e instanceof Error ? e.message : String(e));
 
 export default function Privacy() {
   const { push } = useToast();
-  const { data, refetch } = useQuery({ queryKey: ["profile-privacy"], queryFn: () => api.profile() });
-  const isAnonymous = (data as any)?.user?.isAnonymous ?? false;
-  const ca = Boolean((data as any)?.user?.consentAnalyticsDetail ?? (data as any)?.consentAnalyticsDetail);
-  const cm = Boolean((data as any)?.user?.consentDataMarket ?? (data as any)?.consentDataMarket);
+  const { data, refetch } = useQuery<ApiProfileResponse>({
+    queryKey: ["profile-privacy"],
+    queryFn: () => api.profile(),
+  });
+  const user = data?.user;
+  const isAnonymous = user?.isAnonymous ?? false;
+  const ca = Boolean(user?.consentAnalyticsDetail);
+  const cm = Boolean(user?.consentDataMarket);
   const [saving, setSaving] = useState(false);
   async function toggle() {
     setSaving(true);
@@ -16,8 +23,8 @@ export default function Privacy() {
       await api.patchPrivacy(!isAnonymous);
       push(!isAnonymous ? "Profil disembunyikan" : "Profil ditampilkan", "success");
       refetch();
-    } catch (e: any) {
-      push(e.message, "error");
+    } catch (e: unknown) {
+      push(errorMessage(e), "error");
     } finally {
       setSaving(false);
     }
@@ -29,8 +36,8 @@ export default function Privacy() {
       else await api.patchConsent({ consentDataMarket: !cm });
       push("Preferensi disimpan", "success");
       refetch();
-    } catch (e: any) {
-      push(e.message, "error");
+    } catch (e: unknown) {
+      push(errorMessage(e), "error");
     } finally {
       setSaving(false);
     }

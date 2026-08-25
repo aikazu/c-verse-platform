@@ -3,10 +3,15 @@ import { useQuery } from "@tanstack/react-query";
 import { Link, useParams } from "react-router-dom";
 import { StatusBadge } from "../components/StatusBadge";
 import { api, formatIdr } from "../lib/api";
+import type { ApiDropDetailResponse } from "../lib/api-types";
 
 export default function DropDetail() {
   const { id } = useParams();
-  const { data, isLoading } = useQuery({ queryKey: ["drop", id], queryFn: () => api.drop(id!), enabled: !!id });
+  const { data, isLoading } = useQuery<ApiDropDetailResponse>({
+    queryKey: ["drop", id],
+    queryFn: () => api.drop(id!),
+    enabled: !!id,
+  });
   if (isLoading)
     return (
       <div className="muted" style={{ padding: 24, textAlign: "center" }}>
@@ -22,8 +27,7 @@ export default function DropDetail() {
         </Link>
       </div>
     );
-  const d: any = (data as any).title ? (data as any) : ((data as any).drop ?? data);
-  const drop = (d as any).title ? (d as any) : d;
+  const drop = data;
   const price = drop.priceCcoin ?? drop.priceUnsignedCCoin ?? AOV_UNSIGNED_CCOIN;
   const pct = drop.totalUnits ? Math.round((drop.soldCount / drop.totalUnits) * 100) : 0;
   const isLive = drop.status === "live" || drop.status === "published";

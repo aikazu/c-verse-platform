@@ -1,9 +1,13 @@
+import type { Bid } from "@c-verse/shared";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { ApiError, api } from "../lib/api";
+import type { ApiCardDetailResponse, ApiCardOwnershipRow } from "../lib/api-types";
 import { useAuth } from "../lib/auth";
 import { useToast } from "../lib/toast";
+
+const errorMessage = (e: unknown): string => (e instanceof Error ? e.message : String(e));
 
 const VERIFY_BADGES: Record<string, { label: string; cls: string }> = {
   verified: { label: "✓ Verified", cls: "pill pill-success" },
@@ -29,7 +33,11 @@ export default function CardInfo() {
   const [destination, setDestination] = useState<"buyer_address" | "platform_vault">("platform_vault");
   const [address, setAddress] = useState("");
   const [busy, setBusy] = useState(false);
-  const { data, isLoading, refetch } = useQuery({ queryKey: ["card", cardId], queryFn: () => api.card(cardId!), enabled: !!cardId });
+  const { data, isLoading, refetch } = useQuery<ApiCardDetailResponse>({
+    queryKey: ["card", cardId],
+    queryFn: () => api.card(cardId!),
+    enabled: !!cardId,
+  });
   if (isLoading)
     return (
       <div className="muted" style={{ padding: 24, textAlign: "center" }}>
@@ -45,14 +53,13 @@ export default function CardInfo() {
         </p>
       </div>
     );
-  const c: any = data as any;
-  const card = c.card ?? c;
-  const drop = c.drop;
-  const owner = c.owner;
-  const activeBid = c.activeBid;
-  const history: any[] = c.ownershipHistory ?? [];
-  const bids: any[] = c.bids ?? [];
-  const verifyBadge = VERIFY_BADGES[card.verifyStatus] ?? VERIFY_BADGES.unknown;
+  const card = data.card;
+  const drop = data.drop;
+  const owner = data.owner;
+  const activeBid = data.activeBid;
+  const history: ApiCardOwnershipRow[] = data.ownershipHistory ?? [];
+  const bids: Bid[] = data.bids ?? [];
+  const verifyBadge = VERIFY_BADGES[card.verifyStatus ?? "unknown"] ?? VERIFY_BADGES.unknown;
   const isOwner = !!user && owner?.id === user.id;
   const canBuyout = card.buyoutPriceCcoin != null && !!user && !isOwner;
   const myActiveBid = activeBid?.bidderId && user && activeBid.bidderId === user.id ? activeBid : null;
@@ -71,7 +78,7 @@ export default function CardInfo() {
     } catch (e) {
       const err = e instanceof ApiError ? e : null;
       const friendly = err?.code ? BUYOUT_ERRORS[err.code] : undefined;
-      push(friendly ?? (e as Error)?.message ?? String(e), "error");
+      push(friendly ?? errorMessage(e), "error");
     } finally {
       setBusy(false);
     }
@@ -85,7 +92,7 @@ export default function CardInfo() {
       push("Bid dibatalkan", "success");
       refetch();
     } catch (e) {
-      push((e as Error)?.message || String(e), "error");
+      push(errorMessage(e), "error");
     } finally {
       setBusy(false);
     }
@@ -283,7 +290,7 @@ export default function CardInfo() {
               </div>
             ) : (
               <div style={{ padding: 12, display: "flex", flexDirection: "column", gap: 0 }}>
-                {history.map((h: any) => (
+                {history.map((h) => (
                   <div
                     key={h.id}
                     style={{
@@ -322,7 +329,7 @@ export default function CardInfo() {
               </div>
             ) : (
               <div style={{ padding: 12, display: "flex", flexDirection: "column", gap: 0 }}>
-                {bids.slice(0, 10).map((b: any) => (
+                {bids.slice(0, 10).map((b) => (
                   <div
                     key={b.id}
                     style={{

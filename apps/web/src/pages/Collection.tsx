@@ -1,16 +1,20 @@
+import type { UserBadge as SharedUserBadge } from "@c-verse/shared";
 import { cardLocationLabel } from "@c-verse/shared";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { LevelBar } from "../components/LevelBar";
 import { api } from "../lib/api";
+import type { ApiProfileEnrichedCard } from "../lib/api-types";
+import { useAuth } from "../lib/auth";
 import { ErrorState, LoadingState } from "../lib/QueryStates";
 
 export default function Collection() {
   const { user } = useAuth();
-  const { data, refetch, isLoading, isError } = useQuery({ queryKey: ["profile"], queryFn: () => api.profile(), enabled: !!user });
-  // eslint-disable-next-line react-hooks/rules-of-hooks
-  const _u = user;
-  void _u;
+  const { data, refetch, isLoading, isError } = useQuery({
+    queryKey: ["profile"],
+    queryFn: () => api.profile(),
+    enabled: !!user,
+  });
   if (!user)
     return (
       <div className="card card-pad" style={{ textAlign: "center", padding: 32 }}>
@@ -25,26 +29,22 @@ export default function Collection() {
     );
   if (isLoading) return <LoadingState />;
   if (isError || !data) return <ErrorState onRetry={() => refetch()} label="Gagal memuat koleksi" />;
-  const p: any = data as any;
-  const cards: any[] = p.cards ?? [];
-  const badges: any[] = p.badges ?? [];
-  const level: number = p.user?.level ?? p.level ?? 1;
-  const tier: string = p.user?.tier ?? p.tier ?? "bronze";
-  const progressPct: number =
-    typeof p.user?.levelProgressPct === "number"
-      ? p.user.levelProgressPct
-      : typeof p.levelProgressPct === "number"
-        ? p.levelProgressPct
-        : 0;
-  const progressLabel: string = p.user?.levelProgressLabel ?? p.levelProgressLabel ?? "Progress level berikutnya";
+  const cards: ApiProfileEnrichedCard[] = data.cards ?? [];
+  const badges = (data.badges ?? []) as SharedUserBadge[];
+  const level: number = data.user?.level ?? 1;
+  const tier: string = data.user?.tier ?? "bronze";
+  const progressPct: number = data.user?.levelProgressPct ?? 0;
+  const progressLabel: string = data.user?.levelProgressLabel ?? "Progress level berikutnya";
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: 12 }}>
         <div style={{ flex: "1 1 320px" }}>
           <span className="eyebrow">Koleksi</span>
           <h1 className="h2" style={{ marginTop: 4 }}>
-            {p.user?.displayName ?? "Koleksi"}{" "}
-            <em style={{ fontStyle: "italic", fontWeight: 300, color: "var(--gold)" }}>· {p.stats?.totalCards ?? cards.length} C.Card</em>
+            {data.user?.displayName ?? "Koleksi"}{" "}
+            <em style={{ fontStyle: "italic", fontWeight: 300, color: "var(--gold)" }}>
+              · {data.stats?.totalCards ?? cards.length} C.Card
+            </em>
           </h1>
           <div className="card card-pad" style={{ marginTop: 14, background: "var(--surface-2)" }}>
             <LevelBar level={level} tier={tier} pct={progressPct} hint={progressLabel} />
@@ -75,7 +75,7 @@ export default function Collection() {
             Lencana — {badges.length}
           </div>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            {badges.map((ub: any) => (
+            {badges.map((ub) => (
               <span key={ub.badgeId} className="pill pill-warn" title={ub.badge?.description} style={{ padding: "6px 12px", fontSize: 12 }}>
                 {ub.badge?.icon} {ub.badge?.name}
               </span>
@@ -107,7 +107,7 @@ export default function Collection() {
           </div>
         ) : (
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(220px,1fr))", gap: 14, padding: 14 }}>
-            {cards.map((ca: any) => (
+            {cards.map((ca) => (
               <Link
                 key={ca.id}
                 to={`/cards/${ca.id}`}
@@ -155,6 +155,3 @@ export default function Collection() {
     </div>
   );
 }
-
-// keep useAuth import — moved below to avoid hoist issue
-import { useAuth } from "../lib/auth";

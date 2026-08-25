@@ -3,8 +3,11 @@ import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { api, formatIdr } from "../lib/api";
+import type { ApiDrop, ApiDropDetailResponse } from "../lib/api-types";
 import { useAuth } from "../lib/auth";
 import { useToast } from "../lib/toast";
+
+const errorMessage = (e: unknown): string => (e instanceof Error ? e.message : String(e));
 
 export default function Checkout() {
   const { id } = useParams();
@@ -15,7 +18,11 @@ export default function Checkout() {
   const [addr, setAddr] = useState("");
   const [fee, setFee] = useState(2);
   const [buying, setBuying] = useState(false);
-  const { data, isLoading } = useQuery({ queryKey: ["drop", id], queryFn: () => api.drop(id!), enabled: !!id });
+  const { data, isLoading } = useQuery<ApiDropDetailResponse>({
+    queryKey: ["drop", id],
+    queryFn: () => api.drop(id!),
+    enabled: !!id,
+  });
   if (isLoading)
     return (
       <div className="muted" style={{ padding: 24, textAlign: "center" }}>
@@ -31,8 +38,7 @@ export default function Checkout() {
         </Link>
       </div>
     );
-  const d: any = (data as any).title ? (data as any) : ((data as any).drop ?? data);
-  const drop = d.title ? d : d;
+  const drop: ApiDrop = data;
   const price = drop.priceCcoin ?? drop.priceUnsignedCCoin ?? AOV_UNSIGNED_CCOIN;
   const total = price + (delivery === "shipping" ? fee : 0);
   async function onCheckout() {
@@ -48,11 +54,11 @@ export default function Checkout() {
         deliveryOption: delivery,
         shippingAddress: delivery === "shipping" ? addr : null,
         shippingFeeCcoin: delivery === "shipping" ? fee : null,
-      } as any);
+      });
       push(`Checkout berhasil — ${total} C`, "success");
       nav(`/orders/${res.order.id}`);
-    } catch (e: any) {
-      push(e.message, "error");
+    } catch (e: unknown) {
+      push(errorMessage(e), "error");
     } finally {
       setBuying(false);
     }

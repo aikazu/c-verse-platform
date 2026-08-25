@@ -1,11 +1,13 @@
+import type { UserBadge as SharedUserBadge } from "@c-verse/shared";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useParams } from "react-router-dom";
 import { LevelBar } from "../components/LevelBar";
 import { api } from "../lib/api";
+import type { ApiPublicProfileCard, ApiPublicProfileResponse } from "../lib/api-types";
 
 export default function PublicProfile() {
   const { username } = useParams();
-  const { data, isLoading } = useQuery({
+  const { data, isLoading } = useQuery<ApiPublicProfileResponse>({
     queryKey: ["public-profile", username],
     queryFn: () => api.publicProfile(username!),
     enabled: !!username,
@@ -22,8 +24,7 @@ export default function PublicProfile() {
         <p className="muted">Profil tidak ditemukan</p>
       </div>
     );
-  const d: any = data as any;
-  if (d.hidden) {
+  if (data.hidden) {
     return (
       <div className="card card-pad" style={{ textAlign: "center", padding: 32 }}>
         <div style={{ fontSize: 36, marginBottom: 8, opacity: 0.6 }}>◯</div>
@@ -32,14 +33,14 @@ export default function PublicProfile() {
           Pemilik menyembunyikan profil
         </div>
         <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--text-dim)", marginTop: 4 }}>
-          {d.user?.username ? `@${d.user.username}` : d.user?.displayName}
+          {data.user?.username ? `@${data.user.username}` : data.user?.displayName}
         </div>
       </div>
     );
   }
-  const user = d.user;
-  const cards: any[] = d.cards ?? [];
-  const badges: any[] = d.badges ?? [];
+  const user = data.user;
+  const cards: ApiPublicProfileCard[] = data.cards ?? [];
+  const badges: SharedUserBadge[] = data.badges ?? [];
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
       <div className="card card-pad">
@@ -48,13 +49,13 @@ export default function PublicProfile() {
           {user.username ? `@${user.username} — ` : ""}
           {user.displayName}
         </h1>
-        <LevelBar level={user.level} tier={user.tier} pct={user.levelProgressPct ?? 0} compact />
+        <LevelBar level={user.level ?? 1} tier={user.tier ?? "bronze"} pct={user.levelProgressPct ?? 0} compact />
         <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--text-muted)", marginTop: 10 }}>
-          #{user.rank} · {cards.length} C.Card · {badges.length} lencana
+          #{user.rank ?? "—"} · {cards.length} C.Card · {badges.length} lencana
         </div>
         {badges.length > 0 && (
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 12 }}>
-            {badges.map((ub: any) => (
+            {badges.map((ub: SharedUserBadge) => (
               <span key={ub.badgeId} className="pill pill-warn" style={{ fontSize: 11 }}>
                 {ub.badge?.icon} {ub.badge?.name}
               </span>
@@ -68,7 +69,7 @@ export default function PublicProfile() {
         </div>
       ) : (
         <div className="grid-3">
-          {cards.map((c: any) => (
+          {cards.map((c) => (
             <Link
               key={c.id}
               to={`/cards/${c.id}`}

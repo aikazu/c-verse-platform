@@ -48,7 +48,7 @@ function UserMenu() {
     return () => document.removeEventListener("click", onDoc);
   }, []);
   if (!user) return null;
-  const initial = ((user as any).displayName || (user as any).username || user.email || "U").slice(0, 1).toUpperCase();
+  const initial = (user.displayName || user.username || user.email || "U").slice(0, 1).toUpperCase();
   const isCreator = user.role === "creator" || user.role === "admin";
   return (
     <div ref={ref} style={{ position: "relative" }}>
@@ -86,7 +86,7 @@ function UserMenu() {
           {initial}
         </span>
         <span style={{ fontSize: 13, fontWeight: 500, maxWidth: 130, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-          {(user as any).displayName ?? (user as any).username ?? user.email}
+          {user.displayName ?? user.username ?? user.email}
         </span>
         <span style={{ fontSize: 10, color: "var(--text-dim)" }}>{open ? "▲" : "▼"}</span>
       </button>
@@ -107,9 +107,7 @@ function UserMenu() {
           }}
         >
           <div style={{ padding: "14px 16px", borderBottom: "1px solid var(--border)", background: "var(--surface-2)" }}>
-            <div style={{ fontWeight: 700, fontSize: 13, fontFamily: "var(--font-display)" }}>
-              {(user as any).displayName ?? user.email}
-            </div>
+            <div style={{ fontWeight: 700, fontSize: 13, fontFamily: "var(--font-display)" }}>{user.displayName ?? user.email}</div>
             <div style={{ fontSize: 11, color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>{user.email}</div>
             <span
               className="pill"
