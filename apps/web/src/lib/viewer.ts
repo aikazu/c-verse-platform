@@ -1,6 +1,10 @@
 import { useEffect, useRef } from "react";
+import type * as THREE_TYPES from "three";
 
 // Imperative Three.js card viewer — mounted by Card3D page.
+// Three.js dipakai via dynamic import (kode di-pisah jadi chunk terpisah oleh
+// Vite) — type module-nya di-ambil sebagai namespace statis via `typeof`,
+// runtime dimuat asinkron supaya tidak masuk bundle utama.
 
 // Card proportions shared by every mesh path.
 const CARD_W = 0.63;
@@ -11,21 +15,27 @@ const CARD_THICK = 0.03;
 const PLACEHOLDER_OBJ_URL = "/placeholder.obj";
 const PLACEHOLDER_TEXTURE_URL = "/textures/karina.jpg";
 
+// Alias namespace Three untuk mempersingkat deklarasi tipe di bawah.
+type Three = typeof THREE_TYPES;
+
 // Load an image as a texture; rejects when it cannot be loaded or decoded.
-async function loadTexture(THREE: any, url: string): Promise<any> {
-  const tex = await new Promise<any>((resolve, reject) => {
+async function loadTexture(THREE: Three, url: string): Promise<THREE_TYPES.Texture> {
+  const tex = await new Promise<THREE_TYPES.Texture>((resolve, reject) => {
     new THREE.TextureLoader().load(url, resolve, undefined, reject);
   });
-  tex.colorSpace = (THREE as any).SRGBColorSpace ?? undefined;
+  // SRGBColorSpace ditambahkan di three r152 (ganti encoding) — fallback kalau belum ada.
+  const colorSpace = (THREE as unknown as { SRGBColorSpace?: THREE_TYPES.ColorSpace }).SRGBColorSpace;
+  if (colorSpace) tex.colorSpace = colorSpace;
   return tex;
 }
 
 // Flat card meshes exported without UVs get a planar projection from their
 // XY bounds so face artwork still maps across the whole card.
-function ensurePlanarUvs(THREE: any, geometry: any): void {
+function ensurePlanarUvs(THREE: Three, geometry: THREE_TYPES.BufferGeometry): void {
   if (geometry.attributes.uv) return;
   geometry.computeBoundingBox();
   const bb = geometry.boundingBox;
+  if (!bb) return;
   const pos = geometry.attributes.position;
   const spanX = Math.max(bb.max.x - bb.min.x, 1e-6);
   const spanY = Math.max(bb.max.y - bb.min.y, 1e-6);
@@ -40,10 +50,10 @@ function ensurePlanarUvs(THREE: any, geometry: any): void {
 // Load a card OBJ, apply faceUrl as its material map (placeholder artwork
 // when the face fails to load), and normalize it: centered, fitted to the
 // standard card height — export units vary per modeling tool.
-async function loadCardObj(THREE: any, objUrl: string, faceUrl: string): Promise<any> {
+async function loadCardObj(THREE: Three, objUrl: string, faceUrl: string): Promise<THREE_TYPES.Group> {
   const { OBJLoader } = await import("three/examples/jsm/loaders/OBJLoader.js");
   const obj = await new OBJLoader().loadAsync(objUrl);
-  let map: any = null;
+  let map: THREE_TYPES.Texture | null = null;
   try {
     map = await loadTexture(THREE, faceUrl);
   } catch {
@@ -53,13 +63,14 @@ async function loadCardObj(THREE: any, objUrl: string, faceUrl: string): Promise
       map = null;
     }
   }
-  obj.traverse((child: any) => {
-    if (!child.isMesh) return;
-    ensurePlanarUvs(THREE, child.geometry);
+  obj.traverse((child: THREE_TYPES.Object3D) => {
+    const mesh = child as THREE_TYPES.Mesh;
+    if (!mesh.isMesh) return;
+    ensurePlanarUvs(THREE, mesh.geometry as THREE_TYPES.BufferGeometry);
     // Artwork is printed media, not metal — any metalness darkens the map
     // without an environment map to reflect, hiding the texture at
     // unfavorable rotation angles.
-    child.material = new THREE.MeshStandardMaterial({
+    mesh.material = new THREE.MeshStandardMaterial({
       ...(map ? { map } : { color: 0x232338 }),
       roughness: 0.45,
       metalness: 0,
@@ -79,15 +90,18 @@ export function useCardViewer(containerRef: React.RefObject<HTMLDivElement | nul
   useEffect(() => {
     if (!containerRef.current) return;
     let disposed = false;
-    let scene: any, camera: any, renderer: any, mesh: any;
+    let scene: THREE_TYPES.Scene | null = null;
+    let camera: THREE_TYPES.PerspectiveCamera | null = null;
+    let renderer: THREE_TYPES.WebGLRenderer | null = null;
+    let mesh: THREE_TYPES.Object3D | null = null;
     let detachWindowListeners: (() => void) | null = null;
 
     (async () => {
       const THREE = await import("three");
       if (disposed || !containerRef.current) return;
-      const el = containerRef.current!;
-      const w = el.clientWidth,
-        h = el.clientHeight;
+      const el = containerRef.current;
+      const w = el.clientWidth;
+      const h = el.clientHeight;
 
       scene = new THREE.Scene();
       scene.background = new THREE.Color(0x08080c);
@@ -129,16 +143,21 @@ export function useCardViewer(containerRef: React.RefObject<HTMLDivElement | nul
 
       // Subtle bloom-like glow via an extra larger plane behind
       const glowGeom = new THREE.PlaneGeometry(CARD_W * 1.3, CARD_H * 1.35);
-      const glowMat = new THREE.MeshBasicMaterial({ color: 0xd4a843, transparent: true, opacity: 0.06, side: THREE.DoubleSide });
+      const glowMat = new THREE.MeshBasicMaterial({
+        color: 0xd4a843,
+        transparent: true,
+        opacity: 0.06,
+        side: THREE.DoubleSide,
+      });
       const glow = new THREE.Mesh(glowGeom, glowMat);
       glow.position.z = -0.08;
       scene.add(glow);
 
       let t = 0;
-      let dragging = false,
-        lastX = 0,
-        rotY = 0,
-        autoRot = 0.003;
+      let dragging = false;
+      let lastX = 0;
+      let rotY = 0;
+      const autoRot = 0.003;
       const onPointerDown = (e: PointerEvent) => {
         dragging = true;
         lastX = e.clientX;
@@ -163,9 +182,9 @@ export function useCardViewer(containerRef: React.RefObject<HTMLDivElement | nul
       };
 
       const onResize = () => {
-        if (!el) return;
-        const nw = el.clientWidth,
-          nh = el.clientHeight;
+        if (!el || !camera || !renderer) return;
+        const nw = el.clientWidth;
+        const nh = el.clientHeight;
         camera.aspect = nw / nh;
         camera.updateProjectionMatrix();
         renderer.setSize(nw, nh);
@@ -176,12 +195,12 @@ export function useCardViewer(containerRef: React.RefObject<HTMLDivElement | nul
         rafRef.current = requestAnimationFrame(animate);
         t += 0.016;
         if (!dragging) rotY += autoRot;
-        if (mesh) {
+        if (mesh && camera && scene && renderer) {
           mesh.rotation.y = rotY;
           mesh.rotation.x = Math.sin(t * 0.3) * 0.06;
           mesh.position.y = Math.sin(t * 0.6) * 0.02;
+          renderer.render(scene, camera);
         }
-        renderer.render(scene, camera);
       };
       animate();
     })();
@@ -191,8 +210,10 @@ export function useCardViewer(containerRef: React.RefObject<HTMLDivElement | nul
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
       detachWindowListeners?.();
       try {
-        renderer?.dispose?.();
-      } catch {}
+        renderer?.dispose();
+      } catch {
+        // ignore — renderer disposal occasionally throws when WebGL context lost
+      }
       if (containerRef.current) containerRef.current.innerHTML = "";
     };
   }, [meshUrl, textureUrl]);
