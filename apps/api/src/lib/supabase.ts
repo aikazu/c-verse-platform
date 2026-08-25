@@ -30,24 +30,25 @@ export function missingDbEnvError(): Error {
  * Supabase service client — throws when env is missing (fail-fast, no fallback).
  * Branch-aware: Supabase Branching injects per-branch URL/keys via env/Secrets.
  * Optional `env` (Workers bindings / scheduled handler) takes precedence over globals.
+ *
+ * M1 (audit 2026-08-24): the server-side service-role key is REQUIRED. Admin route
+ * handlers rely on RLS bypass; a silent fallback to the anon key turned a missing
+ * or rotated SERVICE_ROLE secret into confusing partial-failure / data leaks.
  */
 export function getSupabase(env?: EnvLike): SupabaseClient {
   if (env?.SUPABASE_URL?.startsWith("http")) {
-    const key = env.SUPABASE_SERVICE_ROLE_KEY ?? env.SUPABASE_ANON_KEY;
-    if (!key) throw missingDbEnvError();
-    return createClient(env.SUPABASE_URL, key, { auth: { persistSession: false, autoRefreshToken: false } });
+    if (!env.SUPABASE_SERVICE_ROLE_KEY) throw missingDbEnvError();
+    return createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
   }
   if (_client !== undefined) return _client;
-  const url = envValue("SUPABASE_URL", env) ?? getEnv("VITE_SUPABASE_URL");
-  const anonKey = envValue("SUPABASE_ANON_KEY", env) ?? getEnv("VITE_SUPABASE_ANON_KEY");
+  const url = envValue("SUPABASE_URL", env);
   const serviceKey = envValue("SUPABASE_SERVICE_ROLE_KEY", env);
 
-  // Prefer service_role on server (bypasses RLS for MVP)
-  const key = serviceKey ?? anonKey;
+  if (!url || !serviceKey || !url.startsWith("http")) throw missingDbEnvError();
 
-  if (!url || !key || !url.startsWith("http")) throw missingDbEnvError();
-
-  _client = createClient(url, key, {
+  _client = createClient(url, serviceKey, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
   return _client;
