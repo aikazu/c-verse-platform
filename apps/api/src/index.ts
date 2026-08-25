@@ -67,6 +67,11 @@ app.use("*", async (c, next) => {
   c.header("X-Content-Type-Options", "nosniff");
   c.header("Referrer-Policy", "strict-origin-when-cross-origin");
   c.header("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+  // L6 (audit 2026-08-24): Content-Security-Policy. The API returns JSON or XML
+  // (sitemap); nothing here needs to load scripts, so deny by default. The SPA
+  // (apps/web) carries its own CSP meta tag via the SEO Worker; this is the
+  // defense-in-depth layer in case the SPA is ever served through this origin.
+  c.header("Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'; sandbox");
 });
 
 // ── Rate Limiter (I-01) ──
