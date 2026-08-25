@@ -25,7 +25,10 @@
     "lint:fix": "biome check --write .",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
-    "test:e2e:debug": "playwright test --debug"
+    "test:e2e:debug": "playwright test --debug",
+    "sync:docs": "node sync-docs.mjs",
+    "sync:docs:check": "node sync-docs.mjs --check",
+    "sync:docs:reverse": "node sync-docs.mjs --reverse"
   },
   "packageManager": "pnpm@9.12.3",
   "engines": {
