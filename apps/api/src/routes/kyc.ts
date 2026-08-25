@@ -1,7 +1,7 @@
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import { z } from "zod";
-import { adminGateError, requireAdmin, requireUser, tokenFingerprint } from "../lib/auth.js";
+import { adminGateError, clientIp, requireAdmin, requireUser, tokenFingerprint } from "../lib/auth.js";
 import { getKycByUser, listKycRecords, logAuditDb, setKycStatus, upsertKycSubmission } from "../lib/reads/kyc.js";
 
 const app = new Hono();
@@ -56,7 +56,7 @@ app.post("/:id/approve", async (c) => {
     "kyc_records",
     c.req.param("id"),
     { status: "approved" },
-    c.req.header("x-forwarded-for") ?? null,
+    clientIp(c),
     await tokenFingerprint(c.req.header("authorization")),
   );
   return c.json({ kyc: rec });
@@ -77,7 +77,7 @@ app.post("/:id/reject", async (c) => {
     "kyc_records",
     c.req.param("id"),
     { status: "rejected" },
-    c.req.header("x-forwarded-for") ?? null,
+    clientIp(c),
     await tokenFingerprint(c.req.header("authorization")),
   );
   return c.json({ kyc: rec });

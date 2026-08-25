@@ -1,7 +1,7 @@
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import { z } from "zod";
-import { adminGateError, requireAdmin, tokenFingerprint } from "../lib/auth.js";
+import { adminGateError, clientIp, requireAdmin, tokenFingerprint } from "../lib/auth.js";
 import { RpcError, rpcCancelSeedSale, rpcReleaseSeedSale } from "../lib/db.js";
 import { sendCreatorAccessEmail } from "../lib/email.js";
 import { logAuditDb } from "../lib/reads/kyc.js";
@@ -73,7 +73,7 @@ app.patch(
       "users",
       String(data.id),
       { role, flagReason: flagReason ?? null },
-      c.req.header("x-forwarded-for") ?? null,
+      clientIp(c),
       await tokenFingerprint(c.req.header("authorization")),
     );
     return c.json({ user: data });
@@ -106,7 +106,7 @@ app.patch("/users/:id/wallet-hold", zValidator("json", z.object({ holdPayoutUnti
     "wallets",
     c.req.param("id"),
     { holdPayoutUntil: parsed?.toISOString() ?? null },
-    c.req.header("x-forwarded-for") ?? null,
+    clientIp(c),
     await tokenFingerprint(c.req.header("authorization")),
   );
   return c.json({ wallet: data });
@@ -170,7 +170,7 @@ app.patch(
       "disputes",
       c.req.param("id"),
       { status, decisionNotes: decisionNotes ?? null },
-      c.req.header("x-forwarded-for") ?? null,
+      clientIp(c),
       await tokenFingerprint(c.req.header("authorization")),
     );
     return c.json({ dispute: data });
@@ -265,7 +265,7 @@ app.post(
       "users",
       uidNew,
       { provision: true, handle, emailSent: emailResult.sent },
-      c.req.header("x-forwarded-for") ?? null,
+      clientIp(c),
       await tokenFingerprint(c.req.header("authorization")),
     );
 
@@ -327,7 +327,7 @@ app.patch("/cards/:id/vault-in", zValidator("json", z.object({ physicalCheckNote
       physicalCheckNote: physicalCheckNote ?? null,
       from: existing.location,
     },
-    c.req.header("x-forwarded-for") ?? null,
+    clientIp(c),
     await tokenFingerprint(c.req.header("authorization")),
   );
   return c.json({ card: data });
@@ -378,7 +378,7 @@ app.post("/cards/:id/release-seed-sale", async (c) => {
       location: existing.location,
       verify_status: existing.verify_status,
     },
-    c.req.header("x-forwarded-for") ?? null,
+    clientIp(c),
     await tokenFingerprint(c.req.header("authorization")),
   );
   return c.json({ ok: true, cardId });
@@ -438,7 +438,7 @@ app.post("/cards/:id/cancel-seed-sale", async (c) => {
       path: summary.path ?? null,
       alreadyAborted: summary.alreadyAborted ?? false,
     },
-    c.req.header("x-forwarded-for") ?? null,
+    clientIp(c),
     await tokenFingerprint(c.req.header("authorization")),
   );
   return c.json({ ok: true, cardId, ...summary });

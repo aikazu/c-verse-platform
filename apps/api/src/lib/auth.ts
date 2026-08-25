@@ -86,6 +86,18 @@ export function authHeaderToToken(authHeader: string | undefined): string | unde
 }
 
 /**
+ * Resolve the client IP for audit/rate-limit, preferring Cloudflare-rendered headers.
+ * cf-connecting-ip is set by the CF edge and cannot be forged by clients behind the
+ * tunnel; x-forwarded-for is client-spoofable, so it is the last resort (matches the
+ * rate-limiter's logic at apps/api/src/index.ts:80-82 — keep these in sync).
+ * Returns null when no IP header is present so callers can store SQL NULL.
+ */
+export function clientIp(c: { req: { header: (k: string) => string | undefined } }): string | null {
+  const get = (k: string) => c.req.header(k);
+  return get("cf-connecting-ip") ?? get("x-real-ip") ?? get("x-forwarded-for")?.split(",")[0]?.trim() ?? null;
+}
+
+/**
  * Non-reversible fingerprint of a bearer token for audit correlation — NEVER store
  * the raw JWT (replayable until expiry). SHA-256, truncated to 16 hex chars.
  */

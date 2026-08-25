@@ -46,6 +46,7 @@ vi.mock("../../lib/auth.js", () => ({
     return { body: { error: msg }, status: 403 };
   },
   tokenFingerprint: () => Promise.resolve("sha256:test"),
+  clientIp: () => "127.0.0.1",
 }));
 
 vi.mock("../../lib/reads/kyc.js", () => ({

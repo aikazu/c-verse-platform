@@ -95,3 +95,58 @@ describe("supabaseIssuerFromUrl", () => {
     expect(supabaseIssuerFromUrl("not-a-url")).toBeNull();
   });
 });
+
+describe("clientIp", () => {
+  // Reused by logAuditDb call sites (H1 forensic integrity): prefer CF-Connecting-IP first
+  // because x-forwarded-for is client-spoofable when the request bypasses the tunnel.
+  it("prefers cf-connecting-ip (Cloudflare-rendered, trusted)", async () => {
+    const { clientIp } = await import("./auth");
+    expect(
+      clientIp({
+        req: {
+          header: (k: string) =>
+            ({
+              "cf-connecting-ip": "203.0.113.5",
+              "x-real-ip": "10.0.0.1",
+              "x-forwarded-for": "1.2.3.4, 10.0.0.2",
+            })[k.toLowerCase()],
+        },
+      }),
+    ).toBe("203.0.113.5");
+  });
+
+  it("falls back to x-real-ip when cf-connecting-ip is missing", async () => {
+    const { clientIp } = await import("./auth");
+    expect(
+      clientIp({
+        req: {
+          header: (k: string) =>
+            ({
+              "x-real-ip": "10.0.0.7",
+              "x-forwarded-for": "1.2.3.4",
+            })[k.toLowerCase()],
+        },
+      }),
+    ).toBe("10.0.0.7");
+  });
+
+  it("takes the first hop from x-forwarded-for when neither cf nor real-ip present", async () => {
+    const { clientIp } = await import("./auth");
+    expect(
+      clientIp({
+        req: {
+          header: (k: string) => (k.toLowerCase() === "x-forwarded-for" ? "1.2.3.4, 10.0.0.2, 10.0.0.3" : undefined),
+        },
+      }),
+    ).toBe("1.2.3.4");
+  });
+
+  it("returns null when no client IP header is present", async () => {
+    const { clientIp } = await import("./auth");
+    expect(
+      clientIp({
+        req: { header: () => undefined },
+      }),
+    ).toBeNull();
+  });
+});

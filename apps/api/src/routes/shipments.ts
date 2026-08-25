@@ -1,7 +1,7 @@
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import { z } from "zod";
-import { adminGateError, requireAdmin, requireUser, tokenFingerprint } from "../lib/auth.js";
+import { adminGateError, clientIp, requireAdmin, requireUser, tokenFingerprint } from "../lib/auth.js";
 import { RpcError, rpcAdminFulfillShipment } from "../lib/db.js";
 import { getDropById } from "../lib/reads/drops.js";
 import { logAuditDb } from "../lib/reads/kyc.js";
@@ -73,7 +73,7 @@ app.patch(
         "shipments",
         existing.id,
         { status, trackingNumber: trackingNumber ?? null },
-        c.req.header("x-forwarded-for") ?? null,
+        clientIp(c),
         await tokenFingerprint(c.req.header("authorization")),
       );
       return c.json({ shipment: mapShipmentRow(data as Row) });

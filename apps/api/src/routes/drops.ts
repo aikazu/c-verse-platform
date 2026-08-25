@@ -2,7 +2,7 @@ import { AOV_UNSIGNED_CCOIN, C_COIN_RATE_IDR } from "@c-verse/shared";
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import { z } from "zod";
-import { adminGateError, requireAdmin, requireUser, tokenFingerprint } from "../lib/auth.js";
+import { adminGateError, clientIp, requireAdmin, requireUser, tokenFingerprint } from "../lib/auth.js";
 import { RpcError, rpcDropEntry, userDb } from "../lib/db.js";
 import { getCreatorByUserId } from "../lib/reads/creators.js";
 import { type DropFilter, getDropById, listCardsByDrop, listDrops } from "../lib/reads/drops.js";
@@ -198,7 +198,7 @@ app.post(
       "drops",
       id,
       { title: body.title, dropStartAt, raffleEndAt },
-      c.req.header("x-forwarded-for") ?? null,
+      clientIp(c),
       await tokenFingerprint(c.req.header("authorization")),
     );
     const drop = await getDropById(id);
@@ -244,7 +244,7 @@ app.patch(
       "drops",
       String(data.id),
       { status, prevStatus: drop.status },
-      c.req.header("x-forwarded-for") ?? null,
+      clientIp(c),
       await tokenFingerprint(c.req.header("authorization")),
     );
     const updated = await getDropById(String(data.id));

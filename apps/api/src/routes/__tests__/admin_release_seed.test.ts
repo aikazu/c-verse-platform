@@ -34,6 +34,7 @@ vi.mock("../../lib/auth.js", () => ({
     }),
   adminGateError: () => ({ body: { error: "Unauthorized" }, status: 401 }),
   tokenFingerprint: () => Promise.resolve("sha256:test"),
+  clientIp: () => "127.0.0.1",
 }));
 
 vi.mock("../../lib/reads/kyc.js", () => ({

@@ -3,7 +3,7 @@ import { BALANCE_CAP_CCOIN, C_COIN_RATE_IDR } from "@c-verse/shared";
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import { z } from "zod";
-import { adminGateError, requireAdmin, requireUser, tokenFingerprint } from "../lib/auth.js";
+import { adminGateError, clientIp, requireAdmin, requireUser, tokenFingerprint } from "../lib/auth.js";
 import { RpcError, rpcPayoutRefund, userDb } from "../lib/db.js";
 import { getProvider } from "../lib/payments/index.js";
 import { mapTransactionStatus } from "../lib/payments/midtrans.js";
@@ -102,7 +102,7 @@ app.post("/admin/payout-run", async (c) => {
     "payout_batches",
     String(data ?? "-"),
     { batchId: data },
-    c.req.header("x-forwarded-for") ?? null,
+    clientIp(c),
     await tokenFingerprint(c.req.header("authorization")),
   );
   return c.json({ batchId: data });
@@ -138,7 +138,7 @@ app.post("/admin/payouts/:id/refund", async (c) => {
         user_id: existing.user_id,
         ccoin_amount: existing.ccoin_amount,
       },
-      c.req.header("x-forwarded-for") ?? null,
+      clientIp(c),
       await tokenFingerprint(c.req.header("authorization")),
     );
     return c.json({ payout: refunded });

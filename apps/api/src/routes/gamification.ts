@@ -1,6 +1,6 @@
 import { calcLevel } from "@c-verse/shared";
 import { Hono } from "hono";
-import { adminGateError, requireAdmin, tokenFingerprint } from "../lib/auth.js";
+import { adminGateError, clientIp, requireAdmin, tokenFingerprint } from "../lib/auth.js";
 import { countCardsByOwner, listBadges, listTopUsersByXp, listUserBadges } from "../lib/reads/gamification.js";
 import { logAuditDb } from "../lib/reads/kyc.js";
 import { getUserById } from "../lib/reads/users.js";
@@ -64,7 +64,7 @@ app.patch("/badges/:id", async (c) => {
     "badges",
     String(data.id),
     { isActive: body.isActive },
-    c.req.header("x-forwarded-for") ?? null,
+    clientIp(c),
     await tokenFingerprint(c.req.header("authorization")),
   );
   return c.json({ badge: data });

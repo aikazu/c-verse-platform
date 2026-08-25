@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
 import { rateLimiter } from "hono-rate-limiter";
+import { clientIp } from "./lib/auth.js";
 import { runCron } from "./lib/cron.js";
 import admin from "./routes/admin.js";
 import auth from "./routes/auth.js";
@@ -78,8 +79,8 @@ const isProduction = !isTsxDev && envMode !== "development" && !supabaseIsLocal;
 
 if (isProduction) {
   // Behind Cloudflare: trust CF-Connecting-IP first; x-forwarded-for is client-spoofable so it is last resort.
-  const clientKey = (c: { req: { header: (k: string) => string | undefined } }) =>
-    c.req.header("cf-connecting-ip") ?? c.req.header("x-real-ip") ?? c.req.header("x-forwarded-for")?.split(",")[0]?.trim() ?? "loopback";
+  // Single source of truth (lib/auth.ts -> clientIp) keeps audit-log and rate-limiter in lockstep.
+  const clientKey = (c: { req: { header: (k: string) => string | undefined } }) => clientIp(c) ?? "loopback";
 
   const authLimiter = rateLimiter({
     windowMs: 60 * 1000,
