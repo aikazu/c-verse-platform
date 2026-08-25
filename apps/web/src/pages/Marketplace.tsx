@@ -1,6 +1,7 @@
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { api, formatIdr } from "../lib/api";
+import type { ApiListingsResponse, ApiMarketplaceEntry } from "../lib/api-types";
 import { ErrorState, LoadingState } from "../lib/QueryStates";
 
 export default function Marketplace() {
@@ -10,18 +11,13 @@ export default function Marketplace() {
     initialPageParam: 0,
     getNextPageParam: (last) => (last.hasMore ? last.offset + last.limit : undefined),
   });
-  const marketplace: any[] = data?.pages.flatMap((p) => p.marketplace ?? p.cards ?? []) ?? [];
-  const listings: any[] = data?.pages.flatMap((p) => p.listings ?? []) ?? [];
-  const cards = marketplace.length
-    ? marketplace
-    : listings.map((l: any) => ({
-        card: l.card,
-        drop: l.drop,
-        buyoutPriceCcoin: l.priceCCoin ?? l.buyoutPriceCcoin,
-        idrPrice: l.idrPrice,
-        sellerName: l.sellerName,
-        listingId: l.id,
-      }));
+  // Endpoint returns the same shape under `marketplace` / `cards` / `listings`
+  // (compat aliases — see apps/api/src/routes/marketplace.ts:68). Read whichever
+  // the server fills; first non-empty wins.
+  const pages = data?.pages ?? [];
+  const cards: ApiMarketplaceEntry[] = pages
+    .flatMap((p: ApiListingsResponse) => p.marketplace ?? p.cards ?? p.listings ?? [])
+    .filter((entry): entry is ApiMarketplaceEntry => entry?.kind === "buyout");
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: 12 }}>
@@ -51,13 +47,13 @@ export default function Marketplace() {
         </div>
       ) : (
         <div className="grid-3">
-          {cards.map((r: any) => {
-            const card = r.card ?? r;
-            const drop = r.drop;
-            const price = r.buyoutPriceCcoin ?? card.buyoutPriceCcoin ?? r.priceCCoin ?? r.listing?.priceCCoin ?? 0;
+          {cards.map((entry) => {
+            const card = entry.card;
+            const drop = entry.drop;
+            const price = entry.buyoutPriceCcoin ?? 0;
             return (
               <Link
-                key={card?.id ?? r.listingId}
+                key={card.id}
                 to={card?.id ? `/cards/${card.id}` : "/browse"}
                 className="card"
                 style={{ overflow: "hidden", textDecoration: "none", color: "inherit" }}
@@ -76,7 +72,7 @@ export default function Marketplace() {
                 </div>
                 <div style={{ padding: 14 }}>
                   <div style={{ fontWeight: 600, fontSize: 13 }}>
-                    {drop?.title ?? card?.id ?? r.listingId} · #{card?.unitNumber ?? "?"}
+                    {drop?.title ?? card.id} · #{card.unitNumber ?? "?"}
                   </div>
                   <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--text-muted)" }}>{drop?.series ?? ""}</div>
                   {drop?.isSeed && (
