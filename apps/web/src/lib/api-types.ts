@@ -9,9 +9,42 @@
 // sini adalah mirror statis — kalau server menambah field, tipe ini ikut
 // melebar secara opt-in (partial / unknown-friendly), bukan ditiru ulang.
 
-import type { Badge, Bid, Card, Drop, LeaderboardEntry, Order, Shipment, UserBadge, Wallet, WalletTransaction } from "@c-verse/shared";
+import type { Badge, Bid, Card, LeaderboardEntry, Order, Shipment, UserBadge, Wallet, WalletTransaction } from "@c-verse/shared";
 
 import type { PagedMeta } from "./api";
+
+// ── Domain response shape (sesuai runtime API) ────────────────────────────
+// Shared `Drop`/`Card` di @c-verse/shared pakai `priceCCoin` (double C) untuk
+// legacy compat, tapi API mapper (apps/api/src/lib/reads.ts) mengembalikan
+// `priceCcoin` (single C) sebagai shape JSON aktual yang diakses halaman web.
+// Pakai alias lokal ini agar type web cocok dengan response runtime — server
+// adalah source of truth.
+export interface ApiDrop {
+  id: string;
+  title: string;
+  series: string;
+  narrative: string;
+  artworkUrl: string;
+  artwork3dUrl?: string | null;
+  totalUnits: number;
+  signedCount: number;
+  unsignedCount: number;
+  priceCcoin: number;
+  priceUnsignedCCoin: number;
+  priceSignedCCoin: number;
+  status: string;
+  dropAt: string | null;
+  dropStartAt?: string | null;
+  dropEndAt?: string | null;
+  raffleEndAt?: string | null;
+  drawnAt?: string | null;
+  creatorId: string;
+  creatorName: string;
+  soldCount: number;
+  createdAt: string;
+  createdBy?: string | null;
+  isSeed: boolean;
+}
 
 // ── Auth ───────────────────────────────────────────────────────────────────
 export interface ApiUser {
@@ -35,10 +68,10 @@ export interface ApiUser {
 
 // ── Drops ──────────────────────────────────────────────────────────────────
 export interface ApiDropsResponse extends PagedMeta {
-  drops: Drop[];
+  drops: ApiDrop[];
 }
 
-export type ApiDropDetailResponse = Drop & {
+export type ApiDropDetailResponse = ApiDrop & {
   cards?: Card[];
 };
 
@@ -83,7 +116,7 @@ export interface ApiOrdersResponse {
 
 export interface ApiOrderDetailResponse {
   order: Order;
-  drop?: Drop;
+  drop?: ApiDrop;
   cards: Card[];
   shipments?: Shipment[];
 }
@@ -108,13 +141,13 @@ export interface ApiCardOwnershipRow {
 
 export interface ApiCardDetailResponse {
   card: Card;
-  drop: Drop;
+  drop: ApiDrop;
   ownershipHistory?: ApiCardOwnershipRow[];
 }
 
 export interface ApiCard3dResponse {
   card: Card;
-  drop: Drop;
+  drop: ApiDrop;
 }
 
 export interface ApiVerifyShortIdResponse {
@@ -174,7 +207,7 @@ export interface ApiPatchBuyoutResponse {
 // ── Browse ─────────────────────────────────────────────────────────────────
 export interface ApiBrowseEntry {
   card: Card;
-  drop: Drop;
+  drop: ApiDrop;
   buyoutPriceCcoin: number | null;
   highestBidCcoin?: number | null;
   activeBidsCount?: number;
@@ -204,9 +237,32 @@ export interface ApiAcceptBidResponse {
 }
 
 // ── Profile ────────────────────────────────────────────────────────────────
+export interface ApiProfileEnrichedCard extends Card {
+  drop: { id: string; title: string; series: string; artworkUrl: string } | null;
+  activeBid: Bid | null;
+}
+
 export interface ApiProfileResponse {
-  user: ApiUser;
-  cards: Card[];
+  user: ApiUser & {
+    level?: number;
+    tier?: string;
+    levelProgressPct?: number;
+    levelProgressLabel?: string;
+  };
+  cards: ApiProfileEnrichedCard[];
+  wallet?: Wallet & { balanceIdrEquiv: number };
+  orders?: Order[];
+  shipments?: Shipment[];
+  bids?: Bid[];
+  listings?: unknown[];
+  badges?: unknown[];
+  kyc?: { status: "pending" | "approved" | "rejected" | "unsubmitted" };
+  stats?: {
+    totalCards: number;
+    vaultCards: number;
+    withOwnerCards: number;
+    buyoutListed: number;
+  };
 }
 
 export interface ApiMyCardsResponse {
@@ -220,7 +276,7 @@ export interface ApiPatchProfileResponse {
 // ── Public profile / creator ──────────────────────────────────────────────
 export interface ApiPublicProfileResponse {
   user: ApiUser;
-  drops?: Drop[];
+  drops?: ApiDrop[];
   collection?: Card[];
   totalCards?: number;
 }
@@ -234,7 +290,7 @@ export interface ApiCreatorPublicResponse {
     avatarUrl?: string | null;
     bio?: string | null;
     totalFollowersCombined: number;
-    drops?: Drop[];
+    drops?: ApiDrop[];
     isActive: boolean;
     stats?: Record<string, number>;
   };

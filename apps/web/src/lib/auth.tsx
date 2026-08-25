@@ -2,6 +2,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import type React from "react";
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { api, setApiToken } from "./api";
+import type { ApiUser } from "./api-types";
 import { isSupabaseEnabled, supabase } from "./supabase";
 
 // Auth (docs/10): Supabase Auth — Google OAuth + email OTP 6 digit + captcha Turnstile.
@@ -9,22 +10,15 @@ import { isSupabaseEnabled, supabase } from "./supabase";
 
 /** Map GoTrue/DB error mentah ke pesan ramah (duplicate canonical email → login di akun lama). */
 export function friendlyAuthError(error: unknown): string {
-  const msg = String((error as { message?: string })?.message ?? error).toLowerCase();
+  const message = error instanceof Error ? error.message : String((error as { message?: string })?.message ?? error);
+  const msg = message.toLowerCase();
   if (msg.includes("duplicate key") || msg.includes("already registered") || msg.includes("23505")) {
     return "Email ini sudah punya akun — silakan masuk dengan email yang sama (magic link / Google).";
   }
-  return String((error as { message?: string })?.message ?? "Terjadi kesalahan");
+  return message || "Terjadi kesalahan";
 }
 
-type User = {
-  id: string;
-  email: string;
-  displayName: string;
-  role: string;
-  username?: string | null;
-  usernameIsAuto?: boolean;
-  xp?: number;
-} | null;
+type User = Pick<ApiUser, "id" | "email" | "displayName" | "role" | "username" | "usernameIsAuto" | "xp"> | null;
 
 interface AuthContextValue {
   user: User;

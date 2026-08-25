@@ -6,6 +6,8 @@ import { StatusBadge } from "../components/StatusBadge";
 import { api } from "../lib/api";
 import { useToast } from "../lib/toast";
 
+const errorMessage = (e: unknown): string => (e instanceof Error ? e.message : String(e));
+
 export default function OrderDetail() {
   const { id } = useParams();
   const { push } = useToast();
@@ -25,10 +27,10 @@ export default function OrderDetail() {
         <p className="muted">Pesanan tidak ditemukan</p>
       </div>
     );
-  const o: any = (data as any).order ?? data;
-  const drop: any = (data as any).drop;
-  const cards: any[] = (data as any).cards ?? [];
-  const shipments: any[] = (data as any).shipments ?? [];
+  const o = data.order;
+  const drop = data.drop;
+  const cards = data.cards;
+  const shipments = data.shipments ?? [];
   const isVault = o.deliveryOption === "vault" || (!o.shippingAddress && o.deliveryOption !== "shipping");
   const isShipped = o.status === "shipped";
   async function onConfirm() {
@@ -37,8 +39,8 @@ export default function OrderDetail() {
       await api.confirmDelivered(o.id);
       push("Pesanan diterima — terima kasih!", "success");
       refetch();
-    } catch (e: any) {
-      push((e as Error)?.message || String(e), "error");
+    } catch (e: unknown) {
+      push(errorMessage(e), "error");
     } finally {
       setBusy(false);
     }
@@ -54,8 +56,8 @@ export default function OrderDetail() {
       push("Dispute dibuat — tim kami akan meninjau", "success");
       setDisputeOpen(false);
       refetch();
-    } catch (e: any) {
-      push((e as Error)?.message || String(e), "error");
+    } catch (e: unknown) {
+      push(errorMessage(e), "error");
     } finally {
       setBusy(false);
     }
@@ -154,7 +156,7 @@ export default function OrderDetail() {
             </Link>
           </div>
         )}
-        {o.status !== "settled" && o.status !== "cancelled" && (
+        {o.status !== "settled" && (
           <div style={{ marginTop: 16, borderTop: "1px solid var(--border)", paddingTop: 14 }}>
             {disputeOpen ? (
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -206,7 +208,7 @@ export default function OrderDetail() {
               C.Card
             </div>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-              {cards.map((c: any) => (
+              {cards.map((c) => (
                 <Link
                   key={c.id}
                   to={`/cards/${c.id}`}
@@ -235,7 +237,7 @@ export default function OrderDetail() {
               Pengiriman
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              {shipments.map((s: any) => (
+              {shipments.map((s) => (
                 <div key={s.id} style={{ display: "flex", justifyContent: "space-between", fontFamily: "var(--font-mono)", fontSize: 11 }}>
                   <span>
                     {s.type} → {s.toDest} · {shipmentStatusLabel(s.status)}

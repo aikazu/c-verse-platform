@@ -7,6 +7,8 @@ import { useAuth } from "../lib/auth";
 import { ErrorState, LoadingState } from "../lib/QueryStates";
 import { useToast } from "../lib/toast";
 
+const errorMessage = (e: unknown): string => (e instanceof Error ? e.message : String(e));
+
 export default function Wallet() {
   const { user } = useAuth();
   const { push } = useToast();
@@ -55,7 +57,7 @@ export default function Wallet() {
         push(`${err.message} — buka KYC sekarang`, "error");
         nav("/me/kyc");
       } else {
-        push((e as Error)?.message || String(e), "error");
+        push(errorMessage(e), "error");
       }
     } finally {
       setBusyTopup(false);
@@ -79,7 +81,7 @@ export default function Wallet() {
       } else if (err?.status === 423) {
         push("Payout ditahan admin", "error");
       } else {
-        push((e as Error)?.message || String(e), "error");
+        push(errorMessage(e), "error");
       }
     } finally {
       setBusyPayout(false);
@@ -100,12 +102,12 @@ export default function Wallet() {
     );
   if (isLoading) return <LoadingState />;
   if (isError || !data) return <ErrorState onRetry={() => refetch()} label="Gagal memuat dompet" />;
-  const w: any = (data as any).wallet;
-  const txs: any[] = (data as any).transactions ?? [];
-  const rate = (data as any).rate ?? 10000;
-  const topupCapNoKyc = (data as any)?.topupCapNoKyc ?? BALANCE_CAP_CCOIN;
-  const payoutHeld = (data as any)?.payoutHeld ?? false;
-  const payoutHoldUntil: string | null = (data as any)?.payoutHoldUntil ?? null;
+  const w = data.wallet;
+  const txs = data.transactions;
+  const rate = data.rate;
+  const topupCapNoKyc = data.topupCapNoKyc ?? BALANCE_CAP_CCOIN;
+  const payoutHeld = data.payoutHeld ?? false;
+  const payoutHoldUntil: string | null = data.payoutHoldUntil ?? null;
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
       <div>
@@ -330,7 +332,7 @@ export default function Wallet() {
                   </td>
                 </tr>
               ) : (
-                txs.map((t: any) => (
+                txs.map((t) => (
                   <tr key={t.id}>
                     <td style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--text-muted)" }}>
                       {new Date(t.createdAt).toLocaleString("id-ID")}
@@ -364,7 +366,7 @@ export default function Wallet() {
                         textOverflow: "ellipsis",
                         whiteSpace: "nowrap",
                       }}
-                      title={t.note}
+                      title={t.note ?? undefined}
                     >
                       {t.note}
                     </td>

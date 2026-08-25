@@ -3,8 +3,11 @@ import type React from "react";
 import { useState } from "react";
 import { StatusBadge } from "../components/StatusBadge";
 import { api, formatIdr } from "../lib/api";
+import type { ApiDrop, ApiDropsResponse } from "../lib/api-types";
 import { useAuth } from "../lib/auth";
 import { useToast } from "../lib/toast";
+
+const errorMessage = (e: unknown): string => (e instanceof Error ? e.message : String(e));
 
 export default function CreatorDashboard() {
   const { user } = useAuth();
@@ -24,7 +27,7 @@ export default function CreatorDashboard() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
 
-  const { data: dropsData, refetch } = useQuery({ queryKey: ["creator-drops"], queryFn: () => api.drops({}) });
+  const { data: dropsData, refetch } = useQuery<ApiDropsResponse>({ queryKey: ["creator-drops"], queryFn: () => api.drops({}) });
 
   async function onApplyCreator() {
     setApplyBusy(true);
@@ -32,12 +35,13 @@ export default function CreatorDashboard() {
       const r = await api.applyCreator();
       push(r.creator.message, "success");
       setApplied(true);
-    } catch (err: any) {
-      if (err?.status === 409) {
+    } catch (err: unknown) {
+      const status = (err as { status?: number })?.status;
+      if (status === 409) {
         push("Pendaftaran kreator sudah ada — menunggu review admin", "info");
         setApplied(true);
       } else {
-        push(err.message, "error");
+        push(errorMessage(err), "error");
       }
     } finally {
       setApplyBusy(false);
@@ -56,7 +60,7 @@ export default function CreatorDashboard() {
         </a>
       </div>
     );
-  if ((user.role as string) !== "creator" && (user.role as string) !== "admin")
+  if (user.role !== "creator" && user.role !== "admin")
     return (
       <div className="card card-pad" style={{ textAlign: "center", padding: 32 }}>
         <span className="eyebrow">Kreator</span>
@@ -71,7 +75,7 @@ export default function CreatorDashboard() {
       </div>
     );
 
-  const myDrops: any[] = (dropsData as any)?.drops?.filter((d: any) => d.creatorId === user.id || (user.role as string) === "admin") ?? [];
+  const myDrops: ApiDrop[] = (dropsData?.drops ?? []).filter((d) => d.creatorId === user.id || user.role === "admin");
 
   async function onPublish(id: string, status: string) {
     if (
@@ -88,8 +92,8 @@ export default function CreatorDashboard() {
         "success",
       );
       refetch();
-    } catch (err: any) {
-      push(err.message, "error");
+    } catch (err: unknown) {
+      push(errorMessage(err), "error");
     } finally {
       setBusyId(null);
     }
@@ -106,12 +110,12 @@ export default function CreatorDashboard() {
         totalUnits: Number(form.totalUnits),
         priceCcoin: Number(form.priceCcoin),
         dropStartAt: `${form.releaseDate}T${form.releaseTime}:00+07:00`,
-      } as any);
+      });
       push("Drop dibuat", "success");
       refetch();
       setForm({ title: "", series: "", narrative: "", totalUnits: 15, priceCcoin: 30, releaseDate: today, releaseTime: "12:00" });
-    } catch (err: any) {
-      push(err.message, "error");
+    } catch (err: unknown) {
+      push(errorMessage(err), "error");
     } finally {
       setCreating(false);
     }
@@ -143,7 +147,7 @@ export default function CreatorDashboard() {
               TERJUAL
             </div>
             <div style={{ fontFamily: "var(--font-display)", fontSize: 26, fontWeight: 500, marginTop: 4 }}>
-              {myDrops.reduce((n: any, d: any) => n + d.soldCount, 0)}
+              {myDrops.reduce((n, d) => n + d.soldCount, 0)}
             </div>
           </div>
           <div>
@@ -153,7 +157,7 @@ export default function CreatorDashboard() {
               EST. GMV
             </div>
             <div style={{ fontFamily: "var(--font-mono)", fontSize: 15, fontWeight: 600, marginTop: 6 }}>
-              {formatIdr(myDrops.reduce((n: any, d: any) => n + d.soldCount * ((d.priceCcoin ?? d.priceUnsignedCCoin) * 10000), 0))}
+              {formatIdr(myDrops.reduce((n, d) => n + d.soldCount * ((d.priceCcoin ?? d.priceUnsignedCCoin) * 10000), 0))}
             </div>
           </div>
         </div>
@@ -284,7 +288,7 @@ export default function CreatorDashboard() {
                 Belum ada drop
               </div>
             ) : (
-              myDrops.map((d: any) => (
+              myDrops.map((d) => (
                 <div
                   key={d.id}
                   style={{

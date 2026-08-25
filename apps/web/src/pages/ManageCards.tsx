@@ -1,9 +1,13 @@
+import type { Card } from "@c-verse/shared";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../lib/api";
+import type { ApiProfileEnrichedCard } from "../lib/api-types";
 import { useAuth } from "../lib/auth";
 import { useToast } from "../lib/toast";
+
+type EnrichedCard = ApiProfileEnrichedCard;
 
 export default function ManageCards() {
   const { user } = useAuth();
@@ -18,7 +22,7 @@ export default function ManageCards() {
 
   // Seed input dari harga buyout aktif — string supaya kosong ("") terbedakan dari angka.
   useEffect(() => {
-    const list: any[] = (data as any)?.cards ?? [];
+    const list = data?.cards ?? [];
     if (list.length === 0) return;
     setBuyout((prev) => {
       const next = { ...prev };
@@ -41,8 +45,8 @@ export default function ManageCards() {
         </a>
       </div>
     );
-  const cards: any[] = (data as any)?.cards ?? [];
-  async function onSetBuyout(card: any) {
+  const cards: EnrichedCard[] = data?.cards ?? [];
+  async function onSetBuyout(card: EnrichedCard) {
     const raw = (buyout[card.id] ?? "").trim();
     const hasExisting = card.buyoutPriceCcoin != null;
     if (raw === "") {
@@ -53,8 +57,8 @@ export default function ManageCards() {
         await api.patchBuyout(card.id, null);
         push("Harga dihapus", "success");
         refetch();
-      } catch (e: any) {
-        push(e.message, "error");
+      } catch (e: unknown) {
+        push(e instanceof Error ? e.message : String(e), "error");
       } finally {
         setBusyId(null);
       }
@@ -70,13 +74,13 @@ export default function ManageCards() {
       await api.setBuyout(card.id, v);
       push(`Dijual ${v} C`, "success");
       refetch();
-    } catch (e: any) {
-      push(e.message, "error");
+    } catch (e: unknown) {
+      push(e instanceof Error ? e.message : String(e), "error");
     } finally {
       setBusyId(null);
     }
   }
-  async function onVaultShip(card: any) {
+  async function onVaultShip(card: Card) {
     const addr = vaultAddr[card.id] ?? "";
     const fee = vaultFee[card.id] ?? 2;
     if (addr.length < 10) {
@@ -88,13 +92,13 @@ export default function ManageCards() {
       await api.vaultShipout(card.id, addr, fee);
       push("Pengiriman dibuat", "success");
       refetch();
-    } catch (e: any) {
-      push(e.message, "error");
+    } catch (e: unknown) {
+      push(e instanceof Error ? e.message : String(e), "error");
     } finally {
       setBusyId(null);
     }
   }
-  async function onAccept(card: any) {
+  async function onAccept(card: Card) {
     const destination = acceptDest[card.id] ?? "buyer_address";
     const addr = (acceptAddr[card.id] ?? "").trim();
     if (destination === "buyer_address" && addr.length < 10) {
@@ -106,8 +110,8 @@ export default function ManageCards() {
       await api.acceptBidOnCard(card.id, destination, destination === "buyer_address" ? addr : undefined);
       push("Penawaran diterima", "success");
       refetch();
-    } catch (e: any) {
-      push(e.message, "error");
+    } catch (e: unknown) {
+      push(e instanceof Error ? e.message : String(e), "error");
     } finally {
       setBusyId(null);
     }
@@ -131,7 +135,7 @@ export default function ManageCards() {
         </div>
       ) : (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(300px,1fr))", gap: 14 }}>
-          {cards.map((card: any) => (
+          {cards.map((card) => (
             <div key={card.id} className="card" style={{ padding: 16, display: "flex", flexDirection: "column", gap: 10 }}>
               <div style={{ fontWeight: 600, fontSize: 13 }}>
                 {card.drop?.title ?? card.dropId} · #{card.unitNumber}{" "}
