@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { creatorAccessEmailTemplate, sendCreatorAccessEmail } from "./email.js";
+import { creatorAccessEmailTemplate, redactEmail, sendCreatorAccessEmail } from "./email.js";
 
 // Test murni modul email (docs/10 §3.6): flag EMAIL_ENABLED default OFF — tanpa
 // env, sendCreatorAccessEmail TIDAK menyentuh SMTP dan return { sent:false }.
@@ -29,6 +29,15 @@ describe("lib/email sendCreatorAccessEmail", () => {
     expect(infoSpy).toHaveBeenCalledWith(expect.stringContaining("nonaktif"));
   });
 
+  it("log PII: tidak menuliskan email tujuan lengkap saat EMAIL_ENABLED OFF (M2)", async () => {
+    resetEnv();
+    const infoSpy = vi.spyOn(console, "info").mockImplementation(() => undefined);
+    await sendCreatorAccessEmail({ to: "secretperson@gmail.com", displayName: "Budi" });
+    const logged = infoSpy.mock.calls.map((c) => String(c[0] ?? "")).join("\n");
+    expect(logged).not.toContain("secretperson@gmail.com");
+    expect(logged).toMatch(/^.*s\*+@gmail\.com\b/);
+  });
+
   it("EMAIL_ENABLED=false eksplisit -> tetap { sent: false }", async () => {
     resetEnv();
     (globalThis as unknown as Record<string, string | undefined>).EMAIL_ENABLED = "false";
@@ -43,5 +52,20 @@ describe("lib/email sendCreatorAccessEmail", () => {
     expect(text).toContain("c-verse.co");
     expect(text).toContain("creator@example.com");
     expect(text).toContain("Budi");
+  });
+});
+
+describe("redactEmail", () => {
+  it("menyimpan domain dan beberapa karakter pertama local-part", () => {
+    expect(redactEmail("secretperson@gmail.com")).toMatch(/^s.+@gmail\.com$/);
+    expect(redactEmail("secretperson@gmail.com")).not.toBe("secretperson@gmail.com");
+  });
+
+  it("local-part 1-2 karakter -> masked seluruhnya", () => {
+    expect(redactEmail("ab@gmail.com")).toBe("**@gmail.com");
+  });
+
+  it("format tidak valid -> kembalikan apa adanya (defensive)", () => {
+    expect(redactEmail("not-an-email")).toBe("not-an-email");
   });
 });

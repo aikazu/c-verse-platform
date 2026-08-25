@@ -27,6 +27,18 @@ function parseTopupOrderId(orderId: string): { userId: string } | null {
   return m ? { userId: m[1] } : null;
 }
 
+/**
+ * Redact a top-up orderId for log output (M2 audit 2026-08-24). The orderId
+ * embeds the user's UUID (`top-{userId}-{ts}-{rand}`) — keep only the prefix
+ * and the random tail so operators can still correlate with the audit table.
+ * Returns "top-?<unparseable>" for input that does not match the format.
+ */
+export function redactOrderId(orderId: string): string {
+  const m = orderId.match(/^top-[0-9a-fA-F-]{36}-(\d+)-([a-z0-9]+)$/i);
+  if (!m) return `top-?(${orderId.length})`;
+  return `top-?…${m[2]}`;
+}
+
 app.post("/topup", zValidator("json", z.object({ amountCcoin: z.number().int().min(1).max(10000) })), async (c) => {
   const authRes = await requireUser(c);
   if ("error" in authRes) return c.json({ error: authRes.error === 403 ? "Akun disuspend" : "Unauthorized" }, authRes.error);
@@ -222,7 +234,7 @@ app.post("/midtrans/webhook", async (c) => {
         null,
         null,
       );
-      console.error("[payments] topup melewati cap non-KYC (race) — kredit ditolak, perlu refund manual:", payload.orderId);
+      console.error("[payments] topup melewati cap non-KYC (race) — kredit ditolak, perlu refund manual:", redactOrderId(payload.orderId));
       return c.json({ ok: true, ignored: true, reason: "topup_cap_exceeded" });
     }
     return c.json({ error: error.message }, 500);

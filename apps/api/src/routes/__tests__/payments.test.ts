@@ -124,3 +124,28 @@ describe("Midtrans webhook", () => {
     expect(body.credited).toBe(15);
   });
 });
+
+describe("redactOrderId (M2 audit log PII)", () => {
+  it("menyimpan prefix top- dan random tail, menghapus user UUID", async () => {
+    const { redactOrderId } = await import("../payments.js");
+    const redacted = redactOrderId(ORDER_ID);
+    expect(redacted).toBe("top-?…abc123");
+    expect(redacted).not.toContain(USER_ID);
+    expect(redacted).not.toContain("1700000000");
+  });
+
+  it("format tidak valid -> placeholder defensif tanpa bocorkan string asli", async () => {
+    const { redactOrderId } = await import("../payments.js");
+    expect(redactOrderId("not-a-topup-id")).toMatch(/^top-\?\(\d+\)$/);
+    expect(redactOrderId("")).toMatch(/^top-\?\(\d+\)$/);
+  });
+
+  it("log PII: TOPUP_CAP_EXCEEDED tidak menuliskan user UUID ke console (M2)", async () => {
+    control.rpcResult = { data: null, error: { message: "TOPUP_CAP_EXCEEDED" } };
+    const errSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    await webhook({ order_id: ORDER_ID, gross_amount: "150000", transaction_status: "settlement" });
+    const logged = errSpy.mock.calls.map((c) => c.map((a) => String(a)).join(" ")).join("\n");
+    expect(logged).not.toContain(USER_ID);
+    expect(logged).toMatch(/top-\?…abc123/);
+  });
+});
