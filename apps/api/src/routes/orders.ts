@@ -217,7 +217,18 @@ app.post(
       })
       .select("*")
       .maybeSingle();
-    if (shipError) throw new Error(shipError.message);
+    // M7 (audit 2026-08-24): partial unique index `uq_shipments_active_per_card` will
+    // reject a duplicate active shipment at the DB level. The wallet_debit above is
+    // already idempotent (vault-shipout-{cardId}-{N} is unique per priorShips.length
+    // read snapshot), so the refund path needs no extra compensation: the request
+    // that hit the unique constraint did not introduce a net money movement beyond
+    // what the first request committed.
+    if (shipError) {
+      if (/duplicate key value violates unique constraint "uq_shipments_active_per_card"/i.test(shipError.message)) {
+        return c.json({ error: "Sudah ada pengiriman aktif untuk kartu ini" }, 409);
+      }
+      throw new Error(shipError.message);
+    }
     if (!shipRow) throw new Error("Shipment insert returned no row");
     // QC flip: kartu keluar vault -> QC platform tercatat passed (docs 05 cards.qc_status).
     const { error: cardError } = await db.from("cards").update({ qc_status: "passed" }).eq("id", cardId);
