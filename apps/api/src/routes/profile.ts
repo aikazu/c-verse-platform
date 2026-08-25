@@ -145,7 +145,19 @@ app.patch(
     "json",
     z
       .object({
-        displayName: z.string().trim().min(2).max(40).optional(),
+        // L1 (audit 2026-08-24): forbid characters that would let a stored
+        // displayName escape HTML/JSON-LD downstream. Worker-seo.ts already
+        // escapes attribute values + </script>, but defense-in-depth at the
+        // input stops the bad data from ever entering the DB. Spaces are
+        // allowed so names like "Budi Santoso" remain valid.
+        displayName: z
+          .string()
+          .trim()
+          .min(2)
+          .max(40)
+          .regex(/^[^<>&]+$/, "displayName tidak boleh mengandung < > &")
+          .refine((s) => Array.from(s).every((c) => c.charCodeAt(0) >= 0x20), "displayName tidak boleh mengandung karakter kontrol")
+          .optional(),
         username: z
           .string()
           .trim()
