@@ -1,6 +1,20 @@
--- C.Verse — Foundation (squashed phase 1/7)
--- Semua enum, tabel, constraint, trigger `updated_at`, dan index basis.
--- DDL FINAL: setiap objek ditulis satu kali (tanpa create-or-replace berantai).
+-- ══════════════════════════════════════════════════════════════════════════
+-- C.Verse — 01_schema: All DDL (extensions, enums, tables, base indexes,
+-- updated_at triggers, table-level grants). Setiap objek ditulis satu kali.
+--
+-- Sumber (semua FINAL, tanpa patch intermediate):
+--   - 20260817000000_foundation.sql         — DDL lengkap
+--   - 20260817040000_grants_payout.sql      — table-level grants
+--   - 20260817060000_revenue_flow_hardening.sql — platform_revenue + treasury + grants
+--   - 20260821000000_seed_card.sql          — drops.is_seed column
+--   - 20260821020000_seed_two_phase.sql     — bids.destination/shipping_address, orders.source check
+--   - 20260823000000_payout_refund.sql      — payouts.status check (add 'processing','refunded')
+--   - 20260824000000_shipment_active_unique.sql — partial unique index shipments active per card
+--
+-- Perubahan dari versi asli (konsolidasi saja — tidak ada logic change):
+--   - ALTER TABLE add column/constraint setelah CREATE TABLE (idempotent)
+--   - Sequence + grants dikumpulkan di akhir file
+-- ══════════════════════════════════════════════════════════════════════════
 
 create extension if not exists "pgcrypto";
 
@@ -10,7 +24,7 @@ create extension if not exists "pgcrypto";
 create type public.user_role as enum ('user','creator','admin');
 create type public.drop_status as enum ('draft','scheduled','published','live','sold_out','closed','cancelled');
 create type public.order_status as enum ('paid','qc','shipped','delivered','settled','refunded','disputed');
-create type public.wallet_tx_type as enum ('top_up','checkout','escrow_hold','escrow_release','settlement','payout','royalty','refund','adjustment','platform_buy','platform_revenue');
+create type public.wallet_tx_type as enum ('top_up','checkout','escrow_hold','escrow_release','settlement','payout','royalty','refund','adjustment','platform_buy','platform_revenue','seed_abort','payout_refund');
 create type public.verify_status as enum ('verified','tamper_detected','registered','unknown');
 create type public.kyc_status as enum ('pending','approved','rejected');
 create type public.card_variant as enum ('unsigned','signed');
@@ -60,7 +74,6 @@ create table public.users (
   consent_data_market boolean not null default false,
   username_is_auto boolean not null default false
 );
-create unique index if not exists idx_users_username on public.users(username) where username is not null;
 
 create table public.wallets (
   user_id uuid primary key references public.users(id) on delete cascade,
@@ -86,7 +99,7 @@ create table public.drops (
   drop_at timestamptz,
   creator_id uuid not null references public.users(id) on delete restrict,
   creator_name text not null,
-  sold_count integer not null default 0 check (sold_count >= 0),
+  sold_count integer not null default 0 check (sold_count <= total_units),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   artwork_3d_url text,
@@ -96,8 +109,9 @@ create table public.drops (
   created_by uuid references public.users(id) on delete set null,
   raffle_end_at timestamptz,
   drawn_at timestamptz,
-  constraint chk_counts check (signed_count + unsigned_count = total_units),
-  constraint chk_sold check (sold_count <= total_units)
+  -- drops.is_seed: Creator Seed C.Card provenance (Flow 10, keputusan 2026-08-20).
+  is_seed boolean not null default false,
+  constraint chk_counts check (signed_count + unsigned_count = total_units)
 );
 
 create table public.cards (
@@ -151,7 +165,7 @@ create table public.orders (
   escrow_status escrow_status not null default 'held',
   card_id text references public.cards(id) on delete set null,
   shipped_at timestamptz,
-  source text not null default 'fcfs' check (source in ('fcfs','raffle'))
+  source text not null default 'fcfs'
 );
 
 create table public.bids (
@@ -165,6 +179,10 @@ create table public.bids (
   outbid_at timestamptz,
   cancelled_at timestamptz,
   accepted_at timestamptz,
+  -- bids.destination / shipping_address: two-phase seed sale (2026-08-21).
+  -- destination = pilihan tujuan buyer saat PHASE-1 accept; dipakai release_seed_sale.
+  destination public.shipment_to_dest,
+  shipping_address text,
   constraint chk_amount_ccoin check (amount_ccoin >= 1)
 );
 
@@ -305,7 +323,9 @@ create table public.payouts (
   ccoin_amount integer not null check (ccoin_amount >= 1),
   idr_amount bigint not null,
   withholding_tax jsonb,
-  status text not null default 'pending' check (status in ('pending','disbursed','failed'))
+  status text not null default 'pending',
+  -- payouts.requested_at: waktu user request disbursement (founder 2026-08-23).
+  requested_at timestamptz not null default now()
 );
 
 create table public.creator_page_views (
@@ -338,6 +358,50 @@ create table public.drop_entries (
   created_at timestamptz not null default now()
 );
 
+-- platform_revenue: ledger pendapatan platform per event settlement.
+-- Snapshot fee rate per transaksi (docs/05 I6/I11).
+create table public.platform_revenue (
+  id text primary key default gen_random_uuid()::text,
+  source text not null check (source in ('primary','secondary_buyout','secondary_bid')),
+  ref_type text not null,
+  ref_id text not null,
+  gross_ccoin integer not null check (gross_ccoin >= 1),
+  platform_ccoin integer not null default 0,
+  royalty_ccoin integer not null default 0,
+  seller_ccoin integer not null default 0,
+  fee_snapshot jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now()
+);
+comment on table public.platform_revenue is
+  'Ledger pendapatan platform (per event settlement) — snapshot fee rate per transaksi (docs 05 I6/I11).';
+
+-- ══════════════════════════════════════════════════════════════════════════
+-- Constraint extensions (idempotent alter; sumber: 21xx/23xx migrations)
+-- ══════════════════════════════════════════════════════════════════════════
+
+-- orders.source: seed buyout PHASE-1 (20260821020000) menulis 'secondary_buyout'.
+alter table public.orders drop constraint if exists orders_source_check;
+alter table public.orders add constraint orders_source_check
+  check (source in ('fcfs','raffle','secondary_buyout'));
+
+-- payouts.status: tambah 'processing' (batch run) + 'refunded' (admin refund).
+-- Webhook IRIS sudah menulis 'disbursed'/'failed'.
+alter table public.payouts
+  drop constraint if exists payouts_status_check;
+alter table public.payouts
+  add constraint payouts_status_check
+    check (status in ('pending','processing','disbursed','failed','refunded'));
+
+-- ══════════════════════════════════════════════════════════════════════════
+-- Treasury user (system account, is_anonymous=true agar tidak muncul publik).
+-- Fixed UUID yang dipakai semua ledger fees.
+-- ══════════════════════════════════════════════════════════════════════════
+insert into public.users (id, email, display_name, username, role, is_anonymous)
+values ('00000000-0000-4000-8000-0000000000c0', 'treasury@c-verse.co', 'C.Verse Treasury', 'cverse_treasury', 'user', true)
+on conflict (id) do nothing;
+insert into public.wallets (user_id) values ('00000000-0000-4000-8000-0000000000c0')
+on conflict (user_id) do nothing;
+
 -- ══════════════════════════════════════════════════════════════════════════
 -- Trigger updated_at (semua tabel berkepemilikan updated_at)
 -- ══════════════════════════════════════════════════════════════════════════
@@ -353,7 +417,7 @@ create trigger trg_shipments_updated_at before update on public.shipments for ea
 create trigger trg_disputes_updated_at before update on public.disputes for each row execute function set_updated_at();
 
 -- ══════════════════════════════════════════════════════════════════════════
--- Index basis
+-- Index basis (access-path + uniqueness) — sumber: foundation.sql
 -- ══════════════════════════════════════════════════════════════════════════
 create index if not exists idx_drops_status on public.drops(status);
 create index if not exists idx_drops_creator on public.drops(creator_id);
@@ -390,3 +454,41 @@ create index if not exists idx_cpv_viewed on public.creator_page_views(viewed_at
 create index if not exists idx_qc_card on public.qc_defects(card_id);
 create unique index if not exists idx_drop_entries_unique on public.drop_entries(drop_id, user_id);
 create index if not exists idx_drop_entries_drop on public.drop_entries(drop_id, status);
+
+-- ══════════════════════════════════════════════════════════════════════════
+-- Constraint indexes (unique/partial-unique untuk integritas data)
+-- ══════════════════════════════════════════════════════════════════════════
+-- Idempotency ledger untuk wallet_debit/credit (RPC atomic layer).
+create unique index if not exists uq_wtx_idempotency_key
+  on public.wallet_transactions((metadata->>'idempotency_key'))
+  where metadata->>'idempotency_key' is not null;
+
+-- platform_revenue idempotent per (ref_type, ref_id).
+create unique index if not exists uq_platform_revenue_ref on public.platform_revenue(ref_type, ref_id);
+
+-- M7 (audit 2026-08-24): vault-shipout duplicate-insert guard.
+-- Final terminal statuses (delivered/cancelled) dikecualikan supaya kartu bisa
+-- di-ship ulang setelah transaksi sebelumnya selesai.
+create unique index if not exists uq_shipments_active_per_card
+  on public.shipments (card_id)
+  where status not in ('delivered', 'cancelled');
+
+-- ══════════════════════════════════════════════════════════════════════════
+-- GRANT tabel (least-privilege — row tetap difilter RLS)
+-- ══════════════════════════════════════════════════════════════════════════
+grant all on all tables in schema public to service_role;
+grant usage, select on all sequences in schema public to service_role;
+
+-- anon: read publik + insert page-view (rate-limit per-IP di API route M4).
+grant select on public.users, public.creators, public.drops, public.cards, public.bids, public.ownership_history, public.badges to anon;
+grant insert on public.creator_page_views to anon;
+
+-- authenticated: read sesuai matriks RLS + write minimum (guard trigger).
+grant select on
+  public.users, public.creators, public.drops, public.cards, public.orders,
+  public.wallets, public.wallet_transactions, public.bids, public.shipments,
+  public.ownership_history, public.badges, public.user_badges, public.kyc_records,
+  public.payouts, public.notifications, public.disputes
+to authenticated;
+grant insert on public.bids, public.kyc_records, public.disputes, public.creator_page_views to authenticated;
+grant update on public.users, public.cards, public.notifications to authenticated;

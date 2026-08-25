@@ -1,7 +1,20 @@
--- C.Verse — RLS policy matrix + write guards (squashed phase 3/7)
--- Default deny: RLS enable semua tabel publik, policy per-operation per matriks.
--- service_role bypass otomatis. Guard function prevent tulis langsung kolom
--- sensitif oleh role authenticated/anon (hanya lewat RPC security definer).
+-- ══════════════════════════════════════════════════════════════════════════
+-- C.Verse — 03_rls: Row Level Security policies + helper function +
+-- trigger guards. Default deny: RLS enable semua tabel publik, policy per
+-- operation per matriks. service_role bypass otomatis. Guard function
+-- prevent tulis langsung kolom sensitif oleh role authenticated/anon (hanya
+-- lewat RPC security definer).
+--
+-- Sumber (FINAL, tanpa patch intermediate):
+--   - 20260817020000_rls_policies.sql — enable + policies + 4 guard triggers
+--   - 20260823020000_seed_xp_unify.sql — unlist_card_if_non_tradable trigger
+--
+-- Catatan konsolidasi:
+--   - cards force row level security (force RLS for table owner too)
+--     dipertahankan dari foundation/RLS.
+--   - is_service_role() juga dipakai di guard trigger 04_rpc.sql dan
+--     beberapa RPC sebagai pagar kedua — definisi tunggal di sini.
+-- ══════════════════════════════════════════════════════════════════════════
 
 -- ══════════════════════════════════════════════════════════════════════════
 -- Enable RLS semua tabel publik
@@ -111,7 +124,7 @@ create trigger trg_cards_buyout_guard before update on public.cards
   for each row execute function public.cards_buyout_guard();
 
 -- ══════════════════════════════════════════════════════════════════════════
--- wallets / ledger
+-- wallets / ledger (append-only wallet_transactions)
 -- ══════════════════════════════════════════════════════════════════════════
 create policy wallets_select_own on public.wallets for select
   using (user_id = auth.uid());
@@ -203,7 +216,8 @@ create policy notifications_update_own on public.notifications for update
   using (user_id = auth.uid()) with check (user_id = auth.uid());
 
 -- ══════════════════════════════════════════════════════════════════════════
--- creator_page_views: insert-only anon (tidak bisa dibaca)
+-- creator_page_views: insert-only anon (read via admin / creator SPA;
+-- rate-limit per-IP di API route M4 audit 2026-08-24).
 -- ══════════════════════════════════════════════════════════════════════════
 create policy creator_page_views_insert on public.creator_page_views for insert
   with check (true);
@@ -224,3 +238,26 @@ begin
 end $$;
 create trigger trg_audit_immutable before update or delete on public.admin_audit_log
   for each row execute function public.audit_log_immutable_guard();
+
+-- ══════════════════════════════════════════════════════════════════════════
+-- AUTO-UNLIST non-tradable cards (keputusan 2026-08-23, src 23020000).
+-- Trigger AFTER UPDATE OF status: kartu yang jadi 'tampered'/'defect'/'lost'
+-- auto-clear buyout_price_ccoin (NULL). Listings dibuat lewat
+-- buyout_price_ccoin NOT NULL → jadi auto-unlist. Daftar non-tradable
+-- disinkronkan dengan check gate CARD_NOT_TRADABLE di accept_bid/buyout_card/
+-- place_bid/set_buyout (audit 2026-08-23).
+-- ══════════════════════════════════════════════════════════════════════════
+create or replace function public.unlist_card_if_non_tradable() returns trigger
+language plpgsql as $$
+begin
+  if new.status::text in ('tampered','defect','lost')
+     and new.buyout_price_ccoin is not null then
+    new.buyout_price_ccoin := null;
+  end if;
+  return new;
+end $$;
+
+drop trigger if exists trg_unlist_non_tradable on public.cards;
+create trigger trg_unlist_non_tradable
+  before update of status on public.cards
+  for each row execute function public.unlist_card_if_non_tradable();

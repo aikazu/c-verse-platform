@@ -1,7 +1,19 @@
--- C.Verse — Auth & username (squashed phase 2/7)
--- Signup Supabase Auth -> baris public.users otomatis via trigger.
--- Username default manusiawi (prefix-email + 4 digit acak, anti-duplikat).
--- Dedup akun berdasarkan EMAIL KANONIK (gmail/googlemail: buang titik & "+tag").
+-- ══════════════════════════════════════════════════════════════════════════
+-- C.Verse — 02_auth: Supabase Auth → public.users mirror + username
+-- generation + canonical email dedup. Setiap objek ditulis satu kali.
+--
+-- Sumber (FINAL, tanpa patch intermediate):
+--   - 20260817010000_auth.sql — seluruh konten
+--
+-- Catatan konsolidasi:
+--   - idx_users_username (UNIQUE WHERE username IS NOT NULL) disatukan di sini
+--     dari foundation.sql — username uniqueness adalah auth concern.
+--   - users_canonical_email_uidx tetap di sini (auth concern: dedup akun).
+-- ══════════════════════════════════════════════════════════════════════════
+
+-- Username uniqueness (partial unique — username nullable untuk akun praseed)
+create unique index if not exists idx_users_username
+  on public.users(username) where username is not null;
 
 -- ══════════════════════════════════════════════════════════════════════════
 -- generate_default_username: prefix-email + 4 digit acak, anti-duplikat.
