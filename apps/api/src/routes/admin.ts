@@ -280,7 +280,7 @@ app.post(
 // (release_seed_sale, two-phase settlement 2026-08-21).
 //
 // KEPUTUSAN DESAIN (akses aman, tidak memalsukan verified NFC):
-// gate RELEASE seed di RPC release_seed_sale (migration
+// gate RELEASE seed di RPC release_seed_sale (04_rpc.sql — sebelumnya
 // 20260821020000_seed_two_phase) mengecek KEDUA syarat: (a) cards.location
 // = 'platform_vault' (fisik ada di vault — penilaian admin/ops) DAN
 // (b) cards.verify_status = 'verified' (UID cocok — HANYA dari tap NFC
@@ -393,8 +393,8 @@ app.post("/cards/:id/release-seed-sale", async (c) => {
 // bid 'accepted' -> 'cancelled' + wallet_credit buyer; Path B (order
 // pending buyout PHASE-1): order 'paid' -> 'refunded' + wallet_credit.
 // service_role only RPC (cancel_seed_sale, mirror guard pattern dari
-// release_seed_sale 20260823030000). TIDAK touch treasury /
-// platform_revenue — PHASE-1 menulis tidak ada revenue leg.
+// release_seed_sale di 04_rpc.sql — sebelumnya 20260823030000). TIDAK touch
+// treasury / platform_revenue — PHASE-1 menulis tidak ada revenue leg.
 app.post("/cards/:id/cancel-seed-sale", async (c) => {
   const authRes = await requireAdmin(c);
   if ("error" in authRes) {

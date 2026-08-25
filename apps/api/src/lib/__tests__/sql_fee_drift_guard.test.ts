@@ -70,7 +70,8 @@ describe("SQL fee drift guard — shared constants vs migration literals", () =>
     }
 
     // Magnet: migration yang berisi split primary 70/30 (record_platform_revenue
-    // 'primary' + jsonb fee_snapshot). Audit: 20260817060000_revenue_flow_hardening.sql.
+    // 'primary' + jsonb fee_snapshot). Audit: 04_rpc.sql (sebelumnya
+    // 20260817060000_revenue_flow_hardening.sql, dilebur saat konsolidasi).
     // Filter ketat: file harus punya record_platform_revenue DAN explicit 'primary'
     // SEBAGAI source argumen (bukan sebagai bagian acquired_via text di ownership).
     const primarySplit = migrations.filter(
@@ -82,7 +83,8 @@ describe("SQL fee drift guard — shared constants vs migration literals", () =>
       expect(content, `${file} harus memuat royalty_pct ${primaryCreatorStr}`).toContain(primaryCreatorStr);
     }
 
-    // Fee snapshot secondary: file 20260817060000 memuat 0.85 seller_pct di jsonb.
+    // Fee snapshot secondary: 04_rpc.sql memuat 0.85 seller_pct di jsonb
+    // (sebelumnya 20260817060000_revenue_flow_hardening.sql, dilebur saat konsolidasi).
     // Filter ketat: harus punya seller_pct di context fee_snapshot (record_platform_revenue
     // body). Matcher sederhana: substring 'seller_pct' cukup unik untuk jsonb key ini.
     const secondarySnapshot = migrations.filter((m) => m.content.includes("seller_pct") && m.content.includes("record_platform_revenue"));
@@ -92,8 +94,8 @@ describe("SQL fee drift guard — shared constants vs migration literals", () =>
     }
 
     // Settlement eksplisit round(* 0.075) — cek per file secondary settle agar
-    // masing-masing independently sinkron (e.g. jika fee berlaku hanya di
-    // seed_card migration). SETIDAKNYA 3 file dari 5 settler.
+    // masing-masing independently sinkron. Setelah konsolidasi: minimal 1 settler
+    // pattern (semua secondary settle sekarang di 04_rpc.sql).
     const roundedSecondary = settlerFiles.filter((m) => contentIncludesRounded(m.content, platformStr));
     expect(roundedSecondary.length, `setidaknya 1 settler harus pakai round(* ${platformStr})`).toBeGreaterThanOrEqual(1);
 
@@ -108,11 +110,10 @@ describe("SQL fee drift guard — shared constants vs migration literals", () =>
     const maxBuyoutStr = String(MAX_BUYOUT_ACTIVE_PER_USER);
     const migrations = readMigrations();
 
-    // Audit 2026-08-23: 4 file punya guard ">= 20" / MAX_BUYOUT_ACTIVE:
-    //   20260817020000_rls_policies.sql (RLS)
-    //   20260817030000_rpc_atomic.sql (checkout)
-    //   20260817060000_revenue_flow_hardening.sql (set_buyout)
-    //   20260821020000_seed_two_phase.sql (set_buyout)
+    // Audit 2026-08-23: 4 file punya guard ">= 20" / MAX_BUYOUT_ACTIVE. Setelah
+    // konsolidasi (04_rpc.sql untuk RPC, 03_rls.sql untuk RLS guard):
+    //   03_rls.sql (cards_buyout_guard — RLS guard)
+    //   04_rpc.sql::set_buyout + checkout (MAX_BUYOUT_ACTIVE check)
     const withGuard = migrations.filter((m) => m.content.includes("MAX_BUYOUT_ACTIVE") || m.content.includes(`>= ${maxBuyoutStr}`));
     expect(withGuard.length, `MAX_BUYOUT_ACTIVE / >= ${maxBuyoutStr} harus muncul di setidaknya 2 file (RLS + RPC)`).toBeGreaterThanOrEqual(
       2,

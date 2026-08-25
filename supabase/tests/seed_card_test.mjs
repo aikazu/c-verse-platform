@@ -1,8 +1,9 @@
 // C.Verse — Creator Seed C.Card TWO-PHASE SETTLEMENT tests
-// (migration 20260821020000_seed_two_phase, keputusan user 2026-08-21).
+// (04_rpc.sql::accept_bid/buyout_card/release_seed_sale — sebelumnya
+// 20260821020000_seed_two_phase, keputusan user 2026-08-21).
 // Jalankan against Supabase lokal (disposable — db reset bebas):
 //   node supabase/tests/seed_card_test.mjs postgresql://postgres:***@127.0.0.1:54322/postgres
-// Prasyarat: `npx supabase db reset` (migration 20260821020000 ter-apply).
+// Prasyarat: `npx supabase db reset` (04_rpc.sql ter-apply).
 // Skenario (FASE C — menggantikan gate-paksa FASE B):
 //   T-SEED-1: accept_bid kartu seed saat location<>platform_vault ATAU
 //             verify<>verified -> PHASE-1 LOCK (bukan tolak): bid->accepted,

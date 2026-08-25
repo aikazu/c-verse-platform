@@ -4,16 +4,18 @@
 > cap Rp 5-10 jt) & validasi C-03 iPhone masih [DRAFT] — lihat
 > `07_constraints.md`]
 > Last updated: 2026-08-23 (admin abort path PHASE-1 stuck seed sale —
-> RPC cancel_seed_sale, migration 20260823050000_seed_sale_abort;
-> refund penuh ke buyer tanpa fees/XP karena XP granted TEPAT di
-> PHASE-2 release)
+> RPC cancel_seed_sale di `04_rpc.sql`, sebelumnya
+> `20260823050000_seed_sale_abort.sql`; refund penuh ke buyer tanpa
+> fees/XP karena XP granted TEPAT di PHASE-2 release)
 > Previous: 2026-08-23 (seed buyer XP granted TEPAT SEKALI di
 > PHASE-2 release untuk kedua path buyout/accept_bid; trigger
 > auto-unlist buyout_price_ccoin saat kartu non-tradable —
-> migration 20260823020000_seed_xp_unify)
+> sebelumnya `20260823020000_seed_xp_unify.sql`, sekarang
+> `03_rls.sql`::unlist_card_if_non_tradable)
 > Previous: 2026-08-21 (Flow 10 → TWO-PHASE SETTLEMENT — bid/accept
 > BUKAN lagi di-gate; release yang wajib menunggu vault-in + NFC
-> verified — migration 20260821020000_seed_two_phase, keputusan 2026-08-21)
+> verified — sebelumnya `20260821020000_seed_two_phase.sql`, sekarang
+> `04_rpc.sql`::accept_bid/buyout_card, keputusan 2026-08-21)
 > Previous: 2026-08-21 (badge holografik "✦ Seed 1-of-1" di
 > Marketplace, Browse, halaman kartu (info) & 3D — Flow 10 langkah [5])
 > Previous: 2026-08-20 (Flow 10 Creator Seed C.Card + Flow 11
@@ -131,7 +133,8 @@ SOP fulfillment: admin packing, panggil kurir, input no resi, update status orde
 
 > Admin update status shipment (`PATCH /api/shipments/:id/status`) dilakukan
 > secara **atomik** via RPC `admin_fulfill_shipment(p_id, p_status, p_tracking)`
-> (migration `20260823010000`): update shipments + orders (delivery_option=
+> di `04_rpc.sql` (sebelumnya `20260823010000_admin_fulfill_shipment.sql`,
+> dilebur saat konsolidasi): update shipments + orders (delivery_option=
 > 'shipping' sesuai status prereq) + `cards.location='with_owner'` (saat
 > delivered) dalam satu transaksi. service_role only. Precheck transisi
 > tetap di route untuk respons 409 yang ramah.
@@ -278,7 +281,7 @@ Aturan:
    - Bidder bisa cancel bidnya sendiri; owner tidak bisa reject.
    - Max 20 kartu buyout aktif per user (guard).
    - Kartu tampered/defect/lost tidak tradable (RPC CARD_NOT_TRADABLE);
-     trigger SQL auto-unlist (20260823020000) clear `buyout_price_ccoin`
+     trigger SQL auto-unlist di `03_rls.sql` (sebelumnya `20260823020000_seed_xp_unify.sql`) clear `buyout_price_ccoin`
      saat status berubah ke non-tradable — listing tidak stays live
      dengan diam-diam.
 ```
@@ -402,7 +405,8 @@ ADM-06: dispute masuk -> review bukti -> keputusan
       fisik — tidak ada kerusakan baru
     - TERIMPLEMENTASI (2026-08-21): gate SEED_VAULT_IN_REQUIRED
       dipindah dari accept_bid/buyout_card ke release_seed_sale
-      (migration 20260821020000_seed_two_phase) — release ditolak
+      (`04_rpc.sql`::release_seed_sale — sebelumnya
+      `20260821020000_seed_two_phase.sql`) — release ditolak
       jika drop induk kartu drops.is_seed = true TAPI location <>
       platform_vault ATAU verify_status <> verified (settle ditolak,
       rollback atomik). Provenance seed = flag level drop
@@ -416,8 +420,9 @@ ADM-06: dispute masuk -> review bukti -> keputusan
       vault atas nama buyer, pilihan buyer di PHASE-1)
     - Buyer XP granted TEPAT SEKALI di PHASE-2 release untuk kedua
       path (buyout & accept_bid) — keputusan founder 2026-08-23
-      (migration 20260823020000). XP merefleksikan 'uang keluar escrow
-      ke settled', bukan saat escrow terbentuk. Konsisten dengan
+      (`04_rpc.sql`::buyout_card + release_seed_sale; sebelumnya
+      `20260823020000_seed_xp_unify.sql`). XP merefleksikan 'uang keluar
+      escrow ke settled', bukan saat escrow terbentuk. Konsisten dengan
       aturan hold/escrow bukan spend XP (C-05c).
     - TERIMPLEMENTASI (2026-08-21): idempotent — status kartu harus
       'bid_pending' (release kedua -> NO_PENDING_SALE); settle
@@ -433,7 +438,8 @@ ADM-06: dispute masuk -> review bukti -> keputusan
       PHASE-1 terkunci tanpa jalan keluar. Admin dapat membatalkan:
       POST /api/admin/cards/:id/cancel-seed-sale → RPC
       cancel_seed_sale (service_role ONLY, mirror guard pattern
-      release_seed_sale 20260823030000).
+      release_seed_sale di `04_rpc.sql` — sebelumnya
+      `20260823030000_release_seed_grant_lock.sql`).
     - Refund FULL ke buyer — tanpa fees, tanpa XP (XP granted TEPAT
       SEKALI di PHASE-2 release per invariant founder 2026-08-23,
       PHASE-1 tidak grant XP). Path A (accepted-bid): bid
@@ -447,8 +453,9 @@ ADM-06: dispute masuk -> review bukti -> keputusan
       ada revenue leg (settlement 85/7,5/7,5 hanya di PHASE-2).
     - Error mapping: NOT_FOUND 404, NOT_SEED_CARD 400,
       NO_PENDING_SALE 409 (sama kode dengan release route).
-    - TERIMPLEMENTASI (2026-08-23): migration
-      20260823050000_seed_sale_abort.sql + endpoint admin + section
+    - TERIMPLEMENTASI (2026-08-23): RPC `cancel_seed_sale` di
+      `04_rpc.sql` (sebelumnya `20260823050000_seed_sale_abort.sql`) +
+      endpoint admin + section
       "Seed sale berjalan (PHASE-1)" di admin Nfc page dengan tombol
       "Batalkan sale" (window.confirm + disable-while-loading).
 ```

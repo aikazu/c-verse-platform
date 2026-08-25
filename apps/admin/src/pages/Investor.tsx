@@ -31,7 +31,8 @@ export function InvestorPage() {
       const users = (us.data ?? []) as { id: string }[];
       const drops = (dr.data ?? []) as { id: string; title: string; status: string; total_units: number; sold_count: number | null }[];
       // GMV: primary checkout ('checkout' ref='drop'), settled secondary buyout ('platform_buy'),
-      // dan seed buyout PHASE-1 escrow ('escrow_hold' ref_type='card' — L127 20260823020000).
+      // dan seed buyout PHASE-1 escrow ('escrow_hold' ref_type='card' — buyout_card
+      // di 04_rpc.sql, sebelumnya 20260823020000_seed_xp_unify.sql).
       // Place-bid escrow ('escrow_hold' ref_type='bid') TIDAK masuk GMV karena belum settled.
       const gmv = w
         .filter((t) => t.type === "checkout" || t.type === "platform_buy" || (t.type === "escrow_hold" && t.ref_type === "card"))

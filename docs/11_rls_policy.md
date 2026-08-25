@@ -3,9 +3,10 @@
 > Status: [IMPLEMENTED 2026-08-16]
 > Created: 2026-08-15; updated: 2026-08-18
 > Basis audit awal: semua policy `for all using (true) with check (true)`.
-> Migration `20260817020000_rls_policies.sql` sudah mengimplementasikan
-> matriks policy penuh (226 baris) — enable RLS semua tabel, policy
-> per-operation, guard function immutable.
+> Migration `03_rls.sql` (sebelumnya `20260817020000_rls_policies.sql`,
+> dilebur saat konsolidasi 2026-08-24) sudah mengimplementasikan
+> matriks policy penuh — enable RLS semua tabel, policy per-operation,
+> guard function immutable.
 > Estimasi: 2-3 hari AI-assisted. Dependency: `10_auth_migration.md`
 > selesai (butuh `auth.uid()`).
 
@@ -67,8 +68,9 @@ pembacaan lewat API service-role (agregat ke kreator).
 
 ## 3. Langkah Eksekusi
 
-1. Migration RLS (`20260817020000_rls_policies.sql`, fase 3 dari rantai
-   7 file): `enable row level security` ulang semua tabel, `force row level
+1. Migration RLS `03_rls.sql` (sebelumnya `20260817020000_rls_policies.sql`,
+   fase 3 dari rantai 7 file — sekarang dilebur di konsolidasi 2026-08-24):
+   `enable row level security` ulang semua tabel, `force row level
    security` pada `cards`, buat policy matriks di atas + 5 guard function
    (`users_fields_guard`, `cards_buyout_guard`, `wallet_tx_immutable_guard`,
    `audit_log_immutable_guard`, `kyc_status_guard`) + trigger-nya.
@@ -117,6 +119,7 @@ SQL test per kombinasi (jalankan sebagai `anon`, `authenticated` dgn
 
 - `dev-strategy/05_data_model.md` section RLS (matriks asli).
 - Audit Platform 2026-08-15: kebocoran allow-all pada migration lama di-squash;
-  kini dijaga di fase 3 (`20260817020000_rls_policies.sql`) + EXECUTE lockdown
-  di fase 5 (`20260817040000_grants_payout.sql`).
+  kini dijaga di `03_rls.sql` (sebelumnya fase 3
+  `20260817020000_rls_policies.sql`) + EXECUTE lockdown di `04_rpc.sql`
+  (sebelumnya fase 5 `20260817040000_grants_payout.sql`).
 - Supabase docs: Row Level Security, `auth.uid()`, JWT claims.

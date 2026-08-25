@@ -15,8 +15,9 @@
 - `apps/api/src/routes/orders.ts`: default parameter checkout ke
   `vault`; shipping = opt-in eksplisit.
 - Migration: `orders.delivery_option` default `'vault'` sudah jadi bagian
-  definisi tabel di fase 1 (migration phase 1 `foundation`,
-  timestamp `20260817000000`), bukan migration terpisah.
+  definisi tabel di `01_schema.sql` (sebelumnya phase 1 `foundation`,
+  timestamp `20260817000000` — dilebur saat konsolidasi 2026-08-24),
+  bukan migration terpisah.
 - UI `/drops/:id/checkout`: opsi terpilih default = "Simpan di vault
   (gratis)"; kirim fisik = pilihan kedua.
 
@@ -26,9 +27,10 @@
   `bidSchema` (versi listingId), interface `Listing`.
 - Hapus route `apps/api/src/routes/listings.ts` (mount di index juga).
 - Migration: tabel `listings` & enum `listing_status`/`listing_type` tidak
-  pernah dibuat — dihilangkan langsung di fase 1 (migration phase 1
-  `foundation`, timestamp `20260817000000`);
-  `bids` dibuat langsung ke `card_id` (tanpa `listing_id`).
+  pernah dibuat — dihilangkan langsung di `01_schema.sql` (sebelumnya
+  phase 1 `foundation`, timestamp `20260817000000` — dilebur saat
+  konsolidasi 2026-08-24); `bids` dibuat langsung ke `card_id`
+  (tanpa `listing_id`).
 - UI `Marketplace.tsx`/`Browse.tsx`: pastikan tidak ada sisa
   "duration/endsAt/expired".
 

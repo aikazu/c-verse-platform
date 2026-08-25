@@ -77,9 +77,10 @@ Auth saat ini custom in-memory — tidak bisa dibawa ke produksi:
 4. Ganti semua `getUserByToken(...)` di 15 route → `requireUser(c)`.
 
 ### 3,4 Database
-1. Struktur auth di-squash ke fase migration `20260817010000_auth.sql`
-   (bagian dari rantai 7 fase: 6 fase inti `1/6`..`6/6` + hardening
-   `20260817060000` phase 7/7; migration phase 1 `foundation`
+1. Struktur auth disatukan di migration `02_auth.sql` (sebelumnya
+   `20260817010000_auth.sql`). Sebelum konsolidasi (2026-08-24): bagian
+   dari rantai 7 fase (6 fase inti `1/6`..`6/6` + hardening
+   `20260817060000` phase 7/7); phase 1 `foundation`
    (timestamp `20260817000000`) sudah
    mendefinisikan `users.id` uuid, tanpa `password_hash` dan tanpa tabel `sessions`):
    - `users.id` = `uuid primary key` — di-isi trigger dari `auth.users.id`;

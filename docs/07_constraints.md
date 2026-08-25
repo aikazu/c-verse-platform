@@ -2,12 +2,14 @@
 
 > Status: [VALIDATED] (C-01/C-02 resolved 2026-08-13)
 > Last updated: 2026-08-23 (C-17 → admin abort path PHASE-1 stuck seed
-> sale: RPC cancel_seed_sale service_role only, refund penuh buyer
-> tanpa fees/XP — migration 20260823050000_seed_sale_abort)
+> sale: RPC `cancel_seed_sale` di `04_rpc.sql` (sebelumnya
+> `20260823050000_seed_sale_abort.sql`), service_role only,
+> refund penuh buyer tanpa fees/XP)
 > Previous: 2026-08-21 (C-17 → two-phase settlement: bid/accept
 > BUKAN lagi di-gate; release yang wajib menunggu vault-in + NFC
-> verified — SEED_VAULT_IN_REQUIRED pindah ke release_seed_sale,
-> migration 20260821020000_seed_two_phase, keputusan 2026-08-21)
+> verified — SEED_VAULT_IN_REQUIRED pindah ke release_seed_sale
+> di `04_rpc.sql` (sebelumnya `20260821020000_seed_two_phase.sql`),
+> keputusan 2026-08-21)
 > Previous: 2026-08-20 (C-13 enforceable via akun kreator
 > admin-provisioned + C-17 Creator Seed C.Card — keputusan 2026-08-20;
 > C-14 & T-2 diselaraskan koreksi user: burn sejati ~Rp 1 jt/bln,
@@ -196,8 +198,9 @@
   tidak lagi bergantung flag manual. Berlaku juga untuk seed card:
   kreator pemilik seed card dilarang membeli kembali kartu seed
   miliknya dalam 30 hari pertama.
-- **PERLUASAN SEED (TERIMPLEMENTASI 2026-08-21, migration
-  20260821000000_seed_card)**: untuk kartu dari seed drop
+- **PERLUASAN SEED (TERIMPLEMENTASI 2026-08-21, sebelumnya
+  `20260821000000_seed_card.sql` — sekarang di `04_rpc.sql`)**:
+  untuk kartu dari seed drop
   (`drops.is_seed = true`), guard 30 hari TIDAK lagi bergantung
   `drop_start_at`/`drop_at`/`created_at` (seed BUKAN raffle — drop
   tidak punya jadwal bermakna). Basis pragmatis yang dipakai di RPC
@@ -267,7 +270,8 @@
   entry window/draw (Flow 1) — selalu secondary normal (C-07).
   Beri nama flow tersendiri (jangan tertukar primary drop).
 - **Provenance seed = flag level drop `drops.is_seed` (TERIMPLEMENTASI
-  2026-08-21, migration 20260821000000_seed_card)**: seed card =
+  2026-08-21, sebelumnya `20260821000000_seed_card.sql` —
+  sekarang di `01_schema.sql`)**: seed card =
   kartu yang drop induknya `is_seed = true`; seed drop dibuat dengan
   `creator_id` = kreator target, sehingga royalti 7,5% otomatis ke
   kreator via kode existing (tanpa kolom fallback). Kolom baru di
@@ -284,7 +288,8 @@
   mengecek `drops.is_seed`; jika seed card TIDAK di `platform_vault`
   ATAU `verify_status <> 'verified'` -> raise `SEED_VAULT_IN_REQUIRED`
   (gate SEED_VAULT_IN_REQUIRED lama di `accept_bid`/`buyout_card`
-  dihapus — migration 20260821020000_seed_two_phase). **verified hanya
+  dihapus — sebelumnya `20260821020000_seed_two_phase.sql`,
+  sekarang di `04_rpc.sql`). **verified hanya
   bisa dicapai via tap NFC** (SUN/CMAC crypto — `nfc.ts`); admin path
   vault-in `PATCH /api/admin/cards/:id/vault-in` HANYA menandai
   kedatangan fisik (`location='platform_vault'`) + audit pemeriksaan
@@ -306,14 +311,16 @@
   hilang / dispute / tidak pernah di-vault-in sehingga release
   tidak mungkin, admin memicu `POST /api/admin/cards/:id/cancel-seed-sale`
   → RPC `cancel_seed_sale` (service_role ONLY, mirror guard pattern
-  release_seed_sale 20260823030000). Buyer di-refund FULL — tanpa fees,
+  release_seed_sale di `04_rpc.sql` — sebelumnya
+  `20260823030000_release_seed_grant_lock.sql`). Buyer di-refund FULL — tanpa fees,
   tanpa XP (XP granted TEPAT SEKALI di PHASE-2 release per invariant
   founder 2026-08-23, PHASE-1 tidak grant XP). Path A: bid
   `accepted` → `cancelled` + `wallet_credit` buyer. Path B: order
   `paid` → `refunded` + `wallet_credit` buyer. Kartu kembali ke
   `inventory`. Idempotent (`p_idem='seed-abort-'||card_id`).
   Tidak touch treasury/platform_revenue — PHASE-1 menulis tidak ada
-  revenue leg. Migration `20260823050000_seed_sale_abort.sql`.
+  revenue leg. RPC `cancel_seed_sale` di `04_rpc.sql` (sebelumnya
+  `20260823050000_seed_sale_abort.sql`).
 - Split penjualan pertama: **85% owner + 7,5% royalti kreator
   lifetime + 7,5% platform** (secondary normal) — kreator-owner
   efektif **92,5%** / platform 7,5% (bukan fee 12%/6%).

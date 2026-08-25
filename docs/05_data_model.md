@@ -100,8 +100,9 @@ drops
                                   -- true = drop 1-of-1 utk Creator Seed C.Card —
                                   -- kartu di-hadiahkan ke kreator (creator_id),
                                   -- dijual di secondary normal (BUKAN raffle).
-                                  -- TWO-PHASE (2026-08-21, migration
-                                  -- 20260821020000_seed_two_phase): bid/accept
+                                  -- TWO-PHASE (2026-08-21, sebelumnya
+                                 -- 20260821020000_seed_two_phase.sql,
+                                 -- sekarang di 04_rpc.sql): bid/accept
                                   -- BUKAN lagi di-gate; RELEASE (release_seed_sale,
                                   -- service_role) menolak settle dgn
                                   -- SEED_VAULT_IN_REQUIRED selama location <>

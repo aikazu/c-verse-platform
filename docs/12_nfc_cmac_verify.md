@@ -79,8 +79,8 @@ verifySun({ uidHex, ctrHex, cmacHex, tamperBit }, master): {
 - HAPUS: `POST /simulate-tamper/:cardId` dari route publik (pindah ke
   admin service-role untuk demo/QC).
 
-### 2,3 Schema NFC (di fase 1 migration `foundation`,
-timestamp `20260817000000`)
+### 2,3 Schema NFC (di `01_schema.sql` — sebelumnya fase 1 migration
+`foundation`, timestamp `20260817000000`)
 - `cards.last_ctr integer not null default 0` (anti-replay).
 - `cards.nfc_uid` & `cards.nfc_short_id` (sudah unique — dipakai lookup).
 - `cards.verify_status` enum: `unknown | registered | verified |

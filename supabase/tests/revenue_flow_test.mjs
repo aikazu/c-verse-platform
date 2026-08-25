@@ -1,7 +1,7 @@
-// C.Verse — Revenue & flow hardening tests (migration phase 7).
+// C.Verse — Revenue & flow hardening tests (04_rpc.sql — sebelumnya phase 7).
 // Jalankan against Supabase lokal (disposable — db reset bebas):
 //   node supabase/tests/revenue_flow_test.mjs postgresql://postgres:postgres@127.0.0.1:54322/postgres
-// Prasyarat: `npx supabase db reset` (migration 20260817060000 + seed).
+// Prasyarat: `npx supabase db reset` (04_rpc.sql + seed).
 // Skenario:
 //   T1 checkout FCFS -> platform_revenue 70/30 + kredit treasury + royalty creator
 //   T2 draw_drop: pool premium jatuh ke regular -> refund selisih hold - price
