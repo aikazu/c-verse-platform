@@ -122,7 +122,10 @@ app.post(
       dropAt: z.string().optional(),
       dropStartAt: z.string().optional(),
       dropEndAt: z.string().optional(),
-      creatorId: z.string().optional(),
+      // M9 (audit 2026-08-24): drop the misleading `creatorId` field — the route
+      // always assigns creator_id from the authenticated user, so accepting
+      // the field gave callers a false impression they could create drops on
+      // behalf of another creator.
     }),
   ),
   async (c) => {
