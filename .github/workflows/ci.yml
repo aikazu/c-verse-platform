@@ -51,9 +51,17 @@ jobs:
         run: |
           npx supabase start
           npx supabase db reset
+      # Audit 2026-08-25 GAP 5: tulis API .dev.vars dari supabase status
+      # aktual (lokal) — placeholder dari .env.example tidak berisi
+      # SUPABASE_SERVICE_ROLE_KEY, sehingga e2e yang butuh RLS bypass
+      # (admin/seed flow) dan auth flow akan gagal dengan pesan keliru
+      # (NetworkError / 401). scripts/ci-api-env.sh hanya menulis field
+      # yang WAJIB untuk e2e dasar; spec tes yang butuh Midtrans / NFC
+      # master key di-skip otomatis ketika env kosong.
+      - name: Build apps/api/.dev.vars from supabase status
+        run: ./scripts/ci-api-env.sh apps/api/.dev.vars
       - name: Start API & Web
         run: |
-          cd apps/api && cp .env.example .dev.vars 2>/dev/null; cd ../..
           pnpm dev &
           npx wait-on http://localhost:8787/health http://localhost:5173 --timeout 120000
       - name: Run E2E
