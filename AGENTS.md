@@ -15,6 +15,7 @@ Dokumen perencanaan **canonical = `docs/`** (`00_readme` → `16_foundation_clea
   - Secrets prod (tidak di repo): sama seperti di atas + `CF_ACCOUNT_ID`, `CF_API_TOKEN` via `wrangler secret put`.
 - Supabase WAJIB — tanpa `SUPABASE_URL` API gagal start (fail-fast, tidak ada fallback in-memory).
 - Supabase local (wajib untuk dev): `npx supabase start` (API :54321, DB :54322, Studio :54323), `npx supabase db reset` → `supabase/migrations/*.sql` + `supabase/seed.sql`.
+  - `supabase/migrations/` ter-organisir 5 file by domain (consolidated 2026-08-24): `01_schema` (DDL/enums/tables/base indexes), `02_auth` (auth mirror + canonical_email), `03_rls` (policies + guard triggers), `04_rpc` (semua SECURITY DEFINER RPC FINAL versions + grants), `05_indexes` (performance). Setiap objek ditulis SATU KALI di versi final — TIDAK ada `create or replace` chain.
 
 ## Build & test
 
@@ -40,8 +41,14 @@ Sebelum setiap commit, WAJIB jalankan:
 4. `pnpm run test` — vitest (50+ test, harus PASS)
 5. `pnpm run lint` — 0 error, 0 warning
 6. `pnpm run build` — semua workspace build
+7. **Doc changes?** Jalankan `pnpm sync:docs` setelah commit untuk propagate ke spec repo (mirror byte-identik).
 
 Jika salah satu dari langkah 3-6 gagal, jangan commit. Fix dulu. Gunakan `git add -A && git commit -m "..."` hanya setelah semua gate hijau.
+
+**Pola per logical unit** — setiap fix/feature/security change = 1 commit atomic dengan:
+- Test gagal dulu (Red) untuk logika baru, lalu implementasi (Green), gate, commit.
+- Mock `lib/db.js` (bukan `lib/supabase.js`) untuk test RPC routes — `userDb()` ada di db.js.
+- Naming Conventional Commits (`fix:`, `feat:`, `refactor:`, `docs:`, `test:`, `chore:`, `tools:`). Audit/security fix pakai prefix `fix(audit):` atau `fix(security):` kalau relevan.
 
 ## Project layout
 
@@ -52,8 +59,9 @@ Jika salah satu dari langkah 3-6 gagal, jangan commit. Fix dulu. Gunakan `git ad
 - `apps/web/src/` — `App.tsx` (routes: `/`, `/drops`, `/drops/:id/checkout`, `/home`, `/cards/:cardId/3d`, `/marketplace`, `/browse`, `/collection`, `/me/manage`, `/me/privacy`, `/me/kyc`, `/wallet`, `/leaderboard`, `/c/:username`, `/u/:username`, `/creator`) + `pages/` + `lib/api.ts` + `worker-seo.ts`.
 - `apps/admin/src/` — Vite SPA terpisah (Guard `aal2` via Supabase MFA TOTP, nav ADM-01..10: dashboard/creators/drops/orders/nfc/payouts/badges/disputes/audit/investor).
 - `packages/shared/src/index.ts` — **single source** Zod schemas + constants (`C_COIN_RATE_IDR=10_000`, `SECONDARY_*`, `REVENUE_SHARE_*`, `calcLevel`, `calcSignedPrice` (+20 flat), `BALANCE_CAP_CCOIN=500`, `MAX_ACTIVE_BIDS_PER_USER=3`, `MAX_BUYOUT 20`). Import via `@c-verse/shared`.
-- `supabase/` — `config.toml`, `migrations/*.sql` (7 phase: foundation → auth → RLS → RPC atomic → grants/payout → perf index → revenue flow hardening), `seed.sql` (fixed UUID = `auth.users`), `tests/` (`rls_test.sql`, `rpc_*.mjs`, `revenue_flow_test.mjs`).
-- `docs/` — `00_readme.md` … `16_foundation_cleanup.md` (17 files). Baca urut 00→16.
+- `supabase/` — `config.toml`, `migrations/*.sql` (5 file by domain: schema/auth/rls/rpc/indexes — lihat Dev environment untuk breakdown), `seed.sql` (fixed UUID = `auth.users`), `tests/` (`rls_test.sql`, `rpc_*.mjs`, `revenue_flow_test.mjs`).
+- `docs/` — `00_readme.md` … `16_foundation_cleanup.md` (17 files). Baca urut 00→16. Mirror byte-identik ke `00_Dream_Project/dev-strategy/` via `sync-docs.mjs`.
+- `sync-docs.mjs` (root) — byte-identical mirror sync Platform/docs ↔ spec/dev-strategy. Mode: `pnpm sync:docs` (apply), `:check` (dry-run, CI-friendly exit codes), `:reverse` (spec → Platform). Tidak auto-commit.
 
 ## Conventions
 
@@ -86,3 +94,5 @@ Jika salah satu dari langkah 3-6 gagal, jangan commit. Fix dulu. Gunakan `git ad
 - Jangan bocorkan `service-role` / `NFC_MASTER_KEY` ke bundle publik — `apps/web` hanya `anon` key + RLS.
 - Jangan ubah kolom C-Coin ke desimal; jangan buat auction timer/anti-sniping di MVP (docs 07 C-07).
 - AGENTS/README: tulis ringkas. Jangan verbosity ("selalu prod & dev", "tidak pernah Supabase", disclaimer dual-env, atau penjelasan infrastruktur yang mengulang dirinya sendiri). Fakta cukup sekali; tidak perlu disclaim tiap paragraf.
+- **Operasi destruktif (db reset --linked, drop database, force-push)** — PAUSE dan minta konfirmasi user sebelum eksekusi. CLI Supabase `db reset --linked` menghapus SELURUH data di project cloud yang linked, bukan database lokal.
+- **Error message dari Supabase/Postgres** — jangan echo raw `error.message` ke response (leak schema: constraint/column name). Pakai `apps/api/src/lib/errors.ts:sanitizeDbError` untuk memetakan 7 pola umum + fallback `Operasi gagal`. Log raw message server-side untuk debugging.
