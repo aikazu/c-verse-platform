@@ -50,13 +50,32 @@ async function persistVerified(cardId: string, ctr: number): Promise<boolean> {
 
 async function persistTampered(cardId: string, ctr: number | null): Promise<void> {
   const supabase = getSupabase();
-  // Counter tetap dimajukan atomically bila tap valid; flag tamper permanen.
-  if (ctr != null) {
-    const { error: ctrError } = await supabase.from("cards").update({ last_ctr: ctr }).eq("id", cardId).lt("last_ctr", ctr).select("id");
-    if (ctrError) throw new Error(ctrError.message);
+  if (ctr == null) {
+    // Caller determined the counter cannot advance (stale SUN replay); set the flag
+    // alone. CMAC validation upstream already authenticates the SUN message.
+    const { error } = await supabase.from("cards").update({ verify_status: "tamper_detected" }).eq("id", cardId);
+    if (error) throw new Error(error.message);
+    return;
   }
-  const { error } = await supabase.from("cards").update({ verify_status: "tamper_detected" }).eq("id", cardId);
+  // M3 (audit 2026-08-24): combine counter advance + flag flip into a single UPDATE
+  // guarded by `last_ctr < ctr`. The previous two-statement flow set the flag
+  // unconditionally, so a stale SUN replay that somehow passed CMAC validation could
+  // flip tamper even when the counter didn't actually advance (defense-in-depth).
+  const { data, error } = await supabase
+    .from("cards")
+    .update({ verify_status: "tamper_detected", last_ctr: ctr })
+    .eq("id", cardId)
+    .lt("last_ctr", ctr)
+    .select("id")
+    .maybeSingle();
   if (error) throw new Error(error.message);
+  if (!data) {
+    // Counter race: another concurrent tap already advanced past ctr. The flag is
+    // already set on whichever tap saw the tamper bit first; defensively ensure it
+    // here too so we never miss a tamp detection.
+    const { error: e2 } = await supabase.from("cards").update({ verify_status: "tamper_detected" }).eq("id", cardId);
+    if (e2) throw new Error(e2.message);
+  }
 }
 
 async function persistRegistered(cardId: string): Promise<void> {
