@@ -193,13 +193,20 @@ app.post("/midtrans/webhook", async (c) => {
     return c.json({ ok: true, ignored: true });
   }
 
-  // 2. Jangan percaya body webhook — ambil status via API
+  // 2. Jangan percaya body webhook — ambil status via API. Kalau API gagal saat
+  // body声称 success, return 502 agar Midtrans retry (bukan credit dari source tak
+  // terverifikasi). Pending/fail body statuses aman tanpa verifikasi karena tidak
+  // akan mengkredit.
   let status = payload.status;
   try {
     const remote = await provider.getStatus(payload.orderId);
     status = remote.status;
   } catch (err) {
     console.warn("[payments] getStatus gagal, pakai body webhook:", (err as Error).message);
+    if (mapTransactionStatus(payload.status) === "success") {
+      // M8 (audit 2026-08-24): never credit on body-only success — let Midtrans retry.
+      return c.json({ error: "Status verification pending — will retry" }, 502);
+    }
   }
 
   // 3. Map status; 4. Sukses -> wallet_credit idempotent (idempotency_key = order_id)

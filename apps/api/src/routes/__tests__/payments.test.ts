@@ -116,16 +116,36 @@ describe("Midtrans webhook", () => {
     expect(body.reason).toBe("topup_cap_exceeded");
   });
 
-  it("falls back to webhook body status when getStatus API throws", async () => {
+  it("getStatus API throws on body-success -> 502 agar Midtrans retry (M8 audit 2026-08-24)", async () => {
     control.getStatusThrows = true;
     const res = await webhook({ order_id: ORDER_ID, gross_amount: "150000", transaction_status: "settlement" });
+    expect(res.status).toBe(502);
+    const body = (await res.json()) as { error?: string };
+    expect(body.error).toMatch(/retry/i);
+    // No credit attempted — wallet RPC untouched.
+    expect(control.rpcCalls).toHaveLength(0);
+  });
+
+  it("getStatus API throws on body-pending -> 200 OK (no credit anyway, safe to fall back)", async () => {
+    control.getStatusThrows = true;
+    const res = await webhook({ order_id: ORDER_ID, gross_amount: "150000", transaction_status: "pending" });
     expect(res.status).toBe(200);
-    const body = (await res.json()) as { credited?: number };
-    expect(body.credited).toBe(15);
+    const body = (await res.json()) as { status?: string };
+    expect(body.status).toBe("pending");
   });
 });
 
 describe("redactOrderId (M2 audit log PII)", () => {
+  beforeEach(() => {
+    // Reset state inherited from the previous describe block (M8 tests set
+    // getStatusThrows=true, which would short-circuit before the wallet_credit
+    // path that emits the redactOrderId console.error).
+    control.signatureValid = true;
+    control.getStatusThrows = false;
+    control.remoteStatus = "settlement";
+    control.rpcCalls = [];
+  });
+
   it("menyimpan prefix top- dan random tail, menghapus user UUID", async () => {
     const { redactOrderId } = await import("../payments.js");
     const redacted = redactOrderId(ORDER_ID);
