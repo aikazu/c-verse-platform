@@ -144,12 +144,13 @@ export const api = {
     return req<ApiBrowseResponse>(`/browse${qs}`);
   },
 
-  // bids (direct on card — F-02). `listingId` param kept only for source-compat;
-  // callers should pass `cardId` directly (legacy listing indirection removed).
-  placeBid: (cardId: string, amountCcoin: number, listingId?: string) =>
+  // bids (direct on card — F-02 FINAL: tidak ada listing indirection; bid
+  // selalu lewat cardId). API menerima alias amountCCoin untuk back-compat
+  // (docs/03 Flow 7); server tidak pernah pakai listingId.
+  placeBid: (cardId: string, amountCcoin: number) =>
     req<ApiBidResponse>(`/bids`, {
       method: "POST",
-      body: JSON.stringify({ cardId, amountCCoin: amountCcoin, amountCcoin: amountCcoin, ...(listingId ? { listingId } : {}) }),
+      body: JSON.stringify({ cardId, amountCCoin: amountCcoin, amountCcoin: amountCcoin }),
     }),
   cancelBid: (bidId: string) => req<ApiCancelBidResponse>(`/bids/${bidId}/cancel`, { method: "POST" }),
   acceptBidOnCard: (cardId: string, destination?: "buyer_address" | "platform_vault", shippingAddress?: string) =>

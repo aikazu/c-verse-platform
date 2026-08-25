@@ -165,7 +165,6 @@ export const placeBidSchema = z.object({
   amountCcoin: z.number().int().min(1),
   // legacy alias
   amountCCoin: z.number().int().min(1).optional(),
-  listingId: z.string().optional(), // legacy — ignored if cardId present
 });
 export type PlaceBidInput = z.infer<typeof placeBidSchema>;
 
