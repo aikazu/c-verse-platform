@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { requireUser } from "../lib/auth.js";
+import { clientIp, requireUser } from "../lib/auth.js";
 import {
   getCreatorByHandle,
   getCreatorByUserId,
@@ -14,6 +14,30 @@ import { getUserById } from "../lib/reads/users.js";
 import type { CreatorRec } from "../lib/store.js";
 
 const app = new Hono();
+
+// M4 (audit 2026-08-24): RLS `creator_page_views_insert with check (true)` allows any
+// anonymous insert. Without a per-IP rate limit, a botnet can pollute analytics + bloat
+// storage. Simple sliding-window in-memory limiter scoped per IP+creator — Workers
+// isolates share state per request, but each isolate independently caps its own
+// load; the cap is intentionally low (10/min/IP/creator) to bound worst-case.
+const VIEW_WINDOW_MS = 60 * 1000;
+const VIEW_MAX_PER_IP = 10;
+const viewBuckets = new Map<string, number[]>();
+
+function ipRateAllow(ip: string, creatorId: string): boolean {
+  const key = `${ip}|${creatorId}`;
+  const now = Date.now();
+  const cutoff = now - VIEW_WINDOW_MS;
+  const bucket = viewBuckets.get(key) ?? [];
+  const pruned = bucket.filter((ts) => ts >= cutoff);
+  if (pruned.length >= VIEW_MAX_PER_IP) {
+    viewBuckets.set(key, pruned);
+    return false;
+  }
+  pruned.push(now);
+  viewBuckets.set(key, pruned);
+  return true;
+}
 
 // GET / — list public creators (derived from users.role=creator + creators table for handle/followers)
 app.get("/", async (c) => {
@@ -42,6 +66,10 @@ app.get("/", async (c) => {
 async function logCreatorView(creatorUserId: string, c: { req: { header: (k: string) => string | undefined } }, rec: CreatorRec | null) {
   const resolved = rec ?? (await getCreatorByUserId(creatorUserId));
   if (!resolved) return;
+  // M4 per-IP rate limit (audit 2026-08-24): skip analytics when over the window
+  // rather than 429 — page rendering must not break, just stop counting the spammer.
+  const ip = clientIp(c) ?? "unknown";
+  if (!ipRateAllow(ip, resolved.id)) return;
   const referrer = c.req.header("referer") ?? c.req.header("referrer") ?? null;
   // city anonymized from header — MVP uses x-forwarded-for stub, not real geo
   const city = c.req.header("x-city") ?? null;
