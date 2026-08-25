@@ -3,6 +3,7 @@ import { Hono } from "hono";
 import { z } from "zod";
 import { adminGateError, clientIp, requireAdmin, requireUser, tokenFingerprint } from "../lib/auth.js";
 import { getKycByUser, listKycRecords, logAuditDb, setKycStatus, upsertKycSubmission } from "../lib/reads/kyc.js";
+import { redactKycForOwner } from "../lib/redact.js";
 
 const app = new Hono();
 
@@ -11,7 +12,9 @@ app.get("/", async (c) => {
   if ("error" in authRes) return c.json({ error: authRes.error === 403 ? "Akun disuspend" : "Unauthorized" }, authRes.error);
   const user = authRes.user;
   const rec = await getKycByUser(user.id);
-  return c.json({ kyc: rec || null });
+  // M5 (audit 2026-08-24): PII redaction for the user-facing endpoint. Admin endpoint
+  // (/admin/all) keeps the unredacted record so reviewers can verify identity.
+  return c.json({ kyc: rec ? redactKycForOwner(rec) : null });
 });
 
 app.post(
@@ -35,7 +38,8 @@ app.post(
     const existing = await getKycByUser(user.id);
     if (existing && existing.status === "approved") return c.json({ error: "KYC sudah approved" }, 400);
     const rec = await upsertKycSubmission(user.id, existing, { fullName: body.fullName, nik: body.nik, address: body.address });
-    return c.json({ kyc: rec }, 201);
+    // M5: response is redacted for the user; admin endpoint keeps the unredacted record.
+    return c.json({ kyc: redactKycForOwner(rec) }, 201);
   },
 );
 
