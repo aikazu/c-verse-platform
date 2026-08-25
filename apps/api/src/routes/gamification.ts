@@ -1,6 +1,7 @@
 import { calcLevel } from "@c-verse/shared";
 import { Hono } from "hono";
 import { adminGateError, clientIp, requireAdmin, tokenFingerprint } from "../lib/auth.js";
+import { sanitizeDbError } from "../lib/errors.js";
 import { countCardsByOwner, listBadges, listTopUsersByXp, listUserBadges } from "../lib/reads/gamification.js";
 import { logAuditDb } from "../lib/reads/kyc.js";
 import { getUserById } from "../lib/reads/users.js";
@@ -56,7 +57,7 @@ app.patch("/badges/:id", async (c) => {
   if (typeof body.isActive !== "boolean") return c.json({ error: "isActive (boolean) wajib" }, 400);
   const db = readDb();
   const { data, error } = await db.from("badges").update({ is_active: body.isActive }).eq("id", c.req.param("id")).select().maybeSingle();
-  if (error) return c.json({ error: error.message }, 400);
+  if (error) return c.json({ error: sanitizeDbError(error) }, 400);
   if (!data) return c.json({ error: "Badge tidak ditemukan" }, 404);
   await logAuditDb(
     user.id,

@@ -172,12 +172,15 @@ describe("POST /api/admin/users/provision", () => {
     expect(body.error).toBe("Email sudah terdaftar");
   });
 
-  it("createUser error lain -> 400 dengan pesan asli", async () => {
+  it("createUser error lain -> 400 dengan pesan ter-sanitasi (M6 audit 2026-08-24)", async () => {
     control.createUserError = { message: "Email not allowed" };
     const res = await provision(VALID);
     expect(res.status).toBe(400);
     const body = (await res.json()) as { error: string };
-    expect(body.error).toBe("Email not allowed");
+    // Raw Supabase / GoTrue messages are no longer leaked to clients — the helper
+    // sanitizes known shapes to safe copy and falls back to a generic message.
+    expect(body.error).toBe("Operasi gagal");
+    expect(body.error).not.toContain("Email not allowed");
   });
 
   it("handle bentrok -> 409 'Handle sudah dipakai' + rollback auth user (tidak ada akun yatim)", async () => {

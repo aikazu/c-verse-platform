@@ -4,6 +4,7 @@ import { z } from "zod";
 import { adminGateError, clientIp, requireAdmin, tokenFingerprint } from "../lib/auth.js";
 import { RpcError, rpcCancelSeedSale, rpcReleaseSeedSale } from "../lib/db.js";
 import { sendCreatorAccessEmail } from "../lib/email.js";
+import { sanitizeDbError } from "../lib/errors.js";
 import { logAuditDb } from "../lib/reads/kyc.js";
 import { readDb } from "../lib/reads.js";
 import { uid } from "../lib/store.js";
@@ -61,7 +62,7 @@ app.patch(
       .eq("id", c.req.param("id"))
       .select("id, display_name, role, flag_reason")
       .maybeSingle();
-    if (error) return c.json({ error: error.message }, 400);
+    if (error) return c.json({ error: sanitizeDbError(error) }, 400);
     if (!data) return c.json({ error: "User tidak ditemukan" }, 404);
     // Promote creator -> aktifkan row creators kalau ada (apply 'inactive' -> 'active')
     if (role === "creator") {
@@ -99,7 +100,7 @@ app.patch("/users/:id/wallet-hold", zValidator("json", z.object({ holdPayoutUnti
     .upsert({ user_id: c.req.param("id"), hold_payout_until: parsed?.toISOString() ?? null }, { onConflict: "user_id" })
     .select("user_id, hold_payout_until")
     .maybeSingle();
-  if (error) return c.json({ error: error.message }, 400);
+  if (error) return c.json({ error: sanitizeDbError(error) }, 400);
   await logAuditDb(
     admin.id,
     "update",
@@ -150,7 +151,7 @@ app.patch(
       .eq("id", c.req.param("id"))
       .select()
       .maybeSingle();
-    if (error) return c.json({ error: error.message }, 400);
+    if (error) return c.json({ error: sanitizeDbError(error) }, 400);
     if (!data) return c.json({ error: "Dispute tidak ditemukan" }, 404);
     // resolved_suspend -> suspend user pelaku (reporter bukan target; target = user_order)
     if (status === "resolved_suspend") {
@@ -218,7 +219,7 @@ app.post(
       if (msg.includes("already") || msg.includes("exists") || msg.includes("registered") || msg.includes("duplicate")) {
         return c.json({ error: "Email sudah terdaftar" }, 409);
       }
-      return c.json({ error: created.error.message }, 400);
+      return c.json({ error: sanitizeDbError(created.error) }, 400);
     }
     const uidNew = created.data.user.id;
 
@@ -312,7 +313,7 @@ app.patch("/cards/:id/vault-in", zValidator("json", z.object({ physicalCheckNote
     .eq("id", cardId)
     .select("id, location, verify_status, drop_id")
     .maybeSingle();
-  if (error) return c.json({ error: error.message }, 400);
+  if (error) return c.json({ error: sanitizeDbError(error) }, 400);
   const { physicalCheckNote } = c.req.valid("json");
   await logAuditDb(
     admin.id,

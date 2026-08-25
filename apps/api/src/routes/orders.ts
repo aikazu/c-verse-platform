@@ -4,6 +4,7 @@ import { Hono } from "hono";
 import { z } from "zod";
 import { clientIp, requireUser, tokenFingerprint } from "../lib/auth.js";
 import { RpcError, rpcCheckout, userDb } from "../lib/db.js";
+import { sanitizeDbError } from "../lib/errors.js";
 import { getDropById, listCardsByIds } from "../lib/reads/drops.js";
 import { logAuditDb } from "../lib/reads/kyc.js";
 import { getCardById, getOrderById, listOrdersByUser, listShipmentsByCards } from "../lib/reads/orders.js";
@@ -142,7 +143,7 @@ app.post("/:id/dispute", zValidator("json", z.object({ reason: z.string().min(10
     reason,
     status: "open",
   });
-  if (error) return c.json({ error: error.message }, 400);
+  if (error) return c.json({ error: sanitizeDbError(error) }, 400);
   await logAuditDb(
     user.id,
     "create",

@@ -5,6 +5,7 @@ import { Hono } from "hono";
 import { z } from "zod";
 import { adminGateError, clientIp, requireAdmin, requireUser, tokenFingerprint } from "../lib/auth.js";
 import { RpcError, rpcPayoutRefund, userDb } from "../lib/db.js";
+import { sanitizeDbError } from "../lib/errors.js";
 import { getProvider } from "../lib/payments/index.js";
 import { mapTransactionStatus } from "../lib/payments/midtrans.js";
 import { getKycByUser, logAuditDb } from "../lib/reads/kyc.js";
@@ -92,7 +93,7 @@ app.post("/payout", zValidator("json", z.object({ amountCcoin: z.number().int().
       INSUFFICIENT: "Saldo C-Coin tidak cukup",
       MIN_PAYOUT: "Payout minimum 10 C-Coin",
     };
-    return c.json({ error: messages[code] ?? error.message, code }, status);
+    return c.json({ error: messages[code] ?? sanitizeDbError(error), code }, status);
   }
   return c.json({ payout: data }, 201);
 });
@@ -107,7 +108,7 @@ app.post("/admin/payout-run", async (c) => {
   const user = authRes.user;
   const supabase = getSupabase();
   const { data, error } = await supabase.rpc("payout_batch_run");
-  if (error) return c.json({ error: error.message }, 500);
+  if (error) return c.json({ error: sanitizeDbError(error) }, 500);
   await logAuditDb(
     user.id,
     "payout_trigger",
@@ -237,7 +238,7 @@ app.post("/midtrans/webhook", async (c) => {
       console.error("[payments] topup melewati cap non-KYC (race) — kredit ditolak, perlu refund manual:", redactOrderId(payload.orderId));
       return c.json({ ok: true, ignored: true, reason: "topup_cap_exceeded" });
     }
-    return c.json({ error: error.message }, 500);
+    return c.json({ error: sanitizeDbError(error) }, 500);
   }
   // duplicate notification -> RPC idempotent: saldo TIDAK dobel
   return c.json({ ok: true, credited: amountCcoin, idempotentReplay: (data as { amount_ccoin?: number } | null) === null });
@@ -268,7 +269,7 @@ app.post("/midtrans/payout-webhook", async (c) => {
   if (!next) return c.json({ ok: true, ignored: true });
 
   const { error } = await supabase.from("payouts").update({ status: next }).eq("id", payoutId);
-  if (error) return c.json({ error: error.message }, 500);
+  if (error) return c.json({ error: sanitizeDbError(error) }, 500);
   return c.json({ ok: true, payoutId, status: next });
 });
 

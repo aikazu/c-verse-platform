@@ -4,6 +4,7 @@ import { Hono } from "hono";
 import { z } from "zod";
 import { adminGateError, clientIp, requireAdmin, requireUser, tokenFingerprint } from "../lib/auth.js";
 import { RpcError, rpcDropEntry, userDb } from "../lib/db.js";
+import { sanitizeDbError } from "../lib/errors.js";
 import { getCreatorByUserId } from "../lib/reads/creators.js";
 import { type DropFilter, getDropById, listCardsByDrop, listDrops } from "../lib/reads/drops.js";
 import { logAuditDb } from "../lib/reads/kyc.js";
@@ -236,7 +237,7 @@ app.patch(
     }
     const db = getSupabase();
     const { data, error } = await db.from("drops").update({ status }).eq("id", c.req.param("id")).select().maybeSingle();
-    if (error) return c.json({ error: error.message }, 400);
+    if (error) return c.json({ error: sanitizeDbError(error) }, 400);
     if (!data) return c.json({ error: "Drop tidak ditemukan" }, 404);
     await logAuditDb(
       user.id,
@@ -281,6 +282,6 @@ app.post("/:id/draw", async (c) => {
   }
   const supabase = getSupabase();
   const { data, error } = await supabase.rpc("draw_drop", { p_drop_id: c.req.param("id") });
-  if (error) return c.json({ error: error.message }, 400);
+  if (error) return c.json({ error: sanitizeDbError(error) }, 400);
   return c.json({ winners: data });
 });

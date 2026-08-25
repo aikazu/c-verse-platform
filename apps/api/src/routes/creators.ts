@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { clientIp, requireUser } from "../lib/auth.js";
+import { sanitizeDbError } from "../lib/errors.js";
 import {
   getCreatorByHandle,
   getCreatorByUserId,
@@ -182,7 +183,7 @@ app.post("/apply", async (c) => {
     total_followers_combined: 0,
     status: "inactive",
   });
-  if (error) return c.json({ error: error.message }, 400);
+  if (error) return c.json({ error: sanitizeDbError(error) }, 400);
   return c.json({ creator: { id, handle: username, status: "inactive", message: "Pendaftaran diterima — menunggu review admin" } }, 201);
 });
 
