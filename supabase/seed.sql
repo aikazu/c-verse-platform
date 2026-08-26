@@ -423,11 +423,12 @@ insert into public.drop_entries (id, drop_id, user_id, pool, hold_ccoin, status,
   ('de-aespa-signed-l4','drop-aespa-signed','00000000-0000-4000-8000-000000000002','regular',30,'lost',       now() - interval '6 days 12 hours'),
 
   -- drop-nova-past (closed, drawn) — mix
+  -- de-nova-past-p1 keeps the won_premium entry (unique per (drop,user) on the creator)
+  -- de-nova-past-r1/r2 REMOVED to satisfy idx_drop_entries_unique — won_regular and 'both'-refunded
+  -- coverage survives elsewhere: de-aespa-signed-r1 (won_regular), de-hype-cancel-r2 (both refunded).
   ('de-nova-past-p1',    'drop-nova-past','00000000-0000-4000-8000-000000000005','premium',40,'won_premium', now() - interval '29 days 12 hours'),
-  ('de-nova-past-r1',    'drop-nova-past','00000000-0000-4000-8000-000000000005','regular',20,'won_regular', now() - interval '29 days 12 hours'),
   ('de-nova-past-l1',    'drop-nova-past','00000000-0000-4000-8000-000000000001','regular',20,'lost',       now() - interval '29 days 12 hours'),
   ('de-nova-past-l2',    'drop-nova-past','00000000-0000-4000-8000-000000000006','regular',20,'lost',       now() - interval '29 days 12 hours'),
-  ('de-nova-past-r2',    'drop-nova-past','00000000-0000-4000-8000-000000000005','both',   40,'refunded',   now() - interval '29 days 12 hours'),
 
   -- drop-hype-cancel (cancelled) — entries were refunded
   ('de-hype-cancel-r1',  'drop-hype-cancel','00000000-0000-4000-8000-000000000001','regular',26,'refunded', now() - interval '14 days 12 hours'),
@@ -1149,7 +1150,7 @@ begin
   update public.users set total_xp = 545 where id = '00000000-0000-4000-8000-000000000003';
   update public.users set total_xp = 343 where id = '00000000-0000-4000-8000-000000000001';
   update public.users set total_xp = 343 where id = '00000000-0000-4000-8000-000000000006';
-  update public.users set total_xp = 232 where id = '00000000-4000-8000-000000000004';
+  update public.users set total_xp = 232 where id = '00000000-0000-4000-8000-000000000004';
   update public.users set total_xp = 106 where id = '00000000-0000-4000-8000-000000000005';
   update public.users set total_xp =   0 where id = '00000000-0000-4000-8000-000000000002';
   update public.users set total_xp =  23 where id = '00000000-0000-4000-8000-000000000007';
@@ -1169,7 +1170,7 @@ update public.users set xp_reached_at = now() - interval '1 day'   where id = '0
 update public.users set xp_reached_at = now() - interval '40 days' where id = '00000000-0000-4000-8000-000000000004'; -- hype  40d (older)
 update public.users set xp_reached_at = now() - interval '29 days' where id = '00000000-0000-4000-8000-000000000005'; -- nova  29d
 update public.users set xp_reached_at = now() - interval '90 days' where id = '00000000-0000-4000-8000-000000000002'; -- admin
-update public.users set xp_reached_at = now() - interval '5 days'  where id = '00000000-4000-8000-000000000008'; -- marked
+update public.users set xp_reached_at = now() - interval '5 days'  where id = '00000000-0000-4000-8000-000000000008'; -- marked
 
 -- E2b: backdate cards.owner_since to match latest ownership_history.transferred_at.
 -- Setter trigger fires on owner_id change only — these UPDATEs do not change
@@ -1206,8 +1207,20 @@ declare
   v_pr_sum integer;
 begin
   -- ── ASSERTION 1: ledger closure per user (SUM(amount) = wallet.balance) ──
-  for v_count, v_bal, v_topup in
-    select count(*)::int, sum(b)::int, sum(t)::int from (
+  -- (B2 fix: aggregate query always returns one row even with empty filter → sum = NULL
+  --  → previous FOR-loop raised even on 0 violations. Use COUNT(*) in a scalar var.)
+  select count(*) into v_count from (
+    select x.user_id
+    from (
+      select user_id, sum(amount_ccoin) as b
+      from public.wallet_transactions
+      group by user_id
+    ) x
+    join public.wallets w on w.user_id = x.user_id
+    where x.b is distinct from w.balance_ccoin
+  ) z;
+  if v_count > 0 then
+    select sum(b)::int, sum(t)::int into v_bal, v_topup from (
       select user_id,
              sum(amount_ccoin) as b,
              sum(case when type = 'top_up' then amount_ccoin else 0 end) as t
@@ -1215,10 +1228,9 @@ begin
       group by user_id
     ) x
     join public.wallets w on w.user_id = x.user_id
-    where x.b is distinct from w.balance_ccoin
-  loop
+    where x.b is distinct from w.balance_ccoin;
     raise exception 'LEDGER_CLOSURE_FAIL: % rows where SUM(tx.amount) != wallets.balance_ccoin (sum % vs topup %)', v_count, v_bal, v_topup;
-  end loop;
+  end if;
 
   -- ── ASSERTION 2: treasury equals SUM(platform_revenue.platform_ccoin) ──
   select coalesce(sum(platform_ccoin), 0)::int into v_pr_sum from public.platform_revenue;
