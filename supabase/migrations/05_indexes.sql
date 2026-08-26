@@ -45,3 +45,19 @@ create index if not exists idx_kyc_created
 create index if not exists idx_payouts_pending
   on public.payouts(ccoin_amount)
   where status = 'pending' and batch_id is null;
+
+-- ══════════════════════════════════════════════════════════════════════════
+-- Leaderboard (get_leaderboard, keputusan 2026-08-27): TIDAK ada index baru.
+-- Audit access-path vs index existing di 01_schema/05_indexes:
+--   xp:       idx_users_total_xp_desc (total_xp desc) sudah cover sort primer;
+--             tie-break xp_reached_at/username hanya untuk baris kecil (limit
+--             5..50) — cost in-memory negligible.
+--   cards:    idx_cards_owner (owner_id) sudah cukup untuk GROUP BY owner_id.
+--             Partial index tambahan pada (owner_id) WHERE owner_id IS NOT
+--             NULL tidak menambah nilai (btree existing sudah selective).
+--   badges:   idx_user_badges_user_earned (user_id, earned_at) sudah cover
+--             GROUP BY user_id + MAX(earned_at).
+--   creator:  idx_cards_owner + idx_drops_creator sudah cukup untuk
+--             join cards->drops filter creator_id.
+-- Tidak ada gap performance genuine — index dekoratif dilarang (audit 2026-08-24).
+-- ══════════════════════════════════════════════════════════════════════════

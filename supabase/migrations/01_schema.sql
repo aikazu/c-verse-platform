@@ -53,6 +53,43 @@ returns trigger language plpgsql as $$
 begin new.updated_at = now(); return new; end; $$;
 
 -- ══════════════════════════════════════════════════════════════════════════
+-- Helper trigger tie-break timestamps (leaderboard, keputusan 2026-08-27).
+-- users.xp_reached_at: bumped HANYA saat total_xp berubah — display_name /
+-- avatar / kolom lain tidak menyentuh tie-break. Klien tidak boleh tulis
+-- langsung (users_fields_guard 03_rls menambahkan xp_reached_at ke daftar
+-- kolom terlindungi bersama role/flag_reason/total_xp/level).
+-- cards.owner_since: bumped HANYA saat owner_id berubah (INSERT atau UPDATE
+-- owner swap). Cosmetic update (status / buyout_price / verify_status /
+-- nfc_configured / location / qc_status / last_ctr / nfc_uid / nfc_short_id)
+-- TIDAK bump owner_since — property itu inti dari fitur leaderboard.
+-- ══════════════════════════════════════════════════════════════════════════
+create or replace function public.set_users_xp_reached_at() returns trigger
+language plpgsql as $$
+begin
+  if tg_op = 'INSERT' then
+    new.xp_reached_at := now();
+    return new;
+  end if;
+  if old.total_xp is distinct from new.total_xp then
+    new.xp_reached_at := now();
+  end if;
+  return new;
+end $$;
+
+create or replace function public.set_cards_owner_since() returns trigger
+language plpgsql as $$
+begin
+  if tg_op = 'INSERT' then
+    new.owner_since := now();
+    return new;
+  end if;
+  if old.owner_id is distinct from new.owner_id then
+    new.owner_since := now();
+  end if;
+  return new;
+end $$;
+
+-- ══════════════════════════════════════════════════════════════════════════
 -- Tabel
 -- ══════════════════════════════════════════════════════════════════════════
 create table public.users (
@@ -68,6 +105,10 @@ create table public.users (
   is_anonymous boolean not null default false,
   total_xp integer not null default 0,
   level integer not null default 1,
+  -- users.xp_reached_at: tie-break timestamp for leaderboard XP rank
+  -- (Flow leaderboard, keputusan 2026-08-27). Bumped hanya oleh trigger saat
+  -- total_xp berubah — klien tidak boleh tulis langsung (guard trigger 03_rls).
+  xp_reached_at timestamptz not null default now(),
   cumulative_spend_ccoin integer not null default 0,
   flag_reason text,
   consent_analytics_detail boolean not null default false,
@@ -121,6 +162,10 @@ create table public.cards (
   variant card_variant not null,
   status card_status not null default 'inventory',
   owner_id uuid references public.users(id) on delete set null,
+  -- cards.owner_since: tie-break timestamp for leaderboard cards/badges rank
+  -- (Flow leaderboard, keputusan 2026-08-27). Bumped hanya oleh trigger saat
+  -- owner_id berubah — cosmetic updates (status, buyout_price, dll) TIDAK bump.
+  owner_since timestamptz not null default now(),
   nfc_uid text not null unique,
   nfc_short_id text not null unique,
   verify_status verify_status not null default 'unknown',
@@ -415,6 +460,18 @@ create trigger trg_kyc_updated_at before update on public.kyc_records for each r
 create trigger trg_creators_updated_at before update on public.creators for each row execute function set_updated_at();
 create trigger trg_shipments_updated_at before update on public.shipments for each row execute function set_updated_at();
 create trigger trg_disputes_updated_at before update on public.disputes for each row execute function set_updated_at();
+
+-- ══════════════════════════════════════════════════════════════════════════
+-- Trigger tie-break timestamps (leaderboard, keputusan 2026-08-27).
+-- Lihat helper function di atas (set_users_xp_reached_at / set_cards_owner_since).
+-- ══════════════════════════════════════════════════════════════════════════
+create trigger trg_users_xp_reached_at
+  before insert or update on public.users
+  for each row execute function public.set_users_xp_reached_at();
+
+create trigger trg_cards_owner_since
+  before insert or update on public.cards
+  for each row execute function public.set_cards_owner_since();
 
 -- ══════════════════════════════════════════════════════════════════════════
 -- Index basis (access-path + uniqueness) — sumber: foundation.sql

@@ -1364,6 +1364,119 @@ begin
 end $$;
 
 -- ══════════════════════════════════════════════════════════════════════════
+-- get_leaderboard: read-only leaderboard by type (xp / cards / badges /
+-- creator). Order: score DESC, reached_at ASC, username ASC NULLS LAST,
+-- user_id ASC (absolute determinism). Pure read — SECURITY DEFINER untuk
+-- konsistensi filter `is_anonymous = false AND flag_reason IS NULL`. Search_path
+-- pinned; STABLE; validasi type + clamp limit (5..50).
+-- ══════════════════════════════════════════════════════════════════════════
+create or replace function public.get_leaderboard(
+  p_type text,
+  p_creator_id uuid default null,
+  p_limit integer default 20
+) returns table(
+  rank bigint,
+  user_id uuid,
+  display_name text,
+  username text,
+  avatar_url text,
+  total_xp integer,
+  score bigint,
+  reached_at timestamptz
+)
+language plpgsql
+security definer
+set search_path = public
+stable
+as $$
+declare
+  v_limit integer := greatest(5, least(coalesce(p_limit, 20), 50));
+begin
+  if p_type not in ('xp','cards','badges','creator') then
+    raise exception 'INVALID_LEADERBOARD_TYPE: %, expected xp|cards|badges|creator', p_type;
+  end if;
+  if p_type = 'creator' and p_creator_id is null then
+    raise exception 'creator_id is required for creator leaderboard';
+  end if;
+
+  if p_type = 'xp' then
+    return query
+      select
+        row_number() over (order by u.total_xp desc, u.xp_reached_at asc, u.username asc nulls last, u.id asc)::bigint as rank,
+        u.id, u.display_name, u.username, u.avatar_url, u.total_xp,
+        u.total_xp::bigint as score,
+        u.xp_reached_at as reached_at
+      from public.users u
+      where u.is_anonymous = false and u.flag_reason is null
+      order by u.total_xp desc, u.xp_reached_at asc, u.username asc nulls last, u.id asc
+      limit v_limit;
+
+  elsif p_type = 'cards' then
+    return query
+      with agg as (
+        select c.owner_id as user_id,
+               count(*)::bigint as score,
+               max(c.owner_since) as reached_at
+        from public.cards c
+        where c.owner_id is not null
+        group by c.owner_id
+      )
+      select
+        row_number() over (order by a.score desc, a.reached_at asc, u.username asc nulls last, u.id asc)::bigint as rank,
+        u.id, u.display_name, u.username, u.avatar_url, u.total_xp,
+        a.score,
+        a.reached_at
+      from agg a
+      join public.users u on u.id = a.user_id
+      where u.is_anonymous = false and u.flag_reason is null
+      order by a.score desc, a.reached_at asc, u.username asc nulls last, u.id asc
+      limit v_limit;
+
+  elsif p_type = 'badges' then
+    return query
+      with agg as (
+        select ub.user_id,
+               count(*)::bigint as score,
+               max(ub.earned_at) as reached_at
+        from public.user_badges ub
+        group by ub.user_id
+      )
+      select
+        row_number() over (order by a.score desc, a.reached_at asc, u.username asc nulls last, u.id asc)::bigint as rank,
+        u.id, u.display_name, u.username, u.avatar_url, u.total_xp,
+        a.score,
+        a.reached_at
+      from agg a
+      join public.users u on u.id = a.user_id
+      where u.is_anonymous = false and u.flag_reason is null
+      order by a.score desc, a.reached_at asc, u.username asc nulls last, u.id asc
+      limit v_limit;
+
+  else -- p_type = 'creator'
+    return query
+      with agg as (
+        select c.owner_id as user_id,
+               count(*)::bigint as score,
+               max(c.owner_since) as reached_at
+        from public.cards c
+        join public.drops d on d.id = c.drop_id
+        where c.owner_id is not null and d.creator_id = p_creator_id
+        group by c.owner_id
+      )
+      select
+        row_number() over (order by a.score desc, a.reached_at asc, u.username asc nulls last, u.id asc)::bigint as rank,
+        u.id, u.display_name, u.username, u.avatar_url, u.total_xp,
+        a.score,
+        a.reached_at
+      from agg a
+      join public.users u on u.id = a.user_id
+      where u.is_anonymous = false and u.flag_reason is null
+      order by a.score desc, a.reached_at asc, u.username asc nulls last, u.id asc
+      limit v_limit;
+  end if;
+end $$;
+
+-- ══════════════════════════════════════════════════════════════════════════
 -- EXECUTE grants (least-privilege). service-only RPC di-revoke dari public/
 -- anon/authenticated; user-facing RPC ke authenticated.
 -- Pola: revoke from public (cover anon + authenticated via PUBLIC member),
@@ -1451,3 +1564,9 @@ revoke execute on function public.admin_fulfill_shipment(text, text, text) from 
 revoke execute on function public.admin_fulfill_shipment(text, text, text) from anon;
 revoke execute on function public.admin_fulfill_shipment(text, text, text) from authenticated;
 grant execute on function public.admin_fulfill_shipment(text, text, text) to service_role;
+
+-- Leaderboard: read-only publik (anon + authenticated) + service_role
+revoke execute on function public.get_leaderboard(text, uuid, integer) from public;
+grant execute on function public.get_leaderboard(text, uuid, integer) to anon;
+grant execute on function public.get_leaderboard(text, uuid, integer) to authenticated;
+grant execute on function public.get_leaderboard(text, uuid, integer) to service_role;

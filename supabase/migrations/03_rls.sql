@@ -65,7 +65,8 @@ language plpgsql as $$
 begin
   if public.is_service_role() then return new; end if;
   if new.role is distinct from old.role or new.flag_reason is distinct from old.flag_reason
-     or new.total_xp is distinct from old.total_xp or new.level is distinct from old.level then
+     or new.total_xp is distinct from old.total_xp or new.level is distinct from old.level
+     or new.xp_reached_at is distinct from old.xp_reached_at then
     raise exception 'users.role/flag_reason/xp hanya boleh diubah service-role';
   end if;
   return new;
