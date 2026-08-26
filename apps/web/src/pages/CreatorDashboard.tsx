@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import type React from "react";
 import { useState } from "react";
+import { RequireAuth } from "../components/RequireAuth";
 import { StatusBadge } from "../components/StatusBadge";
 import { api, formatIdr } from "../lib/api";
 import type { ApiDrop, ApiDropsResponse } from "../lib/api-types";
@@ -10,6 +11,14 @@ import { useToast } from "../lib/toast";
 const errorMessage = (e: unknown): string => (e instanceof Error ? e.message : String(e));
 
 export default function CreatorDashboard() {
+  return (
+    <RequireAuth>
+      <CreatorDashboardInner />
+    </RequireAuth>
+  );
+}
+
+function CreatorDashboardInner() {
   const { user } = useAuth();
   const { push } = useToast();
   const today = new Date().toISOString().slice(0, 10);
@@ -27,18 +36,8 @@ export default function CreatorDashboard() {
 
   const { data: dropsData, refetch } = useQuery<ApiDropsResponse>({ queryKey: ["creator-drops"], queryFn: () => api.drops({}) });
 
-  if (!user)
-    return (
-      <div className="card card-pad" style={{ textAlign: "center", padding: 32 }}>
-        <span className="eyebrow">Kreator</span>
-        <p className="muted" style={{ marginTop: 8 }}>
-          Masuk untuk mengakses dashboard
-        </p>
-        <a href="/login" style={{ color: "var(--gold)", fontSize: 13, fontWeight: 600, marginTop: 10, display: "inline-block" }}>
-          Masuk →
-        </a>
-      </div>
-    );
+  // RequireAuth di atas menjamin user non-null di sini; narrow untuk typecheck.
+  if (!user) return null;
   if (user.role !== "creator" && user.role !== "admin")
     return (
       <div className="card card-pad" style={{ textAlign: "center", padding: 32 }}>

@@ -2,6 +2,7 @@ import type { Card } from "@c-verse/shared";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { RequireAuth } from "../components/RequireAuth";
 import { api } from "../lib/api";
 import type { ApiProfileEnrichedCard } from "../lib/api-types";
 import { useAuth } from "../lib/auth";
@@ -10,6 +11,14 @@ import { useToast } from "../lib/toast";
 type EnrichedCard = ApiProfileEnrichedCard;
 
 export default function ManageCards() {
+  return (
+    <RequireAuth>
+      <ManageCardsInner />
+    </RequireAuth>
+  );
+}
+
+function ManageCardsInner() {
   const { user } = useAuth();
   const { push } = useToast();
   const [buyout, setBuyout] = useState<Record<string, string>>({});
@@ -33,18 +42,6 @@ export default function ManageCards() {
     });
   }, [data]);
 
-  if (!user)
-    return (
-      <div className="card card-pad" style={{ textAlign: "center", padding: 32 }}>
-        <span className="eyebrow">Kelola</span>
-        <p className="muted" style={{ marginTop: 8 }}>
-          Masuk untuk mengelola C.Card
-        </p>
-        <a href="/login" style={{ color: "var(--gold)", fontSize: 13, fontWeight: 600, marginTop: 10, display: "inline-block" }}>
-          Masuk →
-        </a>
-      </div>
-    );
   const cards: EnrichedCard[] = data?.cards ?? [];
   async function onSetBuyout(card: EnrichedCard) {
     const raw = (buyout[card.id] ?? "").trim();

@@ -1,6 +1,6 @@
 import type React from "react";
 import { useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../lib/auth";
 import { useToast } from "../lib/toast";
 import { isTurnstileEnabled, mountTurnstile, type TurnstileHandle } from "../lib/turnstile";
@@ -10,13 +10,28 @@ import { isTurnstileEnabled, mountTurnstile, type TurnstileHandle } from "../lib
 //   - email belum ada  → akun baru dibuat (otomatis)
 //   - email sudah ada  → masuk ke akun tersebut (otomatis)
 // Satu alur, dijalankan dari email + Google.
+//
+// Setelah verifikasi sukses, redirect ke `location.state.from` bila RequireAuth
+// pre-redirect user yang deep-link (mis. /home, /me/manage, /orders). Default: /home.
 
 const errorMessage = (e: unknown): string => (e instanceof Error ? e.message : String(e));
+
+function redirectTarget(state: unknown): string {
+  if (state && typeof state === "object" && "from" in state) {
+    const from = (state as { from?: unknown }).from;
+    if (typeof from === "string" && from.length > 0 && from.startsWith("/") && !from.startsWith("//")) {
+      return from;
+    }
+  }
+  return "/home";
+}
 
 export default function AuthForm() {
   const { loginGoogle, sendOtp, verifyOtp, isSupabaseAuth } = useAuth();
   const { push } = useToast();
   const nav = useNavigate();
+  const location = useLocation();
+  const target = redirectTarget(location.state);
   const [email, setEmail] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [code, setCode] = useState("");
@@ -65,7 +80,7 @@ export default function AuthForm() {
     try {
       await verifyOtp(email, code);
       push("Berhasil masuk", "success");
-      nav("/drops");
+      nav(target, { replace: true });
     } catch (err: unknown) {
       push(errorMessage(err) || "Kode salah atau kedaluwarsa", "error");
     } finally {

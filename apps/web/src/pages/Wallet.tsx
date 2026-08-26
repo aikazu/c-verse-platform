@@ -2,6 +2,7 @@ import { BALANCE_CAP_CCOIN, walletTxTypeLabel } from "@c-verse/shared";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { RequireAuth } from "../components/RequireAuth";
 import { ApiError, api, formatIdr } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { ErrorState, LoadingState } from "../lib/QueryStates";
@@ -10,6 +11,14 @@ import { useToast } from "../lib/toast";
 const errorMessage = (e: unknown): string => (e instanceof Error ? e.message : String(e));
 
 export default function Wallet() {
+  return (
+    <RequireAuth>
+      <WalletInner />
+    </RequireAuth>
+  );
+}
+
+function WalletInner() {
   const { user } = useAuth();
   const { push } = useToast();
   const nav = useNavigate();
@@ -88,18 +97,6 @@ export default function Wallet() {
     }
   }
 
-  if (!user)
-    return (
-      <div className="card card-pad" style={{ textAlign: "center", padding: 32 }}>
-        <span className="eyebrow">Dompet</span>
-        <p className="muted" style={{ marginTop: 8 }}>
-          Masuk untuk membuka dompet
-        </p>
-        <a href="/login" style={{ color: "var(--gold)", fontSize: 13, fontWeight: 600, marginTop: 10, display: "inline-block" }}>
-          Masuk →
-        </a>
-      </div>
-    );
   if (isLoading) return <LoadingState />;
   if (isError || !data) return <ErrorState onRetry={() => refetch()} label="Gagal memuat dompet" />;
   const w = data.wallet;

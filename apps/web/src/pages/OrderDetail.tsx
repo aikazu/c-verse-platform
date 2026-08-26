@@ -2,6 +2,7 @@ import { orderStatusLabel, shipmentStatusLabel } from "@c-verse/shared";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
+import { RequireAuth } from "../components/RequireAuth";
 import { StatusBadge } from "../components/StatusBadge";
 import { api } from "../lib/api";
 import { useToast } from "../lib/toast";
@@ -9,6 +10,14 @@ import { useToast } from "../lib/toast";
 const errorMessage = (e: unknown): string => (e instanceof Error ? e.message : String(e));
 
 export default function OrderDetail() {
+  return (
+    <RequireAuth>
+      <OrderDetailInner />
+    </RequireAuth>
+  );
+}
+
+function OrderDetailInner() {
   const { id } = useParams();
   const { push } = useToast();
   const [busy, setBusy] = useState(false);

@@ -3,30 +3,27 @@ import { cardLocationLabel } from "@c-verse/shared";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { LevelBar } from "../components/LevelBar";
+import { RequireAuth } from "../components/RequireAuth";
 import { api } from "../lib/api";
 import type { ApiProfileEnrichedCard } from "../lib/api-types";
 import { useAuth } from "../lib/auth";
 import { ErrorState, LoadingState } from "../lib/QueryStates";
 
 export default function Collection() {
+  return (
+    <RequireAuth>
+      <CollectionInner />
+    </RequireAuth>
+  );
+}
+
+function CollectionInner() {
   const { user } = useAuth();
   const { data, refetch, isLoading, isError } = useQuery({
     queryKey: ["profile"],
     queryFn: () => api.profile(),
     enabled: !!user,
   });
-  if (!user)
-    return (
-      <div className="card card-pad" style={{ textAlign: "center", padding: 32 }}>
-        <span className="eyebrow">Koleksi</span>
-        <p className="muted" style={{ marginTop: 8 }}>
-          Masuk untuk melihat koleksi
-        </p>
-        <a href="/login" style={{ color: "var(--gold)", fontSize: 13, fontWeight: 600, marginTop: 10, display: "inline-block" }}>
-          Masuk →
-        </a>
-      </div>
-    );
   if (isLoading) return <LoadingState />;
   if (isError || !data) return <ErrorState onRetry={() => refetch()} label="Gagal memuat koleksi" />;
   const cards: ApiProfileEnrichedCard[] = data.cards ?? [];
