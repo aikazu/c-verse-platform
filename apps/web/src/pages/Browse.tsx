@@ -1,7 +1,7 @@
+import { MAX_ACTIVE_BIDS_PER_USER } from "@c-verse/shared";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { MAX_ACTIVE_BIDS_PER_USER } from "@c-verse/shared";
 import { api } from "../lib/api";
 import type { ApiBrowseEntry, ApiBrowseResponse } from "../lib/api-types";
 import { useAuth } from "../lib/auth";

@@ -26,6 +26,7 @@ app.post(
       nik: z.string().length(16),
       address: z.string().min(10).max(500),
       dob: z.string().optional(),
+      ktpUrl: z.string().optional(),
       npwpUrl: z.string().optional(),
       selfieUrl: z.string().optional(),
     }),
@@ -35,9 +36,23 @@ app.post(
     if ("error" in authRes) return c.json({ error: authRes.error === 403 ? "Akun disuspend" : "Unauthorized" }, authRes.error);
     const user = authRes.user;
     const body = c.req.valid("json");
+    // P0-5 (audit 2026-08-24): wajib dob + ktpUrl + selfieUrl agar sesuai
+    // US-USR-011 (KTP, selfie, NPWP opsional). NPWP opsional. NIK checksum
+    // dilakukan client-side; server-side minimal length 16 char (lihat zValidator).
+    if (!body.dob || !body.ktpUrl || !body.selfieUrl) {
+      return c.json({ error: "Lengkapi DOB, foto KTP, dan selfie untuk validasi KYC" }, 400);
+    }
     const existing = await getKycByUser(user.id);
     if (existing && existing.status === "approved") return c.json({ error: "KYC sudah approved" }, 400);
-    const rec = await upsertKycSubmission(user.id, existing, { fullName: body.fullName, nik: body.nik, address: body.address });
+    const rec = await upsertKycSubmission(user.id, existing, {
+      fullName: body.fullName,
+      nik: body.nik,
+      address: body.address,
+      dob: body.dob,
+      ktpUrl: body.ktpUrl,
+      npwpUrl: body.npwpUrl,
+      selfieUrl: body.selfieUrl,
+    });
     // M5: response is redacted for the user; admin endpoint keeps the unredacted record.
     return c.json({ kyc: redactKycForOwner(rec) }, 201);
   },

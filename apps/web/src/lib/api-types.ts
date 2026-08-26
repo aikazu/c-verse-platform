@@ -386,6 +386,10 @@ export interface ApiKycResponse {
     status: "pending" | "approved" | "rejected" | "unsubmitted";
     createdAt?: string;
     updatedAt?: string;
+    dob?: string | null;
+    ktpUrl?: string | null;
+    npwpUrl?: string | null;
+    selfieUrl?: string | null;
   };
 }
 

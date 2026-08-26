@@ -20,5 +20,8 @@ export interface RedactableKyc {
 
 /** Redact PII for the user-facing KYC endpoints. Keeps status/timestamps/ids. */
 export function redactKycForOwner<T extends RedactableKyc>(rec: T): Omit<T, "nik" | "address"> & { nik: string; address: string } {
+  // DOB + URL file upload (KTP/selfie/NPWP) bukan PII strict yang perlu disamarkan
+  // — owner sudah pernah input dan butuh lihat status submitnya. NIK jadi masked;
+  // address jadi placeholder; field lain (timestamps, status, file URLs) ikut.
   return { ...rec, nik: redactNik(rec.nik), address: "[redacted]" };
 }

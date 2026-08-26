@@ -215,6 +215,10 @@ export function mapKycRow(r: Row): KycRecord {
     status: str(r.status) as KycRecord["status"],
     createdAt: str(r.created_at),
     updatedAt: nstr(r.updated_at) ?? undefined,
+    dob: nstr(r.dob) ?? null,
+    ktpUrl: nstr(r.ktp_url) ?? null,
+    npwpUrl: nstr(r.npwp_url) ?? null,
+    selfieUrl: nstr(r.selfie_url) ?? null,
   };
 }
 
