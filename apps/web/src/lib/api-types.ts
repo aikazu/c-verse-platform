@@ -82,6 +82,11 @@ export interface ApiDropsResponse extends PagedMeta {
 
 export type ApiDropDetailResponse = ApiDrop & {
   cards?: Card[];
+  // P0-1 (audit 2026-08-24): jumlah entry hidup per pool (reguler/premium)
+  // ditambahkan saat endpoint tahu jumlah — saat ini route /api/drops/:id belum
+  // mengembalikan field ini; dihitung dari endpoint /api/drops/:id/entry-counts
+  // bila ada. Untuk sekarang fallback ke undefined dan UI sembunyikan count.
+  entryCounts?: { regular: number; premium: number; both: number } | null;
 };
 
 // ── Wallet ─────────────────────────────────────────────────────────────────

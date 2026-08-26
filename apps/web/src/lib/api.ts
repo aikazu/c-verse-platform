@@ -81,6 +81,14 @@ export const api = {
     return req<ApiDropsResponse>(`/drops${qs}`);
   },
   drop: (id: string) => req<ApiDropDetailResponse>(`/drops/${id}`),
+  // P0-1 (audit 2026-08-24): raffle entry — Phase-1 Flow 1 docs/03_flows.
+  // Backend: POST /api/drops/:id/entry { pool: "regular" | "premium" | "both" }
+  // → RPC rpcDropEntry. Hold C-Coin (escrow) sampai draw; release saat kalah.
+  entryRaffle: (dropId: string, pool: "regular" | "premium" | "both") =>
+    req<{ entry: { dropId: string; userId: string; pool: "regular" | "premium" | "both"; createdAt: string } }>(`/drops/${dropId}/entry`, {
+      method: "POST",
+      body: JSON.stringify({ pool }),
+    }),
   // Body validated server-side by createDropSchema (docs/13). Payload type is
   // intentionally broad here to avoid duplicating schema in two places — server
   // is the source of truth.
