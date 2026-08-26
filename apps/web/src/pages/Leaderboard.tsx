@@ -9,7 +9,7 @@ import { ErrorState, LoadingState } from "../lib/QueryStates";
 export default function Leaderboard() {
   const { data, isLoading, isError, refetch } = useQuery({ queryKey: ["leaderboard"], queryFn: () => api.leaderboard(50) });
   const { data: badgesData } = useQuery<ApiBadgesResponse>({ queryKey: ["badges"], queryFn: () => api.badges() });
-  const [tierFilter, setTierFilter] = useState<"all" | "bronze" | "silver" | "gold" | "platinum" | "diamond">("all");
+  const [tierFilter] = useState<"all" | "bronze" | "silver" | "gold" | "platinum" | "diamond">("all");
   if (isLoading) return <LoadingState />;
   if (isError) return <ErrorState onRetry={() => refetch()} label="Gagal memuat peringkat" />;
   const rawBoard: ApiLeaderboardEntry[] = data?.leaderboard ?? [];

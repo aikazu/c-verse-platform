@@ -1,6 +1,4 @@
-import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
-import { z } from "zod";
 import { requireUser } from "../lib/auth.js";
 import { sanitizeDbError } from "../lib/errors.js";
 import { listNotificationsByUser, markNotificationRead } from "../lib/reads/notifications.js";

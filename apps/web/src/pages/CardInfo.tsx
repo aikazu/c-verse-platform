@@ -73,7 +73,7 @@ export default function CardInfo() {
   const history: ApiCardOwnershipRow[] = data.ownershipHistory ?? [];
   const bids: Bid[] = data.bids ?? [];
   const verifyBadge = VERIFY_BADGES[card.verifyStatus ?? "unknown"] ?? VERIFY_BADGES.unknown;
-  const isOwner = isOwnerDerived;
+  // isOwner / canBuyout dibaca oleh JSX di bawah; useEffect pakai derived.
   const canBuyout = canBuyoutDerived;
   const myActiveBid = activeBid?.bidderId && user && activeBid.bidderId === user.id ? activeBid : null;
 

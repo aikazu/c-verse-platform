@@ -41,8 +41,8 @@ vi.mock("../../lib/supabase.js", () => {
     return {
       select: () => {
         const q: Record<string, unknown> = {
-          eq: (_col: string, val: unknown) => q,
-          is: (_col: string, val: unknown) => q,
+          eq: (_col: string, _val: unknown) => q,
+          is: (_col: string, _val: unknown) => q,
           order: () => q,
           limit: (_n: number) => Promise.resolve({ data: control.rows, error: null }),
           maybeSingle: () => Promise.resolve({ data: null, error: null }),
