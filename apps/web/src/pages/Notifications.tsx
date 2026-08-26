@@ -9,11 +9,12 @@ import { api } from "../lib/api";
 const TEMPLATE_LABEL: Record<string, (p: Record<string, unknown> | null) => string> = {
   bid_outbid: (p) => `Tawaranmu di-outbid. Tertinggi baru ${p?.newBid ?? "?"} C`,
   bid_accepted: (p) => `Tawaranmu diterima di ${p?.amount ?? "?"} C`,
+  bid_received: (p) => `Tawaran baru ${p?.amount ?? "?"} C dari ${p?.bidderName ?? "?"}`,
   card_bought: (p) => `C.Card kamu dibeli di ${p?.amount ?? "?"} C`,
   draw_winner: () => "Kamu menang raffle — order dibuat",
   draw_loser: () => "Kamu kalah raffle — C-Coin dikembalikan",
   payout_disbursed: (p) => `Payout ${p?.amount ?? "?"} C diteruskan ke rekening`,
-  payout_failed: () => "Payout gagal — cek menu Payout di profil",
+  payout_failed: (p) => `Payout gagal (${p?.status ?? "?"}) — cek menu Payout`,
   shipment_shipped: () => "C.Card dalam pengiriman",
   shipment_delivered: () => "C.Card sudah diterima",
   kyc_approved: () => "KYC disetujui — penarikan dana tanpa batas saldo",
