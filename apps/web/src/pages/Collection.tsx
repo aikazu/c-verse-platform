@@ -1,6 +1,7 @@
 import type { UserBadge as SharedUserBadge } from "@c-verse/shared";
 import { cardLocationLabel } from "@c-verse/shared";
 import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import { LevelBar } from "../components/LevelBar";
 import { RequireAuth } from "../components/RequireAuth";
@@ -24,9 +25,15 @@ function CollectionInner() {
     queryFn: () => api.profile(),
     enabled: !!user,
   });
+  const [loc, setLoc] = useState<"all" | "platform_vault" | "with_owner">("all");
+  const [variant, setVariant] = useState<"all" | "signed" | "unsigned">("all");
   if (isLoading) return <LoadingState />;
   if (isError || !data) return <ErrorState onRetry={() => refetch()} label="Gagal memuat koleksi" />;
-  const cards: ApiProfileEnrichedCard[] = data.cards ?? [];
+  const cards: ApiProfileEnrichedCard[] = (data.cards ?? []).filter((c) => {
+    if (loc !== "all" && c.location !== loc) return false;
+    if (variant !== "all" && c.variant !== variant) return false;
+    return true;
+  });
   const badges = (data.badges ?? []) as SharedUserBadge[];
   const level: number = data.user?.level ?? 1;
   const tier: string = data.user?.tier ?? "bronze";
@@ -91,9 +98,33 @@ function CollectionInner() {
           }}
         >
           <span style={{ fontWeight: 600, fontSize: 13 }}>C.Card — {cards.length}</span>
-          <Link to="/me/manage" style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--gold)", fontWeight: 500 }}>
-            Kelola →
-          </Link>
+          <div style={{ display: "flex", gap: 6 }}>
+            <select
+              className="select"
+              value={loc}
+              onChange={(e) => setLoc(e.target.value as typeof loc)}
+              aria-label="Filter lokasi"
+              style={{ fontSize: 11, padding: "4px 8px", height: 28 }}
+            >
+              <option value="all">Semua lokasi</option>
+              <option value="with_owner">Punya saya</option>
+              <option value="platform_vault">Di vault</option>
+            </select>
+            <select
+              className="select"
+              value={variant}
+              onChange={(e) => setVariant(e.target.value as typeof variant)}
+              aria-label="Filter varian"
+              style={{ fontSize: 11, padding: "4px 8px", height: 28 }}
+            >
+              <option value="all">Semua varian</option>
+              <option value="signed">Signed</option>
+              <option value="unsigned">Unsigned</option>
+            </select>
+            <Link to="/me/manage" style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--gold)", fontWeight: 500 }}>
+              Kelola →
+            </Link>
+          </div>
         </div>
         {cards.length === 0 ? (
           <div style={{ padding: 32, textAlign: "center", color: "var(--text-muted)", fontSize: 13 }}>
