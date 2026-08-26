@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import React, { lazy, Suspense, useState } from "react";
-import { BrowserRouter, NavLink, Route, Routes, useNavigate } from "react-router-dom";
+import { BrowserRouter, Navigate, NavLink, Route, Routes, useNavigate, useParams } from "react-router-dom";
 import { AuthProvider, useAuth } from "./lib/auth";
 import { ErrorBoundary } from "./lib/ErrorBoundary";
 import { ToastProvider } from "./lib/toast";
@@ -215,6 +215,16 @@ function Navbar() {
   );
 }
 
+/**
+ * Legacy /verify/:shortId → /cards/:shortId (atau /3d jika login) — verify melekat di halaman kartu
+ * per docs/02 §4. Redirect permanen menjaga UX NFC tap (UID URL SUN) untuk visitor lama.
+ */
+function LegacyVerifyRedirect() {
+  const shortId = useParams().shortId;
+  if (!shortId) return <Navigate to="/cards" replace />;
+  return <Navigate to={`/cards/${encodeURIComponent(shortId)}`} replace />;
+}
+
 function AppRoutes() {
   return (
     <div className="app-shell">
@@ -255,9 +265,11 @@ function AppRoutes() {
             <Route path="/register" element={<Register />} />
             <Route path="/creator" element={<CreatorDashboard />} />
             <Route path="/creator/drops" element={<CreatorDashboard />} />
-            {/* Compat: legacy /verify — Verify melekat di /cards/:id (QR→Registered) & /cards/:id/3d (NFC→Verified) per docs/02 */}
-            <Route path="/verify" element={<Browse />} />
-            <Route path="/verify/:shortId" element={<CardInfo />} />
+            {/* /verify/:shortId DITIADAKAN per docs/02 §4 — verify melekat di halaman kartu.
+                Redirect permanen ke /cards/:shortId (NFC → /3d jika login, info jika tidak).
+                Footer/SO tidak lagi menautkan ke /verify. */}
+            <Route path="/verify" element={<Navigate to="/cards" replace />} />
+            <Route path="/verify/:shortId" element={<LegacyVerifyRedirect />} />
             {/* Catch-all: unknown path -> 404 informatif (bukan layar kosong) */}
             <Route path="*" element={<NotFoundPage />} />
           </Routes>
