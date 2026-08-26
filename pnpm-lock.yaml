@@ -122,12 +122,6 @@ importers:
       '@tanstack/react-query':
         specifier: ^5.64.2
         version: 5.101.4(react@19.2.8)
-      gsap:
-        specifier: ^3.12.5
-        version: 3.15.0
-      hono:
-        specifier: ^4.7.4
-        version: 4.13.1
       react:
         specifier: ^19.0.0
         version: 19.2.8
@@ -1377,9 +1371,6 @@ packages:
 
   glob-to-regexp@0.4.1:
     resolution: {integrity: sha512-lkX1HJXwyMcprw/5YUZc2s7DrpAiHB21/V+E1rHUrVNokkvB6bqMzT0VfV6/86ZNabt1k14YOIaT7nDvOX3Iiw==}
-
-  gsap@3.15.0:
-    resolution: {integrity: sha512-dMW4CWBTUK1AEEDeZc1g4xpPGIrSf9fJF960qbTZmN/QwZIWY5wgliS6JWl9/25fpTGJrMRtSjGtOmPnfjZB+A==}
 
   hono-rate-limiter@0.5.3:
     resolution: {integrity: sha512-M0DxbVMpPELEzLi0AJg1XyBHLGJXz7GySjsPoK+gc5YeeBsdGDGe+2RvVuCAv8ydINiwlbxqYMNxUEyYfRji/A==}
@@ -2768,8 +2759,6 @@ snapshots:
       source-map: 0.6.1
 
   glob-to-regexp@0.4.1: {}
-
-  gsap@3.15.0: {}
 
   hono-rate-limiter@0.5.3(hono@4.13.1):
     dependencies:
