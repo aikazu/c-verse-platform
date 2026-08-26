@@ -174,8 +174,8 @@ Belum diimplementasi: notifikasi in-app/push (F010, F013) dan layer email transa
 │   └── admin/               # VPS SPA — ADM-01..10 + Investor
 ├── packages/shared/         # single source: schemas + C_COIN_RATE_IDR + fee
 ├── supabase/
-│   ├── migrations/          # 7 fase: foundation → auth → RLS → RPC → grants →
-│   │                        # perf index → revenue flow hardening
+│   ├── migrations/          # 5 file by domain: schema → auth → RLS → RPC →
+│   │                        # perf index
 │   ├── seed.sql
 │   ├── tests/               # rls_test.sql, rpc_*.mjs, revenue_flow_test.mjs
 │   └── config.toml
