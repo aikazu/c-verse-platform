@@ -353,14 +353,6 @@ export interface ApiCreatorPublicResponse {
   };
 }
 
-export interface ApiApplyCreatorResponse {
-  creator: {
-    handle: string;
-    status: string;
-    message: string;
-  };
-}
-
 // ── Gamification ──────────────────────────────────────────────────────────
 // GET /api/gamification/leaderboard — derived from listTopUsersByXp,
 // field tambahan: username, totalCards (lihat apps/api/src/routes/gamification.ts:16-28).

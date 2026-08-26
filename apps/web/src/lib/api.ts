@@ -1,7 +1,6 @@
 import type { Drop, Order, Shipment, Wallet } from "@c-verse/shared";
 import type {
   ApiAcceptBidResponse,
-  ApiApplyCreatorResponse,
   ApiBadgesResponse,
   ApiBidResponse,
   ApiBrowseResponse,
@@ -173,7 +172,8 @@ export const api = {
   // public profile / creator
   publicProfile: (username: string) => req<ApiPublicProfileResponse>(`/public/u/${encodeURIComponent(username)}`),
   creatorPublic: (idOrHandle: string) => req<ApiCreatorPublicResponse>(`/creators/${encodeURIComponent(idOrHandle)}`),
-  applyCreator: () => req<ApiApplyCreatorResponse>("/creators/apply", { method: "POST" }),
+  // applyCreator dihapus: docs/03_flows.md Flow 11 — kreator TIDAK self-register;
+  // provisioning lewat admin (POST /api/admin/users/provision).
 
   // gamification
   leaderboard: (limit = 20) => req<ApiLeaderboardResponse>(`/gamification/leaderboard?limit=${limit}`),

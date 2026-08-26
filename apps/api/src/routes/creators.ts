@@ -1,6 +1,5 @@
 import { Hono } from "hono";
 import { clientIp, requireUser } from "../lib/auth.js";
-import { sanitizeDbError } from "../lib/errors.js";
 import {
   getCreatorByHandle,
   getCreatorByUserId,
@@ -161,30 +160,8 @@ app.get("/handle/:handle", async (c) => {
   });
 });
 
-// POST /apply — user minta jadi creator (row creators status 'inactive' menunggu
-// approval admin; role di-flip admin via PATCH /api/admin/users/:id).
-app.post("/apply", async (c) => {
-  const authRes = await requireUser(c);
-  if ("error" in authRes) return c.json({ error: authRes.error === 403 ? "Akun disuspend" : "Unauthorized" }, authRes.error);
-  const user = authRes.user;
-  if ((user.role as string) === "creator") return c.json({ error: "Kamu sudah terdaftar sebagai kreator" }, 400);
-  const username = user.username;
-  if (!username) return c.json({ error: "Set username dulu di profil sebelum mendaftar kreator" }, 400);
-  const existing = await getCreatorByUserId(user.id);
-  if (existing) return c.json({ error: "Pendaftaran kreator sudah ada — menunggu review admin" }, 409);
-  const { getSupabase } = await import("../lib/supabase.js");
-  const { uid } = await import("../lib/store.js");
-  const db = getSupabase();
-  const id = uid("cr-");
-  const { error } = await db.from("creators").insert({
-    id,
-    user_id: user.id,
-    handle: username,
-    total_followers_combined: 0,
-    status: "inactive",
-  });
-  if (error) return c.json({ error: sanitizeDbError(error) }, 400);
-  return c.json({ creator: { id, handle: username, status: "inactive", message: "Pendaftaran diterima — menunggu review admin" } }, 201);
-});
+// POST /apply sengaja DITIADAKAN per docs/03_flows.md Flow 11: akun kreator
+// admin-provisioned + passwordless, TIDAK ada registrasi publik. Onboarding via
+// POST /api/admin/users/provision dari admin app (gate aal2).
 
 export default app;

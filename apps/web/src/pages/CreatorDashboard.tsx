@@ -22,31 +22,10 @@ export default function CreatorDashboard() {
     releaseDate: today,
     releaseTime: "12:00",
   });
-  const [applyBusy, setApplyBusy] = useState(false);
-  const [applied, setApplied] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
 
   const { data: dropsData, refetch } = useQuery<ApiDropsResponse>({ queryKey: ["creator-drops"], queryFn: () => api.drops({}) });
-
-  async function onApplyCreator() {
-    setApplyBusy(true);
-    try {
-      const r = await api.applyCreator();
-      push(r.creator.message, "success");
-      setApplied(true);
-    } catch (err: unknown) {
-      const status = (err as { status?: number })?.status;
-      if (status === 409) {
-        push("Pendaftaran kreator sudah ada — menunggu review admin", "info");
-        setApplied(true);
-      } else {
-        push(errorMessage(err), "error");
-      }
-    } finally {
-      setApplyBusy(false);
-    }
-  }
 
   if (!user)
     return (
@@ -65,13 +44,12 @@ export default function CreatorDashboard() {
       <div className="card card-pad" style={{ textAlign: "center", padding: 32 }}>
         <span className="eyebrow">Kreator</span>
         <p className="muted" style={{ marginTop: 8 }}>
-          Hanya kreator yang bisa mengakses dashboard ini.
+          Dashboard kreator hanya untuk akun kreator. Akun kreator disediakan tim C.Verse via deal memo offline — tidak ada registrasi
+          publik.
         </p>
-        {!applied && (
-          <button className="btn-gold" onClick={onApplyCreator} disabled={applyBusy} style={{ marginTop: 14, padding: "11px 24px" }}>
-            {applyBusy ? "Mengirim…" : "Ajukan jadi kreator"}
-          </button>
-        )}
+        <div className="muted" style={{ marginTop: 14, fontSize: 12 }}>
+          Sudah deal memo tapi belum punya akun? Hubungi tim untuk aktivasi.
+        </div>
       </div>
     );
 
