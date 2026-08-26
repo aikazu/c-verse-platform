@@ -64,6 +64,8 @@ on conflict (id) do nothing;
 -- public.users mirror — handle_new_auth_user (02_auth) sudah pre-insert baris
 -- dengan display_name = prefix email + username acak. ON CONFLICT update
 -- menimpa kolom niat seed; username_is_auto=false (kita menulis username manual).
+-- (W9: cumulative_spend_ccoin sengaja DIHAPUS dari upsert — di-recompute di akhir Phase D
+--  dari wallets.total_spent_ccoin agar re-run tidak men-clobber nilai live.)
 insert into public.users (
   id, email, display_name, username, role,
   is_anonymous, total_xp, level, flag_reason,
@@ -84,7 +86,6 @@ on conflict (id) do update set
   role = excluded.role,
   is_anonymous = excluded.is_anonymous,
   flag_reason = excluded.flag_reason,
-  cumulative_spend_ccoin = excluded.cumulative_spend_ccoin,
   consent_analytics_detail = excluded.consent_analytics_detail;
 
 -- Treasury (...0c0) sudah ada dari 01_schema.sql. Pastikan role & anon.
@@ -480,10 +481,11 @@ insert into public.orders (
    array['card-seed-karina-01'], 60, 600000,'paid','shipping', 3,'held',
    'Jl. Rival No. 99, Bandung', null, null, null, now() - interval '30 minutes','secondary_buyout'),
 
-  -- qc — order paused in QC
+  -- qc — order paused in QC (W2 remediation: shipping matches ship-ord-hype-1 'primary_shipping';
+  -- shipping_fee_ccoin=2 per convention of neighboring shipping rows; total_idr=270000 = (25+2)*10000)
   ('ord-hype-qc','00000000-0000-4000-8000-000000000004','drop-genesis-live','card-genesis-live-06',
-   array['card-genesis-live-06'], 25, 250000,'qc','vault', null,'released',
-   null, null, null, null, now() - interval '2 days','fcfs'),
+   array['card-genesis-live-06'], 25, 270000,'qc','shipping', 2,'released',
+   'Jl. Hype No. 88, Jakarta', null, null, null, now() - interval '2 days','fcfs'),
 
   -- refunded — refunded order (buyer klaim rusak sebelum diproses)
   ('ord-marked-refunded','00000000-0000-4000-8000-000000000008','drop-aespa-live','card-aespa-live-08',
@@ -498,7 +500,13 @@ insert into public.orders (
   -- additional past closed drop order
   ('ord-karina-nova-past','00000000-0000-4000-8000-000000000003','drop-nova-past','card-nova-past-01',
    array['card-nova-past-01'], 20, 200000,'settled','vault', null,'released',
-   null, null, null, null, now() - interval '29 days','fcfs')
+   null, null, null, null, now() - interval '29 days','fcfs'),
+
+  -- primary vault — settled (B1 remediation: matches wtx-d-07 + wtx-h-04 legs; royalty +8 exists, this row
+  -- adds the platform_revenue counterpart pr-genesis-demo-05 so ledger closure stays equal via treasury rollup)
+  ('ord-genesis-demo-05','00000000-0000-4000-8000-000000000001','drop-genesis-live','card-genesis-live-05',
+   array['card-genesis-live-05'], 25, 250000,'settled','vault', null,'released',
+   null, null, null, null, now() - interval '8 days','fcfs')
 on conflict (id) do nothing;
 
 -- SHIPMENTS — ≥8 covering all shipment_type × statuses.
@@ -573,7 +581,7 @@ insert into public.bids (
 
   -- OUTBID — demo's previous bid kalah di aespa-live-03 (Rival lewat)
   ('bid-aespa-outbid-demo','card-aespa-live-03','00000000-0000-4000-8000-000000000001','Demo Kolektor',
-   38, 'outbid', now() - interval '30 days', now() - interval '28 days', null, null),
+   38, 'outbid', now() - interval '30 days', now() - interval '31 days', null, null),
 
   -- OUTBID — admin older bid outbid by hype
   ('bid-genesis-outbid-admin','card-genesis-live-19','00000000-0000-4000-8000-000000000002','Admin C.Verse',
@@ -581,7 +589,7 @@ insert into public.bids (
 
   -- CANCELLED — demo cancelled own bid
   ('bid-aespa-cancel-demo','card-aespa-live-06','00000000-0000-4000-8000-000000000001','Demo Kolektor',
-   35, 'cancelled', now() - interval '7 days', null, now() - interval '6 days', null),
+   35, 'cancelled', now() - interval '7 days', null, now() - interval '8 days', null),
 
   -- CANCELLED — rival cancelled own bid
   ('bid-genesis-cancel-rival','card-genesis-live-04','00000000-0000-4000-8000-000000000006','Rival Kolektor',
@@ -604,22 +612,22 @@ on conflict (id) do nothing;
 insert into public.ownership_history (
   id, card_id, owner_id, acquired_via, order_id, bid_id, transferred_at
 ) values
-  -- primary: Karina signed vault (drop-aespa-signed-10 = signed card owned by Karina)
-  ('oh-as-10-1','card-aespa-signed-10','00000000-0000-4000-8000-000000000003','primary','ord-karina-nova-past', null, now() - interval '25 days'),
-
   -- primary: aespa-live cards (demo 1,4,6 = 3 cards)
   ('oh-aes-01','card-aespa-live-01','00000000-0000-4000-8000-000000000001','primary','ord-demo-shipping-paid', null, now() - interval '12 days'),
   ('oh-aes-04','card-aespa-live-04','00000000-0000-4000-8000-000000000001','primary','ord-demo-shipping-deliv3', null, now() - interval '10 days'),
   ('oh-aes-06','card-aespa-live-06','00000000-0000-4000-8000-000000000001','primary', null, null, now() - interval '8 days'),
 
+  -- primary: Karina signed vault (drop-aespa-signed-10 = signed card owned by Karina; W3: keep plausible recent
+  -- at -25d, drop the bogus order_id ref to ord-karina-nova-past which belongs to card-nova-past-01)
+  ('oh-as-10-1','card-aespa-signed-10','00000000-0000-4000-8000-000000000003','primary', null, null, now() - interval '25 days'),
+
   -- primary: aespa-live cards (rival 2,5 = 2 cards)
   ('oh-aes-02','card-aespa-live-02','00000000-0000-4000-8000-000000000006','primary','ord-demo-shipping-shipped', null, now() - interval '5 hours'),
   ('oh-aes-05','card-aespa-live-05','00000000-0000-4000-8000-000000000006','primary','ord-rival-shipping-deliv10', null, now() - interval '20 days'),
 
-  -- primary: genesis-live cards (demo 2,5,8,9 = 4 cards)
+  -- primary: genesis-live cards (demo 2,5,8,9 = 4 cards; oh-gen-08 dropped W3 — covered by oh-gen-08-bid)
   ('oh-gen-02','card-genesis-live-02','00000000-0000-4000-8000-000000000001','primary','ord-demo-vault-settled', null, now() - interval '5 days'),
   ('oh-gen-05','card-genesis-live-05','00000000-0000-4000-8000-000000000001','primary', null, null, now() - interval '4 days'),
-  ('oh-gen-08','card-genesis-live-08','00000000-0000-4000-8000-000000000001','primary', null, null, now() - interval '3 days'),
   ('oh-gen-09','card-genesis-live-09','00000000-0000-4000-8000-000000000001','primary', null, null, now() - interval '2 days'),
 
   -- primary: genesis-live cards (rival 3,4,10,11 = 4 cards)
@@ -631,17 +639,52 @@ insert into public.ownership_history (
   -- primary: aespa-signed-07 (rival raffle winner — synced to ord-rival-raffle-settled)
   ('oh-as-07','card-aespa-signed-07','00000000-0000-4000-8000-000000000006','primary','ord-rival-raffle-settled', null, now() - interval '6 days'),
 
-  -- primary: Karina received aespa-signed-10 (cover creator ownership too)
-  ('oh-as-10-2','card-aespa-signed-10','00000000-0000-4000-8000-000000000003','primary', null, null, now() - interval '90 days'),
+  -- (W3 remediation: oh-as-10-2 redundant older row deleted — oh-as-10-1 above covers aespa-signed-10)
 
   -- secondary_buyout (Rival bought seed-01 PHASE-1 — recorded by buyout_card)
   ('oh-seed-01','card-seed-karina-01','00000000-0000-4000-8000-000000000006','secondary_buyout', null, null, now() - interval '30 minutes'),
 
-  -- secondary_bid (demo bought genesis-live-08 via accept_bid)
+  -- secondary_bid (demo bought genesis-live-08 via accept_bid; W3: keeps plausible recent, oh-gen-08 dropped above)
   ('oh-gen-08-bid','card-genesis-live-08','00000000-0000-4000-8000-000000000001','secondary_bid', null, 'bid-genesis-accept-demo', now() - interval '30 minutes'),
 
   -- gift: Karina seed founder
-  ('oh-seed-02','card-seed-karina-02','00000000-0000-4000-8000-000000000003','gift', null, null, now() - interval '89 days')
+  ('oh-seed-02','card-seed-karina-02','00000000-0000-4000-8000-000000000003','gift', null, null, now() - interval '89 days'),
+
+  -- W6 remediation: backfill ownership_history for owned cards that had no history row.
+  -- acquired_via='gift' (creator-retained / pre-seed narrative); transferred_at strictly older than
+  -- any related event so the latest-owner mapping resolves to the current owner_id.
+  -- aespa-live-03 (demo, listed_buyout later)
+  ('oh-aes-03','card-aespa-live-03','00000000-0000-4000-8000-000000000001','gift', null, null, now() - interval '15 days'),
+  -- aespa-live-14/15 (Karina signed creator-retained, drop-aespa-live)
+  ('oh-aes-14','card-aespa-live-14','00000000-0000-4000-8000-000000000003','gift', null, null, now() - interval '20 days'),
+  ('oh-aes-15','card-aespa-live-15','00000000-0000-4000-8000-000000000003','gift', null, null, now() - interval '20 days'),
+  -- aespa-signed-01..06 (demo raffle winners, drop-aespa-signed drawn -6d)
+  ('oh-as-01','card-aespa-signed-01','00000000-0000-4000-8000-000000000001','gift', null, null, now() - interval '6 days'),
+  ('oh-as-02','card-aespa-signed-02','00000000-0000-4000-8000-000000000001','gift', null, null, now() - interval '6 days'),
+  ('oh-as-03','card-aespa-signed-03','00000000-0000-4000-8000-000000000001','gift', null, null, now() - interval '6 days'),
+  ('oh-as-04','card-aespa-signed-04','00000000-0000-4000-8000-000000000001','gift', null, null, now() - interval '6 days'),
+  ('oh-as-05','card-aespa-signed-05','00000000-0000-4000-8000-000000000001','gift', null, null, now() - interval '6 days'),
+  ('oh-as-06','card-aespa-signed-06','00000000-0000-4000-8000-000000000001','gift', null, null, now() - interval '6 days'),
+  -- aespa-signed-08/09 (rival raffle winners)
+  ('oh-as-08','card-aespa-signed-08','00000000-0000-4000-8000-000000000006','gift', null, null, now() - interval '6 days'),
+  ('oh-as-09','card-aespa-signed-09','00000000-0000-4000-8000-000000000006','gift', null, null, now() - interval '6 days'),
+  -- genesis-live-01 (demo primary acquisition)
+  ('oh-gen-01','card-genesis-live-01','00000000-0000-4000-8000-000000000001','gift', null, null, now() - interval '10 days'),
+  -- genesis-live-06/07/12/19/20 (Hype creator-retained units, drop-genesis-live)
+  ('oh-gen-06','card-genesis-live-06','00000000-0000-4000-8000-000000000004','gift', null, null, now() - interval '20 days'),
+  ('oh-gen-07','card-genesis-live-07','00000000-0000-4000-8000-000000000004','gift', null, null, now() - interval '20 days'),
+  ('oh-gen-12','card-genesis-live-12','00000000-0000-4000-8000-000000000004','gift', null, null, now() - interval '20 days'),
+  ('oh-gen-19','card-genesis-live-19','00000000-0000-4000-8000-000000000004','gift', null, null, now() - interval '20 days'),
+  ('oh-gen-20','card-genesis-live-20','00000000-0000-4000-8000-000000000004','gift', null, null, now() - interval '20 days'),
+  -- nova-past-01..06/11/12 (Nova creator-retained units, drop-nova-past drawn -29d)
+  ('oh-np-01','card-nova-past-01','00000000-0000-4000-8000-000000000005','gift', null, null, now() - interval '29 days'),
+  ('oh-np-02','card-nova-past-02','00000000-0000-4000-8000-000000000005','gift', null, null, now() - interval '29 days'),
+  ('oh-np-03','card-nova-past-03','00000000-0000-4000-8000-000000000005','gift', null, null, now() - interval '29 days'),
+  ('oh-np-04','card-nova-past-04','00000000-0000-4000-8000-000000000005','gift', null, null, now() - interval '29 days'),
+  ('oh-np-05','card-nova-past-05','00000000-0000-4000-8000-000000000005','gift', null, null, now() - interval '29 days'),
+  ('oh-np-06','card-nova-past-06','00000000-0000-4000-8000-000000000005','gift', null, null, now() - interval '29 days'),
+  ('oh-np-11','card-nova-past-11','00000000-0000-4000-8000-000000000005','gift', null, null, now() - interval '29 days'),
+  ('oh-np-12','card-nova-past-12','00000000-0000-4000-8000-000000000005','gift', null, null, now() - interval '29 days')
 on conflict (id) do nothing;
 
 -- Adjust cards.owner_id to match latest ownership_history transfer per card.
@@ -866,7 +909,7 @@ on conflict (id) do nothing;
 --   admin: 100 (after wtx-a-05)
 --   ghost: 23 (after wtx-g-02)
 --   marked: 100 (after wtx-m-03)
---   treasury: 0 (no platform_revenue yet)
+--   treasury: closing balance = SUM(platform_revenue.platform_ccoin) (auto-absorbed via INSERT..SELECT below)
 -- Sum ledger closure per user enforced via DO block E3.
 
 -- Update wallets to match ledger closure.
@@ -895,6 +938,9 @@ where w.user_id = sub.user_id;
 --     bid-genesis-accept-demo: accept_bid for genesis-live-08 (NOT seed, not vaulted) → settled as secondary_bid
 --     fee 7.5/7.5/85 → platform 3 (round 45*0.075=3), royalty 3, seller 39
 --   seed-sale (Path A or B): none released yet (seed-01 bid_pending, seed-02 already owned by Karina via gift).
+-- W8: Split math is floor-per-leg with remainder to seller; fee_snapshot.pct fields are NOMINAL RATES
+-- (0.7/0.3 for primary, 0.075/0.075/0.85 for secondary), not reconciling decimals — actual *_ccoin columns
+-- reflect the integer split applied at settlement time.
 -- Inserts (idempotent via uq_platform_revenue_ref):
 insert into public.platform_revenue (
   id, source, ref_type, ref_id, gross_ccoin, platform_ccoin, royalty_ccoin, seller_ccoin, fee_snapshot, created_at
@@ -913,6 +959,10 @@ insert into public.platform_revenue (
   ('pr-demo-vault-1','primary','order','ord-demo-vault-settled', 25, 17, 8, 0,
    '{"platform_pct":0.7,"royalty_pct":0.3,"rate_idr":10000,"event":"checkout_vault"}'::jsonb,
    now() - interval '5 days'),
+  -- ord-genesis-demo-05 (B1 remediation): completes the gross→platform+royalty split for wtx-d-07 (-25) + wtx-h-04 (+8)
+  ('pr-genesis-demo-05','primary','order','ord-genesis-demo-05', 25, 17, 8, 0,
+   '{"platform_pct":0.7,"royalty_pct":0.3,"rate_idr":10000,"event":"checkout_vault"}'::jsonb,
+   now() - interval '8 days'),
   -- bid-genesis-accept-demo: secondary_bid, 45 → platform 3, royalty 3, seller 39
   ('pr-genesis-bid-1','secondary_bid','bid','bid-genesis-accept-demo', 45, 3, 3, 39,
    '{"platform_pct":0.075,"royalty_pct":0.075,"seller_pct":0.85,"rate_idr":10000,"event":"accept_bid"}'::jsonb,
@@ -1065,6 +1115,13 @@ insert into public.notifications (id, user_id, channel, template_key, payload, s
    '{"payoutId":"po-k-1","amount":150}'::jsonb, 'sent', now() - interval '2 days')
 on conflict (id) do nothing;
 
+-- W10: recompute users.cumulative_spend_ccoin from wallets.total_spent_ccoin (end-of-Phase-D).
+-- Pairs with W9 (removed from Phase A upsert) — ensures idempotent re-runs preserve the value.
+update public.users u
+  set cumulative_spend_ccoin = coalesce(w.total_spent_ccoin, 0)
+from public.wallets w
+where w.user_id = u.id;
+
 -- ══════════════════════════════════════════════════════════════════════════
 -- PHASE E — NORMALIZATION + SELF-TEST
 -- ══════════════════════════════════════════════════════════════════════════
@@ -1073,7 +1130,7 @@ on conflict (id) do nothing;
 -- Bind per-persona intent (rationale):
 --   karina  : high creator, multiple royalty + cards = 545
 --   demo    : mid collector = 343
---   rival   : equal cards count = 343
+--   rival   : equal Level/XP tie with demo = 343 (tie resolved via xp_reached_at: demo -9d vs rival -2d → demo wins)
 --   hype    : mid creator = 232
 --   nova    : small creator = 106
 --   admin   : 0
@@ -1113,7 +1170,6 @@ update public.users set xp_reached_at = now() - interval '2 days'  where id = '0
 update public.users set xp_reached_at = now() - interval '1 day'   where id = '00000000-0000-4000-8000-000000000007'; -- ghost 1d
 update public.users set xp_reached_at = now() - interval '40 days' where id = '00000000-0000-4000-8000-000000000004'; -- hype  40d (older)
 update public.users set xp_reached_at = now() - interval '29 days' where id = '00000000-0000-4000-8000-000000000005'; -- nova  29d
-update public.users set xp_reached_at = now() - interval '21 days' where id = '00000000-0000-4000-8000-000000000003'; -- karina idempotent re-set
 update public.users set xp_reached_at = now() - interval '90 days' where id = '00000000-0000-4000-8000-000000000002'; -- admin
 update public.users set xp_reached_at = now() - interval '5 days'  where id = '00000000-4000-8000-000000000008'; -- marked
 
@@ -1131,18 +1187,12 @@ where c.id = latest.card_id;
 -- Unowned / inventory cards: harmless uniform timestamp (tidy).
 update public.cards set owner_since = now() - interval '60 days' where owner_id is null;
 
--- E2c: Add a NEWEST acquisition for rival that beats demo on cards-leaderboard tie.
--- demo's newest acquisition is oh-aes-06 (now() - interval '8 days').
--- Add one rival acquisition at now() - interval '2 hours' so rival has MORE recent
--- acquisition → under score DESC, reached_at ASC tie-break demo wins.
--- But user spec wants demo OLDER than rival (rival later = demo earlier on tie-break).
--- Re-reading: "demo back-4-cards owner_since now()-12d..8d; rival's newest acquisition now()-2h
---  so the NEW Kolektor board demonstrably ranks first-reacher above late-chaser"
--- So the scenario is: demo's cards all OLDER than rival's; demo's max(owner_since) OLDER.
--- Demo already has max(owner_since) = aespa-live-01 at -12d (or aespa-live-06 at -8d).
--- Rival already has genesis-live-11 at -90min which is more recent.
--- So: demo's max(owner_since) is older than rival's. Demo wins the tie.
--- (Verified by E3 self-test below.)
+-- E2c: Papan Level tie-break (demo vs rival).
+-- demo.total_xp = rival.total_xp = 343; tie broken by xp_reached_at ASC.
+-- demo.xp_reached_at = now()-9d, rival.xp_reached_at = now()-2d → demo wins (older = earlier).
+-- Papan Cards ordering is DETERMINISTIC (no tie on equal counts): demo's max(owner_since)
+-- is older than rival's max(owner_since), so papan Cards ranking stays unambiguous via
+-- max(owner_since) DESC. The equal-cards-count narrative in old comments was inaccurate.
 
 -- ══════════════════════════════════════════════════════════════════════════
 -- E3 — SELF-TEST (fail loudly on any invariant violation)
