@@ -106,12 +106,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
               {ICONS[t.kind]}
             </span>
             <span className="toast-msg">{t.msg}</span>
-            <button
-              type="button"
-              className="toast-dismiss"
-              aria-label="Tutup notifikasi"
-              onClick={() => dismiss(t.id)}
-            >
+            <button type="button" className="toast-dismiss" aria-label="Tutup notifikasi" onClick={() => dismiss(t.id)}>
               ✕
             </button>
           </div>

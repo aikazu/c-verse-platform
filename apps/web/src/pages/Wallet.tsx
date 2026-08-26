@@ -26,6 +26,7 @@ function WalletInner() {
   const [payoutAmt, setPayoutAmt] = useState(10);
   const [busyTopup, setBusyTopup] = useState(false);
   const [busyPayout, setBusyPayout] = useState(false);
+  const [payoutConfirmOpen, setPayoutConfirmOpen] = useState(false); // P1-12 modal konfirmasi payout
   // Midtrans Snap instruction untuk pembayaran yang tidak melempar redirect (fallback tampilkan token)
   const [snapPanel, setSnapPanel] = useState<{ snapToken: string; amountCcoin: number; expiresLabel: string } | null>(null);
 
@@ -77,11 +78,13 @@ function WalletInner() {
     try {
       await api.payout(payoutAmt);
       push("Permintaan payout dibuat — diproses batch mingguan", "success");
+      setPayoutConfirmOpen(false);
       refetch();
     } catch (e) {
       const err = e instanceof ApiError ? e : null;
       if (err?.status === 403 && err.code === "KYC_REQUIRED") {
         push(`${err.message} — buka KYC sekarang`, "error");
+        setPayoutConfirmOpen(false);
         nav("/me/kyc");
       } else if (err?.status === 400 && err.code === "MIN_PAYOUT") {
         push("Payout minimum 10 C-Coin", "error");
@@ -274,7 +277,21 @@ function WalletInner() {
                   aria-label="Jumlah penarikan C-Coin"
                   placeholder="Jumlah C"
                 />
-                <button className="btn-ghost" onClick={onPayout} disabled={busyPayout}>
+                <button
+                  className="btn-ghost"
+                  onClick={() => {
+                    if (payoutAmt < 10) {
+                      push("Payout minimum 10 C-Coin", "info");
+                      return;
+                    }
+                    if (payoutAmt > w.balanceCCoin) {
+                      push("Saldo tidak cukup", "info");
+                      return;
+                    }
+                    setPayoutConfirmOpen(true);
+                  }}
+                  disabled={busyPayout}
+                >
                   {busyPayout ? "Memproses…" : "Tarik"}
                 </button>
               </div>
@@ -374,6 +391,65 @@ function WalletInner() {
           </table>
         </div>
       </div>
+
+      {/* P1-12: Payout confirmation modal — tampilkan ringkasan sebelum kunci dana */}
+      {payoutConfirmOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="payout-confirm-title"
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 1000,
+            background: "rgba(5,3,11,0.85)",
+            backdropFilter: "blur(6px)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 16,
+          }}
+          onClick={() => !busyPayout && setPayoutConfirmOpen(false)}
+        >
+          <div className="card card-pad" style={{ maxWidth: 420, width: "100%", padding: 28 }} onClick={(e) => e.stopPropagation()}>
+            <div
+              id="payout-confirm-title"
+              style={{ fontFamily: "var(--font-display)", fontSize: 16, color: "var(--gold)", fontWeight: 600 }}
+            >
+              Konfirmasi Payout
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 16 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
+                <span className="muted">Jumlah</span>
+                <span style={{ fontFamily: "var(--font-mono)", fontWeight: 700 }}>
+                  {payoutAmt} C · {formatIdr(payoutAmt * rate)}
+                </span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
+                <span className="muted">Saldo tersisa</span>
+                <span style={{ fontFamily: "var(--font-mono)" }}>{w.balanceCCoin - payoutAmt} C</span>
+              </div>
+              <div className="muted" style={{ fontSize: 11, marginTop: 6, lineHeight: 1.5 }}>
+                Dana dikunci (escrow) setelah konfirmasi. Disbursement IDR diproses dalam batch mingguan (Selasa 06:00 WIB) via tim — KYC
+                wajib.
+              </div>
+            </div>
+            <div style={{ display: "flex", gap: 10, marginTop: 22 }}>
+              <button
+                className="btn-ghost"
+                onClick={() => setPayoutConfirmOpen(false)}
+                disabled={busyPayout}
+                style={{ flex: 1, padding: "11px" }}
+              >
+                Batal
+              </button>
+              <button className="btn-gold" onClick={onPayout} disabled={busyPayout} style={{ flex: 1, padding: "11px" }}>
+                {busyPayout ? "Memproses…" : "Kunci Dana"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
