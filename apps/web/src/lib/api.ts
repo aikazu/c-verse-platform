@@ -1,4 +1,4 @@
-import type { Drop, Order, Shipment, Wallet } from "@c-verse/shared";
+import type { Drop, LeaderboardType, Order, Shipment, Wallet } from "@c-verse/shared";
 import type {
   ApiAcceptBidResponse,
   ApiBadgesResponse,
@@ -219,7 +219,22 @@ export const api = {
   // provisioning lewat admin (POST /api/admin/users/provision).
 
   // gamification
-  leaderboard: (limit = 20) => req<ApiLeaderboardResponse>(`/gamification/leaderboard?limit=${limit}`),
+  // GET /api/gamification/leaderboard?type=...&creatorId=...&limit=...
+  // `type` defaults server-side to "xp". `creatorId` REQUIRED when
+  // type==="creator" (RPC rejects otherwise) and FORBIDDEN for global
+  // boards. We omit the param when undefined so the server's zod
+  // superRefine (no creatorId on global boards) is satisfied. Old
+  // callers passing a single `limit` arg remain compatible because the
+  // second arg is optional and the type is widened.
+  leaderboard: (limitOrOpts: number | { type?: LeaderboardType; creatorId?: string; limit?: number } = 20) => {
+    const opts = typeof limitOrOpts === "number" ? { limit: limitOrOpts } : limitOrOpts;
+    const params: Record<string, string> = {};
+    if (opts.type !== undefined) params.type = opts.type;
+    if (opts.creatorId !== undefined) params.creatorId = opts.creatorId;
+    if (opts.limit !== undefined) params.limit = String(opts.limit);
+    const qs = new URLSearchParams(params).toString();
+    return req<ApiLeaderboardResponse>(`/gamification/leaderboard${qs ? `?${qs}` : ""}`);
+  },
   badges: () => req<ApiBadgesResponse>("/gamification/badges"),
 
   // kyc

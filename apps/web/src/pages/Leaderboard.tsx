@@ -1,8 +1,8 @@
-import type { Badge } from "@c-verse/shared";
+import type { Badge, LeaderboardEntry, LeaderboardType } from "@c-verse/shared";
 import { useQuery } from "@tanstack/react-query";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { api } from "../lib/api";
-import type { ApiBadgesResponse, ApiLeaderboardEntry } from "../lib/api-types";
+import type { ApiBadgesResponse } from "../lib/api-types";
 import { ErrorState, LoadingState } from "../lib/QueryStates";
 
 type Tier = "bronze" | "silver" | "gold" | "platinum" | "diamond";
@@ -29,13 +29,96 @@ function medalLabel(rank: number): string {
   return `Peringkat ${rank}`;
 }
 
+// Tab labels are UI-only; keep the URL query as the canonical machine value
+// so deep-links round-trip and React Query keys are deterministic.
+const TABS: ReadonlyArray<{ value: LeaderboardType; label: string }> = [
+  { value: "xp", label: "Level" },
+  { value: "cards", label: "Kolektor" },
+  { value: "badges", label: "Lencana" },
+];
+
+const VALID_TAB_VALUES = new Set<LeaderboardType>(TABS.map((t) => t.value));
+
+function parseTab(raw: string | null): LeaderboardType {
+  if (raw && (VALID_TAB_VALUES as Set<string>).has(raw)) return raw as LeaderboardType;
+  return "xp";
+}
+
 export default function Leaderboard() {
-  const { data, isLoading, isError, refetch } = useQuery({ queryKey: ["leaderboard"], queryFn: () => api.leaderboard(50) });
-  const { data: badgesData } = useQuery<ApiBadgesResponse>({ queryKey: ["badges"], queryFn: () => api.badges() });
+  // URL state keeps the active board shareable + back/forward-friendly.
+  // react-router-dom v7 supports useSearchParams out of the box.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeType: LeaderboardType = parseTab(searchParams.get("tab"));
+
+  const setActiveType = (next: LeaderboardType) => {
+    const sp = new URLSearchParams(searchParams);
+    if (next === "xp") sp.delete("tab");
+    else sp.set("tab", next);
+    setSearchParams(sp, { replace: true });
+  };
+
+  // Query key includes `type` so switching tabs refetches without colliding
+  // with previous cache entries (no flash of stale standings).
+  const { data, isLoading, isError, refetch } = useQuery({
+    queryKey: ["leaderboard", activeType],
+    queryFn: () => api.leaderboard({ type: activeType, limit: 50 }),
+  });
+  const { data: badgesData } = useQuery<ApiBadgesResponse>({
+    queryKey: ["badges"],
+    queryFn: () => api.badges(),
+  });
+
   if (isLoading) return <LoadingState />;
   if (isError) return <ErrorState onRetry={() => refetch()} label="Gagal memuat peringkat" />;
-  const board: ApiLeaderboardEntry[] = data?.leaderboard ?? [];
+
+  const board: LeaderboardEntry[] = data?.leaderboard ?? [];
   const badges: Badge[] = badgesData?.badges ?? [];
+
+  // Tier coloring is only meaningful on the XP/Level board — on Kolektor or
+  // Lencana the tier still reflects the player's XP level, but painting it
+  // as a "ranking color" would falsely claim those collectors achieved that
+  // tier on this board. We suppress the tier chip + the per-row tier class
+  // for non-XP boards; podium medal class (gold/silver/bronze) stays since
+  // it's the literal 1st/2nd/3rd podium, not a level-tier claim.
+  const showTierChip = activeType === "xp";
+
+  // Score semantics per board (server is source of truth — we only LABEL).
+  const scoreLabel = activeType === "xp" ? "XP" : activeType === "cards" ? "C.Card" : activeType === "badges" ? "Lencana" : "Skor";
+
+  const tickerChips = (() => {
+    if (board.length === 0) return null;
+    if (activeType === "xp") {
+      // Honest: only derived from the rows we actually have. The board is
+      // ranked by totalXp/level, so we highlight the leader's XP and the
+      // total cards those players collectively own (sum, not a fabricated
+      // global stat).
+      const topXp = board[0]?.totalXp ?? 0;
+      const totalCards = board.reduce((sum, e) => sum + e.score, 0); // unused on xp — fallback
+      // For xp board `score` is XP-equivalent; we don't have per-row card
+      // count, so we skip the "C.Card Top 50" stat instead of fabricating.
+      const topLevel = board[0]?.level ?? 0;
+      return [
+        { key: "LV TERTINGGI", value: String(topLevel) },
+        { key: "XP TERTINGGI", value: topXp.toLocaleString("id-ID") },
+        { key: "PEMAIN", value: String(board.length) },
+        // intentionally omit cards total — not in xp board
+        ...(totalCards > 0 ? [{ key: "C.CARD TOP 50", value: totalCards.toLocaleString("id-ID") }] : []),
+      ];
+    }
+    if (activeType === "cards") {
+      const topCards = board[0]?.score ?? 0;
+      return [
+        { key: "KOLEKSI TERBANYAK", value: `${topCards.toLocaleString("id-ID")} kartu` },
+        { key: "KOLEKTOR", value: String(board.length) },
+      ];
+    }
+    // badges
+    const topBadges = board[0]?.score ?? 0;
+    return [
+      { key: "LENCANA TERBANYAK", value: `${topBadges} lencana` },
+      { key: "KOLEKTOR", value: String(board.length) },
+    ];
+  })();
 
   const topThree = board.slice(0, 3);
   // DOM order = rank order (1, 2, 3) so mobile stacks correctly.
@@ -44,9 +127,6 @@ export default function Leaderboard() {
 
   const rest = board.slice(3);
   const totalPlayers = board.length;
-  const topLevel = board.reduce((max, e) => Math.max(max, e.level ?? 0), 0);
-  const totalCards = board.reduce((sum, e) => sum + (e.totalCards ?? 0), 0);
-  const topPreview = board.slice(0, 10);
 
   return (
     <div className="page-stack">
@@ -65,23 +145,51 @@ export default function Leaderboard() {
             <h1 className="page-hero-title">Peringkat</h1>
           </div>
         </div>
+
+        <div className="lb-tabs" role="tablist" aria-label="Papan peringkat">
+          {TABS.map((t) => {
+            const isActive = t.value === activeType;
+            return (
+              <button
+                key={t.value}
+                type="button"
+                role="tab"
+                aria-selected={isActive}
+                className={`lb-tab${isActive ? " is-active" : ""}`}
+                onClick={() => setActiveType(t.value)}
+              >
+                {t.label}
+              </button>
+            );
+          })}
+        </div>
+
         <div className="hero-ticker" aria-hidden="true">
-          <span className="ticker-label">Top 10</span>
+          <span className="ticker-label">{TABS.find((t) => t.value === activeType)?.label ?? "Top 10"}</span>
           <div className="ticker-track">
             <div className="ticker-scroll">
-              {topPreview.map((e, i) => (
+              {board.slice(0, 10).map((e, i) => (
                 <span key={`a-${e.userId}`} className="ticker-item">
                   <span className="tk-key">#{String(i + 1).padStart(2, "0")}</span>
                   <span className="tk-val ticker-name">{e.displayName}</span>
-                  <span className="tk-key">LV</span>
-                  <span className="tk-val cyan">{e.level}</span>
+                  <span className="tk-key">{scoreLabel}</span>
+                  <span className="tk-val cyan">
+                    {activeType === "xp" ? e.totalXp.toLocaleString("id-ID") : e.score.toLocaleString("id-ID")}
+                  </span>
                 </span>
               ))}
-              {topPreview.length > 0 && (
+              {board.length > 0 && (
                 <span className="ticker-item">
                   <span className="tk-sep" aria-hidden="true" />
                 </span>
               )}
+              {tickerChips?.map((chip) => (
+                <span key={`chip-${chip.key}`} className="ticker-item">
+                  <span className="tk-key">{chip.key}</span>
+                  <span className="tk-val">{chip.value}</span>
+                  <span className="tk-sep" aria-hidden="true" />
+                </span>
+              ))}
               <span className="ticker-item">
                 <span className="tk-key">PEMAIN</span>
                 <span className="tk-val cyan">{totalPlayers}</span>
@@ -89,27 +197,15 @@ export default function Leaderboard() {
               <span className="ticker-item">
                 <span className="tk-sep" aria-hidden="true" />
               </span>
-              <span className="ticker-item">
-                <span className="tk-key">LV TERTINGGI</span>
-                <span className="tk-val">{topLevel}</span>
-              </span>
-              <span className="ticker-item">
-                <span className="tk-sep" aria-hidden="true" />
-              </span>
-              <span className="ticker-item">
-                <span className="tk-key">C.CARD TOP 50</span>
-                <span className="tk-val magenta">{totalCards.toLocaleString("id-ID")}</span>
-              </span>
-              <span className="ticker-item">
-                <span className="tk-sep" aria-hidden="true" />
-              </span>
               {/* duplicate for seamless marquee loop */}
-              {topPreview.map((e, i) => (
+              {board.slice(0, 10).map((e, i) => (
                 <span key={`b-${e.userId}`} className="ticker-item">
                   <span className="tk-key">#{String(i + 1).padStart(2, "0")}</span>
                   <span className="tk-val ticker-name">{e.displayName}</span>
-                  <span className="tk-key">LV</span>
-                  <span className="tk-val cyan">{e.level}</span>
+                  <span className="tk-key">{scoreLabel}</span>
+                  <span className="tk-val cyan">
+                    {activeType === "xp" ? e.totalXp.toLocaleString("id-ID") : e.score.toLocaleString("id-ID")}
+                  </span>
                 </span>
               ))}
             </div>
@@ -122,8 +218,14 @@ export default function Leaderboard() {
           <div className="empty-icon" aria-hidden="true">
             NO_PLAYERS
           </div>
-          <div className="empty-title">Belum ada kolektor di peringkat</div>
-          <p className="empty-msg">Peringkat akan terisi setelah kolektor mulai menambah C.Card di koleksi mereka.</p>
+          <div className="empty-title">Belum ada kolektor di papan ini</div>
+          <p className="empty-msg">
+            {activeType === "xp"
+              ? "Papan Level akan terisi setelah kolektor mulai menambah XP dari pembelian C.Card."
+              : activeType === "cards"
+                ? "Papan Kolektor akan terisi setelah kolektor memiliki C.Card."
+                : "Papan Lencana akan terisi setelah kolektor mendapatkan lencana pertama mereka."}
+          </p>
         </div>
       ) : (
         <>
@@ -136,7 +238,7 @@ export default function Leaderboard() {
                     key={e.userId}
                     to={`/u/${e.username ?? e.userId}`}
                     data-rank={e.rank}
-                    className={`podium-spot ${podiumClassByRank[e.rank] ?? ""} ${tierClass(tier)}`}
+                    className={`podium-spot ${podiumClassByRank[e.rank] ?? ""} ${showTierChip ? tierClass(tier) : ""}`}
                     aria-label={`Peringkat ${e.rank}: ${e.displayName}`}
                   >
                     <div className="podium-rank" aria-hidden="true">
@@ -148,15 +250,15 @@ export default function Leaderboard() {
                     </div>
                     <span className="podium-name">{e.displayName}</span>
                     {e.username && <span className="podium-handle">@{e.username}</span>}
-                    <span className="podium-tier">{tier}</span>
+                    {showTierChip && <span className="podium-tier">{tier}</span>}
                     <div className="podium-stats">
                       <div>
                         <div className="podium-stat-val">{e.level}</div>
                         <div className="podium-stat-key">Level</div>
                       </div>
                       <div>
-                        <div className="podium-stat-val cyan">{e.totalCards}</div>
-                        <div className="podium-stat-key">C.Card</div>
+                        <div className="podium-stat-val cyan">{e.score.toLocaleString("id-ID")}</div>
+                        <div className="podium-stat-key">{scoreLabel}</div>
                       </div>
                     </div>
                   </Link>
@@ -173,7 +275,7 @@ export default function Leaderboard() {
                   <Link
                     key={e.userId}
                     to={`/u/${e.username ?? e.userId}`}
-                    className={`lb-row ${tierClass(tier)}`}
+                    className={`lb-row ${showTierChip ? tierClass(tier) : ""}`}
                     aria-label={`Peringkat ${e.rank}: ${e.displayName}`}
                   >
                     <span className="lb-rank">{String(e.rank).padStart(2, "0")}</span>
@@ -186,14 +288,14 @@ export default function Leaderboard() {
                         {e.username && <span className="lb-player-handle">@{e.username}</span>}
                       </span>
                     </span>
-                    <span className="lb-tier">{tier}</span>
+                    {showTierChip && <span className="lb-tier">{tier}</span>}
                     <span className="lb-level">
                       {e.level}
                       <span className="lb-level-of">LV</span>
                     </span>
                     <span className="lb-cards">
-                      {e.totalCards}
-                      <span className="lb-cards-label">card</span>
+                      {e.score.toLocaleString("id-ID")}
+                      <span className="lb-cards-label">{scoreLabel}</span>
                     </span>
                   </Link>
                 );
@@ -210,6 +312,7 @@ export default function Leaderboard() {
             <span className="section-count">{badges.length}</span>
             <span className="section-rule" aria-hidden="true" />
           </div>
+          <p className="muted lb-prize-note">Katalog lencana — bukan klaim perolehan. Lencana tertera di profil setiap kolektor.</p>
           <div className="badge-rail">
             {badges.map((b) => {
               const xpValue = b.xpReward ?? b.xp;

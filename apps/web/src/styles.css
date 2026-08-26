@@ -2342,6 +2342,52 @@ tbody tr:hover { background: rgba(91, 230, 255, 0.05); }
   --tier-border: rgba(165, 180, 252, 0.5);
 }
 
+/* E17b. Segmented tab control for the multi-type leaderboard (Level /
+   Kolektor / Lencana). Tabs live inside .page-hero-inner so they inherit
+   the hero palette; the active state reuses the gold accent + ink canvas
+   used by the existing tier chip. */
+.lb-tabs {
+  display: inline-flex;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-3);
+  background: rgba(0, 0, 0, 0.35);
+  margin-top: 16px;
+}
+.lb-tab {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  background: transparent;
+  border: none;
+  padding: 8px 14px;
+  border-radius: var(--r-2);
+  cursor: pointer;
+  transition: color 120ms ease, background 120ms ease;
+}
+.lb-tab:hover { color: var(--text); background: rgba(91, 230, 255, 0.06); }
+.lb-tab.is-active {
+  color: var(--ink);
+  background: var(--gold);
+  box-shadow: 0 0 18px rgba(255, 201, 77, 0.28);
+}
+.lb-tab:focus-visible {
+  outline: 2px solid var(--info);
+  outline-offset: 2px;
+}
+
+/* E17c. Honest-disclaimer note above the prize-wall: clarifies that the
+   badge rail is a catalog, not a per-user achievement claim. */
+.lb-prize-note {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  margin: 0 0 10px;
+}
+
 /* E18. badge-rail + .badge-tile — horizontal prize-wall scroller. */
 .badge-rail {
   display: flex;

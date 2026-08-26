@@ -9,7 +9,7 @@
 // sini adalah mirror statis — kalau server menambah field, tipe ini ikut
 // melebar secara opt-in (partial / unknown-friendly), bukan ditiru ulang.
 
-import type { Badge, Bid, Card, Order, Shipment, UserBadge, Wallet, WalletTransaction } from "@c-verse/shared";
+import type { Badge, Bid, Card, LeaderboardEntry, Order, Shipment, UserBadge, Wallet, WalletTransaction } from "@c-verse/shared";
 
 import type { PagedMeta } from "./api";
 
@@ -359,20 +359,15 @@ export interface ApiCreatorPublicResponse {
 }
 
 // ── Gamification ──────────────────────────────────────────────────────────
-// GET /api/gamification/leaderboard — derived from listTopUsersByXp,
-// field tambahan: username, totalCards (lihat apps/api/src/routes/gamification.ts:16-28).
-export interface ApiLeaderboardEntry {
-  rank: number;
-  userId: string;
-  displayName: string;
-  username: string | null;
-  level: number;
-  tier: string;
-  totalCards: number;
-}
+// GET /api/gamification/leaderboard — single entry shape across all board
+// types (xp/cards/badges/creator). `LeaderboardEntry` is the canonical flat
+// row from @c-verse/shared (rank/userId/displayName/username/avatarUrl/
+// totalXp/level/tier/score/reachedAt). Server is source of truth for `score`
+// semantics per board type; client must NOT derive `score` locally.
+export type { LeaderboardEntry };
 
 export interface ApiLeaderboardResponse {
-  leaderboard: ApiLeaderboardEntry[];
+  leaderboard: LeaderboardEntry[];
 }
 
 // GET /api/gamification/badges → list def Badge (shared Badge type reusable).
