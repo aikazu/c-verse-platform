@@ -10,14 +10,32 @@ import { useToast } from "../lib/toast";
 
 const errorMessage = (e: unknown): string => (e instanceof Error ? e.message : String(e));
 
+type SortKey = "default" | "unit_asc" | "unit_desc" | "creator";
+
 export default function Browse() {
   const { user } = useAuth();
   const { push } = useToast();
   const [q, setQ] = useState("");
+  const [sort, setSort] = useState<SortKey>("default");
   const [bidAmt, setBidAmt] = useState<Record<string, number>>({});
   const { data, refetch, isLoading, isError, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteQuery<ApiBrowseResponse>({
-    queryKey: ["browse", q],
-    queryFn: ({ pageParam }) => api.browse({ ...(q ? { q } : {}), limit: "60", offset: String(pageParam) }),
+    queryKey: ["browse", q, sort],
+    queryFn: ({ pageParam }) => {
+      const params: Record<string, string> = { limit: "60", offset: String(pageParam) };
+      if (q) params.q = q;
+      if (sort !== "default") {
+        if (sort === "unit_asc") {
+          params.sort = "unit_number";
+          params.order = "asc";
+        } else if (sort === "unit_desc") {
+          params.sort = "unit_number";
+          params.order = "desc";
+        } else if (sort === "creator") {
+          // sort by creator belum di-support API; sort client-side sebagai fallback.
+        }
+      }
+      return api.browse(params);
+    },
     initialPageParam: 0,
     getNextPageParam: (last) => (last.hasMore ? last.offset + last.limit : undefined),
   });
@@ -29,8 +47,10 @@ export default function Browse() {
   });
   const myActiveBidCount = (profileData?.bids ?? []).filter((b) => b.status === "active").length;
   const atBidLimit = myActiveBidCount >= MAX_ACTIVE_BIDS_PER_USER;
-  const cards: ApiBrowseEntry[] = (data?.pages ?? []).flatMap((p) => p.cards ?? p.results ?? []);
-  const [bidBusy, setBidBusy] = useState<string | null>(null);
+  const rawCards: ApiBrowseEntry[] = (data?.pages ?? []).flatMap((p) => p.cards ?? p.results ?? []);
+  const cards =
+    sort === "creator" ? [...rawCards].sort((a, b) => (a.drop?.creatorName ?? "").localeCompare(b.drop?.creatorName ?? "")) : rawCards;
+  const [pendingBidCardIds, setPendingBidCardIds] = useState<string[]>([]);
   async function onBid(cardId: string, activeHighest: number | null) {
     if (!user) {
       push("Masuk untuk menawar", "info");
@@ -50,7 +70,7 @@ export default function Browse() {
       push(`Bid harus lebih tinggi dari ${activeHighest} C (saat ini aktif)`, "info");
       return;
     }
-    setBidBusy(cardId);
+    setPendingBidCardIds((current) => [...current, cardId]);
     try {
       await api.placeBid(cardId, amt);
       push(`Penawaran ${amt} C terkirim`, "success");
@@ -59,86 +79,173 @@ export default function Browse() {
     } catch (e: unknown) {
       push(errorMessage(e), "error");
     } finally {
-      setBidBusy(null);
+      setPendingBidCardIds((current) => current.filter((id) => id !== cardId));
     }
   }
+
+  // Quick stats
+  const withBids = cards.filter((c) => c.activeBid).length;
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: 12 }}>
-        <div>
-          <span className="eyebrow">Jelajahi</span>
-          <h1 className="h2" style={{ marginTop: 4 }}>
-            Jelajahi <em style={{ fontStyle: "italic", fontWeight: 300, color: "var(--gold)" }}>C.Card</em>
-          </h1>
-          <p className="muted" style={{ marginTop: 6 }}>
-            Temukan C.Card dan ajukan penawaran
-          </p>
+    <div className="page-stack">
+      <section className="page-hero" aria-label="Header halaman Browse">
+        <div className="page-hero-rail">
+          <span className="rail-channel">CH:03 / BROWSE</span>
+          <span className="rail-dot" aria-hidden="true" />
+          <span className="rail-sep">·</span>
+          <span className="rail-extra">KANAL AKTIF</span>
+          <span className="rail-time" aria-label="Siap">
+            <span className="rail-cursor" aria-hidden="true" />
+          </span>
         </div>
-        {user && (
-          <div
-            className="card card-pad"
-            style={{
-              padding: "10px 14px",
-              display: "flex",
-              flexDirection: "column",
-              gap: 4,
-              minWidth: 200,
-            }}
-            aria-label="Kuota bid aktif"
-          >
-            <div
-              style={{
-                fontFamily: "var(--font-mono)",
-                fontSize: 10,
-                color: "var(--text-dim)",
-                letterSpacing: "0.08em",
-                textTransform: "uppercase",
-                fontWeight: 500,
-              }}
-            >
-              Tawaran Aktif
-            </div>
-            <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
-              <span
-                style={{
-                  fontFamily: "var(--font-mono)",
-                  fontSize: 20,
-                  fontWeight: 700,
-                  color: atBidLimit ? "var(--alert)" : "var(--gold)",
-                }}
-              >
-                {myActiveBidCount}
-              </span>
-              <span className="muted" style={{ fontFamily: "var(--font-mono)", fontSize: 13 }}>
-                / {MAX_ACTIVE_BIDS_PER_USER}
-              </span>
-            </div>
-            <Link to="/me/manage" className="muted" style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--gold)" }}>
-              Kelola bid →
-            </Link>
+        <div className="page-hero-inner">
+          <div className="page-hero-copy">
+            <h1 className="page-hero-title">Browse</h1>
           </div>
-        )}
-      </div>
-      <div style={{ display: "flex", gap: 8 }}>
+        </div>
+        <div className="hero-ticker" aria-hidden="true">
+          <span className="ticker-label">Scan</span>
+          <div className="ticker-track">
+            <div className="ticker-scroll">
+              <span className="ticker-item">
+                <span className="tk-key">KARTU</span>
+                <span className="tk-val cyan">{cards.length}</span>
+              </span>
+              <span className="ticker-item">
+                <span className="tk-sep" aria-hidden="true" />
+              </span>
+              <span className="ticker-item">
+                <span className="tk-key">DENGAN BID</span>
+                <span className="tk-val signal">{withBids}</span>
+              </span>
+              <span className="ticker-item">
+                <span className="tk-sep" aria-hidden="true" />
+              </span>
+              <span className="ticker-item">
+                <span className="tk-key">TANPA BID</span>
+                <span className="tk-val">{cards.length - withBids}</span>
+              </span>
+              <span className="ticker-item">
+                <span className="tk-sep" aria-hidden="true" />
+              </span>
+              <span className="ticker-item">
+                <span className="tk-key">UNIT</span>
+                <span className="tk-val cyan">
+                  {sort === "default" ? "DEFAULT" : sort === "creator" ? "KREATOR A-Z" : sort === "unit_asc" ? "UNIT ↑" : "UNIT ↓"}
+                </span>
+              </span>
+              {user && (
+                <>
+                  <span className="ticker-item">
+                    <span className="tk-sep" aria-hidden="true" />
+                  </span>
+                  <span className="ticker-item">
+                    <span className="tk-key">SLOT</span>
+                    <span className={`tk-val ${atBidLimit ? "magenta" : ""}`}>
+                      {myActiveBidCount}/{MAX_ACTIVE_BIDS_PER_USER}
+                    </span>
+                  </span>
+                </>
+              )}
+              <span className="ticker-item">
+                <span className="tk-sep" aria-hidden="true" />
+              </span>
+              {/* duplicate for seamless marquee loop */}
+              <span className="ticker-item">
+                <span className="tk-key">KARTU</span>
+                <span className="tk-val cyan">{cards.length}</span>
+              </span>
+              <span className="ticker-item">
+                <span className="tk-sep" aria-hidden="true" />
+              </span>
+              <span className="ticker-item">
+                <span className="tk-key">DENGAN BID</span>
+                <span className="tk-val signal">{withBids}</span>
+              </span>
+              <span className="ticker-item">
+                <span className="tk-sep" aria-hidden="true" />
+              </span>
+              <span className="ticker-item">
+                <span className="tk-key">TANPA BID</span>
+                <span className="tk-val">{cards.length - withBids}</span>
+              </span>
+              <span className="ticker-item">
+                <span className="tk-sep" aria-hidden="true" />
+              </span>
+              <span className="ticker-item">
+                <span className="tk-key">UNIT</span>
+                <span className="tk-val cyan">
+                  {sort === "default" ? "DEFAULT" : sort === "creator" ? "KREATOR A-Z" : sort === "unit_asc" ? "UNIT ↑" : "UNIT ↓"}
+                </span>
+              </span>
+              {user && (
+                <>
+                  <span className="ticker-item">
+                    <span className="tk-sep" aria-hidden="true" />
+                  </span>
+                  <span className="ticker-item">
+                    <span className="tk-key">SLOT</span>
+                    <span className={`tk-val ${atBidLimit ? "magenta" : ""}`}>
+                      {myActiveBidCount}/{MAX_ACTIVE_BIDS_PER_USER}
+                    </span>
+                  </span>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div className="toolbar" role="search">
         <input
           className="input"
           aria-label="Cari C.Card"
           placeholder="Cari C.Card, seri, kreator…"
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          style={{ flex: 1 }}
         />
-        <button className="btn-ghost" onClick={() => refetch()} style={{ fontFamily: "var(--font-mono)", fontSize: 12 }}>
-          Cari
-        </button>
+        <select className="select" aria-label="Urutkan C.Card" value={sort} onChange={(e) => setSort(e.target.value as SortKey)}>
+          <option value="default">Default</option>
+          <option value="unit_asc">Unit ↑</option>
+          <option value="unit_desc">Unit ↓</option>
+          <option value="creator">Kreator A→Z</option>
+        </select>
+        <div className="toolbar-right">
+          <button className="refresh-btn" onClick={() => refetch()} aria-label="Refresh daftar C.Card" type="button">
+            <span className="dot" aria-hidden="true" />
+            Refresh
+          </button>
+        </div>
       </div>
+
+      {user && (
+        <div
+          className={`quota-hud${atBidLimit ? " is-full" : ""}`}
+          aria-label={`Slot bid aktif ${myActiveBidCount} dari ${MAX_ACTIVE_BIDS_PER_USER}`}
+        >
+          <span className="quota-label">SLOT BID</span>
+          <span className="quota-pips" aria-hidden="true">
+            {Array.from({ length: MAX_ACTIVE_BIDS_PER_USER }, (_, index) => (
+              // biome-ignore lint/suspicious/noArrayIndexKey: fixed positional slot pips, not list data
+              <span key={`bid-slot-${index}`} className={`quota-pip${index < myActiveBidCount ? " is-on" : ""}`} />
+            ))}
+          </span>
+          <span className="quota-counter">
+            {myActiveBidCount}/{MAX_ACTIVE_BIDS_PER_USER}
+          </span>
+        </div>
+      )}
+
       {isLoading ? (
         <LoadingState />
       ) : isError ? (
         <ErrorState onRetry={() => refetch()} label="Gagal memuat C.Card" />
       ) : cards.length === 0 ? (
-        <div className="card card-pad muted" style={{ textAlign: "center", padding: 24 }}>
-          Tidak ada hasil
+        <div className="empty-arcade">
+          <div className="empty-icon" aria-hidden="true">
+            NO_HITS
+          </div>
+          <div className="empty-title">Tidak ada hasil</div>
+          <p className="empty-msg">Coba kata kunci lain, atau ubah pengurutan untuk eksplorasi lebih luas.</p>
         </div>
       ) : (
         <div className="grid-3">
@@ -147,94 +254,105 @@ export default function Browse() {
             const drop = r.drop;
             const activeBid = r.activeBid;
             const minNext = activeBid ? activeBid.amountCCoin + 1 : 1;
+            const ownerName = r.owner?.displayName ?? "Tanpa pemilik";
+            const creatorName = drop?.creatorName && drop.creatorName !== ownerName ? drop.creatorName : null;
+            const isBidPending = pendingBidCardIds.includes(card.id);
+            const isBidDisabled = isBidPending || atBidLimit || !r.canBid;
+            const bidUnavailableReason = !r.canBid
+              ? "Tidak bisa menawar"
+              : atBidLimit
+                ? `Batas ${MAX_ACTIVE_BIDS_PER_USER} bid aktif`
+                : undefined;
             return (
-              <div key={card.id} className="card" style={{ overflow: "hidden" }}>
-                <div
-                  style={{
-                    height: 140,
-                    background: "var(--thumb-grad)",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontSize: 36,
-                  }}
-                >
-                  🎴
-                </div>
-                <div style={{ padding: 14, display: "flex", flexDirection: "column", gap: 8 }}>
-                  <div style={{ fontWeight: 600, fontSize: 13 }}>
-                    {drop?.title ?? card.id} · #{card.unitNumber}
+              <article key={card.id} className="card browse-card">
+                <Link to={`/cards/${card.id}`} aria-label={`Lihat ${drop?.title ?? card.id} #${card.unitNumber}`}>
+                  <div className="browse-art">
+                    {drop?.artworkUrl ? (
+                      <div className="art" style={{ backgroundImage: `url("${drop.artworkUrl.replace(/"/g, "%22")}")` }} />
+                    ) : (
+                      <span className="art-fallback" data-init={drop?.title?.slice(0, 2).toUpperCase() ?? "C"} aria-hidden="true" />
+                    )}
+                    <span className="unit-tag" aria-label={`Unit ${card.unitNumber}`}>
+                      #<strong>{card.unitNumber ?? "?"}</strong>
+                    </span>
                   </div>
-                  <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--text-muted)" }}>{drop?.series}</div>
-                  {drop?.isSeed && (
-                    <span className="badge-seed" style={{ alignSelf: "start" }}>
-                      ✦ Seed 1-of-1
+                  <div className="browse-body">
+                    <div className="eyebrow">{drop?.series ?? "—"}</div>
+                    <div className="browse-title">{drop?.title ?? card.id}</div>
+                    <div className="card-pills">
+                      {drop?.isSeed && <span className="badge-seed">✦ Seed 1-of-1</span>}
+                      {card.variant === "signed" && <span className="pill pill-info">✍ Signed</span>}
+                    </div>
+                    <div className="browse-bid-status">
+                      {activeBid ? (
+                        <>
+                          <span className="eyebrow">TERTINGGI</span>
+                          <span className="bid-amount">{activeBid.amountCCoin} C</span>
+                          <span className="bid-min">· min {minNext} C</span>
+                        </>
+                      ) : (
+                        <span className="pill-muted">Belum ada penawar</span>
+                      )}
+                    </div>
+                  </div>
+                </Link>
+                <div className="browse-panel">
+                  <div className="browse-panel-meta">
+                    <span className="seller-row">
+                      <span className="seller-dot" aria-hidden="true" />
+                      <span className="seller-name">{ownerName}</span>
                     </span>
-                  )}
-                  {activeBid ? (
-                    <span className="pill pill-success" style={{ alignSelf: "start", fontSize: 10 }}>
-                      Tertinggi {activeBid.amountCCoin} C · min {minNext} C
-                    </span>
+                    {creatorName && (
+                      <span className="seller-row">
+                        <span className="seller-name">{creatorName}</span>
+                      </span>
+                    )}
+                  </div>
+                  {!user ? (
+                    <div className="bid-locked">
+                      <Link to="/login" state={{ from: "/browse" }}>
+                        Masuk untuk menawar →
+                      </Link>
+                    </div>
                   ) : (
-                    <span
-                      className="pill"
-                      style={{
-                        alignSelf: "start",
-                        fontSize: 10,
-                        background: "var(--surface-2)",
-                        color: "var(--text-dim)",
-                        border: "1px solid var(--border)",
-                      }}
-                    >
-                      Belum ada penawaran
-                    </span>
+                    <div className="browse-bid-input-row">
+                      <input
+                        className="browse-bid-input"
+                        type="number"
+                        min={minNext}
+                        aria-label={`Jumlah tawaran C-Coin untuk ${drop?.title ?? card.id}`}
+                        placeholder={`min ${minNext} C`}
+                        value={bidAmt[card.id] ?? ""}
+                        onChange={(e) => setBidAmt((s) => ({ ...s, [card.id]: Number(e.target.value) }))}
+                        disabled={isBidDisabled}
+                      />
+                      <button
+                        className="bid-btn"
+                        aria-busy={isBidPending}
+                        onClick={() => onBid(card.id, activeBid?.amountCCoin ?? null)}
+                        disabled={isBidDisabled}
+                        title={bidUnavailableReason}
+                        type="button"
+                      >
+                        <span className="bid-busy-text">{isBidPending ? "Mengirim" : "Tawar"}</span>
+                      </button>
+                    </div>
                   )}
-                  <div style={{ display: "flex", gap: 6, marginTop: 4 }}>
-                    <Link
-                      to={`/cards/${card.id}`}
-                      className="btn-ghost"
-                      style={{
-                        flex: 1,
-                        textAlign: "center",
-                        textDecoration: "none",
-                        padding: "7px 8px",
-                        fontSize: 12,
-                        fontFamily: "var(--font-mono)",
-                      }}
-                    >
-                      Detail
-                    </Link>
-                  </div>
-                  <div style={{ display: "flex", gap: 6, marginTop: 4 }}>
-                    <input
-                      className="input"
-                      type="number"
-                      min={minNext}
-                      aria-label="Jumlah tawaran C-Coin"
-                      placeholder={`min ${minNext} C`}
-                      value={bidAmt[card.id] ?? ""}
-                      onChange={(e) => setBidAmt((s) => ({ ...s, [card.id]: Number(e.target.value) }))}
-                      style={{ flex: 1, fontSize: 12, fontFamily: "var(--font-mono)" }}
-                      disabled={atBidLimit}
-                    />
-                    <button
-                      className="btn-gold"
-                      onClick={() => onBid(card.id, activeBid?.amountCCoin ?? null)}
-                      disabled={bidBusy === card.id || atBidLimit}
-                      title={atBidLimit ? `Batas ${MAX_ACTIVE_BIDS_PER_USER} bid aktif` : undefined}
-                      style={{ padding: "7px 14px", fontSize: 12 }}
-                    >
-                      {bidBusy === card.id ? "…" : "Tawar"}
-                    </button>
-                  </div>
+                  <Link
+                    to={`/cards/${card.id}`}
+                    className="browse-detail-link"
+                    aria-label={`Lihat detail lengkap ${drop?.title ?? card.id}`}
+                  >
+                    Detail lengkap →
+                  </Link>
                 </div>
-              </div>
+              </article>
             );
           })}
         </div>
       )}
       {hasNextPage && (
-        <button className="btn-ghost" onClick={() => fetchNextPage()} disabled={isFetchingNextPage} style={{ alignSelf: "center" }}>
+        <button className="btn-ghost" onClick={() => fetchNextPage()} disabled={isFetchingNextPage}>
           {isFetchingNextPage ? "Memuat…" : "Muat lagi"}
         </button>
       )}
