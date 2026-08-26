@@ -75,7 +75,16 @@ export type CardLocation = z.infer<typeof cardLocationSchema>;
 export const cardStatusSchema = z.enum(["inventory", "bound", "listed_buyout", "bid_pending", "sold", "tampered", "defect", "lost"]);
 export type CardStatus = z.infer<typeof cardStatusSchema>;
 
-export const shipmentTypeSchema = z.enum(["primary_shipping", "primary_vault", "secondary_buyout", "secondary_bid", "vault_shipout"]);
+export const shipmentTypeSchema = z.enum([
+  "primary_shipping",
+  "primary_vault",
+  "secondary_buyout",
+  "secondary_bid",
+  "vault_shipout",
+  // P0-6 (audit 2026-08-24): seller mengirim kartu miliknya (location='with_owner')
+  // ke platform vault untuk verifikasi sebelum payout release.
+  "secondary_seller_to_vault",
+]);
 export type ShipmentType = z.infer<typeof shipmentTypeSchema>;
 
 export const shipmentToDestSchema = z.enum(["buyer_address", "platform_vault"]);

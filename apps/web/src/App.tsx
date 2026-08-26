@@ -33,6 +33,7 @@ const Orders = lazy(() => import("./pages/Orders"));
 const Privacy = lazy(() => import("./pages/Privacy"));
 const PublicProfile = lazy(() => import("./pages/PublicProfile"));
 const Register = lazy(() => import("./pages/Register"));
+const VerifyShipment = lazy(() => import("./pages/VerifyShipment"));
 const Wallet = lazy(() => import("./pages/Wallet"));
 
 const qc = new QueryClient();
@@ -152,6 +153,7 @@ function UserMenu() {
             <MenuLink to="/orders" label="Pesanan" onClick={() => setOpen(false)} />
             <MenuLink to="/collection" label="Koleksi" onClick={() => setOpen(false)} />
             <MenuLink to="/me/manage" label="Kelola C.Card" onClick={() => setOpen(false)} />
+            <MenuLink to="/me/manage/verify-shipment" label="Kirim ke Vault" onClick={() => setOpen(false)} />
             <MenuLink to="/wallet" label="Dompet" onClick={() => setOpen(false)} />
             <div style={{ height: 1, background: "var(--border)", margin: "4px 8px" }} />
             <MenuLink to="/me/kyc" label="Verifikasi" onClick={() => setOpen(false)} />
@@ -301,6 +303,7 @@ function AppRoutes() {
             <Route path="/collection" element={<Collection />} />
             <Route path="/me" element={<Collection />} />
             <Route path="/me/manage" element={<ManageCards />} />
+            <Route path="/me/manage/verify-shipment" element={<VerifyShipment />} />
             <Route path="/me/privacy" element={<Privacy />} />
             <Route path="/me/kyc" element={<Kyc />} />
             <Route path="/notifications" element={<Notifications />} />

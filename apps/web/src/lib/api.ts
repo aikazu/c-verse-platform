@@ -177,6 +177,14 @@ export const api = {
   patchProfile: (body: Record<string, unknown>) =>
     req<ApiPatchProfileResponse>("/profile", { method: "PATCH", body: JSON.stringify(body) }),
 
+  // shipments — P0-6 (audit 2026-08-24): seller → vault flow.
+  shipments: () => req<{ shipments: Shipment[] }>("/shipments"),
+  sellerShipToVault: (cardId: string, address: string, trackingNumber?: string) =>
+    req<{ ok: boolean; shipment: Shipment }>("/shipments/seller-to-vault", {
+      method: "POST",
+      body: JSON.stringify({ cardId, address, ...(trackingNumber ? { trackingNumber } : {}) }),
+    }),
+
   // public profile / creator
   publicProfile: (username: string) => req<ApiPublicProfileResponse>(`/public/u/${encodeURIComponent(username)}`),
   creatorPublic: (idOrHandle: string) => req<ApiCreatorPublicResponse>(`/creators/${encodeURIComponent(idOrHandle)}`),
