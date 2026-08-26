@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import React, { lazy, Suspense, useState } from "react";
 import { BrowserRouter, Navigate, NavLink, Route, Routes, useNavigate, useParams } from "react-router-dom";
+import { api } from "./lib/api";
 import { AuthProvider, useAuth } from "./lib/auth";
 import { ErrorBoundary } from "./lib/ErrorBoundary";
 import { ToastProvider } from "./lib/toast";
@@ -26,6 +27,7 @@ const Leaderboard = lazy(() => import("./pages/Leaderboard"));
 const Login = lazy(() => import("./pages/Login"));
 const ManageCards = lazy(() => import("./pages/ManageCards"));
 const Marketplace = lazy(() => import("./pages/Marketplace"));
+const Notifications = lazy(() => import("./pages/Notifications"));
 const OrderDetail = lazy(() => import("./pages/OrderDetail"));
 const Orders = lazy(() => import("./pages/Orders"));
 const Privacy = lazy(() => import("./pages/Privacy"));
@@ -39,6 +41,7 @@ function UserMenu() {
   const { user, logout } = useAuth();
   const nav = useNavigate();
   const [open, setOpen] = React.useState(false);
+  const [unread, setUnread] = React.useState(0);
   const ref = React.useRef<HTMLDivElement>(null);
   React.useEffect(() => {
     function onDoc(e: MouseEvent) {
@@ -47,6 +50,27 @@ function UserMenu() {
     document.addEventListener("click", onDoc);
     return () => document.removeEventListener("click", onDoc);
   }, []);
+  // P0-3 (audit 2026-08-24): unread badge di bell icon, refetch tiap 60 detik.
+  React.useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    function poll() {
+      api
+        .unreadCount()
+        .then((r) => {
+          if (!cancelled) setUnread(r.unread ?? 0);
+        })
+        .catch(() => {
+          // bell gangguan = ignore; tidak boleh block render
+        });
+    }
+    poll();
+    const t = setInterval(poll, 60_000);
+    return () => {
+      cancelled = true;
+      clearInterval(t);
+    };
+  }, [user]);
   if (!user) return null;
   const initial = (user.displayName || user.username || user.email || "U").slice(0, 1).toUpperCase();
   const isCreator = user.role === "creator" || user.role === "admin";
@@ -124,6 +148,7 @@ function UserMenu() {
           </div>
           <div style={{ padding: "6px", display: "flex", flexDirection: "column", gap: 1 }}>
             <MenuLink to="/home" label="Home" onClick={() => setOpen(false)} />
+            <MenuLink to="/notifications" label="Notifikasi" badge={unread} onClick={() => setOpen(false)} />
             <MenuLink to="/orders" label="Pesanan" onClick={() => setOpen(false)} />
             <MenuLink to="/collection" label="Koleksi" onClick={() => setOpen(false)} />
             <MenuLink to="/me/manage" label="Kelola C.Card" onClick={() => setOpen(false)} />
@@ -160,13 +185,16 @@ function UserMenu() {
     </div>
   );
 }
-function MenuLink({ to, label, onClick }: { to: string; label: string; onClick?: () => void }) {
+function MenuLink({ to, label, badge, onClick }: { to: string; label: string; badge?: number; onClick?: () => void }) {
   return (
     <NavLink
       to={to}
       onClick={onClick}
       style={({ isActive }) => ({
-        display: "block",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: 8,
         padding: "8px 12px",
         borderRadius: 8,
         background: isActive ? "var(--surface-2)" : "transparent",
@@ -175,7 +203,24 @@ function MenuLink({ to, label, onClick }: { to: string; label: string; onClick?:
         fontWeight: isActive ? 600 : 400,
       })}
     >
-      {label}
+      <span>{label}</span>
+      {badge != null && badge > 0 && (
+        <span
+          aria-label={`${badge} belum dibaca`}
+          style={{
+            fontFamily: "var(--font-mono)",
+            fontSize: 10,
+            fontWeight: 700,
+            background: "var(--alert)",
+            color: "#0A0A0A",
+            padding: "1px 6px",
+            borderRadius: 99,
+            lineHeight: 1.4,
+          }}
+        >
+          {badge > 99 ? "99+" : badge}
+        </span>
+      )}
     </NavLink>
   );
 }
@@ -258,6 +303,7 @@ function AppRoutes() {
             <Route path="/me/manage" element={<ManageCards />} />
             <Route path="/me/privacy" element={<Privacy />} />
             <Route path="/me/kyc" element={<Kyc />} />
+            <Route path="/notifications" element={<Notifications />} />
             <Route path="/leaderboard" element={<Leaderboard />} />
             <Route path="/c/:username" element={<CreatorPage />} />
             <Route path="/u/:username" element={<PublicProfile />} />

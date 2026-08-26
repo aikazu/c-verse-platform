@@ -191,6 +191,21 @@ export const api = {
   // Body validated server-side by kycSchema. Server source of truth.
   kyc: () => req<ApiKycResponse>("/kyc"),
   submitKyc: (body: Record<string, unknown>) => req<ApiKycResponse>("/kyc", { method: "POST", body: JSON.stringify(body) }),
+
+  // notifications — P0-3 inbox (audit 2026-08-24).
+  notifications: (limit = 30) =>
+    req<{
+      notifications: Array<{
+        id: string;
+        templateKey: string;
+        payload: Record<string, unknown> | null;
+        createdAt: string;
+        readAt: string | null;
+      }>;
+    }>(`/notifications?limit=${limit}`),
+  unreadCount: () => req<{ unread: number }>("/notifications/unread-count"),
+  markRead: (id: string) => req<{ ok: boolean }>(`/notifications/${encodeURIComponent(id)}/read`, { method: "PATCH" }),
+  markAllRead: () => req<{ ok: boolean }>("/notifications/read-all", { method: "PATCH" }),
 };
 
 export function ccoinToIdr(c: number, rate = 10000) {
