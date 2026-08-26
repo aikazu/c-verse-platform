@@ -193,4 +193,46 @@ app.get("/me/drops", async (c) => {
   return c.json({ drops: myDrops });
 });
 
+// P0-4 (audit 2026-08-24) batch B: PG-CRT-03 — per-drop analytics.
+// Verifikasi ownership (drop.creatorId = user.id) sebelum expose data.
+// Revenue = sold_count × priceCcoin × C_COIN_RATE_IDR (revenue share 30% adalah
+// milik kreator dari primary 70/30). Status escrow mengikuti status order/payout
+// (release setelah DELIVERED + H+7 untuk shipping; instant saat vault).
+app.get("/me/drops/:dropId", async (c) => {
+  const authRes = await requireUser(c);
+  if ("error" in authRes) return c.json({ error: authRes.error === 403 ? "Akun disuspend" : "Unauthorized" }, authRes.error);
+  const user = authRes.user;
+  const { C_COIN_RATE_IDR } = await import("@c-verse/shared");
+  const { getDropById, listCardsByDrop } = await import("../lib/reads/drops.js");
+  const drop = await getDropById(c.req.param("dropId"));
+  if (!drop) return c.json({ error: "Drop tidak ditemukan" }, 404);
+  if (drop.creatorId !== user.id) return c.json({ error: "Bukan drop kamu" }, 403);
+  const cards = await listCardsByDrop(drop.id);
+  const sold = cards.filter((c) => c.status !== "inventory");
+  const inventory = cards.filter((c) => c.status === "inventory");
+  const withBid = cards.filter((c) => c.buyoutPriceCcoin != null);
+  const soldRevenueCcoin = sold.length * (drop.priceCcoin ?? 0);
+  // 70/30 (platform 70 / creator 30) per docs/01_scope.md founder decision — creator
+  // share = 30% dari primary sale revenue. Secondary royalties dilacak terpisah
+  // (lihat /api/creators/me/payouts filtered type='royalty').
+  const creatorSharePrimaryCcoin = Math.floor(soldRevenueCcoin * 0.3);
+  const creatorSharePrimaryIdr = creatorSharePrimaryCcoin * C_COIN_RATE_IDR;
+  return c.json({
+    drop,
+    cards: {
+      total: cards.length,
+      sold: sold.length,
+      inventory: inventory.length,
+      withBuyout: withBid.length,
+    },
+    revenue: {
+      soldCcoin: soldRevenueCcoin,
+      soldIdr: soldRevenueCcoin * C_COIN_RATE_IDR,
+      // 30% creator share untuk primary 70/30
+      creatorSharePrimaryCcoin,
+      creatorSharePrimaryIdr,
+    },
+  });
+});
+
 export default app;

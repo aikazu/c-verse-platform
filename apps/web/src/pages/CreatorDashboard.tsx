@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import type React from "react";
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { RequireAuth } from "../components/RequireAuth";
 import { StatusBadge } from "../components/StatusBadge";
 import { api, formatIdr } from "../lib/api";
@@ -277,12 +278,19 @@ function CreatorDashboardInner() {
                     gap: 10,
                   }}
                 >
-                  <div>
+                  <Link
+                    to={`/creator/drops/${d.id}`}
+                    style={{
+                      flex: 1,
+                      color: "var(--text)",
+                      textDecoration: "none",
+                    }}
+                  >
                     <div style={{ fontWeight: 600, fontSize: 13 }}>{d.title}</div>
                     <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--text-muted)" }}>
                       {d.series} · {d.soldCount}/{d.totalUnits} · {d.priceCcoin ?? d.priceUnsignedCCoin} C
                     </div>
-                  </div>
+                  </Link>
                   <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
                     {d.status === "draft" && (
                       <button

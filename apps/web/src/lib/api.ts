@@ -203,6 +203,18 @@ export const api = {
       }>;
     }>(`/creators/me/payouts`),
   myDrops: () => req<{ drops: Drop[] }>(`/creators/me/drops`),
+  // P0-4 (audit 2026-08-24) batch B: PG-CRT-03 per-drop analytics.
+  creatorDropAnalytics: (dropId: string) =>
+    req<{
+      drop: Drop;
+      cards: { total: number; sold: number; inventory: number; withBuyout: number };
+      revenue: {
+        soldCcoin: number;
+        soldIdr: number;
+        creatorSharePrimaryCcoin: number;
+        creatorSharePrimaryIdr: number;
+      };
+    }>(`/creators/me/drops/${encodeURIComponent(dropId)}`),
   // applyCreator dihapus: docs/03_flows.md Flow 11 — kreator TIDAK self-register;
   // provisioning lewat admin (POST /api/admin/users/provision).
 

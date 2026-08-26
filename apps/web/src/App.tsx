@@ -18,6 +18,7 @@ const Checkout = lazy(() => import("./pages/Checkout"));
 const Collection = lazy(() => import("./pages/Collection"));
 const CreatorPayouts = lazy(() => import("./pages/CreatorPayouts"));
 const CreatorDashboard = lazy(() => import("./pages/CreatorDashboard"));
+const CreatorDropAnalytics = lazy(() => import("./pages/CreatorDropAnalytics"));
 const CreatorPage = lazy(() => import("./pages/CreatorPage"));
 const DropDetail = lazy(() => import("./pages/DropDetail"));
 const Drops = lazy(() => import("./pages/Drops"));
@@ -320,6 +321,7 @@ function AppRoutes() {
             <Route path="/register" element={<Register />} />
             <Route path="/creator" element={<CreatorDashboard />} />
             <Route path="/creator/drops" element={<CreatorDashboard />} />
+            <Route path="/creator/drops/:dropId" element={<CreatorDropAnalytics />} />
             <Route path="/creator/payouts" element={<CreatorPayouts />} />
             {/* /verify/:shortId DITIADAKAN per docs/02 §4 — verify melekat di halaman kartu.
                 Redirect permanen ke /cards/:shortId (NFC → /3d jika login, info jika tidak).
