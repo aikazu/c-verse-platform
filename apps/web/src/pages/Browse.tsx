@@ -1,4 +1,4 @@
-import { useInfiniteQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../lib/api";
@@ -8,6 +8,10 @@ import { ErrorState, LoadingState } from "../lib/QueryStates";
 import { useToast } from "../lib/toast";
 
 const errorMessage = (e: unknown): string => (e instanceof Error ? e.message : String(e));
+
+// P1-2 / docs/03_flows.md Flow 7: maksimum 3 bid aktif per user.
+// Pakai konstanta yang sama dengan RPC BID_LIMIT (apps/api/src/lib/db.ts).
+const MAX_ACTIVE_BIDS_PER_USER = 3;
 
 export default function Browse() {
   const { user } = useAuth();
@@ -20,11 +24,23 @@ export default function Browse() {
     initialPageParam: 0,
     getNextPageParam: (last) => (last.hasMore ? last.offset + last.limit : undefined),
   });
+  // Bids ku — untuk cek batas 3/user (P1-2). profile() mengembalikan bids saya.
+  const { data: profileData, refetch: refetchProfile } = useQuery({
+    queryKey: ["profile"],
+    queryFn: () => api.profile(),
+    enabled: !!user,
+  });
+  const myActiveBidCount = (profileData?.bids ?? []).filter((b) => b.status === "active").length;
+  const atBidLimit = myActiveBidCount >= MAX_ACTIVE_BIDS_PER_USER;
   const cards: ApiBrowseEntry[] = (data?.pages ?? []).flatMap((p) => p.cards ?? p.results ?? []);
   const [bidBusy, setBidBusy] = useState<string | null>(null);
-  async function onBid(cardId: string) {
+  async function onBid(cardId: string, activeHighest: number | null) {
     if (!user) {
       push("Masuk untuk menawar", "info");
+      return;
+    }
+    if (atBidLimit) {
+      push(`Batas ${MAX_ACTIVE_BIDS_PER_USER} bid aktif — batalkan salah satu dulu`, "info");
       return;
     }
     const amt = bidAmt[cardId] ?? 10;
@@ -32,11 +48,17 @@ export default function Browse() {
       push("Minimal 1 C", "info");
       return;
     }
+    // P1-7: hint minimum = tertinggi saat ini + 1, kalau ada active bid.
+    if (activeHighest != null && amt <= activeHighest) {
+      push(`Bid harus lebih tinggi dari ${activeHighest} C (saat ini aktif)`, "info");
+      return;
+    }
     setBidBusy(cardId);
     try {
       await api.placeBid(cardId, amt);
       push(`Penawaran ${amt} C terkirim`, "success");
       refetch();
+      refetchProfile();
     } catch (e: unknown) {
       push(errorMessage(e), "error");
     } finally {
@@ -45,14 +67,60 @@ export default function Browse() {
   }
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-      <div>
-        <span className="eyebrow">Jelajahi</span>
-        <h1 className="h2" style={{ marginTop: 4 }}>
-          Jelajahi <em style={{ fontStyle: "italic", fontWeight: 300, color: "var(--gold)" }}>C.Card</em>
-        </h1>
-        <p className="muted" style={{ marginTop: 6 }}>
-          Temukan C.Card dan ajukan penawaran
-        </p>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: 12 }}>
+        <div>
+          <span className="eyebrow">Jelajahi</span>
+          <h1 className="h2" style={{ marginTop: 4 }}>
+            Jelajahi <em style={{ fontStyle: "italic", fontWeight: 300, color: "var(--gold)" }}>C.Card</em>
+          </h1>
+          <p className="muted" style={{ marginTop: 6 }}>
+            Temukan C.Card dan ajukan penawaran
+          </p>
+        </div>
+        {user && (
+          <div
+            className="card card-pad"
+            style={{
+              padding: "10px 14px",
+              display: "flex",
+              flexDirection: "column",
+              gap: 4,
+              minWidth: 200,
+            }}
+            aria-label="Kuota bid aktif"
+          >
+            <div
+              style={{
+                fontFamily: "var(--font-mono)",
+                fontSize: 10,
+                color: "var(--text-dim)",
+                letterSpacing: "0.08em",
+                textTransform: "uppercase",
+                fontWeight: 500,
+              }}
+            >
+              Tawaran Aktif
+            </div>
+            <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
+              <span
+                style={{
+                  fontFamily: "var(--font-mono)",
+                  fontSize: 20,
+                  fontWeight: 700,
+                  color: atBidLimit ? "var(--alert)" : "var(--gold)",
+                }}
+              >
+                {myActiveBidCount}
+              </span>
+              <span className="muted" style={{ fontFamily: "var(--font-mono)", fontSize: 13 }}>
+                / {MAX_ACTIVE_BIDS_PER_USER}
+              </span>
+            </div>
+            <Link to="/me/manage" className="muted" style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--gold)" }}>
+              Kelola bid →
+            </Link>
+          </div>
+        )}
       </div>
       <div style={{ display: "flex", gap: 8 }}>
         <input
@@ -81,6 +149,7 @@ export default function Browse() {
             const card = r.card ?? r;
             const drop = r.drop;
             const activeBid = r.activeBid;
+            const minNext = activeBid ? activeBid.amountCCoin + 1 : 1;
             return (
               <div key={card.id} className="card" style={{ overflow: "hidden" }}>
                 <div
@@ -107,7 +176,7 @@ export default function Browse() {
                   )}
                   {activeBid ? (
                     <span className="pill pill-success" style={{ alignSelf: "start", fontSize: 10 }}>
-                      Tertinggi {activeBid.amountCCoin} C
+                      Tertinggi {activeBid.amountCCoin} C · min {minNext} C
                     </span>
                   ) : (
                     <span
@@ -143,17 +212,19 @@ export default function Browse() {
                     <input
                       className="input"
                       type="number"
-                      min={1}
+                      min={minNext}
                       aria-label="Jumlah tawaran C-Coin"
-                      placeholder="C"
+                      placeholder={`min ${minNext} C`}
                       value={bidAmt[card.id] ?? ""}
                       onChange={(e) => setBidAmt((s) => ({ ...s, [card.id]: Number(e.target.value) }))}
                       style={{ flex: 1, fontSize: 12, fontFamily: "var(--font-mono)" }}
+                      disabled={atBidLimit}
                     />
                     <button
                       className="btn-gold"
-                      onClick={() => onBid(card.id)}
-                      disabled={bidBusy === card.id}
+                      onClick={() => onBid(card.id, activeBid?.amountCCoin ?? null)}
+                      disabled={bidBusy === card.id || atBidLimit}
+                      title={atBidLimit ? `Batas ${MAX_ACTIVE_BIDS_PER_USER} bid aktif` : undefined}
                       style={{ padding: "7px 14px", fontSize: 12 }}
                     >
                       {bidBusy === card.id ? "…" : "Tawar"}
