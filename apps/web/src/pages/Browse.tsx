@@ -1,6 +1,7 @@
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link } from "react-router-dom";
+import { MAX_ACTIVE_BIDS_PER_USER } from "@c-verse/shared";
 import { api } from "../lib/api";
 import type { ApiBrowseEntry, ApiBrowseResponse } from "../lib/api-types";
 import { useAuth } from "../lib/auth";
@@ -8,10 +9,6 @@ import { ErrorState, LoadingState } from "../lib/QueryStates";
 import { useToast } from "../lib/toast";
 
 const errorMessage = (e: unknown): string => (e instanceof Error ? e.message : String(e));
-
-// P1-2 / docs/03_flows.md Flow 7: maksimum 3 bid aktif per user.
-// Pakai konstanta yang sama dengan RPC BID_LIMIT (apps/api/src/lib/db.ts).
-const MAX_ACTIVE_BIDS_PER_USER = 3;
 
 export default function Browse() {
   const { user } = useAuth();
