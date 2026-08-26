@@ -350,6 +350,11 @@ create table public.notifications (
   created_at timestamptz not null default now()
 );
 
+-- P0-3 (audit 2026-08-24): inbox kolom read_at di notifications (nullable,
+-- diisi user saat klik notifikasi). Index unread-count di 05_indexes.sql.
+alter table public.notifications
+  add column if not exists read_at timestamptz;
+
 create table public.payout_batches (
   id text primary key,
   batch_code text not null unique,

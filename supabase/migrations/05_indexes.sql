@@ -46,6 +46,11 @@ create index if not exists idx_payouts_pending
   on public.payouts(ccoin_amount)
   where status = 'pending' and batch_id is null;
 
+-- notifications inbox: unread-count query (P0-3 audit 2026-08-24)
+create index if not exists idx_notifications_unread
+  on public.notifications(user_id, read_at)
+  where channel = 'in_app' and status = 'sent';
+
 -- ══════════════════════════════════════════════════════════════════════════
 -- Leaderboard (get_leaderboard, keputusan 2026-08-27): TIDAK ada index baru.
 -- Audit access-path vs index existing di 01_schema/05_indexes:
