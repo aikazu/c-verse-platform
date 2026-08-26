@@ -5,21 +5,20 @@ vi.hoisted(() => {
 });
 
 const control = vi.hoisted(() => ({
-  // Leaderboard fixtures — selector receives these after SQL filtering
-  leaderboardUsers: [] as Array<{
-    id: string;
-    displayName: string;
+  // Leaderboard fixtures — RPC rows returned to the route
+  leaderboardRows: [] as Array<{
+    rank: number;
+    user_id: string;
+    display_name: string;
     username: string | null;
-    totalXp: number;
-    isAnonymous?: boolean;
-    flagReason?: string | null;
+    avatar_url: string | null;
+    total_xp: number;
+    score: number;
+    reached_at: string;
   }>,
-  leaderboardQuery: null as null | {
-    orderField: string;
-    eqFilters: Array<{ col: string; val: unknown }>;
-    isFilters: Array<{ col: string; val: unknown }>;
-    limit: number;
-  },
+  leaderboardRpcCalls: [] as Array<{ fn: string; args: Record<string, unknown> }>,
+  // Creator resolution fixture for the type=creator gate
+  leaderboardCreator: null as null | { id: string; role: string; flagReason: string | null },
   // Sitemap fixtures — listCreatorUsers result
   sitemapCreators: [] as Array<{
     id: string;
@@ -72,44 +71,24 @@ const control = vi.hoisted(() => ({
   nfcBids: [] as Array<{ id: string; cardId: string; userId: string; amountCCoin: number; status: string }>,
 }));
 
-// ─── Leaderboard: simulate the SQL selector chain so we can assert WHERE filters ───
-function buildLeaderboardQuery() {
-  const eqFilters: Array<{ col: string; val: unknown }> = [];
-  const isFilters: Array<{ col: string; val: unknown }> = [];
-  const state = { orderField: "", limit: 0 };
-  const builder: Record<string, unknown> = {
-    select: () => builder,
-    eq: (col: string, val: unknown) => {
-      eqFilters.push({ col, val });
-      return builder;
-    },
-    is: (col: string, val: unknown) => {
-      isFilters.push({ col, val });
-      return builder;
-    },
-    order: (col: string) => {
-      state.orderField = col;
-      return builder;
-    },
-    limit: (n: number) => {
-      state.limit = n;
-      return Promise.resolve({ data: control.leaderboardUsers, error: null });
-    },
-  };
-  // capture
-  void Promise.resolve().then(() => {
-    control.leaderboardQuery = { orderField: state.orderField, eqFilters, isFilters, limit: state.limit };
-  });
-  return builder;
+// ─── Leaderboard: simulate the get_leaderboard RPC so we can assert args + return shape ───
+function buildCardsStub() {
+  return { select: () => ({ in: () => Promise.resolve({ data: [], error: null }) }) };
 }
 
 const fakeSupabaseFrom = vi.fn((table: string) => {
-  if (table === "users") return buildLeaderboardQuery();
-  if (table === "cards") return { select: () => ({ in: () => Promise.resolve({ data: [], error: null }) }) };
+  if (table === "cards") return buildCardsStub();
   return { select: () => ({}) };
 });
 
-vi.mock("../../lib/supabase.js", () => ({ getSupabase: () => ({ from: fakeSupabaseFrom }) }));
+const fakeRpc = vi.fn((fn: string, args: Record<string, unknown>) => {
+  control.leaderboardRpcCalls.push({ fn, args });
+  return Promise.resolve({ data: control.leaderboardRows, error: null });
+});
+
+vi.mock("../../lib/supabase.js", () => ({
+  getSupabase: () => ({ from: fakeSupabaseFrom, rpc: fakeRpc }),
+}));
 vi.mock("../../lib/auth.js", () => ({
   requireAdmin: () => Promise.resolve({ error: 401 }),
   adminGateError: () => ({ body: { error: "Unauthorized" }, status: 401 }),
@@ -118,33 +97,52 @@ vi.mock("../../lib/auth.js", () => ({
 }));
 vi.mock("../../lib/reads/kyc.js", () => ({ logAuditDb: () => Promise.resolve() }));
 
-// Mock leaderboard selector to use the SQL builder (real call path)
+// Track creator-resolution lookups for the leaderboard creator gate. NFC tests
+// rely on the same mock returning the owner fixture per-test via control.nfcOwner.
+const fakeGetUserById = vi.fn((id: string) => {
+  if (control.leaderboardCreator) {
+    // For type=creator tests we let the leaderboard creator fixture win.
+    if (id === control.leaderboardCreator.id) return Promise.resolve(control.leaderboardCreator);
+  }
+  return Promise.resolve(control.nfcOwner);
+});
+
+vi.mock("../../lib/reads/users.js", async (importOriginal) => {
+  const mod = await importOriginal<typeof import("../../lib/reads/users.js")>();
+  return {
+    ...mod,
+    getUserById: (id: string) => fakeGetUserById(id),
+    listUsersByIds: () => Promise.resolve(control.nfcHistoryOwners),
+    getUserByUsername: () => Promise.resolve(null),
+  };
+});
+
+// Mock leaderboard selector — the new RPC path. The test only verifies
+// the route hands off the correct args; the selector itself is exercised
+// through integration. Mock to forward rpc args for assertion.
 vi.mock("../../lib/reads/gamification.js", async (importOriginal) => {
   const mod = await importOriginal<typeof import("../../lib/reads/gamification.js")>();
   return {
     ...mod,
-    listTopUsersByXp: async (limit: number) => {
+    listLeaderboard: async (type: "xp" | "cards" | "badges" | "creator", creatorId: string | null, limit: number) => {
       const { readDb } = await import("../../lib/reads.js");
       const db = readDb();
-      const { data } = await db
-        .from("users")
-        .select("id, display_name, username, role, total_xp, level, is_anonymous, flag_reason")
-        .eq("is_anonymous", false)
-        .is("flag_reason", null)
-        .order("total_xp", { ascending: false })
-        .limit(limit);
-      // The bug version of this selector doesn't apply these filters — we add them post-fix.
-      // Map snake_case → camelCase to satisfy the route's User shape.
+      const { data } = await db.rpc("get_leaderboard", {
+        p_type: type,
+        p_creator_id: creatorId,
+        p_limit: limit,
+      });
       return ((data as Array<Record<string, unknown>>) ?? []).map((r) => ({
-        id: String(r.id ?? ""),
+        rank: Number(r.rank ?? 0),
+        userId: String(r.user_id ?? ""),
         displayName: String(r.display_name ?? ""),
         username: (r.username as string | null) ?? null,
+        avatarUrl: (r.avatar_url as string | null) ?? null,
         totalXp: Number(r.total_xp ?? 0),
-        isAnonymous: Boolean(r.is_anonymous ?? false),
-        flagReason: (r.flag_reason as string | null) ?? null,
+        score: Number(r.score ?? 0),
+        reachedAt: String(r.reached_at ?? ""),
       }));
     },
-    countCardsByOwner: () => Promise.resolve(new Map<string, number>()),
   };
 });
 
@@ -203,11 +201,6 @@ vi.mock("../../lib/reads/nfc.js", () => ({
   getCardByNfcShortId: () => Promise.resolve(null),
   listOwnershipByCard: () => Promise.resolve(control.nfcHistory),
 }));
-vi.mock("../../lib/reads/users.js", () => ({
-  getUserById: () => Promise.resolve(control.nfcOwner),
-  listUsersByIds: () => Promise.resolve(control.nfcHistoryOwners),
-  getUserByUsername: () => Promise.resolve(null),
-}));
 vi.mock("../../lib/reads/bids.js", () => ({
   listBids: () => Promise.resolve(control.nfcBids),
 }));
@@ -215,45 +208,188 @@ vi.mock("../../lib/reads/bids.js", () => ({
 const { app } = await import("../../index.js");
 
 // ───────────────────────────────────────────────────────────────────────────────
-// 1. Leaderboard — SQL filter for is_anonymous=false + flag_reason IS NULL
+// 1. Leaderboard — multi-type RPC contract (xp/cards/badges/creator)
+// Privacy (is_anonymous + flag_reason) is enforced inside the RPC itself.
 // ───────────────────────────────────────────────────────────────────────────────
-describe("GET /api/gamification/leaderboard — privacy filter", () => {
+const CREATOR_ID = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
+const U1 = "11111111-1111-4111-8111-111111111111";
+const U2 = "22222222-2222-4222-8222-222222222222";
+
+describe("GET /api/gamification/leaderboard — multi-type RPC contract", () => {
   beforeEach(() => {
-    control.leaderboardUsers = [];
-    control.leaderboardQuery = null;
+    control.leaderboardRows = [];
+    control.leaderboardRpcCalls = [];
+    control.leaderboardCreator = null;
+    fakeGetUserById.mockClear();
   });
 
-  it("selector applies is_anonymous=false + flag_reason IS NULL before ranking (so ranks stay correct)", async () => {
-    // After fix the selector applies SQL filters BEFORE ordering/limiting — fixture represents
-    // what the database would have returned (anonymous + suspended rows already excluded).
-    control.leaderboardUsers = [
-      { id: "u-1", displayName: "Public A", username: "a", totalXp: 300 },
-      { id: "u-2", displayName: "Public B", username: "b", totalXp: 200 },
-      { id: "u-3", displayName: "Public C", username: "c", totalXp: 100 },
+  it("defaults to type=xp with limit=20 when no query is provided", async () => {
+    control.leaderboardRows = [
+      {
+        rank: 1,
+        user_id: U1,
+        display_name: "Alpha",
+        username: "alpha",
+        avatar_url: null,
+        total_xp: 500,
+        score: 500,
+        reached_at: "2026-01-01T00:00:00Z",
+      },
     ];
-    const res = await app.request("/api/gamification/leaderboard?limit=20");
-    expect(res.status).toBe(200);
-    const body = (await res.json()) as {
-      leaderboard: Array<{ rank: number; userId: string; displayName: string }>;
-    };
-    expect(body.leaderboard.map((e) => e.userId)).toEqual(["u-1", "u-2", "u-3"]);
-    // Rank integrity — filtered in SQL so ranks stay 1..N for the surviving rows.
-    expect(body.leaderboard.map((e) => e.rank)).toEqual([1, 2, 3]);
-    // SQL filter assertions on the recorded query chain.
-    expect(control.leaderboardQuery).not.toBeNull();
-    expect(control.leaderboardQuery?.eqFilters).toContainEqual({ col: "is_anonymous", val: false });
-    expect(control.leaderboardQuery?.isFilters).toContainEqual({ col: "flag_reason", val: null });
-    expect(control.leaderboardQuery?.orderField).toBe("total_xp");
-    expect(control.leaderboardQuery?.limit).toBe(20);
-  });
-
-  it("anonymous + suspended users never appear on leaderboard, even when their XP would rank them #1", async () => {
-    // SQL already filtered them out → empty result set
-    control.leaderboardUsers = [];
     const res = await app.request("/api/gamification/leaderboard");
     expect(res.status).toBe(200);
-    const body = (await res.json()) as { leaderboard: unknown[] };
-    expect(body.leaderboard).toEqual([]);
+    // RPC was called once with the default args — global board passes null creator.
+    expect(control.leaderboardRpcCalls).toHaveLength(1);
+    expect(control.leaderboardRpcCalls[0]).toEqual({
+      fn: "get_leaderboard",
+      args: { p_type: "xp", p_creator_id: null, p_limit: 20 },
+    });
+    const body = (await res.json()) as {
+      leaderboard: Array<{ rank: number; userId: string }>;
+    };
+    expect(body.leaderboard[0]?.userId).toBe(U1);
+    expect(body.leaderboard[0]?.rank).toBe(1);
+  });
+
+  it("coerces limit string to int and passes it through to the RPC", async () => {
+    const res = await app.request("/api/gamification/leaderboard?limit=35&type=cards");
+    expect(res.status).toBe(200);
+    expect(control.leaderboardRpcCalls[0]?.args).toEqual({
+      p_type: "cards",
+      p_creator_id: null,
+      p_limit: 35,
+    });
+  });
+
+  it("invalid type returns 400 from zValidator", async () => {
+    const res = await app.request("/api/gamification/leaderboard?type=lol");
+    expect(res.status).toBe(400);
+    expect(control.leaderboardRpcCalls).toHaveLength(0);
+  });
+
+  it("type=creator without creatorId returns 400 (superRefine guard)", async () => {
+    const res = await app.request("/api/gamification/leaderboard?type=creator");
+    expect(res.status).toBe(400);
+    expect(control.leaderboardRpcCalls).toHaveLength(0);
+  });
+
+  it("non-creator type with creatorId returns 400 (superRefine guard)", async () => {
+    const res = await app.request(`/api/gamification/leaderboard?type=xp&creatorId=${CREATOR_ID}`);
+    expect(res.status).toBe(400);
+    expect(control.leaderboardRpcCalls).toHaveLength(0);
+  });
+
+  it("unknown creator id returns 404 before the RPC is invoked", async () => {
+    control.leaderboardCreator = null;
+    const res = await app.request(`/api/gamification/leaderboard?type=creator&creatorId=${CREATOR_ID}`);
+    expect(res.status).toBe(404);
+    expect(control.leaderboardRpcCalls).toHaveLength(0);
+  });
+
+  it("rows are mapped to entries with level/tier recomputed from total_xp (server-side, not trusted from DB)", async () => {
+    // total_xp=0 -> level 1, bronze; total_xp=200 -> level 21, gold (calcLevel 10 xp/level)
+    control.leaderboardRows = [
+      {
+        rank: 1,
+        user_id: U1,
+        display_name: "Top",
+        username: "top",
+        avatar_url: null,
+        total_xp: 200,
+        score: 200,
+        reached_at: "2026-01-01T00:00:00Z",
+      },
+      {
+        rank: 2,
+        user_id: U2,
+        display_name: "Newbie",
+        username: null,
+        avatar_url: null,
+        total_xp: 0,
+        score: 0,
+        reached_at: "2026-02-01T00:00:00Z",
+      },
+    ];
+    const res = await app.request("/api/gamification/leaderboard?type=xp");
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      leaderboard: Array<{
+        rank: number;
+        userId: string;
+        level: number;
+        tier: string;
+        totalXp: number;
+        score: number;
+        username: string | null;
+        reachedAt: string;
+      }>;
+    };
+    expect(body.leaderboard[0]).toMatchObject({
+      rank: 1,
+      userId: U1,
+      level: 21,
+      tier: "gold",
+      totalXp: 200,
+      score: 200,
+      username: "top",
+    });
+    expect(body.leaderboard[1]).toMatchObject({
+      rank: 2,
+      userId: U2,
+      level: 1,
+      tier: "bronze",
+      username: null,
+    });
+  });
+
+  it("Cache-Control header differs by type: xp=60 vs cards=30", async () => {
+    // xp board
+    const resXp = await app.request("/api/gamification/leaderboard?type=xp");
+    expect(resXp.status).toBe(200);
+    expect(resXp.headers.get("Cache-Control")).toBe("public, max-age=60");
+
+    // cards board
+    const resCards = await app.request("/api/gamification/leaderboard?type=cards");
+    expect(resCards.status).toBe(200);
+    expect(resCards.headers.get("Cache-Control")).toBe("public, max-age=30");
+  });
+
+  it("type=creator passes the resolved creatorId to the RPC after the creator gate", async () => {
+    control.leaderboardCreator = { id: CREATOR_ID, role: "creator", flagReason: null };
+    const res = await app.request(`/api/gamification/leaderboard?type=creator&creatorId=${CREATOR_ID}`);
+    expect(res.status).toBe(200);
+    expect(control.leaderboardRpcCalls[0]).toEqual({
+      fn: "get_leaderboard",
+      args: { p_type: "creator", p_creator_id: CREATOR_ID, p_limit: 20 },
+    });
+  });
+
+  it("privacy is enforced inside the RPC — the route does no client-side filtering", async () => {
+    // The fixture represents what the RPC returns AFTER the SQL privacy filter
+    // (is_anonymous=false AND flag_reason IS NULL). If the route ever filtered
+    // client-side, the RPC args would not matter — but we assert the RPC was
+    // called with the raw query (no from('users').eq('is_anonymous', false))
+    // and the returned rows are passed through 1:1.
+    control.leaderboardRows = [
+      {
+        rank: 1,
+        user_id: U1,
+        display_name: "Public",
+        username: "p",
+        avatar_url: null,
+        total_xp: 100,
+        score: 100,
+        reached_at: "2026-01-01T00:00:00Z",
+      },
+    ];
+    const res = await app.request("/api/gamification/leaderboard?type=xp");
+    expect(res.status).toBe(200);
+    // Only the RPC was used for rows; no from('users') chain.
+    const fromCalls = fakeSupabaseFrom.mock.calls.filter((c) => c[0] === "users");
+    expect(fromCalls).toHaveLength(0);
+    expect(control.leaderboardRpcCalls[0]?.fn).toBe("get_leaderboard");
+    const body = (await res.json()) as { leaderboard: Array<{ userId: string }> };
+    expect(body.leaderboard[0]?.userId).toBe(U1);
   });
 });
 

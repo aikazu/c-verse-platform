@@ -1,35 +1,54 @@
-import { mapBadgeRow, mapUserBadgeRow, mapUserRow, readDb } from "../reads.js";
-import type { BadgeDef, User, UserBadge } from "../store.js";
+import type { LeaderboardType } from "@c-verse/shared";
+import { mapBadgeRow, mapUserBadgeRow, readDb } from "../reads.js";
+import type { BadgeDef, UserBadge } from "../store.js";
 
 // Domain reads: gamification (leaderboard + badges) — read-only SELECT (docs/13 §3 Wave 2).
 
-export async function listTopUsersByXp(limit: number): Promise<User[]> {
-  const db = readDb();
-  // leaderboard cuma butuh identitas + XP — jangan tarik email/consent/flag kolom lain.
-  // Privacy: hide suspended + anonymous users. Filter di SQL (sebelum ORDER + LIMIT)
-  // agar rank tetap benar untuk survivors — post-filter akan menggeser rank.
-  const { data, error } = await db
-    .from("users")
-    .select("id, display_name, username, role, total_xp, level, is_anonymous, flag_reason")
-    .eq("is_anonymous", false)
-    .is("flag_reason", null)
-    .order("total_xp", { ascending: false })
-    .limit(limit);
-  if (error) throw new Error(error.message);
-  return (data ?? []).map((r) => mapUserRow(r as Record<string, unknown>));
+// Row shape returned by public.get_leaderboard RPC (supabase/migrations/04_rpc.sql).
+// Kept local so the mapper does not leak SQL column names into the rest of the app.
+interface LeaderboardRpcRow {
+  rank: number | bigint;
+  user_id: string;
+  display_name: string;
+  username: string | null;
+  avatar_url: string | null;
+  total_xp: number;
+  score: number | bigint;
+  reached_at: string;
 }
 
-export async function countCardsByOwner(userIds: string[]): Promise<Map<string, number>> {
-  const counts = new Map<string, number>();
-  if (userIds.length === 0) return counts;
+export interface LeaderboardRow {
+  rank: number;
+  userId: string;
+  displayName: string;
+  username: string | null;
+  avatarUrl: string | null;
+  totalXp: number;
+  score: number;
+  reachedAt: string;
+}
+
+// Multi-type leaderboard selector (docs/15). Privacy (is_anonymous=false AND
+// flag_reason IS NULL) is enforced inside the SQL function — the route never
+// re-filters client-side. Pass creatorId=null for global boards.
+export async function listLeaderboard(type: LeaderboardType, creatorId: string | null, limit: number): Promise<LeaderboardRow[]> {
   const db = readDb();
-  const { data, error } = await db.from("cards").select("owner_id").in("owner_id", userIds);
+  const { data, error } = await db.rpc("get_leaderboard", {
+    p_type: type,
+    p_creator_id: creatorId,
+    p_limit: limit,
+  });
   if (error) throw new Error(error.message);
-  for (const row of data ?? []) {
-    const ownerId = (row as Record<string, unknown>).owner_id;
-    if (typeof ownerId === "string") counts.set(ownerId, (counts.get(ownerId) ?? 0) + 1);
-  }
-  return counts;
+  return ((data as LeaderboardRpcRow[] | null) ?? []).map((r) => ({
+    rank: Number(r.rank ?? 0),
+    userId: String(r.user_id ?? ""),
+    displayName: String(r.display_name ?? ""),
+    username: (r.username as string | null) ?? null,
+    avatarUrl: (r.avatar_url as string | null) ?? null,
+    totalXp: Number(r.total_xp ?? 0),
+    score: Number(r.score ?? 0),
+    reachedAt: String(r.reached_at ?? ""),
+  }));
 }
 
 export async function listBadges(): Promise<BadgeDef[]> {
