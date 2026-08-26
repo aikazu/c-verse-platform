@@ -27,7 +27,7 @@ export default function Marketplace() {
             Marketplace
           </h1>
           <p className="muted" style={{ marginTop: 6 }}>
-            C.Card yang dijual pemiliknya
+            C.Card yang dijual pemiliknya — klik Beli untuk checkout instan
           </p>
         </div>
         <button className="btn-ghost" onClick={() => refetch()} style={{ fontFamily: "var(--font-mono)", fontSize: 12 }}>
@@ -52,42 +52,62 @@ export default function Marketplace() {
             const drop = entry.drop;
             const price = entry.buyoutPriceCcoin ?? 0;
             return (
-              <Link
-                key={card.id}
-                to={card?.id ? `/cards/${card.id}` : "/browse"}
-                className="card"
-                style={{ overflow: "hidden", textDecoration: "none", color: "inherit" }}
-              >
-                <div
-                  style={{
-                    height: 140,
-                    background: "var(--thumb-grad)",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontSize: 36,
-                  }}
+              <div key={card.id} className="card" style={{ overflow: "hidden", display: "flex", flexDirection: "column" }}>
+                <Link
+                  to={card?.id ? `/cards/${card.id}` : "/browse"}
+                  style={{ textDecoration: "none", color: "inherit", display: "block" }}
+                  aria-label={`Lihat detail ${drop?.title ?? card.id}`}
                 >
-                  🃏
-                </div>
-                <div style={{ padding: 14 }}>
-                  <div style={{ fontWeight: 600, fontSize: 13 }}>
-                    {drop?.title ?? card.id} · #{card.unitNumber ?? "?"}
+                  <div
+                    style={{
+                      height: 140,
+                      background: "var(--thumb-grad)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontSize: 36,
+                    }}
+                  >
+                    🃏
                   </div>
-                  <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--text-muted)" }}>{drop?.series ?? ""}</div>
-                  {drop?.isSeed && (
-                    <span className="badge-seed" style={{ alignSelf: "start", marginTop: 6 }}>
-                      ✦ Seed 1-of-1
-                    </span>
-                  )}
-                  <div style={{ marginTop: 10, display: "flex", alignItems: "baseline", gap: 6 }}>
-                    <span style={{ fontWeight: 700, fontSize: 15 }}>{price} C</span>
-                    <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--text-muted)" }}>
-                      · {formatIdr(price * 10000)}
-                    </span>
+                  <div style={{ padding: 14 }}>
+                    <div style={{ fontWeight: 600, fontSize: 13 }}>
+                      {drop?.title ?? card.id} · #{card.unitNumber ?? "?"}
+                    </div>
+                    <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--text-muted)" }}>{drop?.series ?? ""}</div>
+                    {drop?.isSeed && (
+                      <span className="badge-seed" style={{ alignSelf: "start", marginTop: 6 }}>
+                        ✦ Seed 1-of-1
+                      </span>
+                    )}
+                    <div style={{ marginTop: 10, display: "flex", alignItems: "baseline", gap: 6 }}>
+                      <span style={{ fontWeight: 700, fontSize: 15 }}>{price} C</span>
+                      <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--text-muted)" }}>
+                        · {formatIdr(price * 10000)}
+                      </span>
+                    </div>
                   </div>
+                </Link>
+                {/* P1-6 (audit 2026-08-24): CTA inline Beli — sebelumnya hanya link ke card info.
+                    Sekarang pembeli dari Marketplace dapat langsung mengarah ke halaman
+                    kartu dengan fokus #beli di tempat buyout harga. */}
+                <div style={{ padding: "0 14px 14px", marginTop: "auto" }}>
+                  <Link
+                    to={card?.id ? `/cards/${card.id}#beli` : "/browse"}
+                    className="btn-gold"
+                    style={{
+                      display: "block",
+                      padding: "10px",
+                      fontSize: 13,
+                      textAlign: "center",
+                      textDecoration: "none",
+                      fontFamily: "var(--font-mono)",
+                    }}
+                  >
+                    Beli {price} C →
+                  </Link>
                 </div>
-              </Link>
+              </div>
             );
           })}
         </div>

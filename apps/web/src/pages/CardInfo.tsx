@@ -1,6 +1,6 @@
 import type { Bid } from "@c-verse/shared";
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { ApiError, api } from "../lib/api";
 import type { ApiCardDetailResponse, ApiCardOwnershipRow } from "../lib/api-types";
@@ -38,6 +38,17 @@ export default function CardInfo() {
     queryFn: () => api.card(cardId!),
     enabled: !!cardId,
   });
+  // P1-6 (audit 2026-08-24): auto-buka panel buyout saat deep-link dari Marketplace
+  // (#beli anchor) — kurangi friksi 2 klik jadi 1 untuk pembeli sekunder.
+  // Hooks dulu sebelum early-return agar urutan konsisten.
+  const buyoutPrice = data?.card?.buyoutPriceCcoin ?? null;
+  const ownerId = data?.owner?.id ?? null;
+  const isOwnerDerived = !!user && ownerId === user.id;
+  const canBuyoutDerived = buyoutPrice != null && !!user && !isOwnerDerived;
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (canBuyoutDerived && window.location.hash === "#beli") setBuyoutOpen(true);
+  }, [canBuyoutDerived]);
   if (isLoading)
     return (
       <div className="muted" style={{ padding: 24, textAlign: "center" }}>
@@ -53,6 +64,8 @@ export default function CardInfo() {
         </p>
       </div>
     );
+  // P1-6 (audit 2026-08-24): auto-buka panel buyout saat deep-link dari Marketplace
+  // (#beli anchor) — kurangi friksi 2 klik jadi 1 untuk pembeli sekunder.
   const card = data.card;
   const drop = data.drop;
   const owner = data.owner;
@@ -60,8 +73,8 @@ export default function CardInfo() {
   const history: ApiCardOwnershipRow[] = data.ownershipHistory ?? [];
   const bids: Bid[] = data.bids ?? [];
   const verifyBadge = VERIFY_BADGES[card.verifyStatus ?? "unknown"] ?? VERIFY_BADGES.unknown;
-  const isOwner = !!user && owner?.id === user.id;
-  const canBuyout = card.buyoutPriceCcoin != null && !!user && !isOwner;
+  const isOwner = isOwnerDerived;
+  const canBuyout = canBuyoutDerived;
   const myActiveBid = activeBid?.bidderId && user && activeBid.bidderId === user.id ? activeBid : null;
 
   async function onBuyout() {
