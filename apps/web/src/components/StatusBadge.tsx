@@ -38,10 +38,26 @@ function resolve(kind: StatusKind, status: string): { label: string; variant: Pi
   return { label: dropStatusLabel(status), variant: DROP_VARIANT[status] ?? "info" };
 }
 
-export function StatusBadge({ status, kind = "drop", style }: { status: string; kind?: StatusKind; style?: React.CSSProperties }) {
+export function StatusBadge({
+  status,
+  kind = "drop",
+  style,
+  pulse = false,
+}: {
+  status: string;
+  kind?: StatusKind;
+  style?: React.CSSProperties;
+  /**
+   * Additive optional: when true, the badge pulses like the live-pulse signal
+   * dot. Used by launch-manifest surfaces to flag "LIVE" / "RAFFLE" drops.
+   * Backward-compatible: defaults to false so existing callers are unchanged.
+   */
+  pulse?: boolean;
+}) {
   const { label, variant } = resolve(kind, status);
+  const className = pulse ? `pill pill-${variant} is-pulse` : `pill pill-${variant}`;
   return (
-    <span className={`pill pill-${variant}`} style={style}>
+    <span className={className} style={style}>
       {label}
     </span>
   );

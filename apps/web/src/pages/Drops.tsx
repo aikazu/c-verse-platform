@@ -1,29 +1,11 @@
+import { SIGNED_PRICE_DELTA_CCOIN } from "@c-verse/shared";
 import { useInfiniteQuery } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import { StatusBadge } from "../components/StatusBadge";
 import { api, formatIdr } from "../lib/api";
 import type { ApiDrop, ApiDropsResponse } from "../lib/api-types";
 import { ErrorState, LoadingState } from "../lib/QueryStates";
-
-function Badge({ status }: { status: string }) {
-  const map: Record<string, string> = {
-    live: "badge-live",
-    scheduled: "badge-scheduled",
-    draft: "badge-ended",
-    published: "badge-live",
-    sold_out: "badge-ended",
-    closed: "badge-ended",
-  };
-  const label: Record<string, string> = {
-    live: "Live",
-    scheduled: "Segera",
-    draft: "Draft",
-    published: "Live",
-    sold_out: "Habis",
-    closed: "Closed",
-  };
-  return <span className={`drop-badge ${map[status] || "badge-ended"}`}>{label[status] || status}</span>;
-}
 
 /**
  * P1-9 (audit 2026-08-24): phase derivation dari backend fields.
@@ -52,22 +34,91 @@ function phase(d: ApiDrop, now: number): Phase {
 const PHASE_LABEL: Record<Phase, string> = {
   upcoming: "Akan Datang",
   raffle: "Raffle",
-  drawing: "Draw Soon",
+  drawing: "Segera Diundi",
   fcfs: "FCFS",
   ended: "Selesai",
 };
 
-const PHASE_PILL: Record<Phase, string> = {
-  upcoming: "pill-info",
-  raffle: "pill-warn",
-  drawing: "pill-warn",
-  fcfs: "pill-success",
-  ended: "",
+const PHASE_CHIP_KEY: Record<Phase, keyof typeof PHASE_CHIP_DOT> = {
+  upcoming: "upcoming",
+  raffle: "live",
+  drawing: "live",
+  fcfs: "fcfs",
+  ended: "ended",
 };
+const PHASE_CHIP_DOT = { live: "live", upcoming: "upcoming", fcfs: "fcfs", ended: "ended" } as const;
+
+function formatTMinus(targetIso: string, now: number): { text: string; urgent: boolean } {
+  const diff = new Date(targetIso).getTime() - now;
+  if (diff <= 0) return { text: "00:00", urgent: true };
+  const totalSeconds = Math.floor(diff / 1000);
+  const days = Math.floor(totalSeconds / 86400);
+  const hours = Math.floor((totalSeconds % 86400) / 3600);
+  const mins = Math.floor((totalSeconds % 3600) / 60);
+  const secs = totalSeconds % 60;
+  const urgent = diff < 60_000;
+  if (days > 0) return { text: `${days}h ${String(hours).padStart(2, "0")}j ${String(mins).padStart(2, "0")}m`, urgent };
+  if (hours > 0) return { text: `${hours}j ${String(mins).padStart(2, "0")}m ${String(secs).padStart(2, "0")}d`, urgent };
+  return { text: `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`, urgent };
+}
+
+function TMinus({ targetIso, now, label }: { targetIso: string; now: number; label: string }) {
+  const cd = formatTMinus(targetIso, now);
+  if (cd.text === "00:00") return null;
+  return (
+    <span className={`t-minus${cd.urgent ? " is-urgent" : ""}`} aria-label={`${label} ${cd.text}`}>
+      <span className="t-label">{label}</span>
+      <span>{cd.text}</span>
+    </span>
+  );
+}
+
+function initialsFromSeries(series: string | null | undefined): string {
+  if (!series) return "C·C";
+  const parts = series.split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "C·C";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[1][0]).toUpperCase();
+}
+
+function DropThumb({ d, children, showFallback = true }: { d: ApiDrop; children?: React.ReactNode; showFallback?: boolean }) {
+  const hasArt = Boolean(d.artworkUrl);
+  return (
+    <div className="drop-thumb">
+      {hasArt ? (
+        <div className="art" style={{ backgroundImage: `url("${d.artworkUrl?.replace(/"/g, "%22") ?? ""}")` }} />
+      ) : showFallback ? (
+        <span className="art-fallback" aria-hidden="true">
+          <span className="art-fallback-init">{initialsFromSeries(d.series)}</span>
+        </span>
+      ) : null}
+      {children}
+    </div>
+  );
+}
+
+function SellerRow({ d }: { d: ApiDrop }) {
+  const handle = d.creatorUsername ?? d.creatorHandle ?? null;
+  const label = (
+    <>
+      <span className="seller-dot" aria-hidden="true" />
+      <span className="seller-name">{d.creatorName}</span>
+    </>
+  );
+  if (handle) {
+    return (
+      <Link to={`/c/${handle}`} className="seller-row" aria-label={`Halaman kreator ${d.creatorName}`} onClick={(e) => e.stopPropagation()}>
+        {label}
+      </Link>
+    );
+  }
+  return <span className="seller-row">{label}</span>;
+}
 
 export default function Drops() {
   const [filter, setFilter] = useState<"all" | Phase>("all");
   const [search, setSearch] = useState("");
+  const [sort, setSort] = useState<"newest" | "ending" | "sold" | "price">("newest");
   // Refresh tiap 60 detik agar raffleEndAt / drawnAt ter-update → phase derivation akurat.
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
@@ -82,140 +133,303 @@ export default function Drops() {
     refetchInterval: 60_000,
   });
   const allDrops: ApiDrop[] = (data?.pages ?? []).flatMap((p) => p.drops ?? []);
-  const drops: ApiDrop[] = filter === "all" ? allDrops : allDrops.filter((d) => phase(d, now) === filter);
-  void now; // dipakai phase() + Refetch interval
+
+  // Counts per phase untuk chip badges
+  const phaseCounts = useMemo(() => {
+    const counts: Record<Phase, number> = { upcoming: 0, raffle: 0, drawing: 0, fcfs: 0, ended: 0 };
+    for (const d of allDrops) counts[phase(d, now)]++;
+    return counts;
+  }, [allDrops, now]);
+
+  const filtered = filter === "all" ? allDrops : allDrops.filter((d) => phase(d, now) === filter);
+
+  // Featured drop: raffle live terbaru. Jika tidak ada, pilih upcoming paling dekat.
+  const featured = useMemo(() => {
+    const live = allDrops.filter((d) => phase(d, now) === "raffle");
+    if (live.length) {
+      return [...live].sort((a, b) => {
+        const aEnd = a.raffleEndAt ? new Date(a.raffleEndAt).getTime() : Infinity;
+        const bEnd = b.raffleEndAt ? new Date(b.raffleEndAt).getTime() : Infinity;
+        return aEnd - bEnd;
+      })[0];
+    }
+    const upcoming = allDrops.filter((d) => phase(d, now) === "upcoming");
+    if (upcoming.length) {
+      return [...upcoming].sort((a, b) => {
+        const aStart = a.dropStartAt ?? a.dropAt ?? "";
+        const bStart = b.dropStartAt ?? b.dropAt ?? "";
+        return new Date(aStart).getTime() - new Date(bStart).getTime();
+      })[0];
+    }
+    return null;
+  }, [allDrops, now]);
+
+  // Apply sort
+  const drops = useMemo(() => {
+    const arr = [...filtered];
+    if (featured) {
+      const idx = arr.findIndex((d) => d.id === featured.id);
+      if (idx >= 0) arr.splice(idx, 1);
+    }
+    if (sort === "ending") {
+      arr.sort((a, b) => {
+        const ae = a.raffleEndAt ? new Date(a.raffleEndAt).getTime() : Infinity;
+        const be = b.raffleEndAt ? new Date(b.raffleEndAt).getTime() : Infinity;
+        return ae - be;
+      });
+    } else if (sort === "sold") {
+      arr.sort((a, b) => b.soldCount - a.soldCount);
+    } else if (sort === "price") {
+      arr.sort((a, b) => (a.priceCcoin ?? a.priceUnsignedCCoin ?? 0) - (b.priceCcoin ?? b.priceUnsignedCCoin ?? 0));
+    } else {
+      arr.sort((a, b) => {
+        const ad = a.dropStartAt ?? a.dropAt ?? a.createdAt ?? "";
+        const bd = b.dropStartAt ?? b.dropAt ?? b.createdAt ?? "";
+        return new Date(bd).getTime() - new Date(ad).getTime();
+      });
+    }
+    return arr;
+  }, [filtered, sort, featured]);
+
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: 12 }}>
-        <div>
-          <span className="eyebrow">Koleksi</span>
-          <h1 className="h2" style={{ marginTop: 4 }}>
-            Drops
-          </h1>
-          <p className="muted" style={{ marginTop: 6 }}>
-            Koleksi terbatas dari kreator pilihan
-          </p>
+    <div className="drops-stack">
+      <section className="page-hero" aria-label="Header halaman Drops">
+        <div className="page-hero-rail">
+          <span className="rail-channel">CH:01 / DROPS</span>
+          <span className="rail-dot" aria-hidden="true" />
+          <span className="rail-sep">·</span>
+          <span className="rail-extra">SCANNING COLLECTIONS</span>
+          <span className="rail-time" aria-label="Siap">
+            <span className="rail-cursor" aria-hidden="true" />
+          </span>
         </div>
-        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-          <input
-            className="input"
-            aria-label="Cari drop"
-            placeholder="Cari seri atau judul…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            style={{ width: 210 }}
-          />
-          <select
-            className="select"
-            aria-label="Filter fase drop"
-            value={filter}
-            onChange={(e) => setFilter(e.target.value as Phase | "all")}
-            style={{ width: 160 }}
-          >
-            <option value="all">Semua</option>
-            <option value="upcoming">{PHASE_LABEL.upcoming}</option>
-            <option value="raffle">{PHASE_LABEL.raffle}</option>
-            <option value="drawing">{PHASE_LABEL.drawing}</option>
-            <option value="fcfs">{PHASE_LABEL.fcfs}</option>
-            <option value="ended">{PHASE_LABEL.ended}</option>
-          </select>
-          <button className="btn-ghost" onClick={() => refetch()} style={{ fontFamily: "var(--font-mono)", fontSize: 12 }}>
+        <div className="page-hero-inner">
+          <div className="page-hero-copy">
+            <h1 className="page-hero-title">Drops</h1>
+          </div>
+        </div>
+        <div className="hero-ticker" aria-hidden="true">
+          <span className="ticker-label">Live Feed</span>
+          <div className="ticker-track">
+            <div className="ticker-scroll">
+              <span className="ticker-item">
+                <span className="tk-key">UNGGULAN</span>
+                <span className="tk-val magenta">{featured?.title ?? "—"}</span>
+              </span>
+              <span className="ticker-item">
+                <span className="tk-sep" aria-hidden="true" />
+              </span>
+              <span className="ticker-item">
+                <span className="tk-key">KATALOG</span>
+                <span className="tk-val cyan">{allDrops.length}</span>
+              </span>
+              <span className="ticker-item">
+                <span className="tk-sep" aria-hidden="true" />
+              </span>
+              <span className="ticker-item">
+                <span className="tk-key">RAFFLE</span>
+                <span className="tk-val signal">{phaseCounts.raffle}</span>
+              </span>
+              <span className="ticker-item">
+                <span className="tk-sep" aria-hidden="true" />
+              </span>
+              <span className="ticker-item">
+                <span className="tk-key">SEGERA DIUNDI</span>
+                <span className="tk-val signal">{phaseCounts.drawing}</span>
+              </span>
+              <span className="ticker-item">
+                <span className="tk-sep" aria-hidden="true" />
+              </span>
+              <span className="ticker-item">
+                <span className="tk-key">AKAN DATANG</span>
+                <span className="tk-val cyan">{phaseCounts.upcoming}</span>
+              </span>
+              <span className="ticker-item">
+                <span className="tk-sep" aria-hidden="true" />
+              </span>
+              <span className="ticker-item">
+                <span className="tk-key">FCFS</span>
+                <span className="tk-val">{phaseCounts.fcfs}</span>
+              </span>
+              <span className="ticker-item">
+                <span className="tk-sep" aria-hidden="true" />
+              </span>
+              <span className="ticker-item">
+                <span className="tk-key">SELESAI</span>
+                <span className="tk-val">{phaseCounts.ended}</span>
+              </span>
+              {/* duplicate for seamless marquee loop */}
+              <span className="ticker-item">
+                <span className="tk-sep" aria-hidden="true" />
+              </span>
+              <span className="ticker-item">
+                <span className="tk-key">UNGGULAN</span>
+                <span className="tk-val magenta">{featured?.title ?? "—"}</span>
+              </span>
+              <span className="ticker-item">
+                <span className="tk-sep" aria-hidden="true" />
+              </span>
+              <span className="ticker-item">
+                <span className="tk-key">KATALOG</span>
+                <span className="tk-val cyan">{allDrops.length}</span>
+              </span>
+              <span className="ticker-item">
+                <span className="tk-sep" aria-hidden="true" />
+              </span>
+              <span className="ticker-item">
+                <span className="tk-key">RAFFLE</span>
+                <span className="tk-val signal">{phaseCounts.raffle}</span>
+              </span>
+              <span className="ticker-item">
+                <span className="tk-sep" aria-hidden="true" />
+              </span>
+              <span className="ticker-item">
+                <span className="tk-key">SEGERA DIUNDI</span>
+                <span className="tk-val signal">{phaseCounts.drawing}</span>
+              </span>
+              <span className="ticker-item">
+                <span className="tk-sep" aria-hidden="true" />
+              </span>
+              <span className="ticker-item">
+                <span className="tk-key">AKAN DATANG</span>
+                <span className="tk-val cyan">{phaseCounts.upcoming}</span>
+              </span>
+              <span className="ticker-item">
+                <span className="tk-sep" aria-hidden="true" />
+              </span>
+              <span className="ticker-item">
+                <span className="tk-key">FCFS</span>
+                <span className="tk-val">{phaseCounts.fcfs}</span>
+              </span>
+              <span className="ticker-item">
+                <span className="tk-sep" aria-hidden="true" />
+              </span>
+              <span className="ticker-item">
+                <span className="tk-key">SELESAI</span>
+                <span className="tk-val">{phaseCounts.ended}</span>
+              </span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div className="toolbar" role="search">
+        <input
+          className="input"
+          aria-label="Cari drop"
+          placeholder="Cari seri atau judul…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+        <select className="select" aria-label="Urutkan drop" value={sort} onChange={(e) => setSort(e.target.value as typeof sort)}>
+          <option value="newest">Terbaru</option>
+          <option value="ending">Segera Berakhir</option>
+          <option value="sold">Paling Laris</option>
+          <option value="price">Harga Terendah</option>
+        </select>
+        <div className="toolbar-right">
+          <button className="refresh-btn" onClick={() => refetch()} aria-label="Refresh daftar drop" type="button">
+            <span className="dot" aria-hidden="true" />
             Refresh
           </button>
         </div>
+      </div>
+
+      <div className="chip-bar" role="tablist" aria-label="Filter fase drop">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={filter === "all"}
+          className={`chip${filter === "all" ? " active" : ""}`}
+          onClick={() => setFilter("all")}
+        >
+          Semua <span className="chip-count">{allDrops.length}</span>
+        </button>
+        {(Object.keys(PHASE_LABEL) as Phase[]).map((p) => {
+          const dotKey = PHASE_CHIP_KEY[p];
+          return (
+            <button
+              key={p}
+              type="button"
+              role="tab"
+              aria-selected={filter === p}
+              className={`chip ${dotKey}${filter === p ? " active" : ""}`}
+              onClick={() => setFilter(p)}
+            >
+              <span className="chip-dot" aria-hidden="true" />
+              {PHASE_LABEL[p]} <span className="chip-count">{phaseCounts[p]}</span>
+            </button>
+          );
+        })}
       </div>
 
       {isLoading ? (
         <LoadingState />
       ) : isError ? (
         <ErrorState onRetry={() => refetch()} label="Gagal memuat drop" />
-      ) : !drops.length ? (
-        <div className="card card-pad muted" style={{ textAlign: "center", padding: 32 }}>
-          Belum ada drop untuk filter ini
+      ) : !drops.length && !featured ? (
+        <div className="empty-arcade">
+          <div className="empty-icon" aria-hidden="true">
+            NO_DATA
+          </div>
+          <div className="empty-title">Belum ada drop di fase ini</div>
+          <p className="empty-msg">Drop baru rilis tiap hari jam 12.00 WIB.</p>
         </div>
       ) : (
         <div className="grid-3">
+          {featured && filter === "all" && <NextLaunchConsole d={featured} now={now} />}
           {drops.map((d) => {
             const ph = phase(d, now);
+            const remaining = Math.max(0, d.remainingUnits ?? d.totalUnits - d.soldCount);
+            const pct = d.totalUnits > 0 ? Math.round((d.soldCount / d.totalUnits) * 100) : 0;
+            const countdownTarget = ph === "upcoming" ? (d.dropStartAt ?? d.dropAt) : d.raffleEndAt;
+            const isPulse = ph === "raffle";
+            const priceReg = d.priceCcoin ?? d.priceUnsignedCCoin;
             return (
-              <Link key={d.id} to={`/drops/${d.id}`} className="card drop-card">
-                <div className="drop-thumb">
-                  <Badge status={d.status} />
-                  <span className={`pill ${PHASE_PILL[ph]}`} style={{ marginLeft: 6, fontSize: 10 }}>
-                    {PHASE_LABEL[ph]}
-                  </span>
-                  <span style={{ fontSize: 42 }}>🎴</span>
-                </div>
+              <Link key={d.id} to={`/drops/${d.id}`} className="card drop-card" aria-label={`Detail drop ${d.title}`}>
+                <DropThumb d={d}>
+                  <div className="drop-thumb-overlay">
+                    <StatusBadge status={d.status} kind="drop" pulse={isPulse} />
+                    <span className="pill pill-muted">{PHASE_LABEL[ph]}</span>
+                    {countdownTarget && ph !== "ended" && ph !== "fcfs" && (
+                      <TMinus targetIso={countdownTarget} now={now} label={ph === "upcoming" ? "MENUJU RILIS" : "RAFFLE BERAKHIR"} />
+                    )}
+                  </div>
+                  <div className="drop-thumb-corner">
+                    <span
+                      className="progress-ring"
+                      style={{ ["--p" as never]: pct }}
+                      title={`${pct}% terjual`}
+                      aria-label={`${pct} persen terjual`}
+                    >
+                      {pct}%
+                    </span>
+                  </div>
+                </DropThumb>
                 <div className="card-pad">
-                  <div
-                    style={{
-                      fontFamily: "var(--font-mono)",
-                      fontSize: 10,
-                      fontWeight: 500,
-                      letterSpacing: "0.08em",
-                      textTransform: "uppercase",
-                      color: "var(--gold)",
-                    }}
-                  >
-                    {d.series}
-                  </div>
-                  <div style={{ fontWeight: 700, marginTop: 4, fontSize: 14 }}>{d.title}</div>
-                  <div
-                    className="muted"
-                    style={{
-                      fontSize: 12,
-                      marginTop: 6,
-                      display: "-webkit-box",
-                      WebkitLineClamp: 2,
-                      WebkitBoxOrient: "vertical",
-                      overflow: "hidden",
-                      lineHeight: 1.6,
-                    }}
-                  >
-                    {d.narrative}
-                  </div>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 14, gap: 12 }}>
-                    <div>
-                      <div
-                        style={{
-                          fontFamily: "var(--font-mono)",
-                          fontSize: 10,
-                          color: "var(--text-dim)",
-                          fontWeight: 500,
-                          letterSpacing: "0.08em",
-                        }}
-                      >
-                        HARGA
-                      </div>
-                      <div style={{ fontWeight: 700, fontSize: 14 }}>
-                        {d.priceCcoin ?? d.priceUnsignedCCoin} C{" "}
-                        <span style={{ fontSize: 11, color: "var(--text-muted)", fontWeight: 400 }}>
-                          · {formatIdr(d.idrPrice ?? d.idrUnsigned ?? 0)}
-                        </span>
-                      </div>
+                  <span className="eyebrow">{d.series}</span>
+                  <div className="card-title">{d.title}</div>
+                  <p className="muted muted-clamp-2">{d.narrative}</p>
+                  <div className="card-meta-row">
+                    <div className="card-price">
+                      <div className="price-val">{priceReg} C</div>
+                      <div className="price-idr">· {formatIdr(d.idrPrice ?? d.idrUnsigned ?? 0)}</div>
                     </div>
-                    <div style={{ textAlign: "right", minWidth: 80 }}>
-                      <div
-                        style={{
-                          fontFamily: "var(--font-mono)",
-                          fontSize: 10,
-                          color: "var(--text-dim)",
-                          fontWeight: 500,
-                          letterSpacing: "0.08em",
-                        }}
-                      >
-                        TERJUAL
-                      </div>
-                      <div style={{ fontWeight: 600, fontSize: 13 }}>
-                        {d.soldCount}/{d.totalUnits}
-                      </div>
-                      <div className="progress" style={{ width: 72, marginTop: 6, height: 4 }}>
-                        <div className="progress-fill" style={{ width: `${Math.round((d.soldCount / d.totalUnits) * 100)}%` }} />
-                      </div>
+                    <div className="card-stock">
+                      <span className="stock-line">
+                        <strong>{d.soldCount}</strong>
+                        <span className="stock-divider"> / {d.totalUnits}</span>
+                      </span>
+                      <span className="stock-pct">{remaining} tersisa</span>
                     </div>
                   </div>
-                  <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--text-dim)", marginTop: 12 }}>
-                    oleh {d.creatorName}
+                  {d.signedCount > 0 ? (
+                    <div className="card-pills">
+                      <span className="pill pill-muted">✍ signed {d.signedCount}</span>
+                    </div>
+                  ) : null}
+                  <div className="card-creator">
+                    <SellerRow d={d} />
                   </div>
                 </div>
               </Link>
@@ -224,10 +438,85 @@ export default function Drops() {
         </div>
       )}
       {hasNextPage && (
-        <button className="btn-ghost" onClick={() => fetchNextPage()} disabled={isFetchingNextPage} style={{ alignSelf: "center" }}>
-          {isFetchingNextPage ? "Memuat…" : "Muat lagi"}
-        </button>
+        <div className="drops-load-more">
+          <button className="btn-ghost" onClick={() => fetchNextPage()} disabled={isFetchingNextPage} aria-busy={isFetchingNextPage}>
+            {isFetchingNextPage ? "Memuat…" : "Muat lagi"}
+          </button>
+        </div>
       )}
     </div>
+  );
+}
+
+function NextLaunchConsole({ d, now }: { d: ApiDrop; now: number }) {
+  const ph = phase(d, now);
+  const remaining = Math.max(0, d.remainingUnits ?? d.totalUnits - d.soldCount);
+  const pct = d.totalUnits > 0 ? Math.min(100, Math.round((d.soldCount / d.totalUnits) * 100)) : 0;
+  const isLive = ph === "raffle";
+  const countdownTarget = ph === "upcoming" ? (d.dropStartAt ?? d.dropAt) : d.raffleEndAt;
+  const priceReg = d.priceCcoin ?? d.priceUnsignedCCoin;
+  const idrReg = d.idrPrice ?? d.idrUnsigned ?? 0;
+  const hasSigned = d.priceSignedCCoin !== undefined || d.idrSigned !== undefined || d.signedCount > 0;
+  const priceSigned = d.priceSignedCCoin ?? priceReg + SIGNED_PRICE_DELTA_CCOIN;
+  const idrSigned = d.idrSigned ?? Math.round(idrReg * (priceSigned / Math.max(priceReg, 1)));
+  const tminusLabel = ph === "upcoming" ? "MENUJU RILIS" : "RAFFLE BERAKHIR";
+  return (
+    <Link to={`/drops/${d.id}`} className="next-launch" aria-label={`Drop unggulan: ${d.title}`}>
+      <div className="next-launch-art">
+        {d.artworkUrl ? (
+          <img src={d.artworkUrl} alt="" />
+        ) : (
+          <span className="art-fallback" aria-hidden="true">
+            <span className="art-fallback-init">{initialsFromSeries(d.series)}</span>
+          </span>
+        )}
+      </div>
+      <div className="next-launch-rail">
+        <span className="next-launch-eyebrow">PELUNCURAN BERIKUTNYA</span>
+        <div className="next-launch-title">{d.title}</div>
+        <p className="next-launch-desc muted-clamp-2">{d.narrative}</p>
+        <div className="card-pills">
+          <StatusBadge status={d.status} kind="drop" pulse={isLive} />
+          <span className="pill pill-muted">{PHASE_LABEL[ph]}</span>
+          {countdownTarget && ph !== "ended" && ph !== "fcfs" && <TMinus targetIso={countdownTarget} now={now} label={tminusLabel} />}
+        </div>
+        <div className="price-duo">
+          <div className="duo-row">
+            <span className="duo-key">REGULER</span>
+            <span className="duo-val">
+              {priceReg}
+              <span className="duo-unit">C</span>
+              <span className="duo-unit">· {formatIdr(idrReg)}</span>
+            </span>
+          </div>
+          <div className="duo-row is-signed">
+            <span className="duo-key">SIGNED</span>
+            <span className="duo-val">
+              {priceSigned}
+              <span className="duo-unit">C</span>
+              <span className="duo-unit">· {formatIdr(idrSigned)}</span>
+              {hasSigned ? <span className="signed-delta">+{SIGNED_PRICE_DELTA_CCOIN} C</span> : null}
+            </span>
+          </div>
+        </div>
+        <div className="launch-progress">
+          <div className="launch-progress-label">
+            <span className="lp-key">
+              TERJUAL {d.soldCount}/{d.totalUnits}
+            </span>
+            <span className="lp-val">{remaining} tersisa</span>
+          </div>
+          <div className="progress" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct}>
+            <div className="progress-fill" style={{ width: `${pct}%` }} />
+          </div>
+        </div>
+        <div className="next-launch-footer">
+          <SellerRow d={d} />
+          <span className="footer-cta">
+            Lihat Detail <span aria-hidden="true">→</span>
+          </span>
+        </div>
+      </div>
+    </Link>
   );
 }
