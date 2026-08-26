@@ -9,6 +9,9 @@ const TICKER_ITEMS = [
   "JUAL & BID DI MARKETPLACE",
 ];
 
+// Terminology consistency: marketing copy boleh "C.CARD" all-caps pada hero
+// (brand emblem); prosa UI lain konsisten "C.Card" per docs/00_readme.md §6.
+
 const STEPS = [
   {
     num: "01",
@@ -89,6 +92,12 @@ export default function Landing() {
                 Buka Marketplace
               </Link>
             </div>
+            <p className="muted" style={{ marginTop: 10, fontFamily: "var(--font-mono)", fontSize: 12, letterSpacing: "0.04em" }}>
+              Sudah punya akun tapi saldo kosong?{" "}
+              <Link to="/wallet" style={{ color: "var(--gold)", fontWeight: 600 }}>
+                Isi C-Coin →
+              </Link>
+            </p>
             <p className="insert-coin">
               Insert coin to continue <span className="coin-slot blink">▮</span>
             </p>

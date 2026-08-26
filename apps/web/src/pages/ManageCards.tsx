@@ -131,8 +131,11 @@ function ManageCardsInner() {
           Belum punya C.Card
         </div>
       ) : (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(300px,1fr))", gap: 14 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(320px,1fr))", gap: 14 }}>
           {cards.map((card) => (
+            // P1-3 (audit 2026-08-24): hierarchical per-card structure.
+            // <details> per aksi (buyout, accept-bid, ship-vault) supaya tidak
+            // langsung bombardir user dengan 3 form terbuka — visual fokus.
             <div key={card.id} className="card" style={{ padding: 16, display: "flex", flexDirection: "column", gap: 10 }}>
               <div style={{ fontWeight: 600, fontSize: 13 }}>
                 {card.drop?.title ?? card.dropId} · #{card.unitNumber}{" "}
@@ -163,75 +166,46 @@ function ManageCardsInner() {
               >
                 Detail →
               </Link>
-              <div style={{ height: 1, background: "var(--border)", margin: "2px 0" }} />
-              <div style={{ display: "flex", gap: 6 }}>
-                <input
-                  className="input"
-                  type="number"
-                  min={1}
-                  aria-label="Harga jual C-Coin"
-                  placeholder="Harga C (kosong = hapus)"
-                  value={buyout[card.id] ?? ""}
-                  onChange={(e) => setBuyout((s) => ({ ...s, [card.id]: e.target.value }))}
-                  style={{ flex: 1, fontSize: 12, fontFamily: "var(--font-mono)" }}
-                />
-                <button
-                  className="btn-gold"
-                  onClick={() => onSetBuyout(card)}
-                  disabled={busyId === card.id}
-                  style={{ fontSize: 12, padding: "7px 14px" }}
-                >
-                  Simpan
-                </button>
-              </div>
-              {card.activeBid && (
-                <div
+              {/* Aksi 1 — Pasang harga jual */}
+              <details style={{ borderTop: "1px solid var(--border)", paddingTop: 10 }}>
+                <summary
                   style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: 8,
-                    padding: 10,
-                    border: "1px solid var(--border)",
-                    borderRadius: 8,
+                    fontFamily: "var(--font-mono)",
+                    fontSize: 11,
+                    fontWeight: 500,
+                    letterSpacing: "0.06em",
+                    textTransform: "uppercase",
+                    color: "var(--text-muted)",
+                    cursor: "pointer",
                   }}
                 >
-                  <div style={{ fontSize: 12, fontWeight: 600 }}>
-                    Terima {card.activeBid.amountCCoin} C dari {card.activeBid.bidderName}
-                  </div>
-                  <select
-                    className="select"
-                    aria-label="Tujuan pengiriman"
-                    value={acceptDest[card.id] ?? "buyer_address"}
-                    onChange={(e) => setAcceptDest((s) => ({ ...s, [card.id]: e.target.value as "buyer_address" | "platform_vault" }))}
-                    style={{ fontSize: 12 }}
-                  >
-                    <option value="buyer_address">Kirim ke alamat pembeli</option>
-                    <option value="platform_vault">Simpan di vault</option>
-                  </select>
-                  {(acceptDest[card.id] ?? "buyer_address") === "buyer_address" && (
-                    <textarea
-                      className="textarea"
-                      rows={2}
-                      aria-label="Alamat pembeli"
-                      placeholder="Alamat pembeli (min 10 karakter)"
-                      value={acceptAddr[card.id] ?? ""}
-                      onChange={(e) => setAcceptAddr((s) => ({ ...s, [card.id]: e.target.value }))}
-                      style={{ fontSize: 12 }}
-                    />
-                  )}
+                  Pasang / Ubah Harga Jual
+                </summary>
+                <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
+                  <input
+                    className="input"
+                    type="number"
+                    min={1}
+                    aria-label="Harga jual C-Coin"
+                    placeholder="Harga C (kosong = hapus)"
+                    value={buyout[card.id] ?? ""}
+                    onChange={(e) => setBuyout((s) => ({ ...s, [card.id]: e.target.value }))}
+                    style={{ flex: 1, fontSize: 12, fontFamily: "var(--font-mono)" }}
+                  />
                   <button
                     className="btn-gold"
-                    onClick={() => onAccept(card)}
+                    onClick={() => onSetBuyout(card)}
                     disabled={busyId === card.id}
-                    style={{ fontSize: 12, fontFamily: "var(--font-mono)" }}
+                    style={{ fontSize: 12, padding: "7px 14px" }}
                   >
-                    Terima →
+                    Simpan
                   </button>
                 </div>
-              )}
-              {card.location === "platform_vault" && (
-                <div style={{ borderTop: "1px solid var(--border)", paddingTop: 12, display: "flex", flexDirection: "column", gap: 8 }}>
-                  <div
+              </details>
+              {/* Aksi 2 — Terima tawaran aktif */}
+              {card.activeBid && (
+                <details style={{ borderTop: "1px solid var(--border)", paddingTop: 10 }}>
+                  <summary
                     style={{
                       fontFamily: "var(--font-mono)",
                       fontSize: 11,
@@ -239,38 +213,90 @@ function ManageCardsInner() {
                       letterSpacing: "0.06em",
                       textTransform: "uppercase",
                       color: "var(--text-muted)",
+                      cursor: "pointer",
                     }}
                   >
-                    Kirim dari vault
-                  </div>
-                  <input
-                    className="input"
-                    aria-label="Alamat pengiriman"
-                    placeholder="Alamat lengkap"
-                    value={vaultAddr[card.id] ?? ""}
-                    onChange={(e) => setVaultAddr((s) => ({ ...s, [card.id]: e.target.value }))}
-                    style={{ fontSize: 12 }}
-                  />
-                  <div style={{ display: "flex", gap: 6 }}>
-                    <input
-                      className="input"
-                      type="number"
-                      min={1}
-                      aria-label="Ongkir C-Coin"
-                      value={vaultFee[card.id] ?? 2}
-                      onChange={(e) => setVaultFee((s) => ({ ...s, [card.id]: Number(e.target.value) }))}
-                      style={{ width: 100, fontSize: 12, fontFamily: "var(--font-mono)" }}
-                    />
+                    Terima Tawaran {card.activeBid.amountCCoin} C (dari {card.activeBid.bidderName})
+                  </summary>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 8 }}>
+                    <select
+                      className="select"
+                      aria-label="Tujuan pengiriman"
+                      value={acceptDest[card.id] ?? "buyer_address"}
+                      onChange={(e) => setAcceptDest((s) => ({ ...s, [card.id]: e.target.value as "buyer_address" | "platform_vault" }))}
+                      style={{ fontSize: 12 }}
+                    >
+                      <option value="buyer_address">Kirim ke alamat pembeli</option>
+                      <option value="platform_vault">Simpan di vault</option>
+                    </select>
+                    {(acceptDest[card.id] ?? "buyer_address") === "buyer_address" && (
+                      <textarea
+                        className="textarea"
+                        rows={2}
+                        aria-label="Alamat pembeli"
+                        placeholder="Alamat pembeli (min 10 karakter)"
+                        value={acceptAddr[card.id] ?? ""}
+                        onChange={(e) => setAcceptAddr((s) => ({ ...s, [card.id]: e.target.value }))}
+                        style={{ fontSize: 12 }}
+                      />
+                    )}
                     <button
                       className="btn-gold"
-                      onClick={() => onVaultShip(card)}
+                      onClick={() => onAccept(card)}
                       disabled={busyId === card.id}
-                      style={{ fontSize: 12, flex: 1 }}
+                      style={{ fontSize: 12, fontFamily: "var(--font-mono)" }}
                     >
-                      Kirim
+                      Terima →
                     </button>
                   </div>
-                </div>
+                </details>
+              )}
+              {/* Aksi 3 — Kirim dari vault */}
+              {card.location === "platform_vault" && (
+                <details style={{ borderTop: "1px solid var(--border)", paddingTop: 10 }}>
+                  <summary
+                    style={{
+                      fontFamily: "var(--font-mono)",
+                      fontSize: 11,
+                      fontWeight: 500,
+                      letterSpacing: "0.06em",
+                      textTransform: "uppercase",
+                      color: "var(--text-muted)",
+                      cursor: "pointer",
+                    }}
+                  >
+                    Kirim dari Vault
+                  </summary>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 8 }}>
+                    <input
+                      className="input"
+                      aria-label="Alamat pengiriman"
+                      placeholder="Alamat lengkap"
+                      value={vaultAddr[card.id] ?? ""}
+                      onChange={(e) => setVaultAddr((s) => ({ ...s, [card.id]: e.target.value }))}
+                      style={{ fontSize: 12 }}
+                    />
+                    <div style={{ display: "flex", gap: 6 }}>
+                      <input
+                        className="input"
+                        type="number"
+                        min={1}
+                        aria-label="Ongkir C-Coin"
+                        value={vaultFee[card.id] ?? 2}
+                        onChange={(e) => setVaultFee((s) => ({ ...s, [card.id]: Number(e.target.value) }))}
+                        style={{ width: 100, fontSize: 12, fontFamily: "var(--font-mono)" }}
+                      />
+                      <button
+                        className="btn-gold"
+                        onClick={() => onVaultShip(card)}
+                        disabled={busyId === card.id}
+                        style={{ fontSize: 12, flex: 1 }}
+                      >
+                        Kirim
+                      </button>
+                    </div>
+                  </div>
+                </details>
               )}
             </div>
           ))}
