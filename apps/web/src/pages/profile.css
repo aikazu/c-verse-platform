@@ -1,0 +1,345 @@
+/* Public Profile (Space Arcade) — all classes namespaced `pp-` to avoid collisions
+   with marketplace/leaderboard/global tokens in styles.css. Consumes only existing
+   theme tokens (--canvas, --surface-*, --gold, --thumb-grad, --font-*). */
+
+.pp-operator {
+	display: flex;
+	flex-direction: column;
+	gap: 16px;
+	padding: 22px 22px 18px;
+}
+
+.pp-operator-row {
+	display: flex;
+	gap: 18px;
+	align-items: stretch;
+}
+
+.pp-sigil {
+	position: relative;
+	flex: 0 0 auto;
+	width: 96px;
+	height: 96px;
+	border-radius: var(--r-4);
+	background:
+		radial-gradient(120% 120% at 30% 20%, rgba(255, 201, 77, 0.18) 0%, transparent 55%),
+		linear-gradient(160deg, var(--surface-3) 0%, var(--surface-2) 60%, var(--canvas) 100%);
+	border: 1px solid var(--gold-border);
+	box-shadow:
+		0 0 0 1px rgba(255, 201, 77, 0.06) inset,
+		0 0 24px rgba(255, 201, 77, 0.18),
+		0 6px 22px rgba(0, 0, 0, 0.45);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	overflow: hidden;
+}
+
+.pp-sigil-letter {
+	font-family: var(--font-display);
+	font-size: 34px;
+	letter-spacing: 0.04em;
+	color: var(--gold);
+	text-shadow: 0 0 14px rgba(255, 201, 77, 0.45);
+	line-height: 1;
+	position: relative;
+	z-index: 2;
+}
+
+.pp-sigil-sheen {
+	position: absolute;
+	inset: 0;
+	background: linear-gradient(115deg, transparent 35%, rgba(255, 255, 255, 0.08) 50%, transparent 65%);
+	transform: translateX(-100%);
+	animation: pp-sheen 4.2s ease-in-out infinite;
+	z-index: 1;
+}
+
+@keyframes pp-sheen {
+	0%, 60% { transform: translateX(-100%); }
+	100% { transform: translateX(120%); }
+}
+
+.pp-operator-meta {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	min-width: 0;
+	flex: 1 1 auto;
+}
+
+.pp-eyebrow {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	width: max-content;
+}
+
+.pp-name {
+	margin: 2px 0 0;
+	font-family: var(--font-display);
+	color: var(--text);
+	line-height: 1.15;
+}
+
+.pp-handle {
+	font-size: 12px;
+	color: var(--text-muted);
+	letter-spacing: 0.06em;
+}
+
+.pp-chips {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+	margin-top: 6px;
+}
+
+.pp-tier-chip {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	padding: 4px 10px;
+	border-radius: var(--r-2);
+	font-size: 10px;
+	letter-spacing: 0.12em;
+	background: var(--tier-bg, var(--gold-bg-soft));
+	color: var(--tier-color, var(--gold));
+	border: 1px solid var(--tier-border, var(--gold-border));
+}
+
+.pp-role-chip {
+	font-family: var(--font-mono);
+	font-size: 10px;
+	letter-spacing: 0.1em;
+}
+
+.pp-levelbar {
+	margin-top: 4px;
+	padding-top: 12px;
+	border-top: 1px dashed var(--border);
+}
+
+.pp-stats {
+	display: grid;
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+	gap: 10px;
+	margin-top: 4px;
+}
+
+.pp-stat {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	padding: 10px 12px;
+	border-radius: var(--r-3);
+	background:
+		linear-gradient(180deg, rgba(255, 201, 77, 0.04) 0%, transparent 100%),
+		var(--surface-2);
+	border: 1px solid var(--border);
+	position: relative;
+	overflow: hidden;
+}
+
+.pp-stat::before {
+	content: "";
+	position: absolute;
+	left: 0;
+	top: 0;
+	bottom: 0;
+	width: 2px;
+	background: linear-gradient(180deg, var(--gold) 0%, transparent 100%);
+	opacity: 0.55;
+}
+
+.pp-stat-label {
+	font-family: var(--font-mono);
+	font-size: 9.5px;
+	letter-spacing: 0.18em;
+	text-transform: uppercase;
+	color: var(--text-muted);
+}
+
+.pp-stat-value {
+	font-family: var(--font-crt);
+	font-size: 20px;
+	color: var(--gold-bright);
+	text-shadow: 0 0 12px rgba(255, 201, 77, 0.25);
+	line-height: 1;
+}
+
+.pp-badges {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+	padding-top: 4px;
+	border-top: 1px dashed var(--border);
+}
+
+.pp-badge {
+	font-size: 11px;
+}
+
+.pp-collection-section {
+	display: flex;
+	flex-direction: column;
+	gap: 14px;
+}
+
+.pp-grid {
+	gap: 14px;
+}
+
+.pp-tile {
+	display: flex;
+	flex-direction: column;
+	overflow: hidden;
+	text-decoration: none;
+	color: inherit;
+	transition: transform var(--motion-fast) ease, border-color var(--motion-fast) ease;
+}
+
+.pp-tile:hover {
+	border-color: var(--border-strong);
+}
+
+.pp-thumb {
+	position: relative;
+	height: 132px;
+	background:
+		radial-gradient(120% 100% at 30% 20%, rgba(255, 201, 77, 0.16) 0%, transparent 55%),
+		var(--thumb-grad);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	overflow: hidden;
+}
+
+.pp-thumb-sigil {
+	font-family: var(--font-display);
+	font-size: 44px;
+	color: var(--gold);
+	opacity: 0.42;
+	letter-spacing: 0.04em;
+	text-shadow: 0 0 20px rgba(255, 201, 77, 0.25);
+	position: relative;
+	z-index: 2;
+}
+
+.pp-thumb-sheen {
+	position: absolute;
+	inset: 0;
+	background: linear-gradient(115deg, transparent 38%, rgba(255, 255, 255, 0.06) 50%, transparent 62%);
+	z-index: 1;
+	pointer-events: none;
+}
+
+.pp-rank-chip {
+	position: absolute;
+	top: 10px;
+	right: 10px;
+	z-index: 3;
+	display: inline-flex;
+	align-items: center;
+	padding: 3px 8px;
+	border-radius: var(--r-2);
+	background: rgba(6, 9, 19, 0.78);
+	border: 1px solid var(--gold-border);
+	color: var(--gold);
+	font-size: 10.5px;
+	letter-spacing: 0.1em;
+	text-transform: uppercase;
+	backdrop-filter: blur(4px);
+}
+
+.pp-tile-body {
+	padding: 12px 14px 14px;
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+}
+
+.pp-tile-title {
+	font-weight: 600;
+	font-size: 12.5px;
+	color: var(--text);
+	line-height: 1.35;
+	display: -webkit-box;
+	-webkit-line-clamp: 2;
+	line-clamp: 2;
+	-webkit-box-orient: vertical;
+	overflow: hidden;
+}
+
+.pp-tile-meta {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+	align-items: center;
+	font-size: 10.5px;
+	color: var(--text-muted);
+	letter-spacing: 0.04em;
+}
+
+.pp-tile-meta-sep {
+	color: var(--border-strong);
+}
+
+.pp-empty {
+	max-width: 560px;
+	margin: 6px auto 0;
+	text-align: center;
+}
+
+.pp-hidden-icon {
+	color: var(--text-muted);
+	text-shadow: none;
+	opacity: 0.65;
+}
+
+.pp-hidden-handle {
+	margin-top: 14px;
+	font-size: 13px;
+	letter-spacing: 0.12em;
+	color: var(--gold);
+	text-shadow: 0 0 12px rgba(255, 201, 77, 0.25);
+}
+
+@media (max-width: 720px) {
+	.pp-operator-row {
+		flex-direction: row;
+		align-items: center;
+	}
+	.pp-sigil {
+		width: 72px;
+		height: 72px;
+	}
+	.pp-sigil-letter {
+		font-size: 26px;
+	}
+	.pp-stats {
+		grid-template-columns: repeat(3, minmax(0, 1fr));
+		gap: 6px;
+	}
+	.pp-stat-value {
+		font-size: 16px;
+	}
+}
+
+@media (max-width: 480px) {
+	.pp-operator-row {
+		flex-direction: column;
+		align-items: flex-start;
+	}
+	.pp-stats {
+		grid-template-columns: repeat(3, minmax(0, 1fr));
+	}
+}
+
+/* Reduced motion neutralization (mirrors global styles.css behavior). */
+@media (prefers-reduced-motion: reduce) {
+	.pp-sigil-sheen {
+		animation: none;
+		opacity: 0.6;
+	}
+}
