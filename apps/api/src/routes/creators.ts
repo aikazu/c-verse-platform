@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { clientIp, requireUser } from "../lib/auth.js";
+import { sanitizeDbError } from "../lib/errors.js";
 import {
   getCreatorByHandle,
   getCreatorByUserId,
@@ -163,5 +164,33 @@ app.get("/handle/:handle", async (c) => {
 // POST /apply sengaja DITIADAKAN per docs/03_flows.md Flow 11: akun kreator
 // admin-provisioned + passwordless, TIDAK ada registrasi publik. Onboarding via
 // POST /api/admin/users/provision dari admin app (gate aal2).
+
+// P0-4 (audit 2026-08-24): daftar payout user saat ini + daftar drop kreator.
+// Endpoint untuk /creator/payouts (PG-CRT-04) dan /creator/drops/:id (PG-CRT-03).
+app.get("/me/payouts", async (c) => {
+  const authRes = await requireUser(c);
+  if ("error" in authRes) return c.json({ error: authRes.error === 403 ? "Akun disuspend" : "Unauthorized" }, authRes.error);
+  const user = authRes.user;
+  const { readDb } = await import("../lib/reads.js");
+  // readDb imported dynamically to keep cycle-safe re-imports at startup.
+  const db = readDb();
+  const { data, error } = await db
+    .from("payouts")
+    .select("id,batch_id,user_id,type,ccoin_amount,idr_amount,withholding_tax,status,requested_at")
+    .eq("user_id", user.id)
+    .order("requested_at", { ascending: false })
+    .limit(100);
+  if (error) return c.json({ error: sanitizeDbError(error) }, 400);
+  return c.json({ payouts: data ?? [] });
+});
+
+app.get("/me/drops", async (c) => {
+  const authRes = await requireUser(c);
+  if ("error" in authRes) return c.json({ error: authRes.error === 403 ? "Akun disuspend" : "Unauthorized" }, authRes.error);
+  const user = authRes.user;
+  const allDrops = await listDrops();
+  const myDrops = allDrops.filter((d) => d.creatorId === user.id);
+  return c.json({ drops: myDrops });
+});
 
 export default app;

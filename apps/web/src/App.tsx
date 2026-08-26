@@ -16,6 +16,7 @@ const Card3D = lazy(() => import("./pages/Card3D"));
 const CardInfo = lazy(() => import("./pages/CardInfo"));
 const Checkout = lazy(() => import("./pages/Checkout"));
 const Collection = lazy(() => import("./pages/Collection"));
+const CreatorPayouts = lazy(() => import("./pages/CreatorPayouts"));
 const CreatorDashboard = lazy(() => import("./pages/CreatorDashboard"));
 const CreatorPage = lazy(() => import("./pages/CreatorPage"));
 const DropDetail = lazy(() => import("./pages/DropDetail"));
@@ -158,7 +159,12 @@ function UserMenu() {
             <div style={{ height: 1, background: "var(--border)", margin: "4px 8px" }} />
             <MenuLink to="/me/kyc" label="Verifikasi" onClick={() => setOpen(false)} />
             <MenuLink to="/me/privacy" label="Privasi" onClick={() => setOpen(false)} />
-            {isCreator && <MenuLink to="/creator" label="Dashboard Kreator" onClick={() => setOpen(false)} />}
+            {isCreator && (
+              <>
+                <MenuLink to="/creator" label="Dashboard Kreator" onClick={() => setOpen(false)} />
+                <MenuLink to="/creator/payouts" label="Payout & Royalti" onClick={() => setOpen(false)} />
+              </>
+            )}
           </div>
           <div style={{ padding: "8px", borderTop: "1px solid var(--border)" }}>
             <button
@@ -314,6 +320,7 @@ function AppRoutes() {
             <Route path="/register" element={<Register />} />
             <Route path="/creator" element={<CreatorDashboard />} />
             <Route path="/creator/drops" element={<CreatorDashboard />} />
+            <Route path="/creator/payouts" element={<CreatorPayouts />} />
             {/* /verify/:shortId DITIADAKAN per docs/02 §4 — verify melekat di halaman kartu.
                 Redirect permanen ke /cards/:shortId (NFC → /3d jika login, info jika tidak).
                 Footer/SO tidak lagi menautkan ke /verify. */}
