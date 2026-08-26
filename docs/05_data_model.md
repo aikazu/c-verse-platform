@@ -34,6 +34,7 @@ profiles
   role enum('user','creator','admin')   -- default 'user'
   is_anonymous bool default false       -- privacy: profil tidak tampil publik
   total_xp int default 0                -- experience; sumber: spend C-Coin + reward badge
+  xp_reached_at timestamptz default now() -- tie-break leaderboard; hanya update saat total_xp BERUBAH (trigger guard)
   level int default 1                   -- = floor(total_xp / 10) + 1, clamp 1..100
 cumulative_spend_ccoin int default 0  -- 1 C-Coin spent = 1 XP (top-up TIDAK menambah XP)
 	  flag_reason text nullable              -- alasan fraud flag (isi manual admin)
@@ -140,6 +141,7 @@ cards
   tag_uid text UNIQUE         -- 7-byte UID dari NFC chip
   short_id text UNIQUE        -- untuk URL /cards/:shortId
   current_owner_id uuid FK users.id nullable -- null = belum di-bind (inventory)
+  owner_since timestamptz default now() NOT NULL -- tie-break leaderboard 'cards' (only updates saat owner BERUBAH via trigger guard)
   location enum('platform_stock','with_owner','platform_vault')
      -- lokasi FISIK kartu, terpisah dari ownership:
      --   platform_stock: belum terjual (stok platform)
@@ -519,7 +521,7 @@ profiles 1─N user_badges
 | I9 | Hanya SATU bid active per kartu (tertinggi); bid lebih tinggi meng-outbid yang lama + release C-Coin | App logic + transaction |
 | I10 | Max 20 kartu buyout aktif per user | App check |
 | I11 | Level = floor(total_xp / 10); total_xp = spend C-Coin (1 C-Coin = 1 XP) + reward badge; top-up tidak menambah XP | Trigger/app logic |
-| I12 | Profil publik hanya jika `is_anonymous = false` AND `flag_reason IS NULL` (suspended) — termasuk leaderboard, sitemap, dan ownership history (historical owner di-mask jadi "Anonim") | RLS/query filter |
+| I12 | Profil publik hanya jika `is_anonymous = false` AND `flag_reason IS NULL` (suspended) — termasuk leaderboard (filter **di dalam RPC** `get_leaderboard`), sitemap, dan ownership history (historical owner di-mask jadi "Anonim") | RPC + RLS |
 | I13 | Blok rebuy seller 1 hari — kartu tidak bisa dibeli kembali oleh owner sebelumnya dalam 1x24 jam; pembeli bebas listing ulang kapan saja; wash trading diterima (fee 15% tetap kena) | App logic |
 | I14 | Creator self-dealing — kreator dilarang membeli kartu drop sendiri di secondary untuk 30 hari pertama | App logic + flag |
 

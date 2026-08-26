@@ -197,7 +197,7 @@ Belum diimplementasi: notifikasi in-app/push (F010, F013) dan layer email transa
 | 6 | **Ownership** | `current_owner_id` + `ownership_history`; `location` ∈ `platform_stock/with_owner/platform_vault` |
 | 7 | **Secondary** | Marketplace (buyout `cards.buyout_price_ccoin`) + Browse (bid langsung, 1 active tertinggi, outbid/cancel release, owner accept only) |
 | 8 | **Ship-from-vault** | Kartu di vault bisa dikirim kapan saja (`POST /api/orders/vault-shipout`, ongkir integer ≥1) |
-| 9 | **Gamifikasi** | `level=floor(total_xp/10)`, `spend 1 C = 1 XP` + `xp_reward` badge; **top-up tidak menambah XP** |
+| 9 | **Gamifikasi** | `level=floor(total_xp/10)`, `spend 1 C = 1 XP` + `xp_reward` badge; **top-up tidak menambah XP**; leaderboard multi-type (`xp`/`cards`/`badges`/`creator`) via RPC `get_leaderboard` |
 
 ---
 
@@ -214,7 +214,7 @@ Belum diimplementasi: notifikasi in-app/push (F010, F013) dan layer email transa
 | `/browse` | Browse | cari + bid langsung (`?sort=unit_number`) |
 | `/cards/:cardId` | Info kartu | sertifikat + ownership history |
 | `/cards/:cardId/3d` | 3D viewer | badge Verified (hanya via NFC tap) |
-| `/leaderboard` | Peringkat | F019 |
+| `/leaderboard` | Peringkat | F019, tab `Level`\|`Kolektor`\|`Lencana` + `?tab=` |
 | `/c/:username` | Kreator publik | handle + bio + link sosmed + list drop |
 | `/u/:username` | Kolektor publik | hidden jika privacy anonymous |
 | `/login` · `/register` | Auth | Google OAuth + email OTP 6 digit + Turnstile |

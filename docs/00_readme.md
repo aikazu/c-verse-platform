@@ -191,7 +191,11 @@ Dok di folder ini meng-override dokumen sumber workspace:
    (Registered). Tidak ada input serial manual.
 7. **Primary = platform-produced SAJA** (70/30) — kreator-
    produced (30/70) di-defer Y2+.
-8. **Leaderboard (F019) punya halaman sendiri** (PG-LB-01).
+8. **Leaderboard (F019) punya halaman sendiri** (PG-LB-01) — multi-type:
+   tab `Level` (`xp` default) \| `Kolektor` (`cards`) \| `Lencana`
+   (`badges`) + papan per-kreator (`?tab=` sinkron). Privasi & tie-break
+   deterministik dijamin RPC `get_leaderboard` (`04_rpc.sql`); chip tier
+   berwarna hanya di papan Level.
 9. **Top-up di area USER** (PG-USR-05, bukan halaman publik);
    **Q026 RESOLVED 2026-08-13** — bukan gate go-live. Top-up
    uang riil bisa diterima setelah T&C final dan cap saldo

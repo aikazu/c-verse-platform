@@ -1,7 +1,9 @@
 # 02 — Peta Halaman MVP
 
 > Status: [VALIDATED]
-> Last updated: 2026-08-21 (badge holografik "✦ Seed 1-of-1"
+> Last updated: 2026-08-27 (PG-LB-01 multi-type leaderboard: tab
+> Level | Kolektor | Lencana + Papan Kolektor per-kreator di `/c/:username`)
+> Previous: 2026-08-21 (badge holografik "✦ Seed 1-of-1"
 > di kartu Marketplace, Browse, halaman kartu (info) & 3D
 > untuk drop is_seed — Flow 10 [5])
 > Previous: 2026-08-13 (konten divalidasi — domain final,
@@ -49,8 +51,8 @@ warna): lihat `06_tech_decisions.md` D7–D8.
 | PG-BROWSE-01 | `/browse` | Browse (cari kartu) | **Search by kartu/kreator**, bid langsung di kartu walau tanpa harga; **badge holografik "✦ Seed 1-of-1"** untuk kartu dari seed drop (Flow 10) |
 | PG-CARD-01 | `/cards/:shortId` | Halaman kartu (info) | Sertifikat, **jejak ownership** (ownerName = "Anonim" untuk historical owner yang sekarang `is_anonymous` ATAU `flag_reason` set), bid tertinggi, harga buyout (jika ada), QR fallback; **badge holografik "✦ Seed 1-of-1"** untuk kartu dari seed drop (Flow 10) |
 | PG-CARD-02 | `/cards/:shortId/3d` | Halaman kartu (3D view) — **simple** | 3D viewer + info singkat: **Series** (link ke detail drop), **Unit number** (#X dari Y), **Kreator** (link ke halaman kreator), **Release date**, **Owner** (link ke halaman owner) + **verified badge "Verified Card"** (hanya muncul lewat tap NFC) + **badge holografik "✦ Seed 1-of-1"** untuk kartu dari seed drop (Flow 10). Ownership history TIDAK di halaman 3D — ada di halaman info (`PG-CARD-01`) |
-| PG-LB-01 | `/leaderboard` | Leaderboard | Peringkat kolektor (F019). User suspended (`flag_reason`) dan anonymous (`is_anonymous`) TIDAK muncul; filter di SQL sebelum ORDER + LIMIT agar rank survivor tetap benar |
-| PG-CRT-PUB-01 | `/c/:username` | Halaman kreator (publik) | **Handle, bio, link media sosial** + **list drop** (published/live/upcoming, klik ke detail drop). TANPA jumlah follower. Creator suspended disembunyikan dari listing publik; creator anonymous juga disembunyikan (konsisten dgn privacy rule) |
+| PG-LB-01 | `/leaderboard` | Leaderboard | Peringkat kolektor (F019). Tab `Level` (default, `xp`) \| `Kolektor` (`cards`) \| `Lencana` (`badges`) — `?tab=` sinkron dengan URL. User suspended (`flag_reason`) dan anonymous (`is_anonymous`) difilter **di dalam RPC** `get_leaderboard(p_type, p_creator_id, p_limit)` (`04_rpc.sql`) sebelum ORDER + LIMIT agar rank survivor tetap benar; tie-break deterministik `score DESC, reached_at ASC, username ASC NULLS LAST, user_id ASC`. Chip tier berwarna hanya di papan Level (UX jujur). Public tanpa auth. Cache 60s untuk `xp`, 30s untuk board lain |
+| PG-CRT-PUB-01 | `/c/:username` | Halaman kreator (publik) | **Handle, bio, link media sosial** + **list drop** (published/live/upcoming, klik ke detail drop) + **Papan Kolektor** (top 10 kolektor kreator tersebut — `type=creator`, `creatorId=<uuid>`). TANPA jumlah follower. Creator suspended disembunyikan dari listing publik; creator anonymous juga disembunyikan (konsisten dgn privacy rule). Papan Kolektor TIDAK punya link ke papan global |
 | PG-PROF-01 | `/u/:username` | Profil kolektor (publik) | Koleksi, level, badge, ranking leaderboard — **kecuali user mengaktifkan privacy anonymous ATAU di-suspend (`flag_reason`)** |
 | PG-AUTH-01 | `/login` | Login/Register | Google OAuth + email OTP (**email OTP wajib captcha anti-spam** — Cloudflare Turnstile) |
 

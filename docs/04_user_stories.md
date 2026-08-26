@@ -71,13 +71,26 @@ And user bisa mengajukan bid ke kartu WALAU owner tidak
    memasang harga (login gate)
 ```
 
-### US-PUB-007 — Leaderboard
+### US-PUB-007 — Leaderboard (multi-type)
 ```
 Given visitor membuka /leaderboard
-When halaman dimuat
-Then tampil peringkat kolektor berdasarkan aktivitas/spending
-And user dengan is_anonymous=true ATAU flag_reason (suspended) TIDAK muncul di leaderboard
-  (filter di SQL sebelum ORDER + LIMIT agar rank survivor tetap benar)
+When halaman dimuat dengan tab ?tab=xp|cards|badges (default xp)
+Then tampil papan peringkat sesuai tab:
+  - xp       -> max level (total_xp -> level)
+  - cards    -> jumlah kartu milik sah (semua kondisi)
+  - badges   -> paling banyak lencana
+And user dengan is_anonymous=true ATAU flag_reason (suspended) TIDAK muncul
+  (filter di DALAM RPC get_leaderboard sebelum ORDER + LIMIT agar rank survivor tetap benar)
+And tie-break deterministik: score DESC -> reached_at ASC -> username ASC NULLS LAST -> user_id ASC
+And chip tier berwarna HANYA di papan xp (Level) — papan lain tanpa chip warna
+```
+
+### US-PUB-007a — Papan Kolektor (per-kreator)
+```
+Given visitor membuka /c/:username (halaman kreator)
+When melihat section "Papan Kolektor"
+Then tampil top 10 kolektor kreator tersebut (type=creator, creatorId=<uuid>)
+And tidak ada link dari papan per-kreator ke papan global
 ```
 
 ### US-PUB-008 — Registrasi & login

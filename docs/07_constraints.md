@@ -178,8 +178,8 @@
   justru menguntungkan platform (7,5%) dan kreator (7,5% royalti
   lifetime). Transparansi tetap jalan: price history + ownership
   history publik per kartu — pembeli menilai sendiri pola transaksi.
-- XP farming via transaksi diterima — kriteria leaderboard akan
-  diperluas (bukan hanya level).
+- XP farming via transaksi diterima — kriteria leaderboard
+  diperluas (tab `Level`/`Kolektor`/`Lencana` + papan per-kreator).
 - Konsisten invariant I13 (`05_data_model.md`) dan Flow 7
   (`03_flows.md`). Menggantikan cooling 14 hari (dan 7 hari
   sebelumnya).
@@ -365,7 +365,7 @@
 | Secondary = Marketplace + Browse (bukan auction) | FINAL (2026-08-12) |
 | Tidak ada halaman verifikasi terpisah (melekat di halaman kartu) | FINAL (2026-08-12) |
 | Primary = platform-produced SAJA (70/30), kreator-produced defer | FINAL (2026-08-12) |
-| Leaderboard punya halaman sendiri (PG-LB-01) | FINAL (2026-08-12) |
+| Leaderboard punya halaman sendiri (PG-LB-01) — multi-type: `xp` (default), `cards`, `badges`, `creator` (papan per-kreator via `?tab=`); privasi dijamin RPC `get_leaderboard` (`04_rpc.sql`) | FINAL (2026-08-12; expanded 2026-08-27) |
 | Top-up di area user; **bisa diterima setelah T&C final + cap saldo** (Q026 resolved 2026-08-13) | FINAL (2026-08-13) |
 | KYC trigger: payout/disbursement ke IDR + akumulasi top-up besar (TIDAK untuk pasang buyout/accept bid) | FINAL (2026-08-13, validasi lawyer) |
 | Profil publik + privacy anonymous | FINAL (2026-08-12) |
