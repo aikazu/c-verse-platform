@@ -144,8 +144,10 @@ export interface Order {
   escrowStatus: EscrowStatus;
   shippingAddress: string | null;
   trackingNumber: string | null;
+  // P1-4 (audit 2026-08-24): timestamp per step timeline.
   shippedAt?: string | null;
   deliveredAt: string | null;
+  paidAt?: string | null;
   createdAt: string;
 }
 

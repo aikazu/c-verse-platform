@@ -9,6 +9,11 @@ import { useToast } from "../lib/toast";
 
 const errorMessage = (e: unknown): string => (e instanceof Error ? e.message : String(e));
 
+function fmtDate(s: string | null | undefined): string {
+  if (!s) return "—";
+  return new Date(s).toLocaleString("id-ID", { dateStyle: "short", timeStyle: "short" });
+}
+
 export default function OrderDetail() {
   return (
     <RequireAuth>
@@ -22,6 +27,7 @@ function OrderDetailInner() {
   const { push } = useToast();
   const [busy, setBusy] = useState(false);
   const [disputeOpen, setDisputeOpen] = useState(false);
+  const [disputeSent, setDisputeSent] = useState(false); // P1-5: hide tombol setelah submit
   const [disputeReason, setDisputeReason] = useState("");
   const { data, isLoading, refetch } = useQuery({ queryKey: ["order", id], queryFn: () => api.order(id!), enabled: !!id });
   if (isLoading)
@@ -64,6 +70,7 @@ function OrderDetailInner() {
       await api.openDispute(o.id, disputeReason.trim());
       push("Dispute dibuat — tim kami akan meninjau", "success");
       setDisputeOpen(false);
+      setDisputeSent(true); // P1-5: hide tombol setelah submit agar tidak double-submit
       refetch();
     } catch (e: unknown) {
       push(errorMessage(e), "error");
@@ -131,15 +138,28 @@ function OrderDetailInner() {
               Timeline
             </div>
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-              {["paid", "qc", "shipped", "delivered", "settled"].map((s) => (
-                <span
-                  key={s}
-                  className={`pill ${o.status === s ? "pill-success" : ""}`}
-                  style={{ fontSize: 10, fontFamily: "var(--font-mono)" }}
-                >
-                  {orderStatusLabel(s)}
-                </span>
-              ))}
+              {["paid", "qc", "shipped", "delivered", "settled"].map((s) => {
+                const isCurrent = o.status === s;
+                const ts = s === "paid" ? o.paidAt : s === "shipped" ? o.shippedAt : s === "delivered" ? o.deliveredAt : null;
+                return (
+                  <span
+                    key={s}
+                    className={`pill ${isCurrent ? "pill-success" : ""}`}
+                    style={{
+                      fontSize: 10,
+                      fontFamily: "var(--font-mono)",
+                      flexDirection: "column",
+                      gap: 1,
+                      padding: "4px 8px",
+                      height: "auto",
+                    }}
+                    title={ts ? fmtDate(ts) : undefined}
+                  >
+                    <span>{orderStatusLabel(s)}</span>
+                    {ts && <span style={{ fontSize: 9, opacity: 0.7 }}>{fmtDate(ts)}</span>}
+                  </span>
+                );
+              })}
             </div>
             {o.shippingAddress && (
               <div className="muted" style={{ fontSize: 12, marginTop: 10, fontFamily: "var(--font-mono)" }}>
@@ -165,7 +185,7 @@ function OrderDetailInner() {
             </Link>
           </div>
         )}
-        {o.status !== "settled" && (
+        {o.status !== "settled" && !disputeSent && (
           <div style={{ marginTop: 16, borderTop: "1px solid var(--border)", paddingTop: 14 }}>
             {disputeOpen ? (
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -199,6 +219,18 @@ function OrderDetailInner() {
                 Lapor masalah (dispute)
               </button>
             )}
+          </div>
+        )}
+        {disputeSent && (
+          <div
+            className="card card-pad"
+            style={{ marginTop: 14, background: "var(--gold-bg-soft)", border: "1px solid var(--gold-border)", fontSize: 12 }}
+            role="status"
+          >
+            <strong style={{ color: "var(--gold)" }}>Dispute terkirim</strong>
+            <div className="muted" style={{ fontSize: 11, marginTop: 4 }}>
+              Tim kami akan meninjau bukti dan memutuskan. Status dapat dipantau lewat notifikasi.
+            </div>
           </div>
         )}
         {cards.length > 0 && (

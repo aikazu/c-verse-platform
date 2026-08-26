@@ -290,6 +290,10 @@ export interface Order {
   shippingAddress: string | null;
   trackingNumber: string | null;
   createdAt: string;
+  // P1-4 (audit 2026-08-24): timestamp per step timeline (paid_at / shipped_at / delivered_at).
+  paidAt?: string | null;
+  shippedAt?: string | null;
+  deliveredAt?: string | null;
 }
 
 export interface Shipment {

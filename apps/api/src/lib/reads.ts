@@ -131,8 +131,12 @@ export function mapOrderRow(r: Row): Order {
     escrowStatus: str(r.escrow_status) as Order["escrowStatus"],
     shippingAddress: nstr(r.shipping_address),
     trackingNumber: nstr(r.tracking_number),
+    // P1-4 (audit 2026-08-24): timestamp per step timeline. Mapper `Order`
+    // sudah mendukung; backend menyetel ini saat transisi status — shipped saat
+    // admin input resi, delivered saat buyer/admin confirm-delivered.
     shippedAt: nstr(r.shipped_at),
     deliveredAt: nstr(r.delivered_at),
+    paidAt: nstr(r.paid_at) ?? nstr(r.created_at),
     createdAt: str(r.created_at),
   };
 }
