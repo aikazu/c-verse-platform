@@ -1,16 +1,19 @@
 import type { Badge } from "@c-verse/shared";
 import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../lib/api";
 import type { ApiBadgesResponse, ApiLeaderboardEntry } from "../lib/api-types";
 import { ErrorState, LoadingState } from "../lib/QueryStates";
 
 export default function Leaderboard() {
-  const { data, isLoading, isError, refetch } = useQuery({ queryKey: ["leaderboard"], queryFn: () => api.leaderboard(20) });
+  const { data, isLoading, isError, refetch } = useQuery({ queryKey: ["leaderboard"], queryFn: () => api.leaderboard(50) });
   const { data: badgesData } = useQuery<ApiBadgesResponse>({ queryKey: ["badges"], queryFn: () => api.badges() });
+  const [tierFilter, setTierFilter] = useState<"all" | "bronze" | "silver" | "gold" | "platinum" | "diamond">("all");
   if (isLoading) return <LoadingState />;
   if (isError) return <ErrorState onRetry={() => refetch()} label="Gagal memuat peringkat" />;
-  const board: ApiLeaderboardEntry[] = data?.leaderboard ?? [];
+  const rawBoard: ApiLeaderboardEntry[] = data?.leaderboard ?? [];
+  const board: ApiLeaderboardEntry[] = tierFilter === "all" ? rawBoard : rawBoard.filter((e) => e.tier === tierFilter);
   const badges: Badge[] = badgesData?.badges ?? [];
   const tierStyle: Record<string, { bg: string; color: string }> = {
     bronze: { bg: "rgba(205,127,50,0.14)", color: "#d4a574" },
