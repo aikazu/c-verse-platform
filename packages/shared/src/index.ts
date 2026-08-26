@@ -220,6 +220,56 @@ export const privacySchema = z.object({
   isAnonymous: z.boolean(),
 });
 
+// Leaderboard types: xp (max level), cards (most valid owned cards),
+// badges (most badges), creator (collector board for one creator).
+// Tie-break on equal score: earlier `reachedAt` ranks higher, then username ASC
+// (enforced server-side; shape is defined here so route + UI agree on contract).
+export const leaderboardTypeSchema = z.enum(["xp", "cards", "badges", "creator"]);
+export type LeaderboardType = z.infer<typeof leaderboardTypeSchema>;
+
+export const leaderboardQuerySchema = z
+  .object({
+    type: leaderboardTypeSchema.default("xp"),
+    // creatorId REQUIRED when type==="creator"; FORBIDDEN otherwise
+    // (cross-field rule — global boards don't accept a creator filter).
+    creatorId: z.string().uuid().optional(),
+    limit: z.coerce.number().int().min(5).max(50).default(20),
+  })
+  .superRefine((value, ctx) => {
+    if (value.type === "creator" && value.creatorId === undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["creatorId"],
+        message: "creatorId is required when type is 'creator'",
+      });
+    }
+    if (value.type !== "creator" && value.creatorId !== undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["creatorId"],
+        message: "creatorId is only allowed when type is 'creator'",
+      });
+    }
+  });
+export type LeaderboardQuery = z.infer<typeof leaderboardQuerySchema>;
+
+// One flat entry shape covering all board types. `score` is type-specific
+// (xp/cards/badges counts or — for `creator` — total owned cards of that
+// creator). `reachedAt` powers the tie-break (earlier ranks higher).
+export const leaderboardEntrySchema = z.object({
+  rank: z.number().int().min(1),
+  userId: z.string().uuid(),
+  displayName: z.string(),
+  username: z.string().nullable(),
+  avatarUrl: z.string().url().nullable(),
+  totalXp: z.number().int(),
+  level: z.number().int().min(1).max(100),
+  tier: levelTierSchema,
+  score: z.number().int().min(0),
+  reachedAt: z.string().datetime(),
+});
+export type LeaderboardEntry = z.infer<typeof leaderboardEntrySchema>;
+
 // ── Domain Types ───────────────────────────────────────────────────────────
 export interface Drop {
   id: string;
@@ -344,16 +394,6 @@ export interface UserBadge {
   badgeId: string;
   earnedAt: string;
   badge: Badge;
-}
-
-export interface LeaderboardEntry {
-  rank: number;
-  userId: string;
-  displayName: string;
-  level: number;
-  tier: LevelTier;
-  xp: number;
-  totalSpentCCoin: number;
 }
 
 // ── Gamification ───────────────────────────────────────────────────────────

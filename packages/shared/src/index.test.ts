@@ -11,6 +11,9 @@ import {
   idrToCCoin,
   isCcoinInteger,
   kycStatusLabel,
+  leaderboardEntrySchema,
+  leaderboardQuerySchema,
+  leaderboardTypeSchema,
   MAX_ACTIVE_BIDS_PER_USER,
   orderStatusLabel,
   splitSecondaryFeeCcoin,
@@ -155,5 +158,175 @@ describe("status label maps (snake_case/English enum → Indonesian UI copy)", (
   it("falls back to the raw value for unknown codes (never crashes)", () => {
     expect(dropStatusLabel("mystery")).toBe("mystery");
     expect(orderStatusLabel("")).toBe("");
+  });
+});
+
+describe("leaderboardTypeSchema", () => {
+  it("defaults to xp when omitted in query", () => {
+    const parsed = leaderboardQuerySchema.parse({});
+    expect(parsed.type).toBe("xp");
+    expect(parsed.limit).toBe(20);
+  });
+
+  it("accepts all four board types", () => {
+    expect(leaderboardTypeSchema.parse("xp")).toBe("xp");
+    expect(leaderboardTypeSchema.parse("cards")).toBe("cards");
+    expect(leaderboardTypeSchema.parse("badges")).toBe("badges");
+    expect(leaderboardTypeSchema.parse("creator")).toBe("creator");
+  });
+
+  it("rejects unknown types", () => {
+    expect(() => leaderboardTypeSchema.parse("weekly")).toThrow();
+  });
+});
+
+describe("leaderboardQuerySchema (coerce + clamp)", () => {
+  it("coerces string limit to integer (URL query style)", () => {
+    const parsed = leaderboardQuerySchema.parse({ type: "xp", limit: "35" });
+    expect(parsed.limit).toBe(35);
+  });
+
+  it("rejects limit below 5", () => {
+    expect(() => leaderboardQuerySchema.parse({ type: "xp", limit: 4 })).toThrow();
+    expect(() => leaderboardQuerySchema.parse({ type: "xp", limit: "4" })).toThrow();
+  });
+
+  it("rejects limit above 50", () => {
+    expect(() => leaderboardQuerySchema.parse({ type: "xp", limit: 51 })).toThrow();
+  });
+
+  it("requires creatorId when type=creator", () => {
+    expect(() => leaderboardQuerySchema.parse({ type: "creator" })).toThrow();
+  });
+
+  it("accepts creatorId when type=creator", () => {
+    const parsed = leaderboardQuerySchema.parse({
+      type: "creator",
+      creatorId: "11111111-1111-4111-8111-111111111111",
+    });
+    expect(parsed.creatorId).toBe("11111111-1111-4111-8111-111111111111");
+  });
+
+  it("forbids creatorId on non-creator boards (cross-field)", () => {
+    expect(() =>
+      leaderboardQuerySchema.parse({
+        type: "xp",
+        creatorId: "11111111-1111-4111-8111-111111111111",
+      }),
+    ).toThrow();
+    expect(() =>
+      leaderboardQuerySchema.parse({
+        type: "badges",
+        creatorId: "11111111-1111-4111-8111-111111111111",
+      }),
+    ).toThrow();
+  });
+
+  it("rejects non-uuid creatorId", () => {
+    expect(() => leaderboardQuerySchema.parse({ type: "creator", creatorId: "not-a-uuid" })).toThrow();
+  });
+});
+
+describe("leaderboardEntrySchema (flat entry shape)", () => {
+  it("parses a realistic payload with nullable username/avatar", () => {
+    const payload = {
+      rank: 1,
+      userId: "22222222-2222-4222-8222-222222222222",
+      displayName: "Karina A.",
+      username: null,
+      avatarUrl: null,
+      totalXp: 420,
+      level: 42,
+      tier: "diamond",
+      score: 7,
+      reachedAt: "2026-08-27T03:14:15.926Z",
+    };
+    const parsed = leaderboardEntrySchema.parse(payload);
+    expect(parsed.rank).toBe(1);
+    expect(parsed.username).toBeNull();
+    expect(parsed.avatarUrl).toBeNull();
+    expect(parsed.tier).toBe("diamond");
+  });
+
+  it("rejects rank < 1", () => {
+    expect(() =>
+      leaderboardEntrySchema.parse({
+        rank: 0,
+        userId: "22222222-2222-4222-8222-222222222222",
+        displayName: "X",
+        username: "x",
+        avatarUrl: null,
+        totalXp: 0,
+        level: 1,
+        tier: "bronze",
+        score: 0,
+        reachedAt: "2026-08-27T00:00:00.000Z",
+      }),
+    ).toThrow();
+  });
+
+  it("rejects out-of-range level", () => {
+    expect(() =>
+      leaderboardEntrySchema.parse({
+        rank: 1,
+        userId: "22222222-2222-4222-8222-222222222222",
+        displayName: "X",
+        username: "x",
+        avatarUrl: null,
+        totalXp: 0,
+        level: 0,
+        tier: "bronze",
+        score: 0,
+        reachedAt: "2026-08-27T00:00:00.000Z",
+      }),
+    ).toThrow();
+    expect(() =>
+      leaderboardEntrySchema.parse({
+        rank: 1,
+        userId: "22222222-2222-4222-8222-222222222222",
+        displayName: "X",
+        username: "x",
+        avatarUrl: null,
+        totalXp: 0,
+        level: 101,
+        tier: "diamond",
+        score: 0,
+        reachedAt: "2026-08-27T00:00:00.000Z",
+      }),
+    ).toThrow();
+  });
+
+  it("rejects unknown tier values", () => {
+    expect(() =>
+      leaderboardEntrySchema.parse({
+        rank: 1,
+        userId: "22222222-2222-4222-8222-222222222222",
+        displayName: "X",
+        username: "x",
+        avatarUrl: null,
+        totalXp: 0,
+        level: 1,
+        tier: "mythic",
+        score: 0,
+        reachedAt: "2026-08-27T00:00:00.000Z",
+      }),
+    ).toThrow();
+  });
+
+  it("rejects negative score", () => {
+    expect(() =>
+      leaderboardEntrySchema.parse({
+        rank: 1,
+        userId: "22222222-2222-4222-8222-222222222222",
+        displayName: "X",
+        username: "x",
+        avatarUrl: null,
+        totalXp: 0,
+        level: 1,
+        tier: "bronze",
+        score: -1,
+        reachedAt: "2026-08-27T00:00:00.000Z",
+      }),
+    ).toThrow();
   });
 });
