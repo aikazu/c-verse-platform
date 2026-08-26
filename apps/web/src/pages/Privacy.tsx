@@ -74,17 +74,27 @@ export default function Privacy() {
       <div className="card card-pad" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
         <div style={{ fontWeight: 600, fontSize: 13 }}>Izin data (opsional)</div>
         <p className="muted" style={{ fontSize: 11 }}>
-          Framework consent dibangun sejak awal (docs 09 3.4). Kreator hanya melihat data agregat/anonim bila kamu izinkan.
+          Pengaturan consent ini opsional dan tidak memengaruhi kemampuan kolektor membeli/menjual. Kreator hanya menerima data agregat —
+          data pribadi tidak pernah dibagikan.
         </p>
-        <label style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13, cursor: "pointer" }}>
-          <input type="checkbox" checked={ca} onChange={() => toggleConsent("analytics")} disabled={saving} /> Izinkan kreator lihat insight
-          anonim (visitor anonim, repeat rate) —{" "}
-          <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--text-muted)" }}>consent_analytics_detail</span>
+        <label style={{ display: "flex", alignItems: "flex-start", gap: 10, fontSize: 13, cursor: "pointer" }}>
+          <input type="checkbox" checked={ca} onChange={() => toggleConsent("analytics")} disabled={saving} style={{ marginTop: 3 }} />
+          <span>
+            <strong>Insight agregat ke kreator</strong>
+            <div className="muted" style={{ fontSize: 11, lineHeight: 1.5, marginTop: 2 }}>
+              Kreator dapat melihat statistik anonim (jumlah kunjungan halaman kreator, repeat rate). Tidak ada data identitas yang
+              dibagikan.
+            </div>
+          </span>
         </label>
-        <label style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13, cursor: "pointer" }}>
-          <input type="checkbox" checked={cm} onChange={() => toggleConsent("market")} disabled={saving} /> Izinkan data agregat untuk
-          laporan pasar —{" "}
-          <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--text-muted)" }}>consent_data_market</span>
+        <label style={{ display: "flex", alignItems: "flex-start", gap: 10, fontSize: 13, cursor: "pointer" }}>
+          <input type="checkbox" checked={cm} onChange={() => toggleConsent("market")} disabled={saving} style={{ marginTop: 3 }} />
+          <span>
+            <strong>Data agregat untuk laporan pasar</strong>
+            <div className="muted" style={{ fontSize: 11, lineHeight: 1.5, marginTop: 2 }}>
+              Setuju data kamu digunakan dalam laporan agregat (mis. rata-rata spending kolektor per kategori, tanpa identitas).
+            </div>
+          </span>
         </label>
       </div>
     </div>
