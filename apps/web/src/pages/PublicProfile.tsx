@@ -168,7 +168,7 @@ export default function PublicProfile() {
   const user = data.user;
   const cards: ApiPublicProfileCard[] = data.cards ?? [];
   const badges: SharedUserBadge[] = data.badges ?? [];
-  const tier = user.tier ?? "bronze";
+  const tier = user.tier ?? "orbit";
   const level = user.level ?? 1;
   const pct = user.levelProgressPct ?? 0;
   const rank = user.rank;

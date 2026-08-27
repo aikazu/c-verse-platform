@@ -1,19 +1,23 @@
 import type { Badge, LeaderboardEntry, LeaderboardType } from "@c-verse/shared";
+import { LEVEL_TIERS, type LevelTier } from "@c-verse/shared";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useSearchParams } from "react-router-dom";
 import { api } from "../lib/api";
 import type { ApiBadgesResponse } from "../lib/api-types";
 import { ErrorState, LoadingState } from "../lib/QueryStates";
 
-type Tier = "bronze" | "silver" | "gold" | "platinum" | "diamond";
+// Tier validator over the 10-value Galactic Rank Ladder (single source: shared).
+// Anything outside the ladder falls back to `orbit` so an unrecognised server
+// string never crashes the chip. Note: `podiumClassByRank` below uses
+// gold/silver/bronze literally as 1st/2nd/3rd RANK classes — those are NOT
+// level tiers and are deliberately kept separate from this ladder.
+const VALID_TIERS = new Set<LevelTier>(LEVEL_TIERS);
 
-const VALID_TIERS = new Set<Tier>(["bronze", "silver", "gold", "platinum", "diamond"]);
-
-function tierOf(s: string): Tier {
-  return (VALID_TIERS.has(s as Tier) ? s : "bronze") as Tier;
+function tierOf(s: string): LevelTier {
+  return (VALID_TIERS.has(s as LevelTier) ? s : "orbit") as LevelTier;
 }
 
-function tierClass(t: Tier): string {
+function tierClass(t: LevelTier): string {
   return `tier-${t}`;
 }
 

@@ -11,6 +11,7 @@ import {
   idrToCCoin,
   isCcoinInteger,
   kycStatusLabel,
+  LEVEL_TIERS,
   leaderboardEntrySchema,
   leaderboardQuerySchema,
   leaderboardTypeSchema,
@@ -89,12 +90,24 @@ describe("calcLevel (floor(xp/10)+1, clamp 1..100)", () => {
     expect(calcLevel(-50).level).toBe(1);
   });
 
-  it("assigns tiers", () => {
-    expect(calcLevel(0).tier).toBe("bronze");
-    expect(calcLevel(100).tier).toBe("silver"); // level 11
-    expect(calcLevel(200).tier).toBe("gold"); // level 21
-    expect(calcLevel(300).tier).toBe("platinum"); // level 31
-    expect(calcLevel(400).tier).toBe("diamond"); // level 41
+  it("assigns tiers across all 10 bands of the Galactic Rank Ladder", () => {
+    // Galactic Rank Ladder — 10 bands × 10 levels each (orbit..galaksi).
+    // Boundary coverage: every transition level + cap.
+    expect(calcLevel(0).tier).toBe("orbit"); // level 1
+    expect(calcLevel(90).tier).toBe("orbit"); // level 10 (last orbit)
+    expect(calcLevel(100).tier).toBe("meteor"); // level 11
+    expect(calcLevel(200).tier).toBe("komet"); // level 21
+    expect(calcLevel(400).tier).toBe("nebula"); // level 41
+    expect(calcLevel(500).tier).toBe("nova"); // level 51
+    expect(calcLevel(600).tier).toBe("supernova"); // level 61
+    expect(calcLevel(700).tier).toBe("pulsar"); // level 71
+    expect(calcLevel(800).tier).toBe("kuasar"); // level 81
+    expect(calcLevel(900).tier).toBe("galaksi"); // level 91
+    expect(calcLevel(999).tier).toBe("galaksi"); // level 100 cap
+  });
+
+  it("LEVEL_TIERS exposes the 10-value ladder in canonical order", () => {
+    expect(LEVEL_TIERS).toEqual(["orbit", "meteor", "komet", "planet", "nebula", "nova", "supernova", "pulsar", "kuasar", "galaksi"]);
   });
 
   it("xpForNextLevel", () => {
@@ -237,7 +250,7 @@ describe("leaderboardEntrySchema (flat entry shape)", () => {
       avatarUrl: null,
       totalXp: 420,
       level: 42,
-      tier: "diamond",
+      tier: "nebula",
       score: 7,
       reachedAt: "2026-08-27T03:14:15.926Z",
     };
@@ -245,7 +258,7 @@ describe("leaderboardEntrySchema (flat entry shape)", () => {
     expect(parsed.rank).toBe(1);
     expect(parsed.username).toBeNull();
     expect(parsed.avatarUrl).toBeNull();
-    expect(parsed.tier).toBe("diamond");
+    expect(parsed.tier).toBe("nebula");
   });
 
   it("rejects rank < 1", () => {
@@ -258,7 +271,7 @@ describe("leaderboardEntrySchema (flat entry shape)", () => {
         avatarUrl: null,
         totalXp: 0,
         level: 1,
-        tier: "bronze",
+        tier: "orbit",
         score: 0,
         reachedAt: "2026-08-27T00:00:00.000Z",
       }),
@@ -275,7 +288,7 @@ describe("leaderboardEntrySchema (flat entry shape)", () => {
         avatarUrl: null,
         totalXp: 0,
         level: 0,
-        tier: "bronze",
+        tier: "orbit",
         score: 0,
         reachedAt: "2026-08-27T00:00:00.000Z",
       }),
@@ -289,14 +302,30 @@ describe("leaderboardEntrySchema (flat entry shape)", () => {
         avatarUrl: null,
         totalXp: 0,
         level: 101,
-        tier: "diamond",
+        tier: "galaksi",
         score: 0,
         reachedAt: "2026-08-27T00:00:00.000Z",
       }),
     ).toThrow();
   });
 
-  it("rejects unknown tier values", () => {
+  it("rejects unknown tier values (e.g. legacy bronze/silver/gold/platinum/diamond/mythic)", () => {
+    // Legacy 5-value ladder is fully retired — bronze/silver/gold/platinum/diamond
+    // are now invalid. `mythic` is an additional sentinel we never shipped.
+    expect(() =>
+      leaderboardEntrySchema.parse({
+        rank: 1,
+        userId: "22222222-2222-4222-8222-222222222222",
+        displayName: "X",
+        username: "x",
+        avatarUrl: null,
+        totalXp: 0,
+        level: 1,
+        tier: "platinum",
+        score: 0,
+        reachedAt: "2026-08-27T00:00:00.000Z",
+      }),
+    ).toThrow();
     expect(() =>
       leaderboardEntrySchema.parse({
         rank: 1,
@@ -323,7 +352,7 @@ describe("leaderboardEntrySchema (flat entry shape)", () => {
         avatarUrl: null,
         totalXp: 0,
         level: 1,
-        tier: "bronze",
+        tier: "orbit",
         score: -1,
         reachedAt: "2026-08-27T00:00:00.000Z",
       }),

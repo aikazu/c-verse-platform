@@ -2313,33 +2313,61 @@ tbody tr:hover { background: rgba(91, 230, 255, 0.05); }
 /* ── E. Leaderboard — standings / prize wall ───────────────────────────────── */
 
 /* E17. tier-* classes set the LOCAL --tier-bg/--tier-color/--tier-border used
-   by existing .podium-tier and .lb-tier rules. Ports the rgba values
-   currently hardcoded in apps/web/src/pages/Leaderboard.tsx TIER_STYLE so
-   CSS becomes the single source of truth. */
-.tier-bronze {
-  --tier-bg: rgba(212, 165, 116, 0.14);
-  --tier-color: #d4a574;
-  --tier-border: rgba(212, 165, 116, 0.45);
+   by existing .podium-tier and .lb-tier rules. Single source of truth for
+   the 10-value Galactic Rank Ladder (orbit..galaksi). The var interface is
+   unchanged from the previous 5-value metal ladder so .podium-tier and
+   .lb-row .lb-tier consume them agnostic. NOTE: .podium-spot.gold/.silver/
+   .bronze are RANK (1st/2nd/3rd podium) classes — those are deliberately
+   separate and untouched by this block. */
+.tier-orbit {
+  --tier-bg: rgba(151, 168, 204, 0.14);
+  --tier-color: #97a8cc;
+  --tier-border: rgba(151, 168, 204, 0.45);
 }
-.tier-silver {
-  --tier-bg: rgba(203, 213, 225, 0.14);
-  --tier-color: #cbd5e1;
-  --tier-border: rgba(203, 213, 225, 0.45);
+.tier-meteor {
+  --tier-bg: rgba(255, 176, 92, 0.14);
+  --tier-color: #ffb05c;
+  --tier-border: rgba(255, 176, 92, 0.45);
 }
-.tier-gold {
+.tier-komet {
+  --tier-bg: rgba(91, 230, 255, 0.12);
+  --tier-color: #5be6ff;
+  --tier-border: rgba(91, 230, 255, 0.40);
+}
+.tier-planet {
+  --tier-bg: rgba(82, 242, 160, 0.12);
+  --tier-color: #52f2a0;
+  --tier-border: rgba(82, 242, 160, 0.40);
+}
+.tier-nebula {
+  --tier-bg: rgba(143, 123, 255, 0.14);
+  --tier-color: #8f7bff;
+  --tier-border: rgba(143, 123, 255, 0.45);
+}
+.tier-nova {
   --tier-bg: rgba(255, 201, 77, 0.14);
-  --tier-color: #E0BF6B;
+  --tier-color: #e0bf6b;
   --tier-border: rgba(255, 201, 77, 0.45);
 }
-.tier-platinum {
-  --tier-bg: rgba(125, 211, 252, 0.14);
-  --tier-color: #7dd3fc;
-  --tier-border: rgba(125, 211, 252, 0.45);
+.tier-supernova {
+  --tier-bg: rgba(255, 222, 138, 0.16);
+  --tier-color: #ffde8a;
+  --tier-border: rgba(255, 222, 138, 0.50);
 }
-.tier-diamond {
+.tier-pulsar {
+  --tier-bg: rgba(255, 77, 158, 0.14);
+  --tier-color: #ff4d9e;
+  --tier-border: rgba(255, 77, 158, 0.45);
+}
+.tier-kuasar {
   --tier-bg: rgba(165, 180, 252, 0.16);
   --tier-color: #a5b4fc;
-  --tier-border: rgba(165, 180, 252, 0.5);
+  --tier-border: rgba(165, 180, 252, 0.50);
+}
+.tier-galaksi {
+  --tier-bg: linear-gradient(135deg, rgba(91, 230, 255, 0.14), rgba(143, 123, 255, 0.16));
+  --tier-color: #eaf2ff;
+  --tier-border: rgba(255, 201, 77, 0.55);
 }
 
 /* E17b. Segmented tab control for the multi-type leaderboard (Level /

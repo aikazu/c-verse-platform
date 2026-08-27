@@ -36,7 +36,7 @@ function CollectionInner() {
   });
   const badges = (data.badges ?? []) as SharedUserBadge[];
   const level: number = data.user?.level ?? 1;
-  const tier: string = data.user?.tier ?? "bronze";
+  const tier: string = data.user?.tier ?? "orbit";
   const progressPct: number = data.user?.levelProgressPct ?? 0;
   const progressLabel: string = data.user?.levelProgressLabel ?? "Progress level berikutnya";
   return (

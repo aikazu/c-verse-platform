@@ -118,7 +118,7 @@ export type BidStatus = z.infer<typeof bidStatusSchema>;
 export const kycStatusSchema = z.enum(["pending", "approved", "rejected"]);
 export type KycStatus = z.infer<typeof kycStatusSchema>;
 
-export const levelTierSchema = z.enum(["bronze", "silver", "gold", "platinum", "diamond"]);
+export const levelTierSchema = z.enum(["orbit", "meteor", "komet", "planet", "nebula", "nova", "supernova", "pulsar", "kuasar", "galaksi"]);
 export type LevelTier = z.infer<typeof levelTierSchema>;
 
 // Secondary market = buyout on card + direct bids (C-07 FINAL — no auction/listing).
@@ -404,16 +404,40 @@ export function calcUnsignedCount(totalUnits: number): number {
   return totalUnits - calcSignedCount(totalUnits);
 }
 
+/**
+ * Galactic Rank Ladder — 10 bands × 10 levels each.
+ * docs/05-data-model + 07 C-05c. Enum values are lowercase Indonesian cosmic
+ * words that double as UI labels via existing `.toUpperCase()` renders; no
+ * separate translation map layer is required.
+ *
+ *   1–10  orbit    ·  11–20  meteor   ·  21–30  komet    ·  31–40  planet
+ *  41–50  nebula   ·  51–60  nova     ·  61–70  supernova · 71–80  pulsar
+ *  81–90  kuasar   ·  91–100 galaksi
+ */
+export const LEVEL_TIERS = [
+  "orbit",
+  "meteor",
+  "komet",
+  "planet",
+  "nebula",
+  "nova",
+  "supernova",
+  "pulsar",
+  "kuasar",
+  "galaksi",
+] as const satisfies readonly LevelTier[];
+export type LevelTierValue = (typeof LEVEL_TIERS)[number];
+
 /** docs/05-data-model + 07 C-05c: level = floor(total_xp / 10) + 1; top-up does NOT add XP */
 export function calcLevel(xp: number): { level: number; tier: LevelTier } {
   const safe = Math.max(0, Math.floor(xp));
   // xp 0-9 => level 1, 10-19 => level 2, etc. clamp 1..100
   const level = Math.min(100, Math.max(1, Math.floor(safe / 10) + 1));
-  let tier: LevelTier = "bronze";
-  if (level >= 41) tier = "diamond";
-  else if (level >= 31) tier = "platinum";
-  else if (level >= 21) tier = "gold";
-  else if (level >= 11) tier = "silver";
+  // Band selection: each band covers 10 levels (1..10, 11..20, ..., 91..100).
+  // `Math.min(9, ...)` caps the index so a (defensive) level=100 still resolves
+  // to the last band even though floor((100-1)/10) === 9 already.
+  const bandIndex = Math.min(LEVEL_TIERS.length - 1, Math.floor((level - 1) / 10));
+  const tier: LevelTier = LEVEL_TIERS[bandIndex];
   return { level, tier };
 }
 export function xpForNextLevel(xp: number): number {

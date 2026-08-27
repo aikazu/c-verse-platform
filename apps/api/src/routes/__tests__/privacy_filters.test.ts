@@ -287,7 +287,10 @@ describe("GET /api/gamification/leaderboard — multi-type RPC contract", () => 
   });
 
   it("rows are mapped to entries with level/tier recomputed from total_xp (server-side, not trusted from DB)", async () => {
-    // total_xp=0 -> level 1, bronze; total_xp=200 -> level 21, gold (calcLevel 10 xp/level)
+    // Galactic Rank Ladder (10 bands × 10 levels):
+    //   total_xp=0   -> level 1,  orbit
+    //   total_xp=200 -> level 21, komet
+    // Formula: level = floor(total_xp/10)+1, clamp 1..100.
     control.leaderboardRows = [
       {
         rank: 1,
@@ -328,7 +331,7 @@ describe("GET /api/gamification/leaderboard — multi-type RPC contract", () => 
       rank: 1,
       userId: U1,
       level: 21,
-      tier: "gold",
+      tier: "komet",
       totalXp: 200,
       score: 200,
       username: "top",
@@ -337,7 +340,7 @@ describe("GET /api/gamification/leaderboard — multi-type RPC contract", () => 
       rank: 2,
       userId: U2,
       level: 1,
-      tier: "bronze",
+      tier: "orbit",
       username: null,
     });
   });

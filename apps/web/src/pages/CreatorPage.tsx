@@ -1,4 +1,5 @@
 import type { LeaderboardEntry, LevelTier } from "@c-verse/shared";
+import { LEVEL_TIERS } from "@c-verse/shared";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useParams } from "react-router-dom";
 import { StatusBadge } from "../components/StatusBadge";
@@ -12,9 +13,11 @@ import "./creator.css";
 const CHANNEL = "CH:06 / KREATOR";
 const CHANNEL_EXTRA = "CREATOR LOG";
 
-const VALID_TIERS = new Set<LevelTier>(["bronze", "silver", "gold", "platinum", "diamond"]);
+// Tier validator over the 10-value Galactic Rank Ladder (single source: shared).
+// Unrecognised server strings fall back to `orbit` (lowest band).
+const VALID_TIERS = new Set<LevelTier>(LEVEL_TIERS);
 function tierOf(s: string): LevelTier {
-  return (VALID_TIERS.has(s as LevelTier) ? s : "bronze") as LevelTier;
+  return (VALID_TIERS.has(s as LevelTier) ? s : "orbit") as LevelTier;
 }
 
 function getSigil(displayName: string, handle: string | null | undefined): string {
