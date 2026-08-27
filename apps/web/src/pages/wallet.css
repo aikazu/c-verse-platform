@@ -1,0 +1,345 @@
+/* Wallet / Treasury (Space Arcade) — classes namespaced `wa-` to avoid collisions
+   with global styles.css and sibling lane css (hm-, kl-, pp-). Consumes only
+   existing theme tokens (--surface-*, --gold, --info, --border, --font-*, --r-*).
+   Payout modal overlay layers var(--canvas) + opacity (no hardcoded rgba). */
+
+.card.wa-alert {
+	background: var(--alert-bg);
+	border: 1px solid var(--alert-border);
+	font-size: 12px;
+	color: var(--text-muted);
+}
+
+.wa-alert-strong {
+	color: var(--alert);
+}
+
+.card.wa-balance {
+	background: var(--surface-2);
+	padding: 24px;
+}
+
+.wa-label-gold {
+	color: var(--gold);
+}
+
+.wa-balance-row {
+	display: flex;
+	align-items: baseline;
+	gap: 8px;
+	margin-top: 4px;
+	flex-wrap: wrap;
+}
+
+.wa-balance-value {
+	font-family: var(--font-display);
+	font-size: 44px;
+	font-weight: 500;
+	letter-spacing: -0.02em;
+}
+
+.wa-balance-unit {
+	font-family: var(--font-mono);
+	font-size: 13px;
+	font-weight: 500;
+	color: var(--text-muted);
+}
+
+.wa-balance-idr {
+	font-family: var(--font-mono);
+	font-size: 11px;
+	color: var(--text-muted);
+	margin-top: 6px;
+}
+
+.wa-hr {
+	border: none;
+	border-top: 1px solid var(--border);
+	margin: 16px 0 0;
+}
+
+.wa-balance-stats {
+	display: flex;
+	gap: 16px;
+	margin-top: 12px;
+	flex-wrap: wrap;
+}
+
+.wa-balance-stat {
+	font-family: var(--font-mono);
+	font-size: 11px;
+	color: var(--text-dim);
+}
+
+.wa-actions {
+	display: flex;
+	flex-direction: column;
+	gap: 14px;
+}
+
+.wa-block-title {
+	font-weight: 600;
+	font-size: 14px;
+}
+
+.wa-row-title {
+	font-weight: 600;
+	font-size: 13px;
+}
+
+.wa-sub {
+	font-size: 11px;
+}
+
+.wa-note {
+	border-radius: var(--r-1);
+	padding: 10px 12px;
+	font-size: 11px;
+	line-height: 1.5;
+	color: var(--text-muted);
+}
+
+.wa-note-gold {
+	background: var(--gold-bg-soft);
+	border: 1px solid var(--gold-border);
+}
+
+.wa-note-info {
+	background: var(--info-bg);
+	border: 1px solid var(--info-border);
+}
+
+.wa-note-strong {
+	color: var(--text);
+}
+
+.wa-note-mono {
+	font-family: var(--font-mono);
+	font-size: 10px;
+}
+
+.wa-link {
+	color: var(--gold);
+	font-weight: 600;
+}
+
+.wa-btn-block {
+	padding: 11px;
+	width: 100%;
+}
+
+.wa-snap {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	background: var(--surface-2);
+	border: 1px solid var(--border);
+	border-radius: var(--r-1);
+	padding: 12px 14px;
+}
+
+.wa-snap-title {
+	font-weight: 600;
+	font-size: 12px;
+}
+
+.wa-snap-token {
+	font-family: var(--font-mono);
+	font-size: 11px;
+	word-break: break-all;
+	color: var(--gold);
+}
+
+.wa-divider {
+	height: 1px;
+	background: var(--border);
+	margin: 4px 0;
+}
+
+.wa-row-between {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 10px;
+}
+
+.wa-min-label {
+	font-family: var(--font-mono);
+	font-size: 10px;
+	letter-spacing: 0.06em;
+	color: var(--text-dim);
+}
+
+.wa-input-row {
+	display: flex;
+	gap: 8px;
+}
+
+.wa-input-flex {
+	flex: 1;
+}
+
+.wa-hint {
+	font-family: var(--font-mono);
+	font-size: 11px;
+	color: var(--text-dim);
+}
+
+.wa-toolbar {
+	padding: 14px 16px;
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	gap: 10px;
+	border-bottom: 1px solid var(--border);
+}
+
+.wa-toolbar-title {
+	font-weight: 600;
+	font-size: 13px;
+}
+
+.wa-refresh {
+	padding: 5px 12px;
+	font-size: 11px;
+	font-family: var(--font-mono);
+}
+
+.wa-pill-sm {
+	font-size: 10px;
+}
+
+.wa-td-time {
+	font-family: var(--font-mono);
+	font-size: 11px;
+	color: var(--text-muted);
+}
+
+.wa-td-amount {
+	font-family: var(--font-mono);
+	font-size: 12px;
+	font-weight: 700;
+}
+
+.wa-td-pos {
+	color: var(--signal);
+}
+
+.wa-td-neg {
+	color: var(--alert);
+}
+
+.wa-td-balance {
+	font-family: var(--font-mono);
+	font-size: 12px;
+}
+
+.wa-td-note {
+	font-size: 11px;
+	color: var(--text-muted);
+	max-width: 220px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.wa-td-empty {
+	text-align: center;
+	color: var(--text-muted);
+	padding: 24px;
+	font-size: 13px;
+}
+
+/* P1-12 payout confirmation modal — overlay = layered canvas + blur (token-pure). */
+.wa-modal-overlay {
+	position: fixed;
+	inset: 0;
+	z-index: 1000;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 16px;
+	overscroll-behavior: contain;
+}
+
+.wa-modal-overlay::before {
+	content: "";
+	position: absolute;
+	inset: 0;
+	background: var(--canvas);
+	opacity: 0.85;
+	-webkit-backdrop-filter: blur(6px);
+	backdrop-filter: blur(6px);
+}
+
+.wa-modal-overlay > .card {
+	position: relative;
+	z-index: 1;
+}
+
+.card.wa-modal {
+	max-width: 420px;
+	width: 100%;
+	padding: 28px;
+}
+
+.wa-modal-title {
+	font-family: var(--font-display);
+	font-size: 16px;
+	font-weight: 600;
+	color: var(--gold);
+}
+
+.wa-modal-rows {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+	margin-top: 16px;
+}
+
+.wa-modal-row {
+	display: flex;
+	justify-content: space-between;
+	gap: 10px;
+	font-size: 13px;
+}
+
+.wa-mono {
+	font-family: var(--font-mono);
+}
+
+.wa-strong {
+	font-weight: 700;
+}
+
+.wa-modal-note {
+	font-size: 11px;
+	margin-top: 6px;
+	line-height: 1.5;
+}
+
+.wa-modal-actions {
+	display: flex;
+	gap: 10px;
+	margin-top: 22px;
+}
+
+.wa-btn-flex {
+	flex: 1;
+	padding: 11px;
+}
+
+@media (max-width: 640px) {
+	.wa-balance-value {
+		font-size: 36px;
+	}
+
+	.wa-balance-stats {
+		gap: 10px;
+	}
+
+	.wa-modal-row {
+		flex-direction: column;
+		gap: 2px;
+	}
+}

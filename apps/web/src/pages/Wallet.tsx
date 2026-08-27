@@ -7,6 +7,10 @@ import { ApiError, api, formatIdr } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { ErrorState, LoadingState } from "../lib/QueryStates";
 import { useToast } from "../lib/toast";
+import "./wallet.css";
+
+const CHANNEL = "CH:08 / WALLET";
+const CHANNEL_EXTRA = "TREASURY LINK";
 
 const errorMessage = (e: unknown): string => (e instanceof Error ? e.message : String(e));
 
@@ -109,113 +113,75 @@ function WalletInner() {
   const payoutHeld = data.payoutHeld ?? false;
   const payoutHoldUntil: string | null = data.payoutHoldUntil ?? null;
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-      <div>
-        <span className="eyebrow">Dompet</span>
-        <h1 className="h2" style={{ marginTop: 4 }}>
-          C<em style={{ fontStyle: "italic", fontWeight: 300, color: "var(--gold)" }}>-Coin</em>
-        </h1>
-        <p className="muted" style={{ marginTop: 4 }}>
-          1 C = Rp 10.000
-        </p>
-      </div>
+    <div className="page-stack">
+      <section className="page-hero" aria-label="Header halaman Wallet">
+        <div className="page-hero-rail">
+          <span className="rail-channel">{CHANNEL}</span>
+          <span className="rail-dot" aria-hidden="true" />
+          <span className="rail-sep">·</span>
+          <span className="rail-extra">{CHANNEL_EXTRA}</span>
+          <span className="rail-time" aria-label="Siap">
+            <span className="rail-cursor" aria-hidden="true" />
+          </span>
+        </div>
+        <div className="page-hero-inner">
+          <div className="page-hero-copy">
+            <div className="page-hero-sub">Dompet</div>
+            <h1 className="page-hero-title">
+              C<em>-Coin</em>
+            </h1>
+            <p className="page-hero-desc">1 C = Rp 10.000</p>
+          </div>
+        </div>
+      </section>
 
       {payoutHeld && (
-        <div
-          className="card card-pad"
-          style={{
-            background: "var(--alert-bg)",
-            border: "1px solid var(--alert-border)",
-            fontSize: 12,
-            color: "var(--text-muted)",
-          }}
-        >
-          <strong style={{ color: "var(--alert)" }}>Payout ditahan admin</strong>
+        <div className="card card-pad wa-alert">
+          <strong className="wa-alert-strong">Payout ditahan admin</strong>
           {payoutHoldUntil ? ` sampai ${new Date(payoutHoldUntil).toLocaleString("id-ID")}` : ""}.
         </div>
       )}
 
       <div className="grid-2">
         {/* Balance — spec-sheet style */}
-        <div className="card card-pad" style={{ background: "var(--surface-2)", padding: 24 }}>
-          <div
-            style={{
-              fontFamily: "var(--font-mono)",
-              fontSize: 10,
-              fontWeight: 500,
-              letterSpacing: "0.12em",
-              textTransform: "uppercase",
-              color: "var(--gold)",
-            }}
-          >
-            Saldo
+        <div className="card card-pad wa-balance">
+          <div className="label wa-label-gold">Saldo</div>
+          <div className="wa-balance-row">
+            <span className="wa-balance-value">{w.balanceCCoin}</span>
+            <span className="wa-balance-unit">C-Coin</span>
           </div>
-          <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginTop: 10 }}>
-            <span style={{ fontFamily: "var(--font-display)", fontSize: 44, fontWeight: 500, letterSpacing: "-0.02em" }}>
-              {w.balanceCCoin}
-            </span>
-            <span style={{ fontFamily: "var(--font-mono)", fontSize: 13, color: "var(--text-muted)", fontWeight: 500 }}>C-Coin</span>
-          </div>
-          <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--text-muted)", marginTop: 6 }}>
-            ≈ {formatIdr(w.balanceIdrEquiv ?? w.balanceCCoin * rate)}
-          </div>
-          <hr style={{ border: "none", borderTop: "1px solid var(--border)", margin: "16px 0 0" }} />
-          <div style={{ display: "flex", gap: 16, marginTop: 12 }}>
-            <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--text-dim)" }}>
-              Total isi {w.totalTopupCCoin ?? 0} C
-            </span>
-            <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--text-dim)" }}>
-              Terpakai {w.totalSpentCCoin ?? 0} C
-            </span>
+          <div className="wa-balance-idr">≈ {formatIdr(w.balanceIdrEquiv ?? w.balanceCCoin * rate)}</div>
+          <hr className="wa-hr" />
+          <div className="wa-balance-stats">
+            <span className="wa-balance-stat">Total isi {w.totalTopupCCoin ?? 0} C</span>
+            <span className="wa-balance-stat">Terpakai {w.totalSpentCCoin ?? 0} C</span>
           </div>
         </div>
 
         {/* Actions — operate surface */}
-        <div className="card card-pad" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+        <div className="card card-pad wa-actions">
           <div>
-            <div style={{ fontWeight: 600, fontSize: 14 }}>Isi Saldo</div>
-            <div className="muted" style={{ fontSize: 11, marginTop: 2 }}>
-              Pilih metode dan nominal — 1 C = Rp 10.000 (Opsi A closed-loop)
-            </div>
+            <div className="wa-block-title">Isi Saldo</div>
+            <div className="muted wa-sub">Pilih metode dan nominal — 1 C = Rp 10.000 (Opsi A closed-loop)</div>
           </div>
-          <div
-            style={{
-              background: "var(--gold-bg-soft)",
-              border: "1px solid var(--gold-border)",
-              borderRadius: 10,
-              padding: "10px 12px",
-              fontSize: 11,
-              lineHeight: 1.5,
-              color: "var(--text-muted)",
-            }}
-          >
-            Saldo <strong style={{ color: "var(--text)" }}>tidak dapat diuangkan</strong> (Gamified Point — Opsi A). Refund hanya reversal
-            ke metode asal atau penutupan akun bersaldo ke top-up terakhir.
+          <div className="wa-note wa-note-gold">
+            Saldo <strong className="wa-note-strong">tidak dapat diuangkan</strong> (Gamified Point — Opsi A). Refund hanya reversal ke
+            metode asal atau penutupan akun bersaldo ke top-up terakhir.
             <br />
-            <span style={{ fontFamily: "var(--font-mono)", fontSize: 10 }}>Isi saldo = kamu setuju T&C C-Coin.</span>
+            <span className="wa-note-mono">Isi saldo = kamu setuju T&C C-Coin.</span>
           </div>
-          <div
-            style={{
-              background: "var(--info-bg)",
-              border: "1px solid var(--info-border)",
-              borderRadius: 10,
-              padding: "10px 12px",
-              fontSize: 11,
-              lineHeight: 1.5,
-              color: "var(--text-muted)",
-            }}
-          >
+          <div className="wa-note wa-note-info">
             {kycApproved ? (
               <>
                 KYC terverifikasi — tanpa cap saldo.{" "}
-                <a href="/me/kyc" style={{ color: "var(--gold)", fontWeight: 600 }}>
+                <a href="/me/kyc" className="wa-link">
                   Lihat status KYC
                 </a>
               </>
             ) : (
               <>
-                Cap saldo non-KYC: <strong style={{ color: "var(--text)" }}>{topupCapNoKyc} C-Coin</strong> —{" "}
-                <a href="/me/kyc" style={{ color: "var(--gold)", fontWeight: 600 }}>
+                Cap saldo non-KYC: <strong className="wa-note-strong">{topupCapNoKyc} C-Coin</strong> —{" "}
+                <a href="/me/kyc" className="wa-link">
                   selesaikan KYC
                 </a>{" "}
                 untuk tanpa cap.
@@ -231,49 +197,34 @@ function WalletInner() {
                 </option>
               ))}
           </select>
-          <button className="btn-gold" onClick={onTopup} disabled={busyTopup} style={{ padding: "11px", width: "100%" }}>
+          <button className="btn-gold wa-btn-block" onClick={onTopup} disabled={busyTopup}>
             {busyTopup ? "Memproses…" : `Isi ${amount} C →`}
           </button>
           {snapPanel && (
-            <div
-              style={{
-                background: "var(--surface-2)",
-                border: "1px solid var(--border)",
-                borderRadius: 10,
-                padding: "12px 14px",
-                display: "flex",
-                flexDirection: "column",
-                gap: 6,
-              }}
-            >
-              <div style={{ fontWeight: 600, fontSize: 12 }}>Pembayaran Midtrans — {snapPanel.amountCcoin} C</div>
-              <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, wordBreak: "break-all", color: "var(--gold)" }}>
-                {snapPanel.snapToken || "Token tidak tersedia"}
-              </div>
-              <div className="muted" style={{ fontSize: 11 }}>
+            <div className="wa-snap">
+              <div className="wa-snap-title">Pembayaran Midtrans — {snapPanel.amountCcoin} C</div>
+              <div className="wa-snap-token">{snapPanel.snapToken || "Token tidak tersedia"}</div>
+              <div className="muted wa-sub">
                 Selesaikan pembayaran, saldo masuk otomatis setelah webhook (kedaluwarsa {snapPanel.expiresLabel}).
               </div>
             </div>
           )}
 
-          <div style={{ height: 1, background: "var(--border)", margin: "4px 0" }} />
+          <div className="wa-divider" />
 
           {isCreator ? (
             <>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                <span style={{ fontWeight: 600, fontSize: 13 }}>Tarik ke Rekening</span>
-                <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--text-dim)", letterSpacing: "0.06em" }}>
-                  MIN 10 C
-                </span>
+              <div className="wa-row-between">
+                <span className="wa-row-title">Tarik ke Rekening</span>
+                <span className="wa-min-label">MIN 10 C</span>
               </div>
-              <div style={{ display: "flex", gap: 8 }}>
+              <div className="wa-input-row">
                 <input
-                  className="input"
+                  className="input wa-input-flex"
                   type="number"
                   min={10}
                   value={payoutAmt}
                   onChange={(e) => setPayoutAmt(Number(e.target.value))}
-                  style={{ flex: 1 }}
                   aria-label="Jumlah penarikan C-Coin"
                   placeholder="Jumlah C"
                 />
@@ -295,35 +246,19 @@ function WalletInner() {
                   {busyPayout ? "Memproses…" : "Tarik"}
                 </button>
               </div>
-              <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--text-dim)" }}>
-                Dana dikunci sampai batch mingguan · minimal 10 C
-              </div>
+              <div className="wa-hint">Dana dikunci sampai batch mingguan · minimal 10 C</div>
             </>
           ) : (
-            <div className="muted" style={{ fontSize: 11 }}>
-              Penarikan hanya untuk kreator (hasil penjualan) — KYC wajib.
-            </div>
+            <div className="muted wa-sub">Penarikan hanya untuk kreator (hasil penjualan) — KYC wajib.</div>
           )}
         </div>
       </div>
 
       {/* Ledger — monitor surface */}
       <div className="card">
-        <div
-          style={{
-            padding: "14px 16px",
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            borderBottom: "1px solid var(--border)",
-          }}
-        >
-          <span style={{ fontWeight: 600, fontSize: 13 }}>Riwayat</span>
-          <button
-            className="btn-ghost"
-            style={{ padding: "5px 12px", fontSize: 11, fontFamily: "var(--font-mono)" }}
-            onClick={() => refetch()}
-          >
+        <div className="wa-toolbar">
+          <span className="wa-toolbar-title">Riwayat</span>
+          <button className="btn-ghost wa-refresh" onClick={() => refetch()}>
             Refresh
           </button>
         </div>
@@ -341,47 +276,27 @@ function WalletInner() {
             <tbody>
               {txs.length === 0 ? (
                 <tr>
-                  <td colSpan={5} style={{ textAlign: "center", color: "var(--text-muted)", padding: 24, fontSize: 13 }}>
+                  <td colSpan={5} className="wa-td-empty">
                     Belum ada transaksi
                   </td>
                 </tr>
               ) : (
                 txs.map((t) => (
                   <tr key={t.id}>
-                    <td style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--text-muted)" }}>
-                      {new Date(t.createdAt).toLocaleString("id-ID")}
-                    </td>
+                    <td className="wa-td-time">{new Date(t.createdAt).toLocaleString("id-ID")}</td>
                     <td>
                       <span
-                        className={`pill ${t.type === "topup" || t.type === "top_up" ? "pill-success" : t.type === "checkout" ? "pill-warn" : t.type === "payout" ? "pill-info" : "pill-warn"}`}
-                        style={{ fontSize: 10 }}
+                        className={`pill ${t.type === "topup" || t.type === "top_up" ? "pill-success" : t.type === "checkout" ? "pill-warn" : t.type === "payout" ? "pill-info" : "pill-warn"} wa-pill-sm`}
                       >
                         {walletTxTypeLabel(t.type)}
                       </span>
                     </td>
-                    <td
-                      style={{
-                        fontWeight: 700,
-                        fontFamily: "var(--font-mono)",
-                        fontSize: 12,
-                        color: t.amountCCoin > 0 ? "var(--signal)" : "var(--alert)",
-                      }}
-                    >
+                    <td className={`wa-td-amount ${t.amountCCoin > 0 ? "wa-td-pos" : "wa-td-neg"}`}>
                       {t.amountCCoin > 0 ? "+" : ""}
                       {t.amountCCoin} C
                     </td>
-                    <td style={{ fontFamily: "var(--font-mono)", fontSize: 12 }}>{t.balanceAfterCCoin} C</td>
-                    <td
-                      style={{
-                        fontSize: 11,
-                        color: "var(--text-muted)",
-                        maxWidth: 220,
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        whiteSpace: "nowrap",
-                      }}
-                      title={t.note ?? undefined}
-                    >
+                    <td className="wa-td-balance">{t.balanceAfterCCoin} C</td>
+                    <td className="wa-td-note" title={t.note ?? undefined}>
                       {t.note}
                     </td>
                   </tr>
@@ -398,53 +313,34 @@ function WalletInner() {
           role="dialog"
           aria-modal="true"
           aria-labelledby="payout-confirm-title"
-          style={{
-            position: "fixed",
-            inset: 0,
-            zIndex: 1000,
-            background: "rgba(5,3,11,0.85)",
-            backdropFilter: "blur(6px)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: 16,
-            overscrollBehavior: "contain",
-          }}
+          className="wa-modal-overlay"
           onClick={() => !busyPayout && setPayoutConfirmOpen(false)}
         >
-          <div className="card card-pad" style={{ maxWidth: 420, width: "100%", padding: 28 }} onClick={(e) => e.stopPropagation()}>
-            <div
-              id="payout-confirm-title"
-              style={{ fontFamily: "var(--font-display)", fontSize: 16, color: "var(--gold)", fontWeight: 600 }}
-            >
+          <div className="card card-pad wa-modal" onClick={(e) => e.stopPropagation()}>
+            <div id="payout-confirm-title" className="wa-modal-title">
               Konfirmasi Payout
             </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 16 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
+            <div className="wa-modal-rows">
+              <div className="wa-modal-row">
                 <span className="muted">Jumlah</span>
-                <span style={{ fontFamily: "var(--font-mono)", fontWeight: 700 }}>
+                <span className="wa-mono wa-strong">
                   {payoutAmt} C · {formatIdr(payoutAmt * rate)}
                 </span>
               </div>
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
+              <div className="wa-modal-row">
                 <span className="muted">Saldo tersisa</span>
-                <span style={{ fontFamily: "var(--font-mono)" }}>{w.balanceCCoin - payoutAmt} C</span>
+                <span className="wa-mono">{w.balanceCCoin - payoutAmt} C</span>
               </div>
-              <div className="muted" style={{ fontSize: 11, marginTop: 6, lineHeight: 1.5 }}>
+              <div className="muted wa-modal-note">
                 Dana dikunci (escrow) setelah konfirmasi. Disbursement IDR diproses dalam batch mingguan (Selasa 06:00 WIB) via tim — KYC
                 wajib.
               </div>
             </div>
-            <div style={{ display: "flex", gap: 10, marginTop: 22 }}>
-              <button
-                className="btn-ghost"
-                onClick={() => setPayoutConfirmOpen(false)}
-                disabled={busyPayout}
-                style={{ flex: 1, padding: "11px" }}
-              >
+            <div className="wa-modal-actions">
+              <button className="btn-ghost wa-btn-flex" onClick={() => setPayoutConfirmOpen(false)} disabled={busyPayout}>
                 Batal
               </button>
-              <button className="btn-gold" onClick={onPayout} disabled={busyPayout} style={{ flex: 1, padding: "11px" }}>
+              <button className="btn-gold wa-btn-flex" onClick={onPayout} disabled={busyPayout}>
                 {busyPayout ? "Memproses…" : "Kunci Dana"}
               </button>
             </div>
