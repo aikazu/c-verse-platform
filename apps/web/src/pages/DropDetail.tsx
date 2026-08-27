@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import { CardThumb } from "../components/CardThumb";
 import { StatusBadge } from "../components/StatusBadge";
 import { api } from "../lib/api";
 import type { ApiDrop, ApiDropDetailResponse } from "../lib/api-types";
@@ -99,17 +100,8 @@ export default function DropDetail() {
       </Link>
       <div className="grid-2" style={{ alignItems: "start" }}>
         <div className="card" style={{ overflow: "hidden" }}>
-          <div
-            style={{
-              aspectRatio: "4/3",
-              background: "var(--thumb-grad)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: 64,
-            }}
-          >
-            🎴
+          <div style={{ aspectRatio: "4/3" }}>
+            <CardThumb artworkUrl={drop.artworkUrl} series={drop.series} title={drop.title} eager />
           </div>
           <div className="card-pad">
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>

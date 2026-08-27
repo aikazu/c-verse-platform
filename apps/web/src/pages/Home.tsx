@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
+import { CardThumb } from "../components/CardThumb";
 import { RequireAuth } from "../components/RequireAuth";
 import { api } from "../lib/api";
 import type { ApiDrop, ApiDropsResponse, ApiWalletResponse } from "../lib/api-types";
@@ -174,17 +175,8 @@ function HomeInner() {
               className="card"
               style={{ overflow: "hidden", textDecoration: "none", color: "inherit" }}
             >
-              <div
-                style={{
-                  height: 120,
-                  background: "var(--thumb-grad)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontSize: 28,
-                }}
-              >
-                🎴
+              <div style={{ height: 120 }}>
+                <CardThumb artworkUrl={d.artworkUrl} series={d.series} title={d.title} />
               </div>
               <div style={{ padding: 12 }}>
                 <div style={{ fontWeight: 600, fontSize: 13 }}>{d.title}</div>

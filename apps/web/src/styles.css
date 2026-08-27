@@ -589,8 +589,12 @@ tbody tr:hover { background: rgba(91, 230, 255, 0.05); }
   display: flex; justify-content: space-between; padding: 0 16px;
   font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.12em; color: var(--info);
 }
+/* Static "NO.001" monogram on the hero fake card — sized as an emblem
+   (matches the .holo-card-top mono label idiom, ~2× its 12px size). */
 .holo-emoji {
-  font-size: 84px; position: relative; z-index: 1;
+  position: relative; z-index: 1;
+  font-family: var(--font-mono); font-size: 24px; font-weight: 600;
+  letter-spacing: 0.12em; color: var(--info);
   filter: drop-shadow(0 0 22px rgba(91, 230, 255, 0.45));
 }
 .holo-name {
@@ -1996,6 +2000,9 @@ tbody tr:hover { background: rgba(91, 230, 255, 0.05); }
   box-shadow: 0 22px 50px rgba(0, 0, 0, 0.5), 0 0 32px rgba(255, 201, 77, 0.1);
 }
 .next-launch .next-launch-art {
+  /* Box is reserved by grid stretch + min-height:280px; img inside is 100%/cover
+     so no CLS. (The previous aspect-ratio 4/3 was a desktop no-op — grid stretch
+     and min-height always win; mobile ≤860px has its own 16/9 rule below.) */
   position: relative; min-height: 280px;
   background: var(--thumb-grad);
   overflow: hidden;

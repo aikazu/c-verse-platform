@@ -1,0 +1,50 @@
+/* apps/web/src/components/CardThumb.css
+ *
+ * Scoped styling for the CardThumb presentational component. The component
+ * slots into whatever art container the page already provides (fixed height,
+ * aspect-ratio, etc.) so .ct-wrap fills its parent and the inner <img> covers
+ * that area with object-fit: cover.
+ *
+ * Prefix `ct-` to avoid collisions with the global styles.css vocabulary
+ * (pp- for profile, cp- for creator, drop-thumb / art-fallback for Drops).
+ */
+
+.ct-wrap {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: block;
+  overflow: hidden;
+  background: var(--thumb-grad);
+}
+
+.ct-img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.ct-fallback {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ct-fallback-init {
+  font-family: var(--font-display);
+  font-size: clamp(28px, 6vw, 64px);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--text);
+  opacity: 0.78;
+  text-shadow: 0 0 18px rgba(143, 123, 255, 0.35);
+}
+
+.ct-fallback-glyph {
+  font-size: clamp(28px, 6vw, 64px);
+  color: var(--text-dim);
+  opacity: 0.6;
+}

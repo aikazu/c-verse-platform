@@ -2,6 +2,7 @@ import type { Bid } from "@c-verse/shared";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
+import { CardThumb } from "../components/CardThumb";
 import { ApiError, api } from "../lib/api";
 import type { ApiCardDetailResponse, ApiCardOwnershipRow } from "../lib/api-types";
 import { useAuth } from "../lib/auth";
@@ -118,17 +119,8 @@ export default function CardInfo() {
       </Link>
       <div className="grid-2" style={{ alignItems: "start" }}>
         <div className="card" style={{ overflow: "hidden" }}>
-          <div
-            style={{
-              aspectRatio: "4/3",
-              background: "var(--thumb-grad)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: 64,
-            }}
-          >
-            🎴
+          <div style={{ aspectRatio: "4/3" }}>
+            <CardThumb artworkUrl={drop?.artworkUrl ?? null} series={drop?.series} title={drop?.title} eager />
           </div>
           <div className="card-pad">
             <span className="eyebrow">{drop?.series ?? "C.Card"}</span>

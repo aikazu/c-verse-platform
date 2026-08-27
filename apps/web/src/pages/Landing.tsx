@@ -109,7 +109,7 @@ export default function Landing() {
                 <span>C.CARD</span>
                 <span>NO.001</span>
               </div>
-              <span className="holo-emoji">🎴</span>
+              <span className="holo-emoji">NO.001</span>
               <span className="holo-name">FIRST DROP</span>
               <span className="holo-chip">✓ NFC Verified</span>
             </div>

@@ -3,6 +3,7 @@ import { cardLocationLabel } from "@c-verse/shared";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link } from "react-router-dom";
+import { CardThumb } from "../components/CardThumb";
 import { LevelBar } from "../components/LevelBar";
 import { RequireAuth } from "../components/RequireAuth";
 import { api } from "../lib/api";
@@ -142,17 +143,8 @@ function CollectionInner() {
                 className="card"
                 style={{ overflow: "hidden", textDecoration: "none", color: "inherit" }}
               >
-                <div
-                  style={{
-                    height: 140,
-                    background: "var(--thumb-grad)",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontSize: 36,
-                  }}
-                >
-                  🎴
+                <div style={{ height: 140 }}>
+                  <CardThumb artworkUrl={ca.drop?.artworkUrl} series={ca.drop?.series} title={ca.drop?.title} />
                 </div>
                 <div style={{ padding: 12, display: "flex", flexDirection: "column", gap: 6 }}>
                   <div style={{ fontWeight: 600, fontSize: 13 }}>
