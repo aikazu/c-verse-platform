@@ -48,7 +48,7 @@ export function NfcPage() {
   }, []);
 
   async function abortSeedSale(cardId: string) {
-    if (!window.confirm(`Batalkan PHASE-1 seed sale untuk kartu ${cardId}? Buyer akan di-refund penuh.`)) return;
+    if (!window.confirm(`Batalkan PHASE-1 seed sale untuk C.Card ${cardId}? Buyer akan di-refund penuh.`)) return;
     setMsg(null);
     setBusyId(cardId);
     try {
@@ -65,7 +65,7 @@ export function NfcPage() {
     <div className="admin-page">
       <div className="admin-page-head">
         <h2>NFC</h2>
-        <p className="muted">Pantau batch dan verifikasi kartu (read-only — provisioning via backend)</p>
+        <p className="muted">Pantau batch dan verifikasi C.Card (read-only — provisioning via backend)</p>
       </div>
       {msg && (
         <div className="admin-msg" role="status" aria-live="polite">
@@ -112,7 +112,7 @@ export function NfcPage() {
           </div>
         </div>
         <div className="card">
-          <div className="admin-table-head">Kartu — sampel 50</div>
+          <div className="admin-table-head">C.Card — sampel 50</div>
           <div className="table-wrap">
             <table>
               <thead>
@@ -149,7 +149,7 @@ export function NfcPage() {
       <div className="card" style={{ marginTop: 14 }}>
         <div className="admin-table-head">Seed sale berjalan (PHASE-1) — {seedPending.length}</div>
         <p className="muted fs-11" style={{ marginTop: 4 }}>
-          Kartu seed dalam status <code>bid_pending</code> menunggu vault-in + NFC verified sebelum release. Jika stuck (kartu
+          C.Card seed dalam status <code>bid_pending</code> menunggu vault-in + NFC verified sebelum release. Jika stuck (C.Card
           hilang/dispute), gunakan &quot;Batalkan sale&quot; untuk refund penuh ke buyer.
         </p>
         <div className="table-wrap">
