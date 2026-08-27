@@ -48,7 +48,7 @@ function HomeInner() {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
       <div className="card card-pad" style={{ background: "var(--surface-2)" }}>
-        <span className="eyebrow">Halo, {user.displayName}</span>
+        <span className="eyebrow">Pilot: {user.displayName}</span>
         <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginTop: 6 }}>
           <span style={{ fontFamily: "var(--font-display)", fontSize: 28, fontWeight: 500 }}>
             {w ? w.balanceCCoin : "—"}{" "}
