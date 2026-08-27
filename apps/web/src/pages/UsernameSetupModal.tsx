@@ -109,6 +109,7 @@ export default function UsernameSetupModal() {
         alignItems: "center",
         justifyContent: "center",
         padding: 16,
+        overscrollBehavior: "contain",
       }}
     >
       <div

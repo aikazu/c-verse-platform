@@ -408,6 +408,7 @@ function WalletInner() {
             alignItems: "center",
             justifyContent: "center",
             padding: 16,
+            overscrollBehavior: "contain",
           }}
           onClick={() => !busyPayout && setPayoutConfirmOpen(false)}
         >
