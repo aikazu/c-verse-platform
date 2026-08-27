@@ -10,6 +10,10 @@ import { api } from "../lib/api";
 import type { ApiProfileEnrichedCard } from "../lib/api-types";
 import { useAuth } from "../lib/auth";
 import { ErrorState, LoadingState } from "../lib/QueryStates";
+import "./collection.css";
+
+const CHANNEL = "CH:09 / KOLEKSI";
+const CHANNEL_EXTRA = "HANGAR INVENTORY";
 
 export default function Collection() {
   return (
@@ -41,47 +45,49 @@ function CollectionInner() {
   const progressPct: number = data.user?.levelProgressPct ?? 0;
   const progressLabel: string = data.user?.levelProgressLabel ?? "Progress level berikutnya";
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: 12 }}>
-        <div style={{ flex: "1 1 320px" }}>
+    <div className="page-stack">
+      <section className="page-hero" aria-label="Header halaman Koleksi">
+        <div className="page-hero-rail">
+          <span className="rail-channel">{CHANNEL}</span>
+          <span className="rail-dot" aria-hidden="true" />
+          <span className="rail-sep">·</span>
+          <span className="rail-extra">{CHANNEL_EXTRA}</span>
+          <span className="rail-time" aria-label="Siap">
+            <span className="rail-cursor" aria-hidden="true" />
+          </span>
+        </div>
+        <div className="page-hero-inner">
+          <div className="page-hero-copy">
+            <h1 className="page-hero-title">Koleksi</h1>
+          </div>
+        </div>
+      </section>
+
+      <div className="kl-head">
+        <div className="kl-head-copy">
           <span className="eyebrow">Koleksi</span>
-          <h1 className="h2" style={{ marginTop: 4 }}>
-            {data.user?.displayName ?? "Koleksi"}{" "}
-            <em style={{ fontStyle: "italic", fontWeight: 300, color: "var(--gold)" }}>
-              · {data.stats?.totalCards ?? cards.length} C.Card
-            </em>
-          </h1>
-          <div className="card card-pad" style={{ marginTop: 14, background: "var(--surface-2)" }}>
+          <h2 className="h2 kl-title">
+            {data.user?.displayName ?? "Koleksi"} <em>· {data.stats?.totalCards ?? cards.length} C.Card</em>
+          </h2>
+          <div className="card card-pad kl-level">
             <LevelBar level={level} tier={tier} pct={progressPct} hint={progressLabel} />
           </div>
         </div>
-        <div style={{ display: "flex", gap: 8 }}>
+        <div className="kl-head-actions">
           <Link to="/me/manage" className="btn-gold">
             Kelola C.Card →
           </Link>
-          <button className="btn-ghost" onClick={() => refetch()} style={{ fontFamily: "var(--font-mono)", fontSize: 12 }}>
+          <button className="btn-ghost kl-btn-mono" onClick={() => refetch()}>
             Refresh
           </button>
         </div>
       </div>
       {badges.length > 0 && (
         <div className="card card-pad">
-          <div
-            style={{
-              fontFamily: "var(--font-mono)",
-              fontSize: 11,
-              fontWeight: 500,
-              letterSpacing: "0.08em",
-              textTransform: "uppercase",
-              color: "var(--text-dim)",
-              marginBottom: 10,
-            }}
-          >
-            Lencana — {badges.length}
-          </div>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <div className="label kl-label-dim">Lencana — {badges.length}</div>
+          <div className="kl-badges">
             {badges.map((ub) => (
-              <span key={ub.badgeId} className="pill pill-warn" title={ub.badge?.description} style={{ padding: "6px 12px", fontSize: 12 }}>
+              <span key={ub.badgeId} className="pill pill-warn kl-badge" title={ub.badge?.description}>
                 {ub.badge?.icon} {ub.badge?.name}
               </span>
             ))}
@@ -89,24 +95,10 @@ function CollectionInner() {
         </div>
       )}
       <div className="card">
-        <div
-          style={{
-            padding: "14px 16px",
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            borderBottom: "1px solid var(--border)",
-          }}
-        >
-          <span style={{ fontWeight: 600, fontSize: 13 }}>C.Card — {cards.length}</span>
-          <div style={{ display: "flex", gap: 6 }}>
-            <select
-              className="select"
-              value={loc}
-              onChange={(e) => setLoc(e.target.value as typeof loc)}
-              aria-label="Filter lokasi"
-              style={{ fontSize: 11, padding: "4px 8px", height: 28 }}
-            >
+        <div className="kl-toolbar">
+          <span className="kl-toolbar-title">C.Card — {cards.length}</span>
+          <div className="kl-filters">
+            <select className="select" value={loc} onChange={(e) => setLoc(e.target.value as typeof loc)} aria-label="Filter lokasi">
               <option value="all">Semua lokasi</option>
               <option value="with_owner">Punya saya</option>
               <option value="platform_vault">Di vault</option>
@@ -116,55 +108,44 @@ function CollectionInner() {
               value={variant}
               onChange={(e) => setVariant(e.target.value as typeof variant)}
               aria-label="Filter varian"
-              style={{ fontSize: 11, padding: "4px 8px", height: 28 }}
             >
               <option value="all">Semua varian</option>
               <option value="signed">Signed</option>
               <option value="unsigned">Unsigned</option>
             </select>
-            <Link to="/me/manage" style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--gold)", fontWeight: 500 }}>
+            <Link to="/me/manage" className="kl-link">
               Kelola →
             </Link>
           </div>
         </div>
         {cards.length === 0 ? (
-          <div style={{ padding: 32, textAlign: "center", color: "var(--text-muted)", fontSize: 13 }}>
+          <div className="kl-empty">
             Belum punya C.Card.{" "}
-            <Link to="/drops" style={{ color: "var(--gold)", fontWeight: 600 }}>
+            <Link to="/drops" className="kl-empty-link">
               Jelajahi Drops →
             </Link>
           </div>
         ) : (
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(220px,1fr))", gap: 14, padding: 14 }}>
+          <div className="kl-grid">
             {cards.map((ca) => (
-              <Link
-                key={ca.id}
-                to={`/cards/${ca.id}`}
-                className="card"
-                style={{ overflow: "hidden", textDecoration: "none", color: "inherit" }}
-              >
-                <div style={{ height: 140 }}>
+              <Link key={ca.id} to={`/cards/${ca.id}`} className="card kl-tile">
+                <div className="kl-thumb">
                   <CardThumb artworkUrl={ca.drop?.artworkUrl} series={ca.drop?.series} title={ca.drop?.title} />
                 </div>
-                <div style={{ padding: 12, display: "flex", flexDirection: "column", gap: 6 }}>
-                  <div style={{ fontWeight: 600, fontSize: 13 }}>
+                <div className="kl-tile-body">
+                  <div className="kl-tile-title">
                     {ca.drop?.title ?? ca.dropId} · #{ca.unitNumber}
                   </div>
-                  <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--text-muted)" }}>
+                  <div className="kl-tile-meta">
                     {ca.drop?.series} {ca.buyoutPriceCcoin ? `· ${ca.buyoutPriceCcoin} C` : ""}
                   </div>
-                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 2 }}>
+                  <div className="kl-tile-pills">
                     <span
-                      className={`pill ${ca.location === "platform_vault" ? "pill-warn" : ca.location === "with_owner" ? "pill-success" : "pill-info"}`}
-                      style={{ fontSize: 10 }}
+                      className={`pill ${ca.location === "platform_vault" ? "pill-warn" : ca.location === "with_owner" ? "pill-success" : "pill-info"} kl-pill-sm`}
                     >
                       {ca.location ? cardLocationLabel(ca.location) : (ca.status ?? "")}
                     </span>
-                    {ca.activeBid ? (
-                      <span className="pill pill-success" style={{ fontSize: 10 }}>
-                        Bid {ca.activeBid.amountCCoin} C
-                      </span>
-                    ) : null}
+                    {ca.activeBid ? <span className="pill pill-success kl-pill-sm">Bid {ca.activeBid.amountCCoin} C</span> : null}
                   </div>
                 </div>
               </Link>

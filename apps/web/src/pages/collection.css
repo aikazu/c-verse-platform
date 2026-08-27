@@ -1,0 +1,168 @@
+/* Collection / Hangar (Space Arcade) — classes namespaced `kl-` to avoid collisions
+   with global styles.css and sibling lane css (hm-, wa-, pp-). Consumes only
+   existing theme tokens (--surface-*, --gold, --border, --font-*, --motion-*). */
+
+.kl-head {
+	display: flex;
+	justify-content: space-between;
+	align-items: flex-end;
+	flex-wrap: wrap;
+	gap: 12px;
+}
+
+.kl-head-copy {
+	flex: 1 1 320px;
+	min-width: 0;
+}
+
+.kl-title {
+	margin-top: 4px;
+}
+
+/* Override global `.h2 em` (magenta, upright) — original title kept italic gold accent. */
+.kl-title em {
+	font-style: italic;
+	font-weight: 300;
+	color: var(--gold);
+	text-shadow: 0 0 14px rgba(255, 201, 77, 0.42);
+}
+
+.card.kl-level {
+	margin-top: 14px;
+	background: var(--surface-2);
+}
+
+.kl-head-actions {
+	display: flex;
+	gap: 8px;
+	flex-wrap: wrap;
+}
+
+.kl-btn-mono {
+	font-family: var(--font-mono);
+	font-size: 12px;
+}
+
+.kl-label-dim {
+	color: var(--text-dim);
+}
+
+.kl-badges {
+	display: flex;
+	gap: 8px;
+	flex-wrap: wrap;
+}
+
+.kl-badge {
+	padding: 6px 12px;
+	font-size: 12px;
+}
+
+.kl-toolbar {
+	padding: 14px 16px;
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	gap: 10px;
+	border-bottom: 1px solid var(--border);
+}
+
+.kl-toolbar-title {
+	font-weight: 600;
+	font-size: 13px;
+}
+
+.kl-filters {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	flex-wrap: wrap;
+}
+
+.kl-filters .select {
+	width: auto;
+}
+
+.kl-link {
+	font-family: var(--font-mono);
+	font-size: 11px;
+	font-weight: 500;
+	color: var(--gold);
+	white-space: nowrap;
+}
+
+.kl-empty {
+	padding: 32px;
+	text-align: center;
+	color: var(--text-muted);
+	font-size: 13px;
+}
+
+.kl-empty-link {
+	color: var(--gold);
+	font-weight: 600;
+}
+
+.kl-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+	gap: 14px;
+	padding: 14px;
+}
+
+.kl-tile {
+	overflow: hidden;
+	text-decoration: none;
+	color: inherit;
+	transition:
+		border-color var(--motion-fast) ease,
+		transform var(--motion-fast) ease;
+}
+
+.kl-tile:hover {
+	border-color: var(--border-strong);
+}
+
+.kl-thumb {
+	height: 140px;
+}
+
+.kl-tile-body {
+	padding: 12px;
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+}
+
+.kl-tile-title {
+	font-weight: 600;
+	font-size: 13px;
+}
+
+.kl-tile-meta {
+	font-family: var(--font-mono);
+	font-size: 11px;
+	color: var(--text-muted);
+}
+
+.kl-tile-pills {
+	display: flex;
+	gap: 6px;
+	flex-wrap: wrap;
+	margin-top: 2px;
+}
+
+.kl-pill-sm {
+	font-size: 10px;
+}
+
+@media (max-width: 720px) {
+	.kl-toolbar {
+		flex-direction: column;
+		align-items: flex-start;
+	}
+
+	.kl-filters {
+		width: 100%;
+	}
+}
