@@ -1,0 +1,149 @@
+/* Home / Cockpit (Space Arcade) — classes namespaced `hm-` to avoid collisions
+   with global styles.css and sibling lane css (kl-, wa-, pp-). Consumes only
+   existing theme tokens (--surface-*, --gold, --border, --font-*, --r-*, --motion-*). */
+
+.card.hm-balance {
+	background: var(--surface-2);
+}
+
+.hm-balance-row {
+	display: flex;
+	align-items: baseline;
+	gap: 10px;
+	margin-top: 6px;
+	flex-wrap: wrap;
+}
+
+.hm-balance-value {
+	font-family: var(--font-display);
+	font-size: 28px;
+	font-weight: 500;
+}
+
+.hm-balance-unit {
+	font-family: var(--font-mono);
+	font-size: 13px;
+	font-weight: 400;
+	color: var(--text-muted);
+}
+
+.hm-balance-link {
+	font-family: var(--font-mono);
+	font-size: 11px;
+	font-weight: 500;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+	color: var(--gold);
+}
+
+.hm-stack {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+}
+
+.hm-stack-list {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+}
+
+.hm-label-gold {
+	color: var(--gold);
+}
+
+.hm-label-dim {
+	color: var(--text-dim);
+}
+
+.hm-action-link {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 10px;
+	padding: 8px 12px;
+	border: 1px solid var(--border);
+	border-radius: var(--r-1);
+	text-decoration: none;
+	color: var(--text);
+	transition: border-color var(--motion-fast) ease;
+}
+
+.hm-action-link:hover {
+	border-color: var(--border-strong);
+}
+
+.hm-action-text {
+	font-size: 13px;
+}
+
+.hm-action-arrow {
+	font-family: var(--font-mono);
+	font-size: 11px;
+	color: var(--gold);
+}
+
+.hm-section-row {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 10px;
+	margin-bottom: 12px;
+}
+
+.hm-link {
+	font-family: var(--font-mono);
+	font-size: 11px;
+	font-weight: 500;
+	color: var(--gold);
+}
+
+.hm-card {
+	overflow: hidden;
+	text-decoration: none;
+	color: inherit;
+	transition:
+		border-color var(--motion-fast) ease,
+		transform var(--motion-fast) ease;
+}
+
+.hm-card:hover {
+	border-color: var(--border-strong);
+}
+
+.hm-thumb {
+	height: 120px;
+}
+
+.hm-card-body {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	padding: 12px;
+}
+
+.hm-card-title {
+	font-size: 13px;
+	font-weight: 600;
+}
+
+.hm-card-meta {
+	font-family: var(--font-mono);
+	font-size: 11px;
+	color: var(--text-muted);
+}
+
+.hm-status {
+	font-family: var(--font-mono);
+	font-size: 12px;
+}
+
+@media (max-width: 640px) {
+	.hm-balance-value {
+		font-size: 24px;
+	}
+
+	.hm-action-text {
+		font-size: 12px;
+	}
+}
