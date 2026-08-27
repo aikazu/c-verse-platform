@@ -3,6 +3,7 @@ import { useState } from "react";
 import { api } from "../lib/api";
 import type { ApiProfileResponse } from "../lib/api-types";
 import { useToast } from "../lib/toast";
+import "./account.css";
 
 const errorMessage = (e: unknown): string => (e instanceof Error ? e.message : String(e));
 
@@ -43,16 +44,24 @@ export default function Privacy() {
     }
   }
   return (
-    <div style={{ maxWidth: 560, margin: "0 auto", display: "flex", flexDirection: "column", gap: 18 }}>
-      <div>
-        <span className="eyebrow">Privasi</span>
-        <h1 className="h2" style={{ marginTop: 4 }}>
-          Privasi
-        </h1>
-        <p className="muted" style={{ marginTop: 6 }}>
-          Kontrol visibilitas koleksi & izin data
-        </p>
-      </div>
+    <div className="page-stack ac-narrow">
+      <section className="page-hero ac-hero" aria-label="Header halaman Privasi">
+        <div className="page-hero-rail">
+          <span className="rail-channel">CH:12 / PRIVASI</span>
+          <span className="rail-dot" aria-hidden="true" />
+          <span className="rail-sep">·</span>
+          <span className="rail-extra">STEALTH PROTOCOL</span>
+          <span className="rail-time" aria-label="Siap">
+            <span className="rail-cursor" aria-hidden="true" />
+          </span>
+        </div>
+        <div className="page-hero-inner">
+          <div className="page-hero-copy">
+            <h1 className="page-hero-title">Privasi</h1>
+            <p className="page-hero-desc">Kontrol visibilitas koleksi &amp; izin data</p>
+          </div>
+        </div>
+      </section>
       <div className="card card-pad">
         <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
           <div style={{ flex: 1, minWidth: 160 }}>
@@ -77,9 +86,9 @@ export default function Privacy() {
           Pengaturan consent ini opsional dan tidak memengaruhi kemampuan kolektor membeli/menjual. Kreator hanya menerima data agregat —
           data pribadi tidak pernah dibagikan.
         </p>
-        <label style={{ display: "flex", alignItems: "flex-start", gap: 10, fontSize: 13, cursor: "pointer" }}>
-          <input type="checkbox" checked={ca} onChange={() => toggleConsent("analytics")} disabled={saving} style={{ marginTop: 3 }} />
-          <span>
+        <label className="ac-toggle">
+          <input type="checkbox" checked={ca} onChange={() => toggleConsent("analytics")} disabled={saving} />
+          <span className="ac-toggle-copy">
             <strong>Insight agregat ke kreator</strong>
             <div className="muted" style={{ fontSize: 11, lineHeight: 1.5, marginTop: 2 }}>
               Kreator dapat melihat statistik anonim (jumlah kunjungan halaman kreator, repeat rate). Tidak ada data identitas yang
@@ -87,9 +96,9 @@ export default function Privacy() {
             </div>
           </span>
         </label>
-        <label style={{ display: "flex", alignItems: "flex-start", gap: 10, fontSize: 13, cursor: "pointer" }}>
-          <input type="checkbox" checked={cm} onChange={() => toggleConsent("market")} disabled={saving} style={{ marginTop: 3 }} />
-          <span>
+        <label className="ac-toggle">
+          <input type="checkbox" checked={cm} onChange={() => toggleConsent("market")} disabled={saving} />
+          <span className="ac-toggle-copy">
             <strong>Data agregat untuk laporan pasar</strong>
             <div className="muted" style={{ fontSize: 11, lineHeight: 1.5, marginTop: 2 }}>
               Setuju data kamu digunakan dalam laporan agregat (mis. rata-rata spending kolektor per kategori, tanpa identitas).

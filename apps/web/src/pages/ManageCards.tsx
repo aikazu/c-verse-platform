@@ -7,6 +7,7 @@ import { api } from "../lib/api";
 import type { ApiProfileEnrichedCard } from "../lib/api-types";
 import { useAuth } from "../lib/auth";
 import { useToast } from "../lib/toast";
+import "./account.css";
 
 type EnrichedCard = ApiProfileEnrichedCard;
 
@@ -114,29 +115,39 @@ function ManageCardsInner() {
     }
   }
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: 12 }}>
-        <div>
-          <span className="eyebrow">Kelola</span>
-          <h1 className="h2" style={{ marginTop: 4 }}>
-            Kelola <em style={{ fontStyle: "italic", fontWeight: 300, color: "var(--gold)" }}>C.Card</em> — {cards.length}
-          </h1>
+    <div className="page-stack">
+      <section className="page-hero ac-hero" aria-label="Header halaman Kelola">
+        <div className="page-hero-rail">
+          <span className="rail-channel">CH:10 / MANAGE</span>
+          <span className="rail-dot" aria-hidden="true" />
+          <span className="rail-sep">·</span>
+          <span className="rail-extra">CARD MAINTENANCE</span>
+          <span className="rail-time" aria-label="Siap">
+            <span className="rail-cursor" aria-hidden="true" />
+          </span>
         </div>
-        <Link to="/collection" className="btn-ghost" style={{ fontFamily: "var(--font-mono)", fontSize: 12 }}>
-          ← Koleksi
-        </Link>
-      </div>
+        <div className="page-hero-inner">
+          <div className="page-hero-copy">
+            <h1 className="page-hero-title">
+              Kelola <em>C.Card</em> — {cards.length}
+            </h1>
+          </div>
+          <Link to="/collection" className="btn-ghost" style={{ fontFamily: "var(--font-mono)", fontSize: 12 }}>
+            ← Koleksi
+          </Link>
+        </div>
+      </section>
       {cards.length === 0 ? (
         <div className="card card-pad muted" style={{ textAlign: "center", padding: 32 }}>
           Belum punya C.Card
         </div>
       ) : (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(320px,1fr))", gap: 14 }}>
+        <div className="ac-grid-cards">
           {cards.map((card) => (
             // P1-3 (audit 2026-08-24): hierarchical per-card structure.
             // <details> per aksi (buyout, accept-bid, ship-vault) supaya tidak
             // langsung bombardir user dengan 3 form terbuka — visual fokus.
-            <div key={card.id} className="card" style={{ padding: 16, display: "flex", flexDirection: "column", gap: 10 }}>
+            <div key={card.id} className="card ac-card">
               <div style={{ fontWeight: 600, fontSize: 13 }}>
                 {card.drop?.title ?? card.dropId} · #{card.unitNumber}{" "}
                 <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--text-dim)" }}>· {card.variant}</span>
@@ -147,10 +158,7 @@ function ManageCardsInner() {
                     {card.buyoutPriceCcoin} C · Dijual
                   </span>
                 ) : (
-                  <span
-                    className="pill"
-                    style={{ fontSize: 10, background: "var(--surface-2)", color: "var(--text-dim)", border: "1px solid var(--border)" }}
-                  >
+                  <span className="pill pill-muted" style={{ fontSize: 10 }}>
                     Tidak dijual
                   </span>
                 )}
@@ -167,21 +175,9 @@ function ManageCardsInner() {
                 Detail →
               </Link>
               {/* Aksi 1 — Pasang harga jual */}
-              <details style={{ borderTop: "1px solid var(--border)", paddingTop: 10 }}>
-                <summary
-                  style={{
-                    fontFamily: "var(--font-mono)",
-                    fontSize: 11,
-                    fontWeight: 500,
-                    letterSpacing: "0.06em",
-                    textTransform: "uppercase",
-                    color: "var(--text-muted)",
-                    cursor: "pointer",
-                  }}
-                >
-                  Pasang / Ubah Harga Jual
-                </summary>
-                <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
+              <details className="ac-card-item">
+                <summary className="ac-card-summary">Pasang / Ubah Harga Jual</summary>
+                <div className="ac-card-row">
                   <input
                     className="input"
                     type="number"
@@ -204,21 +200,11 @@ function ManageCardsInner() {
               </details>
               {/* Aksi 2 — Terima tawaran aktif */}
               {card.activeBid && (
-                <details style={{ borderTop: "1px solid var(--border)", paddingTop: 10 }}>
-                  <summary
-                    style={{
-                      fontFamily: "var(--font-mono)",
-                      fontSize: 11,
-                      fontWeight: 500,
-                      letterSpacing: "0.06em",
-                      textTransform: "uppercase",
-                      color: "var(--text-muted)",
-                      cursor: "pointer",
-                    }}
-                  >
+                <details className="ac-card-item">
+                  <summary className="ac-card-summary">
                     Terima Tawaran {card.activeBid.amountCCoin} C (dari {card.activeBid.bidderName})
                   </summary>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 8 }}>
+                  <div className="ac-card-body">
                     <select
                       className="select"
                       aria-label="Tujuan pengiriman"
@@ -253,21 +239,9 @@ function ManageCardsInner() {
               )}
               {/* Aksi 3 — Kirim dari vault */}
               {card.location === "platform_vault" && (
-                <details style={{ borderTop: "1px solid var(--border)", paddingTop: 10 }}>
-                  <summary
-                    style={{
-                      fontFamily: "var(--font-mono)",
-                      fontSize: 11,
-                      fontWeight: 500,
-                      letterSpacing: "0.06em",
-                      textTransform: "uppercase",
-                      color: "var(--text-muted)",
-                      cursor: "pointer",
-                    }}
-                  >
-                    Kirim dari Vault
-                  </summary>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 8 }}>
+                <details className="ac-card-item">
+                  <summary className="ac-card-summary">Kirim dari Vault</summary>
+                  <div className="ac-card-body">
                     <input
                       className="input"
                       aria-label="Alamat pengiriman"
@@ -276,7 +250,7 @@ function ManageCardsInner() {
                       onChange={(e) => setVaultAddr((s) => ({ ...s, [card.id]: e.target.value }))}
                       style={{ fontSize: 12 }}
                     />
-                    <div style={{ display: "flex", gap: 6 }}>
+                    <div className="ac-card-row">
                       <input
                         className="input"
                         type="number"

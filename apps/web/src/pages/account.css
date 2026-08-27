@@ -1,0 +1,194 @@
+/* Account pages (Space Arcade) — shared styles for KYC, Privacy, Manage Cards,
+   and Verify Shipment. All classes namespaced `ac-` to mirror sibling page
+   stylesheets (creator.css = `cp-`, profile.css = `pp-`). Consumes only
+   existing theme tokens from styles.css; global classes (.page-hero, .page-stack,
+   .card, .pill, .btn-gold, .label, .form-row) provide the base skin. */
+
+/* Narrow page column — widths preserved from the previous inline wrappers
+   (Privacy 560, KYC 600). */
+.ac-narrow {
+	width: 100%;
+	max-width: 560px;
+	margin-inline: auto;
+}
+.ac-narrow-lg {
+	max-width: 600px;
+}
+
+/* Rail wrap on tight screens — scoped via .ac-hero so other lanes' heroes keep
+   the global single-line rail. */
+@media (max-width: 720px) {
+	.ac-hero .page-hero-rail {
+		flex-wrap: wrap;
+		row-gap: 6px;
+	}
+}
+
+/* KYC status box — bg/border/color via theme tokens (signal = approved,
+   alert = rejected, gold = pending/review). Radius uses --r-1 (10px), matching
+   the previous hard-coded value. */
+.ac-status {
+	padding: 14px 16px;
+	border: 1px solid var(--border);
+	border-radius: var(--r-1);
+}
+.ac-status-approved {
+	background: var(--signal-bg);
+	border-color: var(--signal-border);
+}
+.ac-status-rejected {
+	background: var(--alert-bg);
+	border-color: var(--alert-border);
+}
+.ac-status-pending {
+	background: var(--gold-bg-soft);
+	border-color: var(--gold-border);
+}
+.ac-status-label {
+	font-family: var(--font-mono);
+	font-size: 11px;
+	font-weight: 600;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+	color: var(--gold);
+}
+.ac-status-approved .ac-status-label {
+	color: var(--signal);
+}
+.ac-status-rejected .ac-status-label {
+	color: var(--alert);
+}
+.ac-status-name {
+	font-weight: 600;
+	font-size: 13px;
+	margin-top: 4px;
+}
+.ac-status-note {
+	font-size: 12px;
+	margin-top: 4px;
+}
+
+/* Privacy consent toggle — capsule switch drawn purely in CSS on top of the
+   native checkbox (real input kept for a11y + click-to-toggle via label). */
+.ac-toggle {
+	display: flex;
+	align-items: flex-start;
+	gap: 10px;
+	font-size: 13px;
+	cursor: pointer;
+}
+.ac-toggle-copy {
+	flex: 1;
+	min-width: 0;
+}
+.ac-toggle input {
+	appearance: none;
+	position: relative;
+	flex: 0 0 auto;
+	width: 34px;
+	height: 18px;
+	margin: 3px 0 0;
+	border: 1px solid var(--border-strong);
+	border-radius: 999px;
+	background: var(--surface-3);
+	cursor: pointer;
+	transition:
+		background var(--motion-fast),
+		border-color var(--motion-fast);
+}
+.ac-toggle input::after {
+	content: '';
+	position: absolute;
+	top: 2px;
+	left: 2px;
+	width: 12px;
+	height: 12px;
+	border-radius: 999px;
+	background: var(--text-dim);
+	transition:
+		transform var(--motion-fast),
+		background var(--motion-fast);
+}
+.ac-toggle input:checked {
+	background: var(--gold-bg);
+	border-color: var(--gold-border);
+}
+.ac-toggle input:checked::after {
+	transform: translateX(16px);
+	background: var(--gold);
+}
+.ac-toggle input:focus-visible {
+	outline: 2px solid var(--info);
+	outline-offset: 2px;
+}
+.ac-toggle input[disabled] {
+	opacity: 0.5;
+	cursor: not-allowed;
+}
+
+/* Manage Cards — responsive card grid + <details> accordion (details/summary
+   semantics untouched; only the marker is restyled to the arcade glyph). */
+.ac-grid-cards {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+	gap: 14px;
+}
+.ac-card {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+	padding: 16px;
+}
+.ac-card-item {
+	border-top: 1px solid var(--border);
+	padding-top: 10px;
+}
+.ac-card-summary {
+	font-family: var(--font-mono);
+	font-size: 11px;
+	font-weight: 500;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+	color: var(--text-muted);
+	cursor: pointer;
+	list-style: none;
+	transition: color var(--motion-fast);
+}
+.ac-card-summary::-webkit-details-marker {
+	display: none;
+}
+.ac-card-summary::before {
+	content: '▸ ' / '';
+	color: var(--magenta);
+}
+.ac-card-summary:hover,
+.ac-card-item[open] > .ac-card-summary {
+	color: var(--gold);
+}
+.ac-card-item[open] > .ac-card-summary::before {
+	content: '▾ ' / '';
+}
+.ac-card-summary:focus-visible {
+	outline: 2px solid var(--info);
+	outline-offset: 2px;
+}
+.ac-card-body {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	margin-top: 8px;
+}
+.ac-card-row {
+	display: flex;
+	gap: 6px;
+	margin-top: 8px;
+}
+.ac-card-body .ac-card-row {
+	margin-top: 0;
+}
+
+@media (max-width: 720px) {
+	.ac-grid-cards {
+		grid-template-columns: 1fr;
+	}
+}

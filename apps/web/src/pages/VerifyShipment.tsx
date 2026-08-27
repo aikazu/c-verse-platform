@@ -6,6 +6,7 @@ import { api } from "../lib/api";
 import type { ApiProfileResponse } from "../lib/api-types";
 import { ErrorState, LoadingState } from "../lib/QueryStates";
 import { useToast } from "../lib/toast";
+import "./account.css";
 
 const errorMessage = (e: unknown): string => (e instanceof Error ? e.message : String(e));
 
@@ -63,17 +64,27 @@ function VerifyShipmentInner() {
     }
   }
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-      <div>
-        <span className="eyebrow">Verifikasi Pengiriman</span>
-        <h1 className="h2" style={{ marginTop: 4 }}>
-          Kirim C.Card ke Vault
-        </h1>
-        <p className="muted" style={{ marginTop: 6 }}>
-          Setelah kartu terjual dengan tujuan vault, kirim kartu fisik ke platform untuk verifikasi NFC. Payout baru dilepas setelah tim
-          menerima & memverifikasi.
-        </p>
-      </div>
+    <div className="page-stack">
+      <section className="page-hero ac-hero" aria-label="Header halaman Pengiriman">
+        <div className="page-hero-rail">
+          <span className="rail-channel">CH:10 / MANAGE</span>
+          <span className="rail-dot" aria-hidden="true" />
+          <span className="rail-sep">·</span>
+          <span className="rail-extra">SHIPMENT VERIFY</span>
+          <span className="rail-time" aria-label="Siap">
+            <span className="rail-cursor" aria-hidden="true" />
+          </span>
+        </div>
+        <div className="page-hero-inner">
+          <div className="page-hero-copy">
+            <h1 className="page-hero-title">Kirim C.Card ke Vault</h1>
+            <p className="page-hero-desc">
+              Setelah kartu terjual dengan tujuan vault, kirim kartu fisik ke platform untuk verifikasi NFC. Payout baru dilepas setelah tim
+              menerima &amp; memverifikasi.
+            </p>
+          </div>
+        </div>
+      </section>
       {eligible.length === 0 ? (
         <div className="card card-pad muted" style={{ textAlign: "center", padding: 32 }}>
           Tidak ada kartu yang perlu dikirim ke vault.{" "}
@@ -116,7 +127,7 @@ function VerifyShipmentInner() {
                   placeholder="JNE / J&T / SiCepat"
                 />
               </div>
-              <button className="btn-gold" onClick={() => onSubmit(card.id)} disabled={busyId === card.id} style={{ padding: "11px" }}>
+              <button className="btn-gold" onClick={() => onSubmit(card.id)} disabled={busyId === card.id}>
                 {busyId === card.id ? "Mencatat…" : "Catat Pengiriman"}
               </button>
             </div>

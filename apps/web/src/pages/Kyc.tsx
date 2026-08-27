@@ -7,6 +7,7 @@ import type { ApiKycResponse } from "../lib/api-types";
 import { useAuth } from "../lib/auth";
 import { supabase } from "../lib/supabase";
 import { useToast } from "../lib/toast";
+import "./account.css";
 
 const errorMessage = (e: unknown): string => (e instanceof Error ? e.message : String(e));
 
@@ -36,6 +37,13 @@ function parseNik(nik: string): { province: string; dobDDMMYY: string; sequence:
 
 /** Upload satu file ke bucket kyc-files (private). Mengembalikan path storage;
  *  route /api/kyc menerima URL absolut hasil sign. */
+/** Styling-only: map KYC status to the `ac-status-*` modifier class (account.css). */
+function statusClassName(status: NonNullable<ApiKycResponse["kyc"]>["status"]): string {
+  if (status === "approved") return "ac-status ac-status-approved";
+  if (status === "rejected") return "ac-status ac-status-rejected";
+  return "ac-status ac-status-pending";
+}
+
 async function uploadKycFile(userId: string, kind: "ktp" | "selfie" | "npwp", file: File): Promise<string> {
   if (!supabase) throw new Error("Supabase belum terkonfigurasi");
   const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
@@ -113,53 +121,38 @@ function KycInner() {
     }
   }
   return (
-    <div style={{ maxWidth: 600, margin: "0 auto", display: "flex", flexDirection: "column", gap: 18 }}>
-      <div>
-        <span className="eyebrow">Verifikasi</span>
-        <h1 className="h2" style={{ marginTop: 4 }}>
-          Verifikasi <em style={{ fontStyle: "italic", fontWeight: 300, color: "var(--gold)" }}>Identitas</em>
-        </h1>
-        <p className="muted" style={{ marginTop: 6 }}>
-          Diperlukan untuk payout ke rekening (disbursement IDR). Tidak diperlukan untuk pasang harga jual atau terima penawaran — hanya
-          untuk penarikan hasil penjualan.
-        </p>
-      </div>
+    <div className="page-stack ac-narrow ac-narrow-lg">
+      <section className="page-hero ac-hero" aria-label="Header halaman Verifikasi">
+        <div className="page-hero-rail">
+          <span className="rail-channel">CH:11 / VERIFIKASI</span>
+          <span className="rail-dot" aria-hidden="true" />
+          <span className="rail-sep">·</span>
+          <span className="rail-extra">PILOT CLEARANCE</span>
+          <span className="rail-time" aria-label="Siap">
+            <span className="rail-cursor" aria-hidden="true" />
+          </span>
+        </div>
+        <div className="page-hero-inner">
+          <div className="page-hero-copy">
+            <h1 className="page-hero-title">
+              Verifikasi <em>Identitas</em>
+            </h1>
+            <p className="page-hero-desc">
+              Diperlukan untuk payout ke rekening (disbursement IDR). Tidak diperlukan untuk pasang harga jual atau terima penawaran — hanya
+              untuk penarikan hasil penjualan.
+            </p>
+          </div>
+        </div>
+      </section>
       <div className="card card-pad">
         {kyc ? (
-          <div
-            style={{
-              padding: "14px 16px",
-              borderRadius: 10,
-              background:
-                kyc.status === "approved" ? "var(--signal-bg)" : kyc.status === "rejected" ? "var(--alert-bg)" : "var(--gold-bg-soft)",
-              border: `1px solid ${kyc.status === "approved" ? "var(--signal-border)" : kyc.status === "rejected" ? "var(--alert-border)" : "var(--gold-border)"}`,
-            }}
-          >
-            <div
-              style={{
-                fontFamily: "var(--font-mono)",
-                fontSize: 11,
-                fontWeight: 600,
-                letterSpacing: "0.06em",
-                textTransform: "uppercase",
-                color: kyc.status === "approved" ? "var(--signal)" : kyc.status === "rejected" ? "var(--alert)" : "var(--gold)",
-              }}
-            >
-              {kycStatusLabel(kyc.status)}
-            </div>
-            <div style={{ fontWeight: 600, fontSize: 13, marginTop: 4 }}>
+          <div className={statusClassName(kyc.status)}>
+            <div className="ac-status-label">{kycStatusLabel(kyc.status)}</div>
+            <div className="ac-status-name">
               {kyc.fullName ?? "—"} · {kyc.nik ?? ""}
             </div>
-            {kyc.status === "pending" && (
-              <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
-                Menunggu verifikasi
-              </div>
-            )}
-            {kyc.status === "rejected" && (
-              <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
-                Ditolak — silakan ajukan ulang
-              </div>
-            )}
+            {kyc.status === "pending" && <div className="muted ac-status-note">Menunggu verifikasi</div>}
+            {kyc.status === "rejected" && <div className="muted ac-status-note">Ditolak — silakan ajukan ulang</div>}
           </div>
         ) : (
           <div className="muted" style={{ fontFamily: "var(--font-mono)", fontSize: 12 }}>
