@@ -7,6 +7,7 @@ import { api } from "../lib/api";
 import type { ApiDrop, ApiDropDetailResponse } from "../lib/api-types";
 import { useAuth } from "../lib/auth";
 import { useToast } from "../lib/toast";
+import "./commerce.css";
 
 const errorMessage = (e: unknown): string => (e instanceof Error ? e.message : String(e));
 
@@ -94,10 +95,26 @@ export default function DropDetail() {
   const pct = drop.totalUnits ? Math.round((drop.soldCount / drop.totalUnits) * 100) : 0;
   const dropStart = dropStartRaw;
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-      <Link to="/drops" style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--text-muted)", letterSpacing: "0.04em" }}>
-        ← Kembali ke Drops
-      </Link>
+    <div className="page-stack">
+      <section className="page-hero" aria-label="Header halaman Drop">
+        <div className="page-hero-rail">
+          <span className="rail-channel">CH:01 / DROPS</span>
+          <span className="rail-dot" aria-hidden="true" />
+          <span className="rail-sep">·</span>
+          <span className="rail-extra">DROP DOSSIER</span>
+          <span className="rail-time" aria-label="Siap">
+            <span className="rail-cursor" aria-hidden="true" />
+          </span>
+        </div>
+        <div className="page-hero-inner">
+          <div className="page-hero-copy">
+            <h1 className="page-hero-title">{drop.title}</h1>
+          </div>
+          <Link to="/drops" className="btn-ghost cm-back">
+            ← Kembali ke Drops
+          </Link>
+        </div>
+      </section>
       <div className="grid-2" style={{ alignItems: "start" }}>
         <div className="card" style={{ overflow: "hidden" }}>
           <div style={{ aspectRatio: "4/3" }}>
@@ -148,7 +165,7 @@ export default function DropDetail() {
             <p className="muted" style={{ marginTop: 14, lineHeight: 1.7 }}>
               {drop.narrative}
             </p>
-            <div style={{ display: "flex", gap: 20, marginTop: 16, flexWrap: "wrap" }}>
+            <div className="cm-stat-row">
               <Stat label="TOTAL" value={String(drop.totalUnits)} />
               <Stat label="TERJUAL" value={`${drop.soldCount}/${drop.totalUnits} · ${pct}%`} />
               <Stat label="REGULER" value={`${priceRegular} C`} />
@@ -190,19 +207,9 @@ export default function DropDetail() {
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
-    <div>
-      <div
-        style={{
-          fontFamily: "var(--font-mono)",
-          fontSize: 10,
-          color: "var(--text-dim)",
-          fontWeight: 500,
-          letterSpacing: "0.08em",
-        }}
-      >
-        {label}
-      </div>
-      <div style={{ fontWeight: 700, fontSize: 15, marginTop: 2 }}>{value}</div>
+    <div className="cm-stat">
+      <div className="label">{label}</div>
+      <div className="cm-stat-value">{value}</div>
     </div>
   );
 }
@@ -247,7 +254,7 @@ function ActionPanel(props: {
   const holdAmount = pool === "regular" ? props.priceRegular : pool === "premium" ? props.priceSigned : props.priceSigned;
 
   return (
-    <div className="card card-pad" style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+    <div className="card card-pad cm-panel">
       <div>
         <span className="eyebrow">
           {props.phase === "raffle"
@@ -260,7 +267,7 @@ function ActionPanel(props: {
                   ? "Menunggu Draw"
                   : "Status"}
         </span>
-        <div style={{ fontFamily: "var(--font-display)", fontSize: 18, fontWeight: 500, marginTop: 4 }}>
+        <div className="cm-panel-title">
           {props.phase === "raffle" ? (
             <em style={{ fontStyle: "italic", fontWeight: 300, color: "var(--gold)" }}>Ikuti</em>
           ) : props.phase === "fcfs" ? (
@@ -270,46 +277,22 @@ function ActionPanel(props: {
           )}
         </div>
         {props.phase === "upcoming" && props.countdownTarget && (
-          <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>
-            Mulai: {new Date(props.countdownTarget).toLocaleString("id-ID")}
-          </div>
+          <div className="muted cm-panel-note">Mulai: {new Date(props.countdownTarget).toLocaleString("id-ID")}</div>
         )}
         {props.phase === "drawing" && (
-          <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>
-            Window tutup. Menunggu draw otomatis (cron) — refresh sebentar lagi.
-          </div>
+          <div className="muted cm-panel-note">Window tutup. Menunggu draw otomatis (cron) — refresh sebentar lagi.</div>
         )}
       </div>
 
       {props.phase === "raffle" && (
-        <div
-          style={{
-            background: "var(--gold-bg-soft)",
-            border: "1px solid var(--gold-border)",
-            borderRadius: 10,
-            padding: "14px 16px",
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-          }}
-        >
+        <div className="cm-countdown">
           <div>
-            <div
-              style={{
-                fontFamily: "var(--font-mono)",
-                fontSize: 10,
-                color: "var(--text-dim)",
-                fontWeight: 500,
-                letterSpacing: "0.08em",
-              }}
-            >
-              WINDOW TUTUP DALAM
-            </div>
-            <div style={{ fontFamily: "var(--font-mono)", fontWeight: 700, fontSize: 22, marginTop: 2 }} aria-live="polite">
+            <div className="label">WINDOW TUTUP DALAM</div>
+            <div className="cm-countdown-value" aria-live="polite">
               {countdownLabel}
             </div>
           </div>
-          <div style={{ fontSize: 11, color: "var(--text-muted)", textAlign: "right", maxWidth: 180 }}>
+          <div className="cm-countdown-note">
             Entry ditahan di escrow C-Coin. Release otomatis maksimal H+1 setelah draw (losers) atau convert ke order (winners).
           </div>
         </div>
@@ -317,20 +300,9 @@ function ActionPanel(props: {
 
       {/* Pool selector hanya muncul saat raffle aktif */}
       {props.phase === "raffle" && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          <div
-            style={{
-              fontFamily: "var(--font-mono)",
-              fontSize: 11,
-              fontWeight: 500,
-              letterSpacing: "0.08em",
-              textTransform: "uppercase",
-              color: "var(--text-muted)",
-            }}
-          >
-            Pilih Pool
-          </div>
-          <div role="radiogroup" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        <div className="cm-pool">
+          <div className="label">Pilih Pool</div>
+          <div role="radiogroup" className="cm-pool-group">
             <PoolOption
               checked={pool === "regular"}
               onSelect={() => setPool("regular")}
@@ -359,83 +331,42 @@ function ActionPanel(props: {
       {/* CTA per phase */}
       {props.phase === "raffle" && (
         <>
-          <button className="btn-gold" onClick={onEnterRaffle} disabled={busy} style={{ padding: "14px", fontSize: 14, width: "100%" }}>
+          <button className="btn-gold cm-cta" onClick={onEnterRaffle} disabled={busy}>
             {busy ? "Mengirim…" : `Ikuti Raffle · tahan ${holdAmount} C →`}
           </button>
-          <div style={{ fontSize: 11, color: "var(--text-dim)", fontFamily: "var(--font-mono)" }}>
-            Limit 1 entry per user/drop; tidak bisa dibatalkan.
-          </div>
+          <div className="cm-footnote">Limit 1 entry per user/drop; tidak bisa dibatalkan.</div>
         </>
       )}
       {props.phase === "fcfs" && (
         <>
-          <Link
-            to={`/drops/${props.drop.id}/checkout`}
-            className="btn-gold"
-            style={{ padding: "14px", fontSize: 14, width: "100%", textAlign: "center", textDecoration: "none", display: "block" }}
-          >
+          <Link to={`/drops/${props.drop.id}/checkout`} className="btn-gold cm-cta">
             Beli Sekarang →
           </Link>
-          <div style={{ fontSize: 11, color: "var(--text-dim)", fontFamily: "var(--font-mono)" }}>
+          <div className="cm-footnote">
             Saldo kurang?{" "}
-            <Link to="/wallet" style={{ color: "var(--gold)", fontWeight: 600 }}>
+            <Link to="/wallet" className="cm-wallet-link">
               Isi C-Coin →
             </Link>
           </div>
         </>
       )}
-      {props.phase === "upcoming" && (
-        <div className="pill pill-info" style={{ justifyContent: "center", padding: "10px", fontFamily: "var(--font-mono)" }}>
-          Belum rilis — sampai {countdownLabel}
-        </div>
-      )}
-      {props.phase === "drawing" && (
-        <div className="pill pill-warn" style={{ justifyContent: "center", padding: "10px", fontFamily: "var(--font-mono)" }}>
-          Draw otomatis segera — refresh
-        </div>
-      )}
-      {props.phase === "ended" && (
-        <div className="pill" style={{ justifyContent: "center", padding: "10px", fontFamily: "var(--font-mono)" }}>
-          Selesai
-        </div>
-      )}
+      {props.phase === "upcoming" && <div className="pill pill-info cm-phase-pill">Belum rilis — sampai {countdownLabel}</div>}
+      {props.phase === "drawing" && <div className="pill pill-warn cm-phase-pill">Draw otomatis segera — refresh</div>}
+      {props.phase === "ended" && <div className="pill cm-phase-pill">Selesai</div>}
     </div>
   );
 }
 
 function PoolOption(props: { checked: boolean; onSelect: () => void; title: string; hold: number; desc: string }) {
   return (
-    <label
-      style={{
-        display: "flex",
-        gap: 10,
-        alignItems: "flex-start",
-        padding: "12px 14px",
-        border: `1px solid ${props.checked ? "var(--gold)" : "var(--border)"}`,
-        borderRadius: 10,
-        cursor: "pointer",
-        background: props.checked ? "var(--gold-bg-soft)" : "transparent",
-        transition: "all var(--motion-fast)",
-      }}
-    >
-      <input type="radio" checked={props.checked} onChange={props.onSelect} style={{ accentColor: "var(--gold)", marginTop: 2 }} />
-      <span style={{ flex: 1 }}>
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "baseline",
-            gap: 8,
-            fontWeight: 600,
-            fontSize: 13,
-          }}
-        >
+    <label className={`cm-pool-option${props.checked ? " cm-pool-option-active" : ""}`}>
+      <input type="radio" className="cm-radio" checked={props.checked} onChange={props.onSelect} />
+      <span className="cm-pool-body">
+        <div className="cm-pool-option-head">
           <span>{props.title}</span>
-          <span style={{ fontFamily: "var(--font-mono)" }}>{props.hold} C</span>
+          <span className="cm-pool-option-hold">{props.hold} C</span>
         </div>
-        <div className="muted" style={{ fontSize: 11, marginTop: 4, lineHeight: 1.5 }}>
-          {props.desc}
-        </div>
+        <div className="muted cm-pool-option-desc">{props.desc}</div>
       </span>
     </label>
   );

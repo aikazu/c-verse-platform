@@ -6,6 +6,7 @@ import { api, formatIdr } from "../lib/api";
 import type { ApiDrop, ApiDropDetailResponse } from "../lib/api-types";
 import { useAuth } from "../lib/auth";
 import { useToast } from "../lib/toast";
+import "./commerce.css";
 
 const errorMessage = (e: unknown): string => (e instanceof Error ? e.message : String(e));
 
@@ -64,10 +65,28 @@ export default function Checkout() {
     }
   }
   return (
-    <div style={{ maxWidth: 680, margin: "0 auto", display: "flex", flexDirection: "column", gap: 18 }}>
-      <Link to={`/drops/${drop.id}`} style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--text-muted)" }}>
-        ← {drop.title}
-      </Link>
+    <div className="cm-shell">
+      <section className="page-hero" aria-label="Header halaman Checkout">
+        <div className="page-hero-rail">
+          <span className="rail-channel">CH:14 / CHECKOUT</span>
+          <span className="rail-dot" aria-hidden="true" />
+          <span className="rail-sep">·</span>
+          <span className="rail-extra">ACQUISITION SEQUENCE</span>
+          <span className="rail-time" aria-label="Siap">
+            <span className="rail-cursor" aria-hidden="true" />
+          </span>
+        </div>
+        <div className="page-hero-inner">
+          <div className="page-hero-copy">
+            <h1 className="page-hero-title">
+              Check<em>out</em>
+            </h1>
+          </div>
+          <Link to={`/drops/${drop.id}`} className="btn-ghost cm-back">
+            ← {drop.title}
+          </Link>
+        </div>
+      </section>
       <div className="card card-pad">
         <span className="eyebrow">Checkout</span>
         <h2 className="h2" style={{ marginTop: 4 }}>
@@ -76,97 +95,45 @@ export default function Checkout() {
         <p className="muted" style={{ marginTop: 4 }}>
           {drop.series}
         </p>
-        <div style={{ display: "flex", gap: 20, marginTop: 16, flexWrap: "wrap" }}>
+        <div className="cm-summary">
           <div>
-            <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--text-dim)", letterSpacing: "0.08em" }}>HARGA</div>
-            <div style={{ fontWeight: 700, fontSize: 15, marginTop: 2 }}>
-              {price} C · <span style={{ fontSize: 11, color: "var(--text-muted)", fontWeight: 400 }}>{formatIdr(price * 10000)}</span>
+            <div className="label">HARGA</div>
+            <div className="cm-summary-value">
+              {price} C · <span className="cm-summary-idr">{formatIdr(price * 10000)}</span>
             </div>
           </div>
           <div>
-            <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--text-dim)", letterSpacing: "0.08em" }}>TERSEDIA</div>
-            <div style={{ fontWeight: 600, fontSize: 14, marginTop: 2 }}>{drop.totalUnits - drop.soldCount} unit</div>
+            <div className="label">TERSEDIA</div>
+            <div className="cm-summary-value-avail">{drop.totalUnits - drop.soldCount} unit</div>
           </div>
           <div>
-            <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--gold)", letterSpacing: "0.08em", fontWeight: 600 }}>
-              TOTAL
-            </div>
-            <div style={{ fontWeight: 800, fontSize: 16, color: "var(--gold)", marginTop: 2 }}>{total} C</div>
+            <div className="label cm-summary-label-gold">TOTAL</div>
+            <div className="cm-summary-total">{total} C</div>
           </div>
         </div>
       </div>
       <div className="card card-pad">
-        <div
-          style={{
-            fontFamily: "var(--font-mono)",
-            fontSize: 11,
-            fontWeight: 500,
-            letterSpacing: "0.08em",
-            textTransform: "uppercase",
-            color: "var(--text-muted)",
-            marginBottom: 12,
-          }}
-        >
-          Pengiriman
-        </div>
-        <div style={{ display: "flex", gap: 10, marginBottom: 16 }}>
-          <label
-            style={{
-              flex: 1,
-              display: "flex",
-              gap: 10,
-              padding: "14px 16px",
-              border: `1px solid ${delivery === "vault" ? "var(--gold)" : "var(--border)"}`,
-              borderRadius: 10,
-              cursor: "pointer",
-              background: delivery === "vault" ? "var(--gold-bg-soft)" : "transparent",
-              transition: "all var(--motion-fast)",
-            }}
-          >
-            <input
-              type="radio"
-              checked={delivery === "vault"}
-              onChange={() => setDelivery("vault")}
-              style={{ accentColor: "var(--gold)" }}
-            />{" "}
+        <div className="label cm-form-label">Pengiriman</div>
+        <div className="cm-radio-row">
+          <label className={`cm-radio-card${delivery === "vault" ? " cm-radio-card-active" : ""}`}>
+            <input type="radio" className="cm-radio" checked={delivery === "vault"} onChange={() => setDelivery("vault")} />{" "}
             <span>
-              <span style={{ fontWeight: 600, fontSize: 13 }}>Simpan di vault</span>
+              <span className="cm-radio-title">Simpan di vault</span>
               <br />
-              <span className="muted" style={{ fontSize: 11 }}>
-                Disimpan platform, kirim kapan saja
-              </span>
+              <span className="muted cm-radio-desc">Disimpan platform, kirim kapan saja</span>
             </span>
           </label>
-          <label
-            style={{
-              flex: 1,
-              display: "flex",
-              gap: 10,
-              padding: "14px 16px",
-              border: `1px solid ${delivery === "shipping" ? "var(--gold)" : "var(--border)"}`,
-              borderRadius: 10,
-              cursor: "pointer",
-              background: delivery === "shipping" ? "var(--gold-bg-soft)" : "transparent",
-              transition: "all var(--motion-fast)",
-            }}
-          >
-            <input
-              type="radio"
-              checked={delivery === "shipping"}
-              onChange={() => setDelivery("shipping")}
-              style={{ accentColor: "var(--gold)" }}
-            />{" "}
+          <label className={`cm-radio-card${delivery === "shipping" ? " cm-radio-card-active" : ""}`}>
+            <input type="radio" className="cm-radio" checked={delivery === "shipping"} onChange={() => setDelivery("shipping")} />{" "}
             <span>
-              <span style={{ fontWeight: 600, fontSize: 13 }}>Kirim sekarang</span>
+              <span className="cm-radio-title">Kirim sekarang</span>
               <br />
-              <span className="muted" style={{ fontSize: 11 }}>
-                Masukkan alamat + ongkir
-              </span>
+              <span className="muted cm-radio-desc">Masukkan alamat + ongkir</span>
             </span>
           </label>
         </div>
         {delivery === "shipping" && (
-          <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 14 }}>
+          <div className="cm-fields">
             <div>
               <label className="label" htmlFor="checkout-address">
                 Alamat
@@ -186,17 +153,16 @@ export default function Checkout() {
               </label>
               <input
                 id="checkout-fee"
-                className="input"
+                className="input cm-fee-input"
                 type="number"
                 min={1}
                 value={fee}
                 onChange={(e) => setFee(Math.max(1, Number(e.target.value) || 1))}
-                style={{ maxWidth: 140 }}
               />
             </div>
           </div>
         )}
-        <button className="btn-gold" onClick={onCheckout} disabled={buying} style={{ width: "100%", padding: "13px", fontSize: 14 }}>
+        <button className="btn-gold cm-cta" onClick={onCheckout} disabled={buying}>
           {buying ? "Memproses…" : `Bayar ${total} C →`}
         </button>
       </div>
