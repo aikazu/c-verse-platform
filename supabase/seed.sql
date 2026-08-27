@@ -1109,7 +1109,7 @@ insert into public.notifications (id, user_id, channel, template_key, payload, s
   ('n-raffle-2','00000000-0000-4000-8000-000000000001','in_app','raffle_result_lost',
    '{"dropId":"drop-aespa-signed","pool":"regular","holdRefunded":30}'::jsonb, 'sent', now() - interval '6 days'),
   ('n-leader-1','00000000-0000-4000-8000-000000000003','in_app','leaderboard_rank_change',
-   '{"rank":1,"totalXp":545,"tier":"gold"}'::jsonb, 'sent', now() - interval '1 day'),
+   '{"rank":1,"totalXp":545,"tier":"nova"}'::jsonb, 'sent', now() - interval '1 day'),
   ('n-payout-1','00000000-0000-4000-8000-000000000003','in_app','payout_request_submitted',
    '{"payoutId":"po-k-1","amount":150}'::jsonb, 'sent', now() - interval '2 days')
 on conflict (id) do nothing;
