@@ -89,11 +89,20 @@
   standar (email OTP).
 
 ### C-05c Level & badge (XP, bukan masa berlaku)
-- Level = floor(total_xp / 10). Sumber XP: spend C-Coin
-  (1 C-Coin = 1 XP) + xp_reward badge. Top-up tidak menambah.
+- Level = floor(total_xp / 10) + 1, clamp 1..100. Sumber XP:
+  spend C-Coin (1 C-Coin = 1 XP) + xp_reward badge. Top-up tidak
+  menambah. Tier diturunkan **read-time** via `calcLevel`
+  (`packages/shared/src/index.ts`), TIDAK tersimpan di DB.
+- **Tier ladder (Galactic)**: 10 band × 10 level — `orbit`
+  (L1-10) · `meteor` (11-20) · `komet` (21-30) · `planet`
+  (31-40) · `nebula` (41-50) · `nova` (51-60) · `supernova`
+  (61-70) · `pulsar` (71-80) · `kuasar` (81-90) · `galaksi`
+  (91-100). Konstanta `LEVEL_TIERS` di `packages/shared/src/index.ts`.
 - Badge: definisi (kriteria + ikon + XP reward) dikonfigurasi
-  admin (ADM-07); evaluasi otomatis saat user memenuhi
-  kriteria. "exp" = EXPERIENCE, bukan expiry.
+  admin (ADM-07); evaluasi otomatis event-driven via trigger
+  SQL (ownership/bid/KYC) — termasuk `creator_cards` evaluator
+  aktif di `trg_badge_ownership` (`04_rpc.sql`). "exp" =
+  EXPERIENCE, bukan expiry.
 
 ### C-05d Privasi profil
 - Profil publik (koleksi, level, badge, ranking) default

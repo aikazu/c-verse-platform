@@ -36,7 +36,7 @@ profiles
   total_xp int default 0                -- experience; sumber: spend C-Coin + reward badge
   xp_reached_at timestamptz default now() -- tie-break leaderboard; hanya update saat total_xp BERUBAH (trigger guard)
   level int default 1                   -- = floor(total_xp / 10) + 1, clamp 1..100
-cumulative_spend_ccoin int default 0  -- 1 C-Coin spent = 1 XP (top-up TIDAK menambah XP)
+cumulative_spend_ccoin int default 0  -- maintained by RPC di kelima site spend (checkout/platform_buy via wallet_debit; record_spend_conversion; accept_bid buyer settle; release_seed_sale Paths A & B); top-up & badge xp_reward TIDAK menyentuhnya
 	  flag_reason text nullable              -- alasan fraud flag (isi manual admin)
 	  consent_analytics_detail bool default false -- izin kreator lihat data per-user (anonim)
 	  consent_data_market bool default false      -- izin data agregat untuk laporan pasar
@@ -410,7 +410,8 @@ badge_definitions
      {type: 'collect_count', min: 1}       -- jumlah koleksi
      {type: 'collect_count', min: 10}      -- 10 kartu
      {type: 'level', min: 5}               -- level tertentu
-     {type: 'creator_cards', creator_id: 'uuid', min: 3}  -- koleksi kreator tertentu
+     {type: 'creator_cards', min: 10}                   -- ≥10 kartu dari SATU kreator (seed: kreator mana pun)
+     {type: 'creator_cards', creator_id: 'uuid', min: 3}  -- koleksi kreator tertentu (spec form, opsional)
      {type: 'xp_total', min: 100}          -- total XP
   icon_url text
   xp_reward int default 0

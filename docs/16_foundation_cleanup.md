@@ -57,10 +57,14 @@
   pindah ke route admin service-role (atau hapus total; set status
   tamper cukup via admin app ADM-04).
 
-### F-06 Dead code `calcLevel` — [RESOLVED-INVALID 2026-08-23]
-- Premis audit salah: `packages/shared/src/index.ts:357-366`
+### F-06 Dead code `calcLevel` — [RESOLVED-INVALID 2026-08-23, REFRESHED 2026-08-27]
+- Premis audit salah: `packages/shared/src/index.ts:432-442`
   `calcLevel` memang **menggunakan** `level` — return
   `{ level, tier }` (dipakai `xpForNextLevel` dan UI leaderboard).
+- Tier lookup: 10-band Galactic ladder `LEVEL_TIERS`
+  (`packages/shared/src/index.ts:417-428`) — `calcLevel` memilih
+  band via `Math.floor((level - 1) / 10)`; tier diturunkan
+  read-time, tidak disimpan di Postgres.
 - Tidak ada perubahan kode; item dihapus dari daftar perbaikan.
 
 ### F-07 Halaman `Admin.tsx` di web publik
