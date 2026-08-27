@@ -71,9 +71,12 @@ begin
   where user_id = p_user
   returning * into v_wallet;
 
-  -- spend 1 C-Coin = 1 XP (checkout/platform_buy); hold & payout bukan spend XP
+  -- spend 1 C-Coin = 1 XP (checkout/platform_buy); hold & payout bukan spend XP.
+  -- cumulative_spend_ccoin mirrors spend-derived XP only (badge rewards excluded);
+  -- top-up never reaches here. Used by gamification leaderboards/leveling.
   if p_type in ('checkout','platform_buy') then
     update users set total_xp = total_xp + p_amount,
+      cumulative_spend_ccoin = cumulative_spend_ccoin + p_amount,
       level = least(100, greatest(1, floor((total_xp + p_amount) / 10) + 1))
     where id = p_user;
   end if;
@@ -150,11 +153,28 @@ end $$;
 -- Badge triggers (event-driven, idempotent)
 create or replace function public.badge_on_ownership() returns trigger
 language plpgsql security definer set search_path = public as $$
-declare n int;
+declare
+  n int;
+  v_creator_id uuid;
 begin
   perform public.award_badge_if_eligible(new.owner_id, 'first_drop');
   select count(distinct card_id) into n from ownership_history where owner_id = new.owner_id;
   if n >= 5 then perform public.award_badge_if_eligible(new.owner_id, 'collector_5'); end if;
+  -- Curator badge: owner holds >= 10 distinct cards from the SAME creator (drops.creator_id).
+  -- Resolve once from new.card_id via cards→drops; NOT NULL constraints on both FK columns
+  -- make v_creator_id non-null in practice, but guard defensively.
+  select d.creator_id into v_creator_id
+    from public.cards c
+    join public.drops d on d.id = c.drop_id
+    where c.id = new.card_id;
+  if v_creator_id is not null then
+    select count(distinct oh.card_id) into n
+      from public.ownership_history oh
+      join public.cards c on c.id = oh.card_id
+      join public.drops d on d.id = c.drop_id
+      where oh.owner_id = new.owner_id and d.creator_id = v_creator_id;
+    if n >= 10 then perform public.award_badge_if_eligible(new.owner_id, 'curator'); end if;
+  end if;
   return new;
 end $$;
 create trigger trg_badge_ownership after insert on public.ownership_history
@@ -198,6 +218,7 @@ begin
   values (gen_random_uuid()::text, p_user, 'checkout'::wallet_tx_type, 0, v_balance, 'order', p_order_id,
           'raffle hold -> payment conversion', jsonb_build_object('conversion_of_hold', true, 'spend_ccoin', p_amount));
   update users set total_xp = total_xp + p_amount,
+    cumulative_spend_ccoin = cumulative_spend_ccoin + p_amount,
     level = least(100, greatest(1, floor((total_xp + p_amount) / 10) + 1))
   where id = p_user;
 end $$;
@@ -681,6 +702,7 @@ begin
 
   -- XP buyer: spend = amount
   update users set total_xp = total_xp + v_bid.amount_ccoin,
+    cumulative_spend_ccoin = cumulative_spend_ccoin + v_bid.amount_ccoin,
     level = least(100, greatest(1, floor((total_xp + v_bid.amount_ccoin) / 10) + 1))
   where id = v_bid.bidder_id;
 
@@ -1072,6 +1094,7 @@ begin
 
     -- XP buyer: spend = amount (PHASE-2 release — invariant founder 2026-08-23).
     update users set total_xp = total_xp + v_price,
+      cumulative_spend_ccoin = cumulative_spend_ccoin + v_price,
       level = least(100, greatest(1, floor((total_xp + v_price) / 10) + 1))
     where id = v_buyer;
 
@@ -1121,6 +1144,7 @@ begin
 
   -- XP buyer: PHASE-2 release (invariant founder 2026-08-23).
   update users set total_xp = total_xp + v_price,
+    cumulative_spend_ccoin = cumulative_spend_ccoin + v_price,
     level = least(100, greatest(1, floor((total_xp + v_price) / 10) + 1))
   where id = v_buyer;
 
