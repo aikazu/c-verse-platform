@@ -177,14 +177,15 @@ export default function CreatorPage() {
   const sigil = getSigil(creator.displayName, handle);
   const handleLine = handle ? `@${handle}` : `@${username ?? ""}`;
 
+  // Distinct series count — derived from the actually loaded drops payload,
+  // never an identifier. Replaces the old "ID" ticker cell which leaked the
+  // creator userId prefix into the UI.
+  const distinctSeries = new Set(drops.map((d) => d.series).filter(Boolean)).size;
+
   const tickerItems = [
     { key: "RILISAN", value: `${drops.length}`, accent: "gold" as const },
     { key: "KOLEKTOR", value: `${board.length}`, accent: "cyan" as const },
-    {
-      key: "ID",
-      value: creatorUserId ? `${creatorUserId.slice(0, 8)}…` : "—",
-      accent: "signal" as const,
-    },
+    { key: "SERI", value: `${distinctSeries}`, accent: "signal" as const },
     {
       key: "STATUS",
       value: drops.some((d) => d.status === "live") ? "LIVE" : "STANDBY",

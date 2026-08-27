@@ -292,7 +292,16 @@ export default function PublicProfile() {
         ) : (
           <div className="grid-3 pp-grid">
             {cards.map((c) => {
-              const title = c.drop?.title ?? c.dropId ?? c.id;
+              // Title fallback chain must NEVER reach an identifier (dropId/cardId)
+              // — a zero-padded UUID prefix would leak into the UI. Derive a
+              // displayable label from real payload (drop.title → unit label) or
+              // fall back to a neutral placeholder.
+              const dropTitle = c.drop?.title;
+              const title = dropTitle
+                ? dropTitle
+                : c.unitNumber !== undefined && c.unitNumber !== null
+                  ? `C.Card #${c.unitNumber}`
+                  : "C.Card";
               const series = c.drop?.series ?? "";
               const init = getSigil(title, series);
               return (
