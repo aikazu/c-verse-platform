@@ -55,7 +55,7 @@ app.get("/", async (c) => {
       username: u.username ?? null,
       handle: rec?.handle ?? null,
       totalFollowersCombined: rec?.totalFollowersCombined ?? null,
-      xp: u.totalXp ?? u.xp ?? 0,
+      xp: u.totalXp ?? 0,
       stats: { drops: myDrops.length, totalSold, totalUnits },
     };
   });
@@ -117,7 +117,7 @@ app.get("/:id", async (c) => {
         username: user.username ?? null,
         handle: rec?.handle ?? null,
         totalFollowersCombined: rec?.totalFollowersCombined ?? null,
-        xp: user.totalXp ?? user.xp ?? 0,
+        xp: user.totalXp ?? 0,
       },
       drops,
       stats: { totalViews, uniqueViewers, topReferrer: topReferrer ? { domain: topReferrer[0], count: topReferrer[1] } : null },
@@ -130,7 +130,7 @@ app.get("/:id", async (c) => {
       username: user.username ?? null,
       handle: rec?.handle ?? null,
       totalFollowersCombined: rec?.totalFollowersCombined ?? null,
-      xp: user.totalXp ?? user.xp ?? 0,
+      xp: user.totalXp ?? 0,
     },
     drops,
   });
@@ -155,7 +155,7 @@ app.get("/handle/:handle", async (c) => {
       bio: null,
       links: [],
       totalFollowersCombined: rec.totalFollowersCombined ?? null,
-      xp: user.totalXp ?? user.xp ?? 0,
+      xp: user.totalXp ?? 0,
     },
     drops,
   });

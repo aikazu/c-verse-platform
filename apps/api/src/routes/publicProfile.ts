@@ -17,7 +17,7 @@ app.get("/u/:username", async (c) => {
       hidden: true,
     });
   }
-  const totalXp = user.totalXp ?? user.xp ?? 0;
+  const totalXp = user.totalXp ?? 0;
   const { calcLevel } = await import("@c-verse/shared");
   const { level, tier } = calcLevel(totalXp);
   const progressInLevel = totalXp % 10;

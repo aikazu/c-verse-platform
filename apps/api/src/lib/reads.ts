@@ -76,8 +76,8 @@ export function mapUserRow(r: Row): User {
     usernameIsAuto: bool(r.username_is_auto),
     role: str(r.role) as User["role"],
     avatarUrl: nstr(r.avatar_url),
-    xp: num(r.total_xp ?? r.xp), // total_xp canonical (docs/05)
-    totalXp: num(r.total_xp ?? r.xp),
+    xp: num(r.total_xp), // canonical total_xp (docs/05) — legacy users.xp ignored
+    totalXp: num(r.total_xp),
     level: num(r.level),
     cumulativeSpendCcoin: num(r.cumulative_spend_ccoin),
     isAnonymous: bool(r.is_anonymous),
