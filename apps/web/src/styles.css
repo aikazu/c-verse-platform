@@ -126,6 +126,14 @@ body::after { /* cockpit vignette */
 ::-webkit-scrollbar-thumb:hover { background: var(--info); }
 * { scrollbar-color: var(--border-strong) var(--canvas); scrollbar-width: thin; }
 
+/* Interactive base — removes the 300ms tap delay on touch without disabling zoom. */
+button, a, [role="button"] { touch-action: manipulation; }
+
+/* Display headings — balance ragged line breaks on multi-line titles.
+   Scoped to named classes (and .error-title) so the bare `h1` rule does
+   not leak to admin via @import. */
+.h2, .hero-title, .page-hero-title, .attract-title, .error-title { text-wrap: balance; }
+
 /* ── Layout shell ──────────────────────────────────────────────────────────── */
 .app-shell { min-height: 100vh; display: flex; flex-direction: column; }
 .navbar {
