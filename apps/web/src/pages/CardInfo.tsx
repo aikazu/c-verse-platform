@@ -7,6 +7,7 @@ import { ApiError, api } from "../lib/api";
 import type { ApiCardDetailResponse, ApiCardOwnershipRow } from "../lib/api-types";
 import { useAuth } from "../lib/auth";
 import { useToast } from "../lib/toast";
+import "./cards.css";
 
 const errorMessage = (e: unknown): string => (e instanceof Error ? e.message : String(e));
 
@@ -50,15 +51,10 @@ export default function CardInfo() {
     if (typeof window === "undefined") return;
     if (canBuyoutDerived && window.location.hash === "#beli") setBuyoutOpen(true);
   }, [canBuyoutDerived]);
-  if (isLoading)
-    return (
-      <div className="muted" style={{ padding: 24, textAlign: "center" }}>
-        Memuat…
-      </div>
-    );
+  if (isLoading) return <div className="muted ci-note">Memuat…</div>;
   if (!data)
     return (
-      <div className="card card-pad" style={{ textAlign: "center", padding: 32 }}>
+      <div className="card card-pad ci-empty-card">
         <span className="eyebrow">C.Card</span>
         <p className="muted" style={{ marginTop: 8 }}>
           C.Card tidak ditemukan
@@ -113,101 +109,80 @@ export default function CardInfo() {
   }
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-      <Link to="/browse" style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--text-muted)", letterSpacing: "0.04em" }}>
+    <div className="page-stack">
+      <Link to="/browse" className="btn-ghost ci-back">
         ← Jelajahi
       </Link>
-      <div className="grid-2" style={{ alignItems: "start" }}>
-        <div className="card" style={{ overflow: "hidden" }}>
-          <div style={{ aspectRatio: "4/3" }}>
+      <section className="page-hero" aria-label="Header halaman C.Card">
+        <div className="page-hero-rail">
+          <span className="rail-channel">CH:07 / C.CARD</span>
+          <span className="rail-dot" aria-hidden="true" />
+          <span className="rail-sep">·</span>
+          <span className="rail-extra">CARD DOSSIER</span>
+          <span className="rail-time" aria-label="Siap">
+            <span className="rail-cursor" aria-hidden="true" />
+          </span>
+        </div>
+        <div className="page-hero-inner">
+          <div className="page-hero-copy">
+            <h1 className="page-hero-title">C.Card</h1>
+          </div>
+        </div>
+      </section>
+      <div className="grid-2 ci-align-start">
+        <div className="card ci-clip">
+          <div className="ci-thumb">
             <CardThumb artworkUrl={drop?.artworkUrl ?? null} series={drop?.series} title={drop?.title} eager />
           </div>
           <div className="card-pad">
             <span className="eyebrow">{drop?.series ?? "C.Card"}</span>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4 }}>
-              <div style={{ fontFamily: "var(--font-display)", fontSize: 18, fontWeight: 500 }}>
-                #{card.unitNumber} <em style={{ fontStyle: "italic", fontWeight: 300, color: "var(--gold)" }}>· {card.variant}</em>
+            <div className="ci-unit-row">
+              <div className="ci-unit">
+                #{card.unitNumber} <em>· {card.variant}</em>
               </div>
-              <span className={verifyBadge.cls} style={{ fontSize: 10, flexShrink: 0 }}>
-                {verifyBadge.label}
-              </span>
-              {drop?.isSeed && (
-                <span className="badge-seed" style={{ flexShrink: 0 }}>
-                  ✦ Seed 1-of-1
-                </span>
-              )}
+              <span className={`${verifyBadge.cls} ci-badge-sm`}>{verifyBadge.label}</span>
+              {drop?.isSeed && <span className="badge-seed ci-badge-sm">✦ Seed 1-of-1</span>}
             </div>
-            <div className="muted" style={{ fontSize: 12, marginTop: 2 }}>
-              {drop?.title ?? ""}
-            </div>
-            <Link
-              to={`/cards/${card.id}/3d`}
-              className="btn-gold"
-              style={{ display: "block", textAlign: "center", textDecoration: "none", marginTop: 16, padding: "11px" }}
-            >
+            <div className="muted ci-sub">{drop?.title ?? ""}</div>
+            <Link to={`/cards/${card.id}/3d`} className="btn-gold ci-view-3d">
               Lihat 3D →
             </Link>
           </div>
         </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+        <div className="ci-col">
           <div className="card card-pad">
             <span className="eyebrow">Info</span>
-            <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 10 }}>
+            <div className="ci-info-list">
               {drop && (
-                <div style={{ fontSize: 13 }}>
-                  <span
-                    style={{
-                      fontFamily: "var(--font-mono)",
-                      fontSize: 11,
-                      color: "var(--text-dim)",
-                      letterSpacing: "0.06em",
-                      textTransform: "uppercase",
-                    }}
-                  >
-                    Seri
-                  </span>
-                  <br />
-                  <Link to={`/drops/${drop.id}`} style={{ color: "var(--gold)", fontWeight: 500, fontSize: 13 }}>
+                <div className="ci-stat-row">
+                  <span className="label">Seri</span>
+                  <Link to={`/drops/${drop.id}`} className="ci-link-gold">
                     {drop.series}
                   </Link>
                 </div>
               )}
-              <div style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--text-muted)" }}>
+              <div className="ci-meta">
                 Nomor #{card.unitNumber} · {card.variant}
               </div>
               {owner && (
-                <div style={{ fontSize: 13 }}>
-                  <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--text-dim)" }}>Pemilik</span>{" "}
-                  <Link to={`/u/${owner.username ?? owner.id}`} style={{ color: "var(--gold)", fontWeight: 500 }}>
+                <div className="ci-stat-row">
+                  <span className="label">Pemilik</span>
+                  <Link to={`/u/${owner.username ?? owner.id}`} className="ci-link-gold">
                     {owner.displayName}
                   </Link>
                 </div>
               )}
               {card.buyoutPriceCcoin != null ? (
-                <div
-                  style={{
-                    marginTop: 6,
-                    padding: "10px 12px",
-                    background: "var(--surface-2)",
-                    borderRadius: 8,
-                    border: "1px solid var(--border)",
-                  }}
-                >
-                  <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--text-dim)", letterSpacing: "0.08em" }}>
-                    HARGA
-                  </span>
-                  <div style={{ fontWeight: 700, fontSize: 15, marginTop: 2 }}>{card.buyoutPriceCcoin} C</div>
+                <div className="ci-price-panel">
+                  <span className="label">HARGA</span>
+                  <div className="ci-price-val">{card.buyoutPriceCcoin} C</div>
                   {canBuyout && !buyoutOpen && (
-                    <button
-                      className="btn-gold"
-                      onClick={() => setBuyoutOpen(true)}
-                      style={{ width: "100%", marginTop: 10, padding: "9px" }}
-                    >
+                    <button className="btn-gold ci-buy-btn" onClick={() => setBuyoutOpen(true)}>
                       Beli di harga buyout
                     </button>
                   )}
                   {canBuyout && buyoutOpen && (
-                    <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 10 }}>
+                    <div className="ci-form">
                       <select
                         className="select"
                         aria-label="Tujuan pengiriman"
@@ -219,25 +194,19 @@ export default function CardInfo() {
                       </select>
                       {destination === "buyer_address" && (
                         <textarea
-                          className="textarea"
+                          className="textarea ci-textarea-sm"
                           rows={3}
                           aria-label="Alamat pengiriman"
                           placeholder="Alamat lengkap (min 10 karakter)"
                           value={address}
                           onChange={(e) => setAddress(e.target.value)}
-                          style={{ fontSize: 12 }}
                         />
                       )}
-                      <div style={{ display: "flex", gap: 8 }}>
-                        <button
-                          className="btn-ghost"
-                          onClick={() => setBuyoutOpen(false)}
-                          disabled={busy}
-                          style={{ flex: 1, padding: "8px" }}
-                        >
+                      <div className="ci-actions">
+                        <button className="btn-ghost ci-btn-sm" onClick={() => setBuyoutOpen(false)} disabled={busy}>
                           Batal
                         </button>
-                        <button className="btn-gold" onClick={onBuyout} disabled={busy} style={{ flex: 1, padding: "8px" }}>
+                        <button className="btn-gold ci-btn-sm" onClick={onBuyout} disabled={busy}>
                           {busy ? "Memproses…" : `Beli ${card.buyoutPriceCcoin} C`}
                         </button>
                       </div>
@@ -246,29 +215,13 @@ export default function CardInfo() {
                 </div>
               ) : null}
               {activeBid && (
-                <div
-                  style={{
-                    padding: "10px 12px",
-                    background: "var(--gold-bg-soft)",
-                    borderRadius: 8,
-                    fontSize: 13,
-                    border: "1px solid var(--gold-border)",
-                  }}
-                >
-                  <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--gold)", letterSpacing: "0.06em" }}>
-                    TAWARAN TERTINGGI
-                  </span>
-                  <div style={{ fontWeight: 600, marginTop: 4 }}>
-                    {activeBid.amountCCoin} C{" "}
-                    <span style={{ fontWeight: 400, color: "var(--text-muted)", fontSize: 12 }}>oleh {activeBid.bidderName}</span>
+                <div className="ci-bid-panel">
+                  <span className="label ci-label-gold">TAWARAN TERTINGGI</span>
+                  <div className="ci-bid-amt">
+                    {activeBid.amountCCoin} C <span className="ci-bid-by">oleh {activeBid.bidderName}</span>
                   </div>
                   {myActiveBid && (
-                    <button
-                      className="btn-ghost"
-                      onClick={onCancelBid}
-                      disabled={busy}
-                      style={{ marginTop: 8, padding: "7px 12px", fontSize: 12 }}
-                    >
+                    <button className="btn-ghost ci-cancel-btn" onClick={onCancelBid} disabled={busy}>
                       {busy ? "Memproses…" : "Batalkan bid"}
                     </button>
                   )}
@@ -277,80 +230,38 @@ export default function CardInfo() {
             </div>
           </div>
           <div className="card">
-            <div
-              style={{
-                padding: "14px 16px",
-                borderBottom: "1px solid var(--border)",
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-              }}
-            >
-              <span style={{ fontWeight: 600, fontSize: 13 }}>Riwayat Pemilik</span>
-              <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--text-dim)" }}>{history.length}</span>
+            <div className="ci-head-row">
+              <span className="ci-head-title">Riwayat Pemilik</span>
+              <span className="ci-head-count">{history.length}</span>
             </div>
             {history.length === 0 ? (
-              <div style={{ padding: 20, textAlign: "center", color: "var(--text-muted)", fontFamily: "var(--font-mono)", fontSize: 12 }}>
-                Belum ada riwayat
-              </div>
+              <div className="ci-history-empty">Belum ada riwayat</div>
             ) : (
-              <div style={{ padding: 12, display: "flex", flexDirection: "column", gap: 0 }}>
+              <div className="ci-history-list">
                 {history.map((h) => (
-                  <div
-                    key={h.id}
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      padding: "8px 0",
-                      borderBottom: "1px solid var(--border)",
-                      fontSize: 12,
-                    }}
-                  >
-                    <span style={{ fontWeight: 500 }}>{h.ownerName ?? h.ownerId}</span>
-                    <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--text-muted)" }}>
-                      {new Date(h.transferredAt).toLocaleDateString("id-ID")}
-                    </span>
+                  <div key={h.id} className="ci-history-row">
+                    <span className="ci-history-owner">{h.ownerName ?? h.ownerId}</span>
+                    <span className="ci-history-date">{new Date(h.transferredAt).toLocaleDateString("id-ID")}</span>
                   </div>
                 ))}
               </div>
             )}
           </div>
           <div className="card">
-            <div
-              style={{
-                padding: "14px 16px",
-                borderBottom: "1px solid var(--border)",
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-              }}
-            >
-              <span style={{ fontWeight: 600, fontSize: 13 }}>Riwayat Penawaran</span>
-              <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--text-dim)" }}>{bids.length}</span>
+            <div className="ci-head-row">
+              <span className="ci-head-title">Riwayat Penawaran</span>
+              <span className="ci-head-count">{bids.length}</span>
             </div>
             {bids.length === 0 ? (
-              <div style={{ padding: 20, textAlign: "center", color: "var(--text-muted)", fontFamily: "var(--font-mono)", fontSize: 12 }}>
-                Belum ada penawaran
-              </div>
+              <div className="ci-history-empty">Belum ada penawaran</div>
             ) : (
-              <div style={{ padding: 12, display: "flex", flexDirection: "column", gap: 0 }}>
+              <div className="ci-history-list">
                 {bids.slice(0, 10).map((b) => (
-                  <div
-                    key={b.id}
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      padding: "8px 0",
-                      borderBottom: "1px solid var(--border)",
-                      fontSize: 12,
-                    }}
-                  >
+                  <div key={b.id} className="ci-history-row">
                     <span>
-                      {b.bidderName} · <span style={{ fontFamily: "var(--font-mono)", fontWeight: 600 }}>{b.amountCCoin} C</span>
+                      {b.bidderName} · <span className="ci-bid-val">{b.amountCCoin} C</span>
                     </span>
-                    <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--text-muted)" }}>
-                      {new Date(b.createdAt).toLocaleDateString("id-ID")}
-                    </span>
+                    <span className="ci-history-date">{new Date(b.createdAt).toLocaleDateString("id-ID")}</span>
                   </div>
                 ))}
               </div>

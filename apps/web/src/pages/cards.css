@@ -1,0 +1,309 @@
+/* C.Card pages (Space Arcade) — CardInfo + Card3D.
+   All classes namespaced `ci-` to avoid collisions with other page namespaces
+   (pp- profile, drop-, market-). Consumes only existing theme tokens and global
+   classes from styles.css; loaded after it via lazy page import, so equal-specificity
+   overrides on .btn-* / .label are safe here. */
+
+.ci-back {
+	align-self: flex-start;
+	padding: 6px 14px;
+	font-size: 10px;
+}
+
+.ci-clip {
+	overflow: hidden;
+}
+
+.ci-align-start {
+	align-items: flex-start;
+}
+
+.ci-col {
+	display: flex;
+	flex-direction: column;
+	gap: 14px;
+}
+
+/* Loading / not-found notes */
+.ci-note {
+	padding: 24px;
+	text-align: center;
+}
+
+.ci-empty-card {
+	padding: 32px;
+	text-align: center;
+}
+
+/* ── Dossier card (left column) ────────────────────────────────────────────── */
+.ci-thumb {
+	aspect-ratio: 4 / 3;
+}
+
+.ci-unit-row {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	margin-top: 4px;
+}
+
+.ci-unit {
+	font-family: var(--font-display);
+	font-size: 18px;
+	font-weight: 500;
+}
+
+.ci-unit em {
+	font-style: italic;
+	font-weight: 300;
+	color: var(--gold);
+}
+
+.ci-badge-sm {
+	font-size: 10px;
+	flex-shrink: 0;
+}
+
+.ci-sub {
+	font-size: 12px;
+	margin-top: 2px;
+}
+
+.ci-view-3d {
+	display: block;
+	margin-top: 16px;
+	padding: 11px;
+	text-align: center;
+	text-decoration: none;
+}
+
+/* ── 3D viewer host — values MUST stay identical (viewer.ts measures this node) ── */
+.ci-viewer-host {
+	height: 420px;
+	background: var(--viewer-bg);
+}
+
+/* Status pill row (3D page) */
+.ci-pill-row {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	flex-wrap: wrap;
+}
+
+/* ── 2x2 dossier grid (3D page) — mirrors the .pp-stat panel pattern ────────── */
+.ci-stat-grid {
+	margin-top: 14px;
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 12px;
+	font-size: 13px;
+}
+
+.ci-stat {
+	position: relative;
+	overflow: hidden;
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	padding: 10px 12px;
+	border-radius: var(--r-3);
+	background:
+		linear-gradient(180deg, var(--gold-bg-soft) 0%, transparent 100%),
+		var(--surface-2);
+	border: 1px solid var(--border);
+}
+
+.ci-stat::before {
+	content: "";
+	position: absolute;
+	left: 0;
+	top: 0;
+	bottom: 0;
+	width: 2px;
+	background: linear-gradient(180deg, var(--gold) 0%, transparent 100%);
+	opacity: 0.55;
+}
+
+.ci-stat .label {
+	margin-bottom: 0;
+}
+
+.ci-stat-value {
+	font-weight: 500;
+}
+
+/* ── Info panel rows (dossier page) ────────────────────────────────────────── */
+.ci-info-list {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	margin-top: 10px;
+	font-size: 13px;
+}
+
+.ci-stat-row {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+}
+
+.ci-stat-row .label {
+	margin-bottom: 0;
+}
+
+.ci-meta {
+	font-family: var(--font-mono);
+	font-size: 12px;
+	color: var(--text-muted);
+}
+
+.ci-link-gold {
+	color: var(--gold);
+	font-weight: 500;
+}
+
+/* ── Buyout price panel ────────────────────────────────────────────────────── */
+.ci-price-panel {
+	margin-top: 6px;
+	padding: 10px 12px;
+	background: var(--surface-2);
+	border-radius: var(--r-1);
+	border: 1px solid var(--border);
+}
+
+.ci-price-val {
+	margin-top: 2px;
+	font-family: var(--font-crt);
+	font-size: 18px;
+	color: var(--gold);
+	text-shadow: 0 0 14px rgba(255, 201, 77, 0.3);
+}
+
+.ci-buy-btn {
+	width: 100%;
+	margin-top: 10px;
+	padding: 9px;
+}
+
+.ci-form {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	margin-top: 10px;
+}
+
+.ci-textarea-sm {
+	font-size: 12px;
+}
+
+.ci-actions {
+	display: flex;
+	gap: 8px;
+}
+
+.ci-btn-sm {
+	flex: 1;
+	padding: 8px;
+}
+
+/* ── Active bid panel ──────────────────────────────────────────────────────── */
+.ci-bid-panel {
+	padding: 10px 12px;
+	background: var(--gold-bg-soft);
+	border-radius: var(--r-1);
+	border: 1px solid var(--gold-border);
+	font-size: 13px;
+}
+
+.label.ci-label-gold {
+	color: var(--gold);
+}
+
+.ci-bid-amt {
+	margin-top: 4px;
+	font-weight: 600;
+}
+
+.ci-bid-by {
+	font-weight: 400;
+	font-size: 12px;
+	color: var(--text-muted);
+}
+
+.ci-cancel-btn {
+	margin-top: 8px;
+	padding: 7px 12px;
+	font-size: 12px;
+}
+
+/* ── Ownership / bid history cards ─────────────────────────────────────────── */
+.ci-head-row {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 14px 16px;
+	border-bottom: 1px solid var(--border);
+}
+
+.ci-head-title {
+	font-size: 13px;
+	font-weight: 600;
+}
+
+.ci-head-count {
+	font-family: var(--font-mono);
+	font-size: 11px;
+	color: var(--text-dim);
+}
+
+.ci-history-empty {
+	padding: 20px;
+	text-align: center;
+	font-family: var(--font-mono);
+	font-size: 12px;
+	color: var(--text-muted);
+}
+
+.ci-history-list {
+	display: flex;
+	flex-direction: column;
+	padding: 12px;
+}
+
+.ci-history-row {
+	display: flex;
+	align-items: baseline;
+	justify-content: space-between;
+	gap: 8px;
+	padding: 8px 0;
+	border-bottom: 1px solid var(--border);
+	font-size: 12px;
+}
+
+.ci-history-row:last-child {
+	border-bottom: none;
+}
+
+.ci-history-owner {
+	font-weight: 500;
+}
+
+.ci-history-date {
+	flex-shrink: 0;
+	font-family: var(--font-mono);
+	font-size: 11px;
+	color: var(--text-muted);
+}
+
+.ci-bid-val {
+	font-family: var(--font-mono);
+	font-weight: 600;
+}
+
+/* Responsive — dossier grid collapses on narrow screens */
+@media (max-width: 480px) {
+	.ci-stat-grid {
+		grid-template-columns: 1fr;
+	}
+}
