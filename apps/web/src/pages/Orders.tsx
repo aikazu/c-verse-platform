@@ -7,6 +7,7 @@ import { api } from "../lib/api";
 import type { ApiOrdersResponse } from "../lib/api-types";
 import { useAuth } from "../lib/auth";
 import { ErrorState, LoadingState } from "../lib/QueryStates";
+import "./orders.css";
 
 export default function Orders() {
   return (
@@ -27,24 +28,35 @@ function OrdersInner() {
   if (isError) return <ErrorState onRetry={() => refetch()} label="Gagal memuat pesanan" />;
   const orders: Order[] = data?.orders ?? [];
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: 12 }}>
-        <div>
-          <span className="eyebrow">Pesanan</span>
-          <h1 className="h2" style={{ marginTop: 4 }}>
-            Daftar <em style={{ fontStyle: "italic", fontWeight: 300, color: "var(--gold)" }}>Pesanan</em>
-          </h1>
+    <div className="page-stack">
+      <section className="page-hero" aria-label="Header halaman Pesanan">
+        <div className="page-hero-rail">
+          <span className="rail-channel">CH:13 / ORDERS</span>
+          <span className="rail-dot" aria-hidden="true" />
+          <span className="rail-sep">·</span>
+          <span className="rail-extra">ORDER LOG</span>
+          <span className="rail-time" aria-label="Siap">
+            <span className="rail-cursor" aria-hidden="true" />
+          </span>
         </div>
-        <Link to="/drops" className="btn-ghost" style={{ fontFamily: "var(--font-mono)", fontSize: 12 }}>
-          Jelajahi Drops →
-        </Link>
-      </div>
+        <div className="page-hero-inner">
+          <div className="page-hero-copy">
+            <div className="page-hero-sub">Pesanan</div>
+            <h1 className="page-hero-title">
+              Daftar <em>Pesanan</em>
+            </h1>
+          </div>
+          <Link to="/drops" className="btn-ghost od-hero-cta">
+            Jelajahi Drops →
+          </Link>
+        </div>
+      </section>
       <div className="card">
         <div className="table-wrap">
           <table>
             <thead>
               <tr>
-                <th style={{ fontFamily: "var(--font-mono)" }}>Order</th>
+                <th>Order</th>
                 <th>Drop</th>
                 <th>Total</th>
                 <th>Status</th>
@@ -54,10 +66,7 @@ function OrdersInner() {
             <tbody>
               {orders.length === 0 ? (
                 <tr>
-                  <td
-                    colSpan={5}
-                    style={{ textAlign: "center", padding: 24, color: "var(--text-muted)", fontFamily: "var(--font-mono)", fontSize: 12 }}
-                  >
+                  <td colSpan={5} className="od-empty-cell">
                     Belum ada pesanan
                   </td>
                 </tr>
@@ -65,21 +74,16 @@ function OrdersInner() {
                 orders.map((o) => (
                   <tr key={o.id}>
                     <td>
-                      <Link
-                        to={`/orders/${o.id}`}
-                        style={{ color: "var(--gold)", fontSize: 12, fontFamily: "var(--font-mono)", fontWeight: 500 }}
-                      >
+                      <Link to={`/orders/${o.id}`} className="od-order-link">
                         {o.id.slice(0, 12)}
                       </Link>
                     </td>
-                    <td style={{ fontSize: 12, color: "var(--text-muted)" }}>{o.dropId}</td>
-                    <td style={{ fontWeight: 700, fontFamily: "var(--font-mono)", fontSize: 12 }}>{o.totalCCoin} C</td>
+                    <td className="od-td-muted">{o.dropId}</td>
+                    <td className="od-td-total">{o.totalCCoin} C</td>
                     <td>
                       <StatusBadge status={o.status} kind="order" style={{ fontSize: 10 }} />
                     </td>
-                    <td style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--text-muted)" }}>
-                      {o.deliveryOption ?? (o.shippingAddress ? "kirim" : "vault")}
-                    </td>
+                    <td className="od-td-opt">{o.deliveryOption ?? (o.shippingAddress ? "kirim" : "vault")}</td>
                   </tr>
                 ))
               )}

@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { RequireAuth } from "../components/RequireAuth";
 import { api } from "../lib/api";
+import "./orders.css";
 
 // P0-3 (audit 2026-08-24): inbox halaman. Server returns templateKey + payload;
 // render label generik per templateKey sampai admin/kreator mengirim template
@@ -60,9 +61,7 @@ function NotificationsInner() {
     return (
       <div className="card card-pad">
         <span className="eyebrow">Notifikasi</span>
-        <p className="muted" style={{ marginTop: 8 }}>
-          Gagal memuat notifikasi.
-        </p>
+        <p className="muted od-mt-8">Gagal memuat notifikasi.</p>
         <button className="btn-ghost" onClick={() => refetch()}>
           Coba lagi
         </button>
@@ -71,67 +70,49 @@ function NotificationsInner() {
   const list = data?.notifications ?? [];
   const unreadCount = list.filter((n) => n.readAt == null).length;
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: 12 }}>
-        <div>
-          <span className="eyebrow">Notifikasi</span>
-          <h1 className="h2" style={{ marginTop: 4 }}>
-            Inbox{" "}
-            <em style={{ fontStyle: "italic", fontWeight: 300, color: "var(--gold)" }}>
-              {unreadCount > 0 ? `· ${unreadCount} belum dibaca` : ""}
-            </em>
-          </h1>
+    <div className="page-stack">
+      <section className="page-hero" aria-label="Header halaman Notifikasi">
+        <div className="page-hero-rail">
+          <span className="rail-channel">CH:15 / SIGNAL</span>
+          <span className="rail-dot" aria-hidden="true" />
+          <span className="rail-sep">·</span>
+          <span className="rail-extra">INBOX FEED</span>
+          <span className="rail-time" aria-label="Siap">
+            <span className="rail-cursor" aria-hidden="true" />
+          </span>
         </div>
-        {unreadCount > 0 && (
-          <button
-            className="btn-ghost"
-            onClick={() => markAll.mutate()}
-            disabled={markAll.isPending}
-            style={{ fontFamily: "var(--font-mono)", fontSize: 12 }}
-          >
-            {markAll.isPending ? "Memproses…" : "Tandai semua dibaca"}
-          </button>
-        )}
-      </div>
+        <div className="page-hero-inner">
+          <div className="page-hero-copy">
+            <div className="page-hero-sub">Notifikasi</div>
+            <h1 className="page-hero-title">
+              Inbox <em>{unreadCount > 0 ? `· ${unreadCount} belum dibaca` : ""}</em>
+            </h1>
+          </div>
+          {unreadCount > 0 && (
+            <button className="btn-ghost od-hero-cta" onClick={() => markAll.mutate()} disabled={markAll.isPending}>
+              {markAll.isPending ? "Memproses…" : "Tandai semua dibaca"}
+            </button>
+          )}
+        </div>
+      </section>
       {list.length === 0 ? (
-        <div className="card card-pad muted" style={{ textAlign: "center", padding: 32 }}>
-          Belum ada notifikasi. Update dari raffle, bid, dan order akan muncul di sini.
-        </div>
+        <div className="card card-pad muted od-empty">Belum ada notifikasi. Update dari raffle, bid, dan order akan muncul di sini.</div>
       ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        <div className="od-feed">
           {list.map((n) => {
             const unread = n.readAt == null;
             const link = deepLinkFor(n.templateKey, n.payload);
             const Inner = (
-              <div key={n.id} className="card card-pad" style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
-                  <div style={{ fontWeight: unread ? 700 : 500, fontSize: 13 }}>{labelFor(n.templateKey, n.payload)}</div>
-                  <div
-                    style={{
-                      fontFamily: "var(--font-mono)",
-                      fontSize: 11,
-                      color: "var(--text-dim)",
-                      flexShrink: 0,
-                    }}
-                  >
+              <div key={n.id} className={`card card-pad od-item${unread ? " is-unread" : ""}`}>
+                <div className="od-item-head">
+                  <div className="od-item-title">{labelFor(n.templateKey, n.payload)}</div>
+                  <div className="od-item-time">
                     {new Date(n.createdAt).toLocaleString("id-ID", { dateStyle: "short", timeStyle: "short" })}
                   </div>
                 </div>
                 {unread && (
-                  <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
-                    <button
-                      onClick={() => markOne.mutate(n.id)}
-                      style={{
-                        background: "transparent",
-                        border: "1px solid var(--border)",
-                        borderRadius: 6,
-                        padding: "4px 10px",
-                        fontSize: 11,
-                        fontFamily: "var(--font-mono)",
-                        color: "var(--text-muted)",
-                        cursor: "pointer",
-                      }}
-                    >
+                  <div className="od-item-actions">
+                    <button type="button" className="od-mark-read" onClick={() => markOne.mutate(n.id)}>
                       Tandai dibaca
                     </button>
                   </div>
@@ -139,7 +120,7 @@ function NotificationsInner() {
               </div>
             );
             return link ? (
-              <Link key={`link-${n.id}`} to={link} style={{ textDecoration: "none", color: "inherit" }}>
+              <Link key={`link-${n.id}`} to={link} className="od-item-link">
                 {Inner}
               </Link>
             ) : (

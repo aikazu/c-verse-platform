@@ -6,6 +6,7 @@ import { RequireAuth } from "../components/RequireAuth";
 import { StatusBadge } from "../components/StatusBadge";
 import { api } from "../lib/api";
 import { useToast } from "../lib/toast";
+import "./orders.css";
 
 const errorMessage = (e: unknown): string => (e instanceof Error ? e.message : String(e));
 
@@ -79,116 +80,102 @@ function OrderDetailInner() {
     }
   }
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-      <Link to="/orders" style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--text-muted)" }}>
-        ← Pesanan
-      </Link>
+    <div className="page-stack">
+      <section className="page-hero" aria-label="Header halaman Detail Pesanan">
+        <div className="page-hero-rail">
+          <span className="rail-channel">CH:13 / ORDERS</span>
+          <span className="rail-dot" aria-hidden="true" />
+          <span className="rail-sep">·</span>
+          <span className="rail-extra">ORDER DOSSIER</span>
+          <span className="rail-time" aria-label="Siap">
+            <span className="rail-cursor" aria-hidden="true" />
+          </span>
+        </div>
+        <div className="page-hero-inner">
+          <div className="page-hero-copy">
+            <div className="page-hero-sub">Pesanan</div>
+            <h1 className="page-hero-title">Detail Pesanan</h1>
+          </div>
+          <Link to="/orders" className="btn-ghost od-back">
+            ← Pesanan
+          </Link>
+        </div>
+      </section>
       <div className="card card-pad">
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
+        <div className="od-card-head">
           <div>
             <span className="eyebrow">Pesanan · {o.id.slice(0, 10)}</span>
-            <h2 className="h2" style={{ marginTop: 4 }}>
-              {drop?.title ?? o.dropId}
-            </h2>
-            <div style={{ fontWeight: 600, fontSize: 14, marginTop: 4 }}>{o.totalCCoin} C</div>
+            <h2 className="h2 od-mt-4">{drop?.title ?? o.dropId}</h2>
+            <div className="od-total">{o.totalCCoin} C</div>
           </div>
           <StatusBadge status={o.status} kind="order" style={{ fontSize: 11, flexShrink: 0 }} />
         </div>
-        <div style={{ display: "flex", gap: 20, marginTop: 16, flexWrap: "wrap", fontSize: 13 }}>
+        <div className="od-meta">
           <div>
-            <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--text-dim)", letterSpacing: "0.08em" }}>OPSI</span>
+            <span className="od-meta-label">OPSI</span>
             <br />
-            <span style={{ fontWeight: 600 }}>{isVault ? "Vault" : "Kirim fisik"}</span>
+            <span className="od-meta-value">{isVault ? "Vault" : "Kirim fisik"}</span>
           </div>
           {!isVault && (
             <div>
-              <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--text-dim)", letterSpacing: "0.08em" }}>
-                ONGKIR
-              </span>
+              <span className="od-meta-label">ONGKIR</span>
               <br />
-              <span style={{ fontFamily: "var(--font-mono)", fontSize: 12 }}>{o.shippingFeeCcoin ?? "—"} C</span>
+              <span className="od-meta-mono">{o.shippingFeeCcoin ?? "—"} C</span>
             </div>
           )}
           <div>
-            <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--text-dim)", letterSpacing: "0.08em" }}>ESCROW</span>
+            <span className="od-meta-label">ESCROW</span>
             <br />
-            <span style={{ fontFamily: "var(--font-mono)", fontSize: 11 }}>{o.escrowStatus ?? "held"}</span>
+            <span className="od-meta-mono-sm">{o.escrowStatus ?? "held"}</span>
           </div>
           {!isVault && o.trackingNumber && (
             <div>
-              <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--text-dim)", letterSpacing: "0.08em" }}>RESI</span>
+              <span className="od-meta-label">RESI</span>
               <br />
-              <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, fontWeight: 600 }}>{o.trackingNumber}</span>
+              <span className="od-meta-mono-strong">{o.trackingNumber}</span>
             </div>
           )}
         </div>
         {!isVault ? (
-          <div style={{ marginTop: 16 }}>
-            <div
-              style={{
-                fontFamily: "var(--font-mono)",
-                fontSize: 11,
-                fontWeight: 500,
-                letterSpacing: "0.06em",
-                textTransform: "uppercase",
-                color: "var(--text-muted)",
-                marginBottom: 8,
-              }}
-            >
-              Timeline
-            </div>
-            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+          <div className="od-timeline-block">
+            <div className="od-section-label">Timeline</div>
+            <div className="od-timeline" role="list">
               {["paid", "qc", "shipped", "delivered", "settled"].map((s) => {
                 const isCurrent = o.status === s;
                 const ts = s === "paid" ? o.paidAt : s === "shipped" ? o.shippedAt : s === "delivered" ? o.deliveredAt : null;
                 return (
-                  <span
-                    key={s}
-                    className={`pill ${isCurrent ? "pill-success" : ""}`}
-                    style={{
-                      fontSize: 10,
-                      fontFamily: "var(--font-mono)",
-                      flexDirection: "column",
-                      gap: 1,
-                      padding: "4px 8px",
-                      height: "auto",
-                    }}
-                    title={ts ? fmtDate(ts) : undefined}
-                  >
-                    <span>{orderStatusLabel(s)}</span>
-                    {ts && <span style={{ fontSize: 9, opacity: 0.7 }}>{fmtDate(ts)}</span>}
-                  </span>
+                  <div key={s} role="listitem" className={`od-step${isCurrent ? " is-current" : ""}`} title={ts ? fmtDate(ts) : undefined}>
+                    <span className="od-step-dot" aria-hidden="true" />
+                    <div className="od-step-body">
+                      <span className="od-step-label">{orderStatusLabel(s)}</span>
+                      {ts && <span className="od-step-time">{fmtDate(ts)}</span>}
+                    </div>
+                  </div>
                 );
               })}
             </div>
-            {o.shippingAddress && (
-              <div className="muted" style={{ fontSize: 12, marginTop: 10, fontFamily: "var(--font-mono)" }}>
-                Alamat: {o.shippingAddress}
-              </div>
-            )}
+            {o.shippingAddress && <div className="od-ship-address">Alamat: {o.shippingAddress}</div>}
             {isShipped && (
               <>
-                <button className="btn-gold" onClick={onConfirm} disabled={busy} style={{ marginTop: 14 }}>
+                <button className="btn-gold od-mt-14" onClick={onConfirm} disabled={busy}>
                   {busy ? "Memproses…" : "Konfirmasi Diterima"}
                 </button>
-                <div className="muted" style={{ fontSize: 11, marginTop: 8 }}>
-                  Dana dilepas otomatis H+7 setelah diterima.
-                </div>
+                <div className="od-confirm-note">Dana dilepas otomatis H+7 setelah diterima.</div>
               </>
             )}
           </div>
         ) : (
-          <div className="muted" style={{ fontSize: 12, marginTop: 14, fontFamily: "var(--font-mono)", lineHeight: 1.6 }}>
+          <div className="od-vault-note">
             Disimpan di vault — tanpa tracking. Kelola di{" "}
-            <Link to="/me/manage" style={{ color: "var(--gold)", fontWeight: 600 }}>
+            <Link to="/me/manage" className="od-link-gold">
               Kelola C.Card →
             </Link>
           </div>
         )}
         {o.status !== "settled" && !disputeSent && (
-          <div style={{ marginTop: 16, borderTop: "1px solid var(--border)", paddingTop: 14 }}>
+          <div className="od-dispute-block">
             {disputeOpen ? (
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              <div className="od-form-col">
                 <label className="label" htmlFor="dispute-reason">
                   Alasan dispute (min 10 karakter)
                 </label>
@@ -200,62 +187,34 @@ function OrderDetailInner() {
                   onChange={(e) => setDisputeReason(e.target.value)}
                   placeholder="Jelaskan masalah pada pesanan ini…"
                 />
-                <div style={{ display: "flex", gap: 8 }}>
-                  <button
-                    className="btn-ghost"
-                    onClick={() => setDisputeOpen(false)}
-                    disabled={busy}
-                    style={{ padding: "8px 14px", fontSize: 12 }}
-                  >
+                <div className="od-form-actions">
+                  <button className="btn-ghost od-btn-sm" onClick={() => setDisputeOpen(false)} disabled={busy}>
                     Batal
                   </button>
-                  <button className="btn-gold" onClick={onDispute} disabled={busy} style={{ padding: "8px 14px", fontSize: 12 }}>
+                  <button className="btn-gold od-btn-sm" onClick={onDispute} disabled={busy}>
                     {busy ? "Mengirim…" : "Kirim dispute"}
                   </button>
                 </div>
               </div>
             ) : (
-              <button className="btn-ghost" onClick={() => setDisputeOpen(true)} style={{ fontSize: 12, fontFamily: "var(--font-mono)" }}>
+              <button className="btn-ghost od-dispute-btn" onClick={() => setDisputeOpen(true)}>
                 Lapor masalah (dispute)
               </button>
             )}
           </div>
         )}
         {disputeSent && (
-          <div
-            className="card card-pad"
-            style={{ marginTop: 14, background: "var(--gold-bg-soft)", border: "1px solid var(--gold-border)", fontSize: 12 }}
-            role="status"
-          >
-            <strong style={{ color: "var(--gold)" }}>Dispute terkirim</strong>
-            <div className="muted" style={{ fontSize: 11, marginTop: 4 }}>
-              Tim kami akan meninjau bukti dan memutuskan. Status dapat dipantau lewat notifikasi.
-            </div>
+          <div className="card card-pad od-dispute-sent" role="status">
+            <strong className="od-dispute-strong">Dispute terkirim</strong>
+            <div className="muted od-sent-note">Tim kami akan meninjau bukti dan memutuskan. Status dapat dipantau lewat notifikasi.</div>
           </div>
         )}
         {cards.length > 0 && (
-          <div style={{ marginTop: 18 }}>
-            <div
-              style={{
-                fontFamily: "var(--font-mono)",
-                fontSize: 11,
-                fontWeight: 500,
-                letterSpacing: "0.06em",
-                textTransform: "uppercase",
-                color: "var(--text-muted)",
-                marginBottom: 8,
-              }}
-            >
-              C.Card
-            </div>
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <div className="od-cards-block">
+            <div className="od-section-label">C.Card</div>
+            <div className="od-pill-row">
               {cards.map((c) => (
-                <Link
-                  key={c.id}
-                  to={`/cards/${c.id}`}
-                  className="pill pill-info"
-                  style={{ textDecoration: "none", fontFamily: "var(--font-mono)", fontSize: 11 }}
-                >
+                <Link key={c.id} to={`/cards/${c.id}`} className="pill pill-info od-card-pill">
                   {c.nfcShortId} · #{c.unitNumber}
                 </Link>
               ))}
@@ -263,27 +222,15 @@ function OrderDetailInner() {
           </div>
         )}
         {shipments.length > 0 && (
-          <div style={{ marginTop: 16 }}>
-            <div
-              style={{
-                fontFamily: "var(--font-mono)",
-                fontSize: 11,
-                fontWeight: 500,
-                letterSpacing: "0.06em",
-                textTransform: "uppercase",
-                color: "var(--text-muted)",
-                marginBottom: 8,
-              }}
-            >
-              Pengiriman
-            </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          <div className="od-shipments-block">
+            <div className="od-section-label">Pengiriman</div>
+            <div className="od-shipment-list">
               {shipments.map((s) => (
-                <div key={s.id} style={{ display: "flex", justifyContent: "space-between", fontFamily: "var(--font-mono)", fontSize: 11 }}>
+                <div key={s.id} className="od-shipment-row">
                   <span>
                     {s.type} → {s.toDest} · {shipmentStatusLabel(s.status)}
                   </span>
-                  <span style={{ color: "var(--text-muted)" }}>{s.trackingNumber ?? "—"}</span>
+                  <span className="od-shipment-track">{s.trackingNumber ?? "—"}</span>
                 </div>
               ))}
             </div>
