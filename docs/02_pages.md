@@ -102,7 +102,7 @@ warna): lihat `06_tech_decisions.md` D7–D8.
 
 | ID | Route | Halaman | Fitur | Komponen kunci |
 |----|-------|---------|-------|----------------|
-| PG-ADM-01 | `/` | Admin dashboard | ADM-01..08 | Ringkasan: drop aktif, order, escrow, payout due |
+| PG-ADM-01 | `/` | Admin dashboard | ADM-01..10 | Ringkasan: count drop/order/kreator + antrian kerja (Pengiriman perlu diproses [shipment requested/packed], KYC pending, dispute open/under_review, Payout perlu tindakan [payout pending/processing/failed]) link ke /orders, /kyc, /disputes, /payouts |
 | PG-ADM-02 | `/creators` | Kelola kreator | ADM-01 | CRUD data kreator (hasil rekrutan off-platform), status akun, payment info |
 | PG-ADM-03 | `/drops` | Kelola drop | ADM-02 | Buat drop (artwork final, harga, unit, waktu), schedule, publish, tutup |
 | PG-ADM-04 | `/orders` | Kelola order | ADM-03 | Semua order, update status, no resi, return |
