@@ -4,6 +4,8 @@ import { RequireAuth } from "../components/RequireAuth";
 import { StatusBadge } from "../components/StatusBadge";
 import { api, formatIdr } from "../lib/api";
 import { LoadingState } from "../lib/QueryStates";
+import "./commerce.css";
+import "./creator-console.css";
 
 /**
  * P0-4 (audit 2026-08-24) batch B: PG-CRT-03 — Per-drop analytics untuk kreator.
@@ -54,107 +56,59 @@ function CreatorDropAnalyticsInner() {
   const { drop, cards, revenue } = data;
   const pct = cards.total > 0 ? Math.round((cards.sold / cards.total) * 100) : 0;
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: 12 }}>
-        <div>
-          <span className="eyebrow">Drop Analytics</span>
-          <h1 className="h2" style={{ marginTop: 4 }}>
-            {drop.title}
-          </h1>
-          <p className="muted" style={{ marginTop: 6 }}>
-            {drop.series} · {drop.totalUnits} unit
-          </p>
+    <div className="page-stack">
+      <section className="page-hero" aria-label="Header halaman analitik drop">
+        <div className="page-hero-rail">
+          <span className="rail-channel">CH:06 / KREATOR</span>
+          <span className="rail-dot" aria-hidden="true" />
+          <span className="rail-sep">·</span>
+          <span className="rail-extra">DROP ANALYTICS</span>
+          <span className="rail-time" aria-label="Siap">
+            <span className="rail-cursor" aria-hidden="true" />
+          </span>
         </div>
-        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          <StatusBadge status={drop.status} kind="drop" />
-          <Link to={`/drops/${drop.id}`} className="btn-ghost" style={{ fontFamily: "var(--font-mono)", fontSize: 12 }}>
-            Publik →
-          </Link>
+        <div className="page-hero-inner">
+          <div className="page-hero-copy">
+            <span className="eyebrow">Drop Analytics</span>
+            <h1 className="page-hero-title">{drop.title}</h1>
+            <div className="page-hero-sub">
+              {drop.series} · {drop.totalUnits} unit
+            </div>
+            <Link className="cx-hero-back btn-ghost" to="/creator">
+              ← Kembali ke Dashboard
+            </Link>
+          </div>
+          <div className="cx-hero-actions">
+            <StatusBadge status={drop.status} kind="drop" />
+            <Link to={`/drops/${drop.id}`} className="btn-ghost cm-hero-cta">
+              Publik →
+            </Link>
+          </div>
         </div>
-      </div>
+      </section>
 
       <div className="grid-3">
-        <div className="card card-pad" style={{ background: "var(--surface-2)" }}>
-          <div
-            style={{
-              fontFamily: "var(--font-mono)",
-              fontSize: 10,
-              color: "var(--text-dim)",
-              letterSpacing: "0.08em",
-              textTransform: "uppercase",
-              fontWeight: 500,
-            }}
-          >
-            Terjual
-          </div>
-          <div style={{ fontFamily: "var(--font-display)", fontSize: 28, fontWeight: 500, marginTop: 6 }}>
+        <div className="card card-pad cx-stat">
+          <span className="label">Terjual</span>
+          <div className="cx-stat-value">
             {cards.sold} / {cards.total}
           </div>
-          <div
-            style={{
-              fontFamily: "var(--font-mono)",
-              fontSize: 11,
-              color: "var(--text-muted)",
-              marginTop: 4,
-            }}
-          >
-            {pct}% sold
-          </div>
+          <div className="cx-stat-sub">{pct}% sold</div>
           <div className="progress" style={{ marginTop: 10, height: 4 }}>
             <div className="progress-fill" style={{ width: `${pct}%` }} />
           </div>
         </div>
-        <div className="card card-pad" style={{ background: "var(--surface-2)" }}>
-          <div
-            style={{
-              fontFamily: "var(--font-mono)",
-              fontSize: 10,
-              color: "var(--text-dim)",
-              letterSpacing: "0.08em",
-              textTransform: "uppercase",
-              fontWeight: 500,
-            }}
-          >
-            Inventory
-          </div>
-          <div style={{ fontFamily: "var(--font-display)", fontSize: 28, fontWeight: 500, marginTop: 6 }}>{cards.inventory}</div>
-          <div
-            style={{
-              fontFamily: "var(--font-mono)",
-              fontSize: 11,
-              color: "var(--text-muted)",
-              marginTop: 4,
-            }}
-          >
-            {cards.withBuyout} sedang dijual
-          </div>
+        <div className="card card-pad cx-stat">
+          <span className="label">Inventory</span>
+          <div className="cx-stat-value">{cards.inventory}</div>
+          <div className="cx-stat-sub">{cards.withBuyout} sedang dijual</div>
         </div>
-        <div className="card card-pad gold" style={{ background: "var(--surface-2)" }}>
-          <div
-            style={{
-              fontFamily: "var(--font-mono)",
-              fontSize: 10,
-              color: "var(--gold)",
-              letterSpacing: "0.08em",
-              textTransform: "uppercase",
-              fontWeight: 500,
-            }}
-          >
-            Creator Share (30% Primary)
-          </div>
-          <div style={{ fontFamily: "var(--font-display)", fontSize: 24, fontWeight: 500, marginTop: 6 }}>
+        <div className="card card-pad gold cx-stat">
+          <span className="label cx-stat-label-gold">Creator Share (30% Primary)</span>
+          <div className="cx-stat-value">
             {revenue.creatorSharePrimaryCcoin} <span style={{ fontFamily: "var(--font-mono)", fontSize: 12 }}>C</span>
           </div>
-          <div
-            style={{
-              fontFamily: "var(--font-mono)",
-              fontSize: 11,
-              color: "var(--text-muted)",
-              marginTop: 4,
-            }}
-          >
-            {formatIdr(revenue.creatorSharePrimaryIdr)}
-          </div>
+          <div className="cx-stat-sub">{formatIdr(revenue.creatorSharePrimaryIdr)}</div>
           <div className="muted" style={{ fontSize: 11, marginTop: 6, lineHeight: 1.5 }}>
             Share kamu dari primary 70/30. Secondary royalties tampil di{" "}
             <Link to="/creator/payouts" style={{ color: "var(--gold)" }}>

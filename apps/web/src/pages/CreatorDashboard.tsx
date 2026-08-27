@@ -8,6 +8,7 @@ import { api, formatIdr } from "../lib/api";
 import type { ApiDrop, ApiDropsResponse } from "../lib/api-types";
 import { useAuth } from "../lib/auth";
 import { useToast } from "../lib/toast";
+import "./creator-console.css";
 
 const errorMessage = (e: unknown): string => (e instanceof Error ? e.message : String(e));
 
@@ -100,43 +101,38 @@ function CreatorDashboardInner() {
   }
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-      <div>
-        <span className="eyebrow">Kreator</span>
-        <h1 className="h2" style={{ marginTop: 4 }}>
-          Dashboard
-        </h1>
-      </div>
+    <div className="page-stack">
+      <section className="page-hero" aria-label="Header halaman konsol kreator">
+        <div className="page-hero-rail">
+          <span className="rail-channel">CH:06 / KREATOR</span>
+          <span className="rail-dot" aria-hidden="true" />
+          <span className="rail-sep">·</span>
+          <span className="rail-extra">CREATOR CONSOLE</span>
+          <span className="rail-time" aria-label="Siap">
+            <span className="rail-cursor" aria-hidden="true" />
+          </span>
+        </div>
+        <div className="page-hero-inner">
+          <div className="page-hero-copy">
+            <span className="eyebrow">Kreator</span>
+            <h1 className="page-hero-title">Dashboard</h1>
+          </div>
+        </div>
+      </section>
 
-      <div className="card card-pad" style={{ background: "var(--surface-2)" }}>
-        <div style={{ display: "flex", gap: 24, flexWrap: "wrap" }}>
-          <div>
-            <div
-              style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--text-dim)", fontWeight: 500, letterSpacing: "0.08em" }}
-            >
-              TOTAL DROPS
-            </div>
-            <div style={{ fontFamily: "var(--font-display)", fontSize: 26, fontWeight: 500, marginTop: 4 }}>{myDrops.length}</div>
-          </div>
-          <div>
-            <div
-              style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--text-dim)", fontWeight: 500, letterSpacing: "0.08em" }}
-            >
-              TERJUAL
-            </div>
-            <div style={{ fontFamily: "var(--font-display)", fontSize: 26, fontWeight: 500, marginTop: 4 }}>
-              {myDrops.reduce((n, d) => n + d.soldCount, 0)}
-            </div>
-          </div>
-          <div>
-            <div
-              style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--text-dim)", fontWeight: 500, letterSpacing: "0.08em" }}
-            >
-              EST. GMV
-            </div>
-            <div style={{ fontFamily: "var(--font-mono)", fontSize: 15, fontWeight: 600, marginTop: 6 }}>
-              {formatIdr(myDrops.reduce((n, d) => n + d.soldCount * ((d.priceCcoin ?? d.priceUnsignedCCoin) * 10000), 0))}
-            </div>
+      <div className="grid-3">
+        <div className="card card-pad cx-stat">
+          <span className="label">TOTAL DROPS</span>
+          <div className="cx-stat-value">{myDrops.length}</div>
+        </div>
+        <div className="card card-pad cx-stat">
+          <span className="label">TERJUAL</span>
+          <div className="cx-stat-value">{myDrops.reduce((n, d) => n + d.soldCount, 0)}</div>
+        </div>
+        <div className="card card-pad cx-stat">
+          <span className="label">EST. GMV</span>
+          <div className="cx-stat-value-mono">
+            {formatIdr(myDrops.reduce((n, d) => n + d.soldCount * ((d.priceCcoin ?? d.priceUnsignedCCoin) * 10000), 0))}
           </div>
         </div>
       </div>
@@ -246,68 +242,38 @@ function CreatorDashboardInner() {
           </button>
         </form>
         <div className="card">
-          <div
-            style={{
-              padding: "14px 16px",
-              fontWeight: 600,
-              fontSize: 13,
-              borderBottom: "1px solid var(--border)",
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-            }}
-          >
-            <span>Drops Saya</span>
-            <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--text-dim)" }}>{myDrops.length}</span>
+          <div className="cx-head">
+            <span className="cx-head-title">Drops Saya</span>
+            <span className="cx-head-count">{myDrops.length}</span>
           </div>
-          <div style={{ display: "flex", flexDirection: "column" }}>
+          <div>
             {myDrops.length === 0 ? (
-              <div style={{ padding: 24, textAlign: "center", color: "var(--text-muted)", fontFamily: "var(--font-mono)", fontSize: 12 }}>
-                Belum ada drop
+              <div className="empty-arcade cx-drop-empty" role="status">
+                <div className="empty-icon" aria-hidden="true">
+                  NO_DROPS
+                </div>
+                <div className="empty-title">Belum ada drop</div>
               </div>
             ) : (
               myDrops.map((d) => (
-                <div
-                  key={d.id}
-                  style={{
-                    padding: "12px 16px",
-                    borderBottom: "1px solid var(--border)",
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    gap: 10,
-                  }}
-                >
-                  <Link
-                    to={`/creator/drops/${d.id}`}
-                    style={{
-                      flex: 1,
-                      color: "var(--text)",
-                      textDecoration: "none",
-                    }}
-                  >
-                    <div style={{ fontWeight: 600, fontSize: 13 }}>{d.title}</div>
-                    <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--text-muted)" }}>
+                <div className="cx-drop-row" key={d.id}>
+                  <Link className="cx-drop-link" to={`/creator/drops/${d.id}`}>
+                    <div className="cx-drop-title">{d.title}</div>
+                    <div className="cx-drop-meta">
                       {d.series} · {d.soldCount}/{d.totalUnits} · {d.priceCcoin ?? d.priceUnsignedCCoin} C
                     </div>
                   </Link>
-                  <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+                  <div className="cx-drop-actions">
                     {d.status === "draft" && (
-                      <button
-                        className="btn-gold"
-                        onClick={() => onPublish(d.id, "scheduled")}
-                        disabled={busyId === d.id}
-                        style={{ fontSize: 11, padding: "6px 12px" }}
-                      >
+                      <button className="btn-gold cx-btn-sm" onClick={() => onPublish(d.id, "scheduled")} disabled={busyId === d.id}>
                         Publish
                       </button>
                     )}
                     {(d.status === "scheduled" || d.status === "live") && (
                       <button
-                        className="btn-ghost"
+                        className="btn-ghost cx-btn-sm"
                         onClick={() => onPublish(d.id, d.status === "scheduled" ? "draft" : "cancelled")}
                         disabled={busyId === d.id}
-                        style={{ fontSize: 11, padding: "6px 12px" }}
                       >
                         Batalkan
                       </button>

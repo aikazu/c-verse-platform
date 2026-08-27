@@ -1,0 +1,204 @@
+/* Creator Console (Space Arcade) — namespace `cx-`, sibling of creator.css
+   (`cp-`). Consumes only existing theme tokens/classes from styles.css
+   (.page-hero, .label, .card, .empty-arcade, --font-*, --surface-*, --gold,
+   --border, --motion-fast). Covers CreatorDashboard, CreatorDropAnalytics,
+   CreatorPayouts and the pre-auth AuthForm card (no rail on pre-auth). */
+
+/* ── Stat cell — mono label + display value (dashboard / analytics / payouts) ─ */
+/* Gradient recipe mirrors canonical .pp-stat / .ci-stat / .cm-stat panels. */
+.card.cx-stat {
+	background:
+		linear-gradient(180deg, var(--gold-bg-soft) 0%, transparent 100%),
+		var(--surface-2);
+	border: 1px solid var(--border);
+}
+
+.card.cx-stat::before {
+	content: "";
+	position: absolute;
+	left: 0;
+	top: 0;
+	bottom: 0;
+	width: 2px;
+	background: linear-gradient(180deg, var(--gold) 0%, transparent 100%);
+	opacity: 0.55;
+}
+
+.cx-stat .label {
+	margin-bottom: 0;
+}
+
+.cx-stat .label.cx-stat-label-gold {
+	color: var(--gold);
+}
+
+.cx-stat-value {
+	font-family: var(--font-display);
+	font-size: 28px;
+	font-weight: 500;
+	line-height: 1.1;
+	margin-top: 6px;
+}
+
+.cx-stat-value-mono {
+	font-family: var(--font-mono);
+	font-size: 15px;
+	font-weight: 600;
+	letter-spacing: 0.04em;
+	margin-top: 8px;
+}
+
+.cx-stat-sub {
+	font-family: var(--font-mono);
+	font-size: 11px;
+	color: var(--text-muted);
+	margin-top: 4px;
+}
+
+/* ── Card head + drop rows (dashboard list / payouts table shell) ──────────── */
+.cx-head {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	padding: 14px 16px;
+	border-bottom: 1px solid var(--border);
+}
+
+.cx-head-title {
+	font-weight: 600;
+	font-size: 13px;
+}
+
+.cx-head-count {
+	font-family: var(--font-mono);
+	font-size: 11px;
+	color: var(--text-dim);
+}
+
+.cx-drop-row {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	gap: 10px;
+	padding: 12px 16px;
+	border-bottom: 1px solid var(--border);
+}
+
+.cx-drop-link {
+	flex: 1;
+	min-width: 0;
+	color: var(--text);
+	text-decoration: none;
+}
+
+.cx-drop-title {
+	font-weight: 600;
+	font-size: 13px;
+	color: var(--text);
+}
+
+.cx-drop-meta {
+	font-family: var(--font-mono);
+	font-size: 11px;
+	color: var(--text-muted);
+}
+
+.cx-drop-actions {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	flex-shrink: 0;
+}
+
+.cx-drop-actions .cx-btn-sm {
+	font-size: 11px;
+	padding: 6px 12px;
+}
+
+.cx-drop-empty {
+	margin: 16px;
+}
+
+/* ── Hero extras (analytics back link + actions cluster) ───────────────────── */
+/* Back link — mirrors .ci-back / .cm-back / .od-back capsule pattern. */
+.cx-hero-back {
+	display: inline-flex;
+	align-self: flex-start;
+	margin-top: 8px;
+	padding: 6px 14px;
+	font-family: var(--font-mono);
+	font-size: 10px;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+}
+
+.cx-hero-actions {
+	display: flex;
+	gap: 8px;
+	align-items: center;
+}
+
+/* ── Pre-auth card (AuthForm) — no rail; brand block + soft gold glow ──────── */
+.cx-auth {
+	max-width: 420px;
+	margin: 48px auto;
+	padding: 0 16px;
+}
+
+.cx-auth-card {
+	display: flex;
+	flex-direction: column;
+	gap: 18px;
+	padding: 28px;
+}
+
+.cx-brand {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	text-align: center;
+}
+
+.cx-brand-name {
+	font-family: var(--font-display);
+	font-size: 22px;
+	font-weight: 600;
+	letter-spacing: 0.03em;
+	text-shadow: 0 0 16px rgba(255, 201, 77, 0.28);
+}
+
+.cx-brand-tag {
+	font-family: var(--font-mono);
+	font-size: 10px;
+	letter-spacing: 0.12em;
+	text-transform: uppercase;
+	color: var(--text-dim);
+}
+
+.cx-divider {
+	height: 1px;
+	background: var(--border);
+}
+
+/* ── Responsive ────────────────────────────────────────────────────────────── */
+@media (max-width: 720px) {
+	.cx-drop-row {
+		flex-wrap: wrap;
+	}
+	.cx-drop-actions {
+		width: 100%;
+		justify-content: flex-end;
+	}
+}
+
+@media (max-width: 480px) {
+	.cx-auth {
+		margin: 24px auto;
+	}
+	.cx-auth-card {
+		padding: 20px;
+	}
+	.cx-stat-value {
+		font-size: 24px;
+	}
+}

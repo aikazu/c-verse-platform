@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { RequireAuth } from "../components/RequireAuth";
 import { api, formatIdr } from "../lib/api";
 import { LoadingState } from "../lib/QueryStates";
+import "./creator-console.css";
 
 interface PayoutRow {
   id: string;
@@ -48,64 +49,51 @@ function CreatorPayoutsInner() {
   const totalCCoin = list.reduce((sum, p) => sum + p.ccoin_amount, 0);
   const totalIdr = list.reduce((sum, p) => sum + p.idr_amount, 0);
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-      <div>
-        <span className="eyebrow">Payout Kreator</span>
-        <h1 className="h2" style={{ marginTop: 4 }}>
-          Riwayat <em style={{ fontStyle: "italic", fontWeight: 300, color: "var(--gold)" }}>Payout</em>
-        </h1>
-      </div>
-      <div className="grid-2" style={{ alignItems: "stretch" }}>
-        <div className="card card-pad" style={{ background: "var(--surface-2)" }}>
-          <div
-            style={{
-              fontFamily: "var(--font-mono)",
-              fontSize: 10,
-              color: "var(--text-dim)",
-              letterSpacing: "0.12em",
-              textTransform: "uppercase",
-              fontWeight: 500,
-            }}
-          >
-            Total C-Coin Didapat
+    <div className="page-stack">
+      <section className="page-hero" aria-label="Header halaman payout kreator">
+        <div className="page-hero-rail">
+          <span className="rail-channel">CH:06 / KREATOR</span>
+          <span className="rail-dot" aria-hidden="true" />
+          <span className="rail-sep">·</span>
+          <span className="rail-extra">PAYOUT LOG</span>
+          <span className="rail-time" aria-label="Siap">
+            <span className="rail-cursor" aria-hidden="true" />
+          </span>
+        </div>
+        <div className="page-hero-inner">
+          <div className="page-hero-copy">
+            <span className="eyebrow">Payout Kreator</span>
+            <h1 className="page-hero-title">
+              Riwayat <em>Payout</em>
+            </h1>
           </div>
-          <div style={{ fontFamily: "var(--font-display)", fontSize: 32, fontWeight: 500, marginTop: 6 }}>
+        </div>
+      </section>
+      <div className="grid-2" style={{ alignItems: "stretch" }}>
+        <div className="card card-pad cx-stat">
+          <span className="label">Total C-Coin Didapat</span>
+          <div className="cx-stat-value">
             {totalCCoin} <span style={{ fontFamily: "var(--font-mono)", fontSize: 14, color: "var(--text-muted)" }}>C</span>
           </div>
         </div>
-        <div className="card card-pad" style={{ background: "var(--surface-2)" }}>
-          <div
-            style={{
-              fontFamily: "var(--font-mono)",
-              fontSize: 10,
-              color: "var(--text-dim)",
-              letterSpacing: "0.12em",
-              textTransform: "uppercase",
-              fontWeight: 500,
-            }}
-          >
-            Total Disbursement (IDR)
-          </div>
-          <div style={{ fontFamily: "var(--font-display)", fontSize: 24, fontWeight: 500, marginTop: 6 }}>{formatIdr(totalIdr)}</div>
+        <div className="card card-pad cx-stat">
+          <span className="label">Total Disbursement (IDR)</span>
+          <div className="cx-stat-value">{formatIdr(totalIdr)}</div>
           <div className="muted" style={{ fontSize: 11, marginTop: 6 }}>
             Setelah withholding pajak + fee 1%
           </div>
         </div>
       </div>
       <div className="card">
-        <div
-          style={{
-            padding: "14px 16px",
-            borderBottom: "1px solid var(--border)",
-            fontWeight: 600,
-            fontSize: 13,
-          }}
-        >
-          Daftar Payout — {list.length}
+        <div className="cx-head">
+          <span className="cx-head-title">Daftar Payout — {list.length}</span>
         </div>
         {list.length === 0 ? (
-          <div className="muted" style={{ padding: 24, textAlign: "center", fontFamily: "var(--font-mono)", fontSize: 12 }}>
-            Belum ada payout — settled setelah escrow release + batch mingguan
+          <div className="empty-arcade cx-drop-empty" role="status">
+            <div className="empty-icon" aria-hidden="true">
+              NO_PAYOUTS
+            </div>
+            <p className="empty-msg">Belum ada payout — settled setelah escrow release + batch mingguan</p>
           </div>
         ) : (
           <div className="table-wrap">
