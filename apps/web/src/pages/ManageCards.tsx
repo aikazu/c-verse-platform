@@ -2,6 +2,7 @@ import type { Card } from "@c-verse/shared";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { useConfirm } from "../components/ConfirmProvider";
 import { RequireAuth } from "../components/RequireAuth";
 import { api } from "../lib/api";
 import type { ApiProfileEnrichedCard } from "../lib/api-types";
@@ -22,6 +23,7 @@ export default function ManageCards() {
 function ManageCardsInner() {
   const { user } = useAuth();
   const { push } = useToast();
+  const confirm = useConfirm();
   const [buyout, setBuyout] = useState<Record<string, string>>({});
   const [vaultAddr, setVaultAddr] = useState<Record<string, string>>({});
   const [vaultFee, setVaultFee] = useState<Record<string, number>>({});
@@ -47,7 +49,7 @@ function ManageCardsInner() {
     const hasExisting = card.buyoutPriceCcoin != null;
     if (raw === "") {
       if (!hasExisting) return; // tidak ada perubahan — memang belum dijual
-      if (!window.confirm("Hapus harga buyout C.Card ini?")) return;
+      if (!(await confirm({ title: "Hapus harga buyout?", danger: true, confirmLabel: "Hapus" }))) return;
       setBusyId(card.id);
       try {
         await api.patchBuyout(card.id, null);
@@ -84,7 +86,7 @@ function ManageCardsInner() {
       return;
     }
     // Konfirmasi: ongkir dipotong + kartu berstatus dikirim (founder 2026-08-29).
-    if (!window.confirm(`Kirim C.Card ini ke alamat tujuan? Ongkir ${fee} C.`)) return;
+    if (!(await confirm({ title: "Kirim C.Card ini?", message: `Ongkir ${fee} C dipotong dari saldo.`, confirmLabel: "Kirim" }))) return;
     setBusyId(card.id);
     try {
       await api.vaultShipout(card.id, addr, fee);
@@ -98,7 +100,14 @@ function ManageCardsInner() {
   }
   async function onAccept(card: EnrichedCard) {
     // Konfirmasi: kartu berpindah kepemilikan dan tidak bisa dibatalkan (founder 2026-08-29).
-    if (!window.confirm(`Terima tawaran ${card.activeBid?.amountCCoin} C dari ${card.activeBid?.bidderName}? Kartu pindah ke pembeli.`))
+    if (
+      !(await confirm({
+        title: `Terima tawaran ${card.activeBid?.amountCCoin} C?`,
+        message: `Kartu pindah ke ${card.activeBid?.bidderName} (vault). Tidak bisa dibatalkan.`,
+        confirmLabel: "Terima",
+        danger: true,
+      }))
+    )
       return;
     setBusyId(card.id);
     try {

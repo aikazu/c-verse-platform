@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link } from "react-router-dom";
+import { useConfirm } from "../components/ConfirmProvider";
 import { RequireAuth } from "../components/RequireAuth";
 import { api } from "../lib/api";
 import type { ApiProfileResponse } from "../lib/api-types";
@@ -30,6 +31,7 @@ export default function VerifyShipment() {
 
 function VerifyShipmentInner() {
   const { push } = useToast();
+  const confirm = useConfirm();
   const { data, isLoading, isError, refetch } = useQuery<ApiProfileResponse>({
     queryKey: ["verify-shipment"],
     queryFn: () => api.profile(),
@@ -50,7 +52,14 @@ function VerifyShipmentInner() {
       push("Alamat minimal 10 karakter", "info");
       return;
     }
-    if (!window.confirm(`Kirim kartu ${cardId} ke vault platform?\nSetelah diterima, tim akan verifikasi NFC sebelum payout dilepas.`))
+    if (
+      !(await confirm({
+        title: `Kirim kartu #${cardId} ke vault?`,
+        message: "Setelah diterima, tim verifikasi NFC sebelum payout dilepas.",
+        confirmLabel: "Kirim",
+        danger: true,
+      }))
+    )
       return;
     setBusyId(cardId);
     try {

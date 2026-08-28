@@ -2,6 +2,7 @@ import { MAX_ACTIVE_BIDS_PER_USER } from "@c-verse/shared";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link } from "react-router-dom";
+import { useConfirm } from "../components/ConfirmProvider";
 import { api } from "../lib/api";
 import type { ApiBrowseEntry, ApiBrowseResponse } from "../lib/api-types";
 import { useAuth } from "../lib/auth";
@@ -15,6 +16,7 @@ type SortKey = "default" | "unit_asc" | "unit_desc" | "creator";
 export default function Browse() {
   const { user } = useAuth();
   const { push } = useToast();
+  const confirm = useConfirm();
   const [q, setQ] = useState("");
   const [sort, setSort] = useState<SortKey>("default");
   const [bidAmt, setBidAmt] = useState<Record<string, number>>({});
@@ -71,7 +73,8 @@ export default function Browse() {
       return;
     }
     // Konfirmasi sebelum C-Coin ditahan (founder 2026-08-29: aksi spend wajib confirm).
-    if (!window.confirm(`Tawar ${amt} C? C-Coin ditahan sampai bid kalah atau dibatalkan.`)) return;
+    if (!(await confirm({ title: `Tawar ${amt} C?`, message: "C-Coin ditahan sampai bid kalah atau dibatalkan.", confirmLabel: "Tawar" })))
+      return;
     setPendingBidCardIds((current) => [...current, cardId]);
     try {
       await api.placeBid(cardId, amt);

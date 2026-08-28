@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { CardThumb } from "../components/CardThumb";
+import { useConfirm } from "../components/ConfirmProvider";
 import { StatusBadge } from "../components/StatusBadge";
 import { api } from "../lib/api";
 import type { ApiDrop, ApiDropDetailResponse } from "../lib/api-types";
@@ -231,6 +232,7 @@ function ActionPanel(props: {
 }) {
   const [pool, setPool] = useState<"regular" | "premium" | "both">("regular");
   const [busy, setBusy] = useState(false);
+  const confirm = useConfirm();
 
   async function onEnterRaffle() {
     if (!props.userLoggedIn) {
@@ -240,7 +242,14 @@ function ActionPanel(props: {
     }
     const poolLabel = pool === "regular" ? "reguler" : pool === "premium" ? "premium" : "kedua pool";
     // Konfirmasi sebelum C-Coin ditahan (founder 2026-08-29: aksi spend wajib confirm).
-    if (!window.confirm(`Ikut raffle pool ${poolLabel} — ${holdAmount} C ditahan. Tidak menang, otomatis kembali. Lanjutkan?`)) return;
+    if (
+      !(await confirm({
+        title: `Ikut raffle ${props.drop.title}?`,
+        message: `Pool ${poolLabel} — ${holdAmount} C ditahan. Tidak menang, otomatis kembali.`,
+        confirmLabel: "Ikut",
+      }))
+    )
+      return;
     setBusy(true);
     try {
       await api.entryRaffle(props.drop.id, pool);

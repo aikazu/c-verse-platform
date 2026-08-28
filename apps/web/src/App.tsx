@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import React, { lazy, Suspense, useState } from "react";
 import { BrowserRouter, Navigate, NavLink, Route, Routes, useNavigate, useParams } from "react-router-dom";
+import { ConfirmProvider } from "./components/ConfirmProvider";
 import { api } from "./lib/api";
 import { AuthProvider, useAuth } from "./lib/auth";
 import { ErrorBoundary } from "./lib/ErrorBoundary";
@@ -358,7 +359,9 @@ export default function App() {
         <AuthProvider>
           <ToastProvider>
             <ErrorBoundary>
-              <AppRoutes />
+              <ConfirmProvider>
+                <AppRoutes />
+              </ConfirmProvider>
             </ErrorBoundary>
             {!usernameLater && <UsernameSetupModal />}
           </ToastProvider>

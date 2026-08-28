@@ -2535,3 +2535,75 @@ tbody tr:hover { background: rgba(91, 230, 255, 0.05); }
   .error-actions { flex-direction: column; align-items: stretch; }
   .badge-tile { width: 200px; }
 }
+
+/* ── Confirm dialog (cfm-) — modal in-app pengganti native window.confirm ── */
+.cfm-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  overscroll-behavior: contain;
+}
+.cfm-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(5, 3, 11, 0.85);
+  backdrop-filter: blur(6px);
+  border: 0;
+  cursor: default;
+  padding: 0;
+}
+.cfm-card {
+  position: relative;
+  max-width: 400px;
+  width: 100%;
+  padding: 28px;
+  border-color: var(--border-strong);
+  box-shadow: 0 0 0 2px var(--border-strong), 0 24px 64px rgba(0, 0, 0, 0.6);
+}
+.cfm-eyebrow {
+  font-family: var(--font-display);
+  font-size: 10px;
+  letter-spacing: 0.3em;
+  color: var(--text-dim);
+  text-align: center;
+}
+.cfm-title {
+  font-family: var(--font-display);
+  font-size: 16px;
+  color: var(--gold);
+  text-align: center;
+  margin-top: 10px;
+}
+.cfm-message {
+  font-size: 13px;
+  color: var(--text-dim);
+  text-align: center;
+  margin-top: 12px;
+  line-height: 1.6;
+}
+.cfm-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 22px;
+}
+.cfm-actions button {
+  flex: 1;
+  padding: 11px;
+}
+.cfm-btn-danger {
+  flex: 1;
+  padding: 11px;
+  font-weight: 600;
+  border-radius: 999px;
+  border: 1px solid var(--alert);
+  background: var(--alert);
+  color: #14060c;
+  cursor: pointer;
+}
+.cfm-btn-danger:hover {
+  filter: brightness(1.08);
+}

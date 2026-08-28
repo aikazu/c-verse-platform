@@ -2,6 +2,7 @@ import { BALANCE_CAP_CCOIN, walletTxTypeLabel } from "@c-verse/shared";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useConfirm } from "../components/ConfirmProvider";
 import { RequireAuth } from "../components/RequireAuth";
 import { ApiError, api, formatIdr } from "../lib/api";
 import { useAuth } from "../lib/auth";
@@ -25,6 +26,7 @@ export default function Wallet() {
 function WalletInner() {
   const { user } = useAuth();
   const { push } = useToast();
+  const confirm = useConfirm();
   const nav = useNavigate();
   const [amount, setAmount] = useState(50);
   const [payoutAmt, setPayoutAmt] = useState(10);
@@ -54,7 +56,7 @@ function WalletInner() {
 
   async function onTopup() {
     // Uang asli (IDR via Midtrans) — wajib konfirmasi sebelum redirect (founder 2026-08-29).
-    if (!window.confirm(`Top-up ${amount} C via Midtrans?`)) return;
+    if (!(await confirm({ title: `Top-up ${amount} C?`, message: "Lanjut ke Midtrans untuk pembayaran.", confirmLabel: "Bayar" }))) return;
     setBusyTopup(true);
     try {
       const r = await api.topup(amount);

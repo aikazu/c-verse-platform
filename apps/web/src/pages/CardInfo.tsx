@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { CardThumb } from "../components/CardThumb";
+import { useConfirm } from "../components/ConfirmProvider";
 import { ApiError, api } from "../lib/api";
 import type { ApiCardDetailResponse, ApiCardOwnershipRow } from "../lib/api-types";
 import { useAuth } from "../lib/auth";
@@ -33,6 +34,7 @@ export default function CardInfo() {
   const [buyoutOpen, setBuyoutOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [bidAmount, setBidAmount] = useState("");
+  const confirm = useConfirm();
   const { data, isLoading, refetch } = useQuery<ApiCardDetailResponse>({
     queryKey: ["card", cardId],
     queryFn: () => api.card(cardId!),
@@ -73,7 +75,14 @@ export default function CardInfo() {
   const myActiveBid = activeBid?.bidderId && user && activeBid.bidderId === user.id ? activeBid : null;
 
   async function onBuyout() {
-    if (!window.confirm(`Beli C.Card ini seharga ${card.buyoutPriceCcoin} C? C.Card masuk vault.`)) return;
+    if (
+      !(await confirm({
+        title: `Beli ${card.buyoutPriceCcoin} C?`,
+        message: "C.Card masuk vault — kirim fisik nanti via Kelola C.Card.",
+        confirmLabel: "Beli",
+      }))
+    )
+      return;
     setBusy(true);
     try {
       // Vault-only purchase (founder 2026-08-28): settle straight to vault,
@@ -122,7 +131,8 @@ export default function CardInfo() {
       return;
     }
     // Konfirmasi sebelum C-Coin ditahan (founder 2026-08-29: aksi spend wajib confirm).
-    if (!window.confirm(`Tawar ${amt} C? C-Coin ditahan sampai bid kalah atau dibatalkan.`)) return;
+    if (!(await confirm({ title: `Tawar ${amt} C?`, message: "C-Coin ditahan sampai bid kalah atau dibatalkan.", confirmLabel: "Tawar" })))
+      return;
     setBusy(true);
     try {
       await api.placeBid(card.id, amt);
