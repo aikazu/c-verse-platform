@@ -411,6 +411,9 @@ begin
           jsonb_build_object('street', p_address), p_fee_ccoin, 'requested')
   returning * into v_shipment;
 
+  -- 4) parity jalur ship-out lama: kartu keluar QC → layak kirim (display admin)
+  update cards set qc_status = 'passed' where id = p_card_id;
+
   return v_shipment;
 end $$;
 
@@ -602,7 +605,7 @@ end $$;
 -- escrow_auto_release DIHAPUS (founder 2026-08-28): semua pembelian settle
 -- langsung ke vault — tidak ada lagi order shipping ber-escrow 'held' baru,
 -- jadi cron H+7 tidak punya pekerjaan. (Sebelumnya: 20260817030000.)
--- drop function if exists public.escrow_auto_release();
+drop function if exists public.escrow_auto_release();
 -- ══════════════════════════════════════════════════════════════════════════
 
 -- ══════════════════════════════════════════════════════════════════════════
