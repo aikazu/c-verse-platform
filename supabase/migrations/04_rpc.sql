@@ -636,6 +636,14 @@ begin
     raise exception 'SALE_IN_PROGRESS';
   end if;
 
+  -- C-12 rebuy 24 jam juga lewat jalur bid (paritas buyout_card): prev owner
+  -- tidak boleh kembali memegang kartu yang baru ia jual (audit 2026-08-29).
+  if exists (select 1 from ownership_history h
+             where h.card_id = p_card_id and h.owner_id = v_user
+             and h.transferred_at > now() - interval '24 hours') then
+    raise exception 'COOLING_PERIOD_24H';
+  end if;
+
   select * into v_active from bids where card_id = p_card_id and status = 'active' for update;
   v_has_active := found;
   if v_has_active and p_amount <= v_active.amount_ccoin then raise exception 'BID_TOO_LOW'; end if;
