@@ -72,8 +72,12 @@ async function req<T>(path: string, opts: RequestInit = {}): Promise<T> {
 }
 
 export const api = {
-  // auth (Supabase Auth dipakai di lib/auth.tsx; endpoint password & demo-login dihapus per docs/10)
+  // auth (Supabase Auth dipakai di lib/auth.tsx; endpoint password & demo-login in-memory dihapus per docs/10)
   me: () => req<ApiUser>("/auth/me"),
+
+  // DEV ONLY — one-click login akun seed (masa demo lokal); 404 kecuali ENABLE_DEMO_LOGIN aktif di API
+  demoLogin: (email: string) =>
+    req<{ email: string; tokenHash: string }>("/auth/demo-login", { method: "POST", body: JSON.stringify({ email }) }),
 
   // drops
   drops: (params?: Record<string, string>) => {

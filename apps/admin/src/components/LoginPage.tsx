@@ -1,6 +1,10 @@
 import { useEffect, useRef, useState } from "react";
+import { apiFetch } from "../lib/api";
 import { supabase } from "../lib/supabase";
 import { isTurnstileEnabled, mountTurnstile, type TurnstileHandle } from "../lib/turnstile";
+
+// Akun seed admin (supabase/seed.sql) — one-click login masa demo lokal (DEV only).
+const DEMO_ADMIN_EMAIL = "admin@cverse.id";
 
 export function LoginPage() {
   const [email, setEmail] = useState("");
@@ -43,6 +47,26 @@ export function LoginPage() {
       // Token single-use dan widget tetap terlihat di form ini — reset agar retry punya token baru.
       turnstileHandleRef.current?.reset();
       setCaptchaToken(undefined);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  // DEV ONLY — POST /api/auth/demo-login → token_hash → sesi aal1 (tanpa OTP/captcha/TOTP).
+  // Butuh ENABLE_DEMO_LOGIN=1 di API; di production build tombol ini tidak pernah ikut bundle.
+  async function onDemoLogin() {
+    setBusy(true);
+    setMsg(null);
+    try {
+      const { tokenHash } = await apiFetch<{ email: string; tokenHash: string }>("/api/auth/demo-login", {
+        method: "POST",
+        body: JSON.stringify({ email: DEMO_ADMIN_EMAIL }),
+      });
+      const { error } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type: "magiclink" });
+      if (error) throw new Error(error.message);
+      setMsg("Sesi demo aktif — masuk tanpa TOTP (dev)…");
+    } catch (err: unknown) {
+      setMsg(err instanceof Error ? err.message : "Demo login gagal");
     } finally {
       setBusy(false);
     }
@@ -93,6 +117,18 @@ export function LoginPage() {
           <div className="admin-msg" role="status" aria-live="polite">
             {msg}
           </div>
+        )}
+
+        {import.meta.env.DEV && (
+          <button
+            type="button"
+            className="btn-ghost"
+            onClick={onDemoLogin}
+            disabled={busy}
+            style={{ marginTop: 12, padding: "9px", width: "100%", fontFamily: "var(--font-mono)", fontSize: 12 }}
+          >
+            DEMO — Masuk sebagai {DEMO_ADMIN_EMAIL}
+          </button>
         )}
 
         <div style={{ fontSize: 11, color: "var(--dim)", textAlign: "center", marginTop: 16 }}>

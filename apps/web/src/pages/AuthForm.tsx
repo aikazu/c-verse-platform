@@ -1,10 +1,17 @@
 import type React from "react";
 import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { useToast } from "../lib/toast";
 import { isTurnstileEnabled, mountTurnstile, type TurnstileHandle } from "../lib/turnstile";
 import "./creator-console.css";
+
+// Akun seed (supabase/seed.sql) untuk one-click login masa demo lokal.
+const DEMO_ACCOUNTS = [
+  { label: "User", email: "demo@cverse.id" },
+  { label: "Creator", email: "karina@creator.id" },
+] as const;
 
 // Auth tunggal (docs/10): Google OAuth + email OTP 6 digit + Turnstile.
 // Karena cuma magic-link & OAuth, TIDAK ada pemisahan login vs register:
@@ -28,7 +35,7 @@ function redirectTarget(state: unknown): string {
 }
 
 export default function AuthForm() {
-  const { loginGoogle, sendOtp, verifyOtp, isSupabaseAuth } = useAuth();
+  const { loginGoogle, sendOtp, verifyOtp, verifyMagicLink, isSupabaseAuth } = useAuth();
   const { push } = useToast();
   const nav = useNavigate();
   const location = useLocation();
@@ -102,6 +109,22 @@ export default function AuthForm() {
       await loginGoogle(); // redirect ke Google; onAuthStateChange menangani session
     } catch (err: unknown) {
       push(errorMessage(err) || "Gagal membuka Google", "error");
+      setBusy(false);
+    }
+  }
+
+  // DEV ONLY — POST /api/auth/demo-login → token_hash → sesi (tanpa OTP/captcha).
+  // Butuh ENABLE_DEMO_LOGIN=1 di API; di production tombol ini tidak pernah ikut bundle.
+  async function onDemoLogin(demoEmail: string) {
+    setBusy(true);
+    try {
+      const { tokenHash } = await api.demoLogin(demoEmail);
+      await verifyMagicLink(tokenHash);
+      push(`Masuk sebagai ${demoEmail}`, "success");
+      nav(target, { replace: true });
+    } catch (err: unknown) {
+      push(errorMessage(err) || "Demo login gagal — cek API jalan dengan ENABLE_DEMO_LOGIN=1", "error");
+    } finally {
       setBusy(false);
     }
   }
@@ -183,6 +206,24 @@ export default function AuthForm() {
               {busy ? "Memverifikasi…" : "Verifikasi & Masuk"}
             </button>
           </form>
+        )}
+        {import.meta.env.DEV && (
+          <div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 8 }}>
+            <div className="muted" style={{ fontSize: 11, textAlign: "center", letterSpacing: "0.08em" }}>
+              DEMO — ONE-CLICK LOGIN (LOKAL)
+            </div>
+            {DEMO_ACCOUNTS.map((account) => (
+              <button
+                key={account.email}
+                className="btn-ghost"
+                onClick={() => onDemoLogin(account.email)}
+                disabled={busy || !isSupabaseAuth}
+                style={{ padding: "9px", width: "100%", fontFamily: "var(--font-mono)", fontSize: 12 }}
+              >
+                Masuk sebagai {account.label} — {account.email}
+              </button>
+            ))}
+          </div>
         )}
       </div>
     </div>

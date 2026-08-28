@@ -28,6 +28,7 @@ interface AuthContextValue {
   loginGoogle: () => Promise<void>;
   sendOtp: (email: string, captchaToken?: string, displayName?: string) => Promise<void>;
   verifyOtp: (email: string, code: string) => Promise<void>;
+  verifyMagicLink: (tokenHash: string) => Promise<void>;
   logout: () => Promise<void>;
   refresh: () => Promise<void>;
 }
@@ -40,6 +41,7 @@ const AuthCtx = createContext<AuthContextValue>({
   loginGoogle: async () => {},
   sendOtp: async () => {},
   verifyOtp: async () => {},
+  verifyMagicLink: async () => {},
   logout: async () => {},
   refresh: async () => {},
 });
@@ -120,6 +122,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (error) throw new Error(friendlyAuthError(error));
   }
 
+  // Demo lokal (masa demo): tukar token_hash dari POST /api/auth/demo-login menjadi sesi.
+  async function verifyMagicLink(tokenHash: string) {
+    if (!supabase) throw new Error("Supabase belum terkonfigurasi");
+    const { error } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type: "magiclink" });
+    if (error) throw new Error(friendlyAuthError(error));
+  }
+
   async function logout() {
     if (supabase) {
       await supabase.auth.signOut().catch(() => {});
@@ -136,8 +145,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // value stabil antar-render — konsumen useAuth tidak ikut re-render saat state lain berubah
   const ctxValue = useMemo(
-    () => ({ user, token, loading, isSupabaseAuth: isSupabaseEnabled, loginGoogle, sendOtp, verifyOtp, logout, refresh }),
-    [user, token, loading, loginGoogle, sendOtp, verifyOtp, logout, refresh],
+    () => ({ user, token, loading, isSupabaseAuth: isSupabaseEnabled, loginGoogle, sendOtp, verifyOtp, verifyMagicLink, logout, refresh }),
+    [user, token, loading, loginGoogle, sendOtp, verifyOtp, verifyMagicLink, logout, refresh],
   );
 
   // Early return setelah semua hook — tanpa Supabase tidak ada sesi palsu (fail-fast).

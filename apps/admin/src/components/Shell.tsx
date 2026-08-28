@@ -1,7 +1,17 @@
 import type React from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 
-function Shell({ email, onLogout, children }: { email: string; onLogout: () => void; children: React.ReactNode }) {
+function Shell({
+  email,
+  authLabel = "Supabase · aal2",
+  onLogout,
+  children,
+}: {
+  email: string;
+  authLabel?: string;
+  onLogout: () => void;
+  children: React.ReactNode;
+}) {
   const nav = useNavigate();
   const items = [
     { to: "/", label: "Dashboard", icon: "▦" },
@@ -46,7 +56,7 @@ function Shell({ email, onLogout, children }: { email: string; onLogout: () => v
               <div className="fs-12 fw-700" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                 {email}
               </div>
-              <div style={{ fontSize: 10, color: "var(--muted)" }}>Supabase · aal2</div>
+              <div style={{ fontSize: 10, color: "var(--muted)" }}>{authLabel}</div>
             </div>
           </div>
           <button className="btn-ghost admin-logout" onClick={onLogout}>
