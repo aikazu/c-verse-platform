@@ -162,13 +162,10 @@ function WalletInner() {
         <div className="card card-pad wa-actions">
           <div>
             <div className="wa-block-title">Isi Saldo</div>
-            <div className="muted wa-sub">Pilih metode dan nominal — 1 C = Rp 10.000 (Opsi A closed-loop)</div>
+            <div className="muted wa-sub">Pilih metode dan nominal — 1 C = Rp 10.000</div>
           </div>
           <div className="wa-note wa-note-gold">
-            Saldo <strong className="wa-note-strong">tidak dapat diuangkan</strong> (Gamified Point — Opsi A). Refund hanya reversal ke
-            metode asal atau penutupan akun bersaldo ke top-up terakhir.
-            <br />
-            <span className="wa-note-mono">Isi saldo = kamu setuju T&C C-Coin.</span>
+            Saldo C-Coin <strong className="wa-note-strong">tidak dapat diuangkan</strong>.
           </div>
           <div className="wa-note wa-note-info">
             {kycApproved ? (
@@ -249,7 +246,7 @@ function WalletInner() {
               <div className="wa-hint">Dana dikunci sampai batch mingguan · minimal 10 C</div>
             </>
           ) : (
-            <div className="muted wa-sub">Penarikan hanya untuk kreator (hasil penjualan) — KYC wajib.</div>
+            <div className="muted wa-sub">Penarikan hanya untuk kreator — KYC wajib.</div>
           )}
         </div>
       </div>
@@ -331,10 +328,7 @@ function WalletInner() {
                 <span className="muted">Saldo tersisa</span>
                 <span className="wa-mono">{w.balanceCCoin - payoutAmt} C</span>
               </div>
-              <div className="muted wa-modal-note">
-                Dana dikunci (escrow) setelah konfirmasi. Disbursement IDR diproses dalam batch mingguan (Selasa 06:00 WIB) via tim — KYC
-                wajib.
-              </div>
+              <div className="muted wa-modal-note">Dana dikunci setelah konfirmasi — dicairkan batch mingguan (Selasa 06:00 WIB).</div>
             </div>
             <div className="wa-modal-actions">
               <button className="btn-ghost wa-btn-flex" onClick={() => setPayoutConfirmOpen(false)} disabled={busyPayout}>

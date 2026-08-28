@@ -240,7 +240,7 @@ function ActionPanel(props: {
     try {
       await api.entryRaffle(props.drop.id, pool);
       const poolLabel = pool === "regular" ? "reguler" : pool === "premium" ? "premium" : "kedua pool";
-      props.onPush(`Berhasil mengikuti raffle (${poolLabel}) — ditahan di escrow`, "success");
+      props.onPush(`Berhasil ikut raffle (${poolLabel})`, "success");
       props.onNavHome();
     } catch (e: unknown) {
       props.onPush(errorMessage(e), "error");
@@ -279,9 +279,7 @@ function ActionPanel(props: {
         {props.phase === "upcoming" && props.countdownTarget && (
           <div className="muted cm-panel-note">Mulai: {new Date(props.countdownTarget).toLocaleString("id-ID")}</div>
         )}
-        {props.phase === "drawing" && (
-          <div className="muted cm-panel-note">Window tutup. Menunggu draw otomatis (cron) — refresh sebentar lagi.</div>
-        )}
+        {props.phase === "drawing" && <div className="muted cm-panel-note">Window tutup — menunggu draw otomatis.</div>}
       </div>
 
       {props.phase === "raffle" && (
@@ -292,9 +290,7 @@ function ActionPanel(props: {
               {countdownLabel}
             </div>
           </div>
-          <div className="cm-countdown-note">
-            Entry ditahan di escrow C-Coin. Release otomatis maksimal H+1 setelah draw (losers) atau convert ke order (winners).
-          </div>
+          <div className="cm-countdown-note">Entry C-Coin ditahan — kalah otomatis kembali, menang jadi order.</div>
         </div>
       )}
 

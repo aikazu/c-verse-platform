@@ -56,7 +56,7 @@ function OrderDetailInner() {
     setBusy(true);
     try {
       await api.openDispute(o.id, disputeReason.trim());
-      push("Dispute dibuat — tim kami akan meninjau", "success");
+      push("Dispute dibuat", "success");
       setDisputeOpen(false);
       setDisputeSent(true); // P1-5: hide tombol setelah submit agar tidak double-submit
       refetch();
@@ -187,7 +187,6 @@ function OrderDetailInner() {
         {disputeSent && (
           <div className="card card-pad od-dispute-sent" role="status">
             <strong className="od-dispute-strong">Dispute terkirim</strong>
-            <div className="muted od-sent-note">Tim kami akan meninjau bukti dan memutuskan. Status dapat dipantau lewat notifikasi.</div>
           </div>
         )}
         {cards.length > 0 && (

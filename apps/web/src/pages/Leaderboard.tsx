@@ -316,7 +316,6 @@ export default function Leaderboard() {
             <span className="section-count">{badges.length}</span>
             <span className="section-rule" aria-hidden="true" />
           </div>
-          <p className="muted lb-prize-note">Katalog lencana — bukan klaim perolehan. Lencana tertera di profil setiap kolektor.</p>
           <div className="badge-rail">
             {badges.map((b) => {
               const xpValue = b.xpReward ?? b.xp;

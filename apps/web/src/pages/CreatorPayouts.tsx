@@ -77,7 +77,7 @@ function CreatorPayoutsInner() {
           </div>
         </div>
         <div className="card card-pad cx-stat">
-          <span className="label">Total Disbursement (IDR)</span>
+          <span className="label">Total Cair (IDR)</span>
           <div className="cx-stat-value">{formatIdr(totalIdr)}</div>
           <div className="muted" style={{ fontSize: 11, marginTop: 6 }}>
             Setelah withholding pajak + fee 1%
@@ -93,7 +93,7 @@ function CreatorPayoutsInner() {
             <div className="empty-icon" aria-hidden="true">
               NO_PAYOUTS
             </div>
-            <p className="empty-msg">Belum ada payout — settled setelah escrow release + batch mingguan</p>
+            <p className="empty-msg">Belum ada payout</p>
           </div>
         ) : (
           <div className="table-wrap">

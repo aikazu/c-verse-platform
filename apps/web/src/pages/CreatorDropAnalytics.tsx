@@ -128,7 +128,7 @@ function CreatorDropAnalyticsInner() {
           <Row label="Creator share (30%)" value={`${revenue.creatorSharePrimaryCcoin} C · ${formatIdr(revenue.creatorSharePrimaryIdr)}`} />
         </div>
         <div className="muted" style={{ fontSize: 11, marginTop: 12, lineHeight: 1.5 }}>
-          Settlement share ini setelah escrow release (DELIVERED + H+7 untuk shipping; instant saat vault). Payout via batch mingguan ke{" "}
+          Release instan untuk pembelian vault, setelah kartu terkirim untuk shipping — payout batch mingguan di{" "}
           <Link to="/creator/payouts" style={{ color: "var(--gold)" }}>
             Payout
           </Link>

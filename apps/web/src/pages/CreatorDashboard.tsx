@@ -30,12 +30,8 @@ function CreatorDashboardInner() {
       <div className="card card-pad" style={{ textAlign: "center", padding: 32 }}>
         <span className="eyebrow">Kreator</span>
         <p className="muted" style={{ marginTop: 8 }}>
-          Dashboard kreator hanya untuk akun kreator. Akun kreator disediakan tim C.Verse via deal memo offline — tidak ada registrasi
-          publik.
+          Khusus akun kreator.
         </p>
-        <div className="muted" style={{ marginTop: 14, fontSize: 12 }}>
-          Sudah deal memo tapi belum punya akun? Hubungi tim untuk aktivasi.
-        </div>
       </div>
     );
 
@@ -107,10 +103,6 @@ function CreatorDashboardInner() {
             ))
           )}
         </div>
-      </div>
-
-      <div className="muted" style={{ fontSize: 12, textAlign: "center" }}>
-        Pembuatan, penjadwalan, dan pembatalan drop dikelola tim C.Verse — halaman ini murni analitik.
       </div>
     </div>
   );
