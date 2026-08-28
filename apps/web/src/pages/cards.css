@@ -77,10 +77,25 @@
 	text-decoration: none;
 }
 
-/* ── 3D viewer host — values MUST stay identical (viewer.ts measures this node) ── */
+/* ── 3D viewer host — height/background MUST stay identical (viewer.ts measures this node) ── */
 .ci-viewer-host {
+	position: relative;
 	height: 420px;
 	background: var(--viewer-bg);
+	border-radius: var(--r-4);
+	overflow: hidden;
+}
+
+/* Vignette + hairline frame laid over the canvas — pointer-events:none keeps
+   the drag-to-rotate canvas fully interactive underneath. */
+.ci-viewer-host::after {
+	content: "";
+	position: absolute;
+	inset: 0;
+	border-radius: inherit;
+	background: radial-gradient(circle at 50% 42%, transparent 55%, rgba(3, 5, 16, 0.5) 100%);
+	border: 1px solid var(--border);
+	pointer-events: none;
 }
 
 /* Status pill row (3D page) */
