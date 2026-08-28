@@ -132,7 +132,9 @@ app.post(
     const authRes = await requireUser(c);
     if ("error" in authRes) return c.json({ error: authRes.error === 403 ? "Akun disuspend" : "Unauthorized" }, authRes.error);
     const user = authRes.user;
-    if (user.role !== "creator" && user.role !== "admin") return c.json({ error: "Hanya kreator/admin yang bisa membuat drop" }, 403);
+    // Founder 2026-08-29: pembuatan drop murni wewenang admin (docs 03 ADM-02) —
+    // dashboard kreator read-only analytics, tidak ada self-serve drop.
+    if (user.role !== "admin") return c.json({ error: "Hanya admin yang bisa membuat drop" }, 403);
     const body = c.req.valid("json");
     const { calcSignedCount, calcUnsignedCount, calcSignedPrice } = await import("@c-verse/shared");
     const signedCount = calcSignedCount(body.totalUnits);
@@ -210,13 +212,9 @@ app.post(
   },
 );
 
-// Transisi yang boleh dilakukan CREATOR untuk drop miliknya (publish/unpublish).
-// scheduled -> live dijalankan otomatis cron activate_scheduled_drops saat drop_start_at tiba.
-const CREATOR_STATUS_TRANSITIONS: Record<string, string[]> = {
-  draft: ["scheduled"],
-  scheduled: ["draft", "cancelled"],
-  live: ["cancelled"],
-};
+// Founder 2026-08-29: transisi status drop (publish/cancel) HANYA admin —
+// sama dengan pembuatan drop (docs 03 ADM-02). scheduled -> live tetap otomatis
+// cron activate_scheduled_drops saat drop_start_at tiba.
 
 app.patch(
   "/:id/status",
@@ -233,11 +231,7 @@ app.patch(
     const status = c.req.valid("json").status;
     const drop = await getDropById(c.req.param("id"));
     if (!drop) return c.json({ error: "Drop tidak ditemukan" }, 404);
-    const isOwner = drop.creatorId === user.id;
-    const allowed = user.role === "admin" || (isOwner && (CREATOR_STATUS_TRANSITIONS[drop.status] ?? []).includes(status));
-    if (!allowed) {
-      return c.json({ error: user.role === "admin" ? "Hanya admin" : "Transisi status tidak diizinkan untuk drop ini" }, 403);
-    }
+    if (user.role !== "admin") return c.json({ error: "Hanya admin yang bisa mengubah status drop" }, 403);
     const db = getSupabase();
     const { data, error } = await db.from("drops").update({ status }).eq("id", c.req.param("id")).select().maybeSingle();
     if (error) return c.json({ error: sanitizeDbError(error) }, 400);

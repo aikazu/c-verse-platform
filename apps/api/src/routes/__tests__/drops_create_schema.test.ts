@@ -12,13 +12,15 @@ const control = vi.hoisted(() => ({
 }));
 
 vi.mock("../../lib/auth.js", () => ({
+  // Drop create admin-only (founder 2026-08-29) — test ini fokus ke skema
+  // creatorId M9, jadi mock sebagai admin yang berhak membuat drop.
   requireUser: () =>
     Promise.resolve({
       user: {
         id: control.authenticatedAs,
         email: "auth-user-1@cverse.id",
         displayName: "Auth User",
-        role: "creator",
+        role: "admin",
         username: "authuser",
         usernameIsAuto: false,
       },

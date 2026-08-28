@@ -93,12 +93,8 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ pool }),
     }),
-  // Body validated server-side by createDropSchema (docs/13). Payload type is
-  // intentionally broad here to avoid duplicating schema in two places — server
-  // is the source of truth.
-  createDrop: (body: Record<string, unknown>) => req<{ drop: Drop }>("/drops", { method: "POST", body: JSON.stringify(body) }),
-  publishDrop: (id: string, status: string) =>
-    req<{ drop: Drop }>(`/drops/${id}/status`, { method: "PATCH", body: JSON.stringify({ status }) }),
+  // Drop create/status = admin-only (founder 2026-08-29, docs 03 ADM-02) —
+  // hanya apps/admin yang memanggil; dashboard kreator read-only analytics.
 
   // wallet
   wallet: () => req<ApiWalletResponse>("/wallet"),
