@@ -25,6 +25,22 @@ insert into public.wallet_transactions (id, user_id, type, amount_ccoin, balance
 values ('90000000-0000-4000-8000-000000000001', '10000000-0000-4000-8000-00000000000a', 'top_up', 100, 100)
 on conflict (id) do nothing;
 
+-- T11: regression linter 0013 (rls_disabled_in_public) — SEMUA tabel schema
+-- public wajib RLS enabled. platform_revenue pernah terlewat dari 03_rls.
+-- Internal ledger tetap default-deny tanpa policy user (service_role bypass).
+do $$
+declare offenders text;
+begin
+  select string_agg(tablename, ', ' order by tablename) into offenders
+  from pg_tables
+  where schemaname = 'public' and rowsecurity = false;
+  if offenders is null then
+    raise notice 'T11 PASS';
+  else
+    raise notice 'T11 FAIL (tables without RLS: %)', offenders;
+  end if;
+end $$;
+
 -- T1: anon select wallets -> ditolak (permission denied tanpa grant, atau 0 rows via default-deny)
 set local role anon;
 do $$

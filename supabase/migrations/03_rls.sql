@@ -42,6 +42,10 @@ alter table public.payouts enable row level security;
 alter table public.creator_page_views enable row level security;
 alter table public.qc_defects enable row level security;
 alter table public.drop_entries enable row level security;
+-- platform_revenue: internal ledger pendapatan — default-deny tanpa policy user
+-- (tulis hanya via RPC ledger SECURITY DEFINER; baca service-role only).
+-- Linter 0013 rls_disabled_in_public.
+alter table public.platform_revenue enable row level security;
 
 -- ══════════════════════════════════════════════════════════════════════════
 -- Helper is_service_role (versi FINAL)
