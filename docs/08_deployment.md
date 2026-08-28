@@ -21,7 +21,8 @@ Infra pendukung:
 - Supabase (Postgres + Auth + Realtime + Supavisor)
 - Cloudflare R2 (artwork, model 3D, KYC private) — binding masih
   dikomentari di `wrangler.toml` sampai bucket dibuat
-- Cloudflare Cron Triggers (escrow settlement + raffle draw, payout batch)
+- Cloudflare Cron Triggers (raffle draw, payout batch — settlement
+  pembelian langsung di RPC, tanpa cron; founder 2026-08-28)
 - Midtrans (sandbox → prod)
 - Belum aktif: Cloudflare Queues (email/notifikasi/payout), SMTP
   transaksional di API, FCM push
@@ -92,7 +93,7 @@ tidak membacanya. Public vars boleh di bundle dengan konvensi
 3. Cron Triggers (`wrangler.toml` — 2 trigger aktif):
    | Cron (UTC) | WIB | Fungsi |
    |------|-----|--------|
-   | `*/5 * * * *` | tiap 5 menit | `activate_scheduled_drops` (scheduled→live) → `escrow_auto_release` (DELIVERED + H+7) → `draw_pending_drops` (drops lewat `raffle_end_at`, idempotent — C-15) |
+   | `*/5 * * * *` | tiap 5 menit | `activate_scheduled_drops` (scheduled→live) → `draw_pending_drops` (drops lewat `raffle_end_at`, idempotent — C-15) — settlement pembelian langsung di RPC (purchase → vault only, founder 2026-08-28) |
    | `0 23 * * 1` | Selasa 06:00 | `payout_batch_run` (settlement mingguan, fee 1%) |
 4. Queues (`email-queue` dll) belum aktif — blok masih dikomentari
    di `wrangler.toml`; aktifkan saat notifikasi diimplementasi.

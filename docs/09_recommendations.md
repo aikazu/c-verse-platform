@@ -28,7 +28,8 @@
 - **Ledger append-only**: `wallet_transactions` tidak bisa UPDATE/DELETE.
   Saldo = SUM transaksi. Kolom `balance_ccoin` di `wallets` hanya cache.
 - **Escrow**: status di ledger (`escrow_status enum('held','released')`).
-  Vault: release saat SETTLED. Shipping: release DELIVERED + H+7.
+  Semua pembelian release saat SETTLED (founder 2026-08-28:
+  purchase → vault only — tanpa jalur shipping di checkout).
 - **Idempotency key**: wajib di semua webhook (top-up, payout callback).
 - **Minimum payout**: 10 C-Coin. Saldo menumpuk sampai threshold.
 

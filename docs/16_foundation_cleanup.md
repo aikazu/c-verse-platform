@@ -14,6 +14,8 @@
   `deliveryOptionSchema.default("shipping")` → `.default("vault")`.
 - `apps/api/src/routes/orders.ts`: default parameter checkout ke
   `vault`; shipping = opt-in eksplisit.
+  (Update 2026-08-28 — founder: purchase → vault only; opsi
+  shipping dihapus dari checkout, bukan sekadar non-default.)
 - Migration: `orders.delivery_option` default `'vault'` sudah jadi bagian
   definisi tabel di `01_schema.sql` (sebelumnya phase 1 `foundation`,
   timestamp `20260817000000` — dilebur saat konsolidasi 2026-08-24),

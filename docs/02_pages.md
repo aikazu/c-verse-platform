@@ -74,9 +74,9 @@ warna): lihat `06_tech_decisions.md` D7–D8.
 | ID | Route | Halaman | Komponen kunci |
 |----|-------|---------|----------------|
 | PG-USR-01 | `/home` | Home user | Drop trending, notif, saldo C-Coin |
-| PG-USR-02 | `/drops/:dropId/checkout` | Entry raffle / checkout drop | Fase raffle: pilih pool (reguler/premium/keduanya) + hold C-Coin (escrow); fase FCFS: ringkasan, potong saldo, race handling, pilih pool yang ada stok; **DEFAULT simpan di inventory (vault) — tanpa alamat/ongkir; OPSIONAL kirim fisik sekarang (alamat + ongkir C-Coin)** |
-| PG-USR-03 | `/orders` | Daftar order | List order + status (label kirim fisik vs inventory) |
-| PG-USR-04 | `/orders/:orderId` | Detail order | Tracking, no resi, timeline — **hanya order kirim fisik**; order inventory tanpa tracking/alamat |
+| PG-USR-02 | `/drops/:dropId/checkout` | Entry raffle / checkout drop | Fase raffle: pilih pool (reguler/premium/keduanya) + hold C-Coin (escrow); fase FCFS: ringkasan, potong saldo, race handling, pilih pool yang ada stok; **settle LANGSUNG ke vault — tanpa alamat/ongkir (founder 2026-08-28: purchase → vault only)**; kirim fisik nanti via "Kirim dari vault" |
+| PG-USR-03 | `/orders` | Daftar order | List order + status (semua settle vault — tanpa opsi kirim) |
+| PG-USR-04 | `/orders/:orderId` | Detail order | Timeline `PAID → QC → SETTLED` (founder 2026-08-28: purchase → vault only); tracking/no resi hanya di shipment `vault_shipout` (pasca-vault), bukan di order |
 | PG-USR-05 | `/wallet` | Wallet C-Coin | Saldo, mutasi (ledger), histori top-up, status payout; **top-up di sini (bukan halaman publik)** |
 | PG-USR-06 | `/me` | Profile & collection | Profil, koleksi kartu, ownership history, level & badge |
 | PG-USR-07 | `/me/manage` | Kelola kartu (sell) | Set/ubah/cabut **buyout price**, lihat bid active, accept bid (tanpa reject); **lihat lokasi kartu** (dengan owner / di vault platform) + tombol **"Kirim dari vault"** (ongkir C-Coin) untuk kartu yang dipegang platform — vault adalah default, ship-out kapan saja |

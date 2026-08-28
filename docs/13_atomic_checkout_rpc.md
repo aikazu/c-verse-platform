@@ -21,6 +21,12 @@
 
 ## 2. RPC Checkout (inti)
 
+> **Update 2026-08-28 (founder: purchase → vault only)**: parameter
+> `p_delivery`/`p_address`/`p_shipping_fee` dihapus dari flow
+> pembelian — checkout settle LANGSUNG ke vault (kartu
+> `location='platform_vault'`, order `settled`, tanpa escrow
+> DELIVERED+H+7). Signature di bawah = historis.
+
 ### 2,1 Signature
 ```sql
 create or replace function public.checkout(
@@ -193,10 +199,12 @@ Per gelombang: jalankan typecheck + manual smoke flow + tambah vitest.
 
 - Realtime counter drop: subscribe `drops` changes (Supabase Realtime)
   — bukan polling JS.
-- Cron Workers (escrow H+7 auto-release, raffle draw check, payout
-  Selasa): panggil RPC `escrow_auto_release()`, `draw_drop()` untuk
+- Cron Workers (raffle draw check, payout Selasa): panggil RPC
+  `draw_drop()` untuk
   drops yang lewat `raffle_end_at` dan belum drawn, `payout_batch_run()`
   — logika di SQL function, cron hanya trigger.
+  (`escrow_auto_release` DELIVERED+H+7 dihapus — founder
+  2026-08-28: purchase → vault only, settlement langsung.)
 - Badge TANPA cron: award via trigger Postgres dalam transaksi
   yang sama dengan event kualifikasi — instan + atomic
   (keputusan user 2026-08-15).

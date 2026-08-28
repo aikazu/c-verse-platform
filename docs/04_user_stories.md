@@ -161,10 +161,11 @@ When mengklik "Beli" (pilih pool yang masih ada stok) dan
    saldo C-Coin cukup
 Then DEFAULT: kartu disimpan di inventory (vault) —
    tanpa alamat/ongkir, fisik dipegang platform
-And OPSIONAL: user bisa memilih kirim fisik sekarang —
-   isi alamat + bayar ongkir C-Coin
-And saldo di-debit atomik (harga pool + ongkir bila kirim fisik)
+And settle LANGSUNG ke vault (founder 2026-08-28: purchase →
+   vault only) — tidak ada opsi kirim fisik saat checkout
+And saldo di-debit atomik (harga pool saja — tanpa ongkir)
 And order dibuat dengan status PAID
+And kirim fisik nanti via "Kirim dari vault" (US-USR-007c)
 And user tidak bisa checkout drop yang sama > 1 kartu
 ```
 
@@ -199,12 +200,12 @@ And user kedua menerima pesan "Unit sudah habis"
 
 ### US-USR-004 — Lihat order & tracking
 ```
-Given user memiliki order dengan delivery_option='shipping'
+Given user memiliki order pembelian (settle vault)
 When membuka /orders/:orderId
-Then tampil timeline status (PAID → QC → SHIPPED → DELIVERED)
-And no resi tampil saat status SHIPPED
-And order vault (inventory) TIDAK menampilkan tracking/alamat —
-   cukup status PAID → QC → SETTLED
+Then tampil timeline status PAID → QC → SETTLED (founder
+   2026-08-28: purchase → vault only — order tanpa tracking/alamat)
+And tracking/no resi hanya di shipment `vault_shipout`
+   (pasca-vault via "Kirim dari vault")
 ```
 
 ### US-USR-005 — Lihat wallet C-Coin & top-up
@@ -241,18 +242,19 @@ Given user menang/terima kartu di secondary (buyout / bid accept)
 When settlement selesai
 Then DEFAULT: kartu tetap di vault — ownership pindah di ledger,
    fisik tidak bergerak
-And OPSIONAL: user minta seller kirim fisik sekarang:
-   isi alamat + bayar ongkir C-Coin + tracking
-   (seller kirim dari lokasinya ATAU dari vault platform)
+And TIDAK ada pilihan alamat saat settlement — kartu selalu ke
+   vault (founder 2026-08-28: purchase → vault only)
+And buyer minta ship-out sendiri via "Kirim dari vault"
+   (bayar ongkir C-Coin + tracking di titik itu)
 And ownership sudah berpindah sejak settlement (kirim tidak
    menunda kepemilikan)
-And user bisa minta ship-out kapan saja setelah settlement
 ```
 
 ### US-USR-007c — Kirim kartu dari vault
 ```
 Given user memiliki kartu dengan lokasi 'platform_vault'
-   (beli primary simpan di inventory ATAU secondary kirim ke platform)
+   (semua pembelian: primary & secondary — founder 2026-08-28
+   purchase → vault only)
 When membuka /me/manage -> pilih kartu -> "Kirim dari vault"
 Then isi alamat + bayar ongkir C-Coin (integer ≥ 1)
 And shipment dibuat (packing -> 3PL -> tracking -> delivered)
@@ -409,8 +411,10 @@ And drop bisa di-publish (H-7) atau di-schedule
 Given ada order PAID
 When admin membuka /orders
 Then lihat semua order + status
-And bisa update status (QC → SHIPPED) dan input no resi
-And auto-release escrow terjadi saat DELIVERED + H+7
+And order pembelian: QC → settled (release langsung — tanpa
+   escrow DELIVERED+H+7, founder 2026-08-28: purchase → vault only)
+And fulfillment pengiriman hanya untuk shipment `vault_shipout`
+   (update status + input no resi)
 ```
 
 ### US-ADM-004 — Provisioning batch NFC

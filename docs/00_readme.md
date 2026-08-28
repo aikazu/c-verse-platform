@@ -222,14 +222,15 @@ Dok di folder ini meng-override dokumen sumber workspace:
     semua akun admin (Supabase MFA aal2 + Cloudflare Access)
     dan **audit log append-only** untuk semua aksi admin
     (`admin_audit_log`, retensi ≥ 1 tahun).
-16. **Pengiriman = DEFAULT simpan di inventory (vault)**, fisik
-    dipegang platform tanpa ongkir/tracking. **OPSIONAL kirim
-    fisik saat checkout** (isi alamat + ongkir C-Coin). Ship-from-
-    vault: owner bisa minta kirim kapan saja setelah order
-    settled (bayar ongkir saat itu). Berlaku juga di secondary —
-    kartu tetap di vault, ownership pindah di ledger; buyer bisa
-    minta ship-out kapan saja. Semua nominal C-Coin **integer ≥ 1
-    tanpa desimal**.
+16. **Pembelian → vault langsung** (founder 2026-08-28: purchase
+    → vault only) — semua pembelian (drop/FCFS, buyout, bid
+    accept) settle tanpa alamat/ongkir; fisik dipegang platform.
+    Shipping = SATU flow pasca-vault: owner minta ship-out
+    (`vault_shipout`) dari Kelola Kartu dan bayar ongkir di titik
+    itu (fee → treasury + `platform_revenue` ref_type
+    'shipment'). Berlaku juga di secondary — ownership pindah di
+    ledger, kartu tetap di vault. Semua nominal C-Coin
+    **integer ≥ 1 tanpa desimal**.
 
 ## Sumber
 

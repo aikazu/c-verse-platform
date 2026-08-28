@@ -184,13 +184,14 @@ shipments
   platform_check jsonb nullable          -- hasil rawat/verifikasi platform (NFC/QC ringan) utk to_dest='platform_vault'
   created_at, updated_at
 ```
-> Primary: delivery_option 'shipping' → shipment `primary_shipping`;
-> 'vault' → `primary_vault` (fisik tetap platform, tanpa ongkir).
-> Secondary: buyer pilih tujuan — ke alamat (`secondary_*` +
-> fee ongkir) ATAU ke platform vault (`to_dest='platform_vault'`,
-> ongkir 0; platform verifikasi ulang chip saat terima).
-> **Ship-from-vault**: kartu `platform_vault` boleh di-request
-> kirim kapan saja (`vault_shipout`, fee ongkir C-Coin).
+> Pembelian TIDAK membuat shipment (founder 2026-08-28: purchase
+> → vault only) — order pembelian settle langsung, kartu
+> `platform_vault`. Satu-satunya flow pengiriman =
+> **ship-from-vault**: owner minta kirim kapan saja
+> (`vault_shipout`, fee ongkir C-Coin di titik ship-out →
+> treasury + `platform_revenue` ref_type 'shipment'). Type
+> `primary_shipping`/`primary_vault`/`secondary_*` = legacy
+> (tidak dibuat lagi oleh transaksi pembelian).
 > Semua nominal C-Coin integer ≥ 1.
 
 ### orders (primary sale)
@@ -215,13 +216,12 @@ orders
 ```
 > Invariant: max 1 order per (buyer, drop). Enforced via
 > partial unique index / application check.
-> **delivery_option='vault'** (DEFAULT): kartu tetap ter-bind
-	> ke akun (inventory di koleksi), fisik dipegang platform,
-	> tanpa alamat/tracking. Status order: `paid → qc → settled`.
-	> Ship-from-vault: owner bisa minta kirim kapan saja via
-	> `shipments` type='vault_shipout' (bayar ongkir saat itu).
-	> `delivery_option='shipping'`: status
-	> `paid → qc → shipped → delivered → settled`.
+> **Semua order pembelian = vault** (founder 2026-08-28: purchase
+> → vault only): settle langsung, status `paid → qc → settled`;
+> kolom `delivery_option`/`shipping_fee_ccoin`/`shipping_address`
+> legacy (tidak dipakai flow pembelian). Ship-from-vault: owner
+> minta kirim kapan saja via `shipments` type='vault_shipout'
+> (bayar ongkir saat itu).
 
 > **ATURAN NOMINAL C-Coin (keputusan user 2026-08-12)**: semua
 > nominal C-Coin — harga drop, buyout price, bid, ongkir,
@@ -516,7 +516,7 @@ profiles 1─N user_badges
 | I3 | Max 1 entry + 1 kartu/drop per user — pemenang raffle diblok dari FCFS drop yang sama; user kalah boleh FCFS | App + partial unique index + UNIQUE(drop_id,user_id) di drop_entries |
 | I4 | Buyout price hanya bisa dipasang/cabut oleh OWNER | RLS + app check |
 | I5 | Checkout atomik pada unit terakhir (race) | `SELECT ... FOR UPDATE` / RPC transaction |
-| I6 | Escrow vault release saat SETTLED; escrow shipping release DELIVERED + H+7 | App logic + cron |
+| I6 | Semua pembelian release saat SETTLED (purchase → vault only, founder 2026-08-28 — tanpa jalur shipping; `vault_shipout` = flow terpisah, fee → treasury) | App logic (RPC settlement) |
 | I7 | UID unik; konflik UID = flag investigasi | UNIQUE tag_uid + alert admin |
 | I8 | QR verify tanpa CMAC hanya status "Registered" | Verify service |
 | I9 | Hanya SATU bid active per kartu (tertinggi); bid lebih tinggi meng-outbid yang lama + release C-Coin | App logic + transaction |

@@ -151,19 +151,21 @@
   menumpuk sampai threshold terpenuhi. Payout fee 1% tetap
   dipotong dari total.
 
-### C-10 [FINAL] Vault = DEFAULT, kirim fisik = OPSIONAL
-- **Primary**: checkout DEFAULT simpan di inventory (vault) —
-  kartu ter-bind virtual, fisik dipegang platform, tanpa ongkir/
-  tracking. OPSIONAL kirim fisik sekarang (isi alamat + ongkir
-  C-Coin). Ship-from-vault: owner bisa minta kirim kapan saja
-  setelah order settled (bayar ongkir saat itu).
-- **Secondary**: kartu tetap di vault, ownership pindah di ledger.
-  Buyer bisa minta seller kirim fisik (ongkir C-Coin + tracking)
-  ATAU biarkan tetap di vault — ship-out kapan saja.
-- `orders.delivery_option enum('shipping','vault')` — vault default.
+### C-10 [FINAL — update 2026-08-28] Purchase → vault only; kirim fisik = ship-out pasca-vault
+- **Primary**: checkout settle LANGSUNG ke vault (founder
+  2026-08-28: purchase → vault only) — kartu ter-bind virtual,
+  fisik dipegang platform, tanpa alamat/ongkir/tracking di titik
+  beli. Ship-from-vault: owner minta kirim kapan saja via Kelola
+  Kartu (`vault_shipout`, bayar ongkir saat itu; fee → treasury +
+  `platform_revenue`).
+- **Secondary**: kartu selalu masuk/tetap di vault, ownership
+  pindah di ledger — TANPA `buyer_address`; buyer minta ship-out
+  kapan saja (ongkir C-Coin + tracking di titik ship-out).
+- `orders.delivery_option` + kolom shipping = legacy (tidak
+  dipakai flow pembelian).
 - `cards.location enum('platform_stock','with_owner',
-  'platform_vault')`, `shipments` table (type: primary/
-  secondary/vault_shipout).
+  'platform_vault')`, `shipments` table (type aktif:
+  `vault_shipout` + jalur seed two-phase).
 - **Rekomendasi lawyer (2026-08-13)**: vault-first memperkuat
   posisi "Gamified Point Redemption" — barang tidak berpindah
   fisik, hanya ledger. Juga menghindari fraud pengiriman antar-
@@ -386,8 +388,8 @@
 | Revenue split 70/30 primary + 7,5/7,5/85 secondary (default; seasonal event bisa turunkan platform share ke 2,5% via fee_rate snapshot — lihat `09_recommendations.md` build-time; royalti kreator 7,5% TIDAK pernah turun) | FINAL (2026-08-04) |
 | Tech stack full-edge | FINAL (2026-08-11) |
 | Form factor kartu 63x88mm + holo + signed 1:10 | FINAL |
-| Pengiriman = pilihan (kirim fisik vs simpan di inventory; ongkir C-Coin) | FINAL (2026-08-12) |
-| Secondary: buyer pilih kirim ke alamat ATAU kirim/rawat di platform; ship-from-vault kapan saja (ongkir C-Coin) | FINAL (2026-08-12) |
+| Pengiriman: purchase → vault only (tanpa alamat/ongkir di checkout); kirim fisik = ship-out pasca-vault (ongkir C-Coin saat ship-out) | FINAL (2026-08-28; sebelumnya 2026-08-12) |
+| Secondary: settle ke platform_vault (tanpa `buyer_address`); ship-from-vault kapan saja (ongkir C-Coin) | FINAL (2026-08-28; sebelumnya 2026-08-12) |
 | Semua nominal C-Coin integer ≥ 1 (tanpa desimal) | FINAL (2026-08-12) |
 | Chip NTAG 424 DNA TagTamper | FINAL (2026-08-03) |
 | UI Bahasa Indonesia Casual-Profesional + Istilah Domain English (C-16) | FINAL (2026-08-15) |

@@ -53,7 +53,7 @@ loyalty (semua post-MVP).
 | F002 | Onboarding & kurasi kreator | 80 | **Off-platform**: ops input data kreator hasil rekrutan manual. TIDAK ada form aplikasi publik. **Quality gate**: engagement rate dari 10 post terakhir — IG/Twitter ≥ 5%, TikTok ≥ 10%; ER < 3% = skip (detail `07_constraints.md` C-05) — filter manual oleh founder. **2026-08-20: admin juga PROVISION akun login kreator** (auth user passwordless + `profiles.role='creator'` + `creators.user_id`; kreator login OTP/OAuth) |
 | F003 | Upload artwork + narasi | 60 | Ops/designer upload atas nama kreator (artwork sudah di-approve off-platform) |
 | F004 | Drop scheduling & listing | 200 | Admin bikin drop (set `raffle_end_at`, default +24 jam); publik lihat di catalog. **Harga per tier kreator**: emerging (100-300k) = 20 C-Coin, established (300k-1jt) = 30 C-Coin, top (1jt+) = 50 C-Coin, hype = 40-60 C-Coin. Signed variant = unsigned + 20 C-Coin **FLAT** (founder 2026-08-16). Primary = flat price per pool |
-| F005 | Drop purchase: raffle hybrid + FCFS sisa | 250 | **Raffle 24 jam pertama**: pilih pool reguler/premium/keduanya + hold C-Coin (escrow) → draw otomatis idempotent; **sisa unit FCFS race-safe**; limit 1 entry + 1 kartu/user; **default simpan di inventory (vault) — tanpa alamat/ongkir; OPSIONAL kirim fisik sekarang (isi alamat + ongkir C-Coin)** (C-15) |
+| F005 | Drop purchase: raffle hybrid + FCFS sisa | 250 | **Raffle 24 jam pertama**: pilih pool reguler/premium/keduanya + hold C-Coin (escrow) → draw otomatis idempotent; **sisa unit FCFS race-safe**; limit 1 entry + 1 kartu/user; **settle langsung ke vault — tanpa alamat/ongkir; kirim fisik hanya pasca-vault via ship-out** (C-15; founder 2026-08-28: purchase → vault only) |
 | F006 | Payment gateway top-up + disbursement | 200 | Midtrans/Xendit. **Top-up uang riil bisa diterima setelah T&C final + cap saldo diimplementasi** (legal resolved 2026-08-13) |
 | F036 | Wallet C-Coin: saldo closed-loop, ledger immutable, payout fee 1% | 200 | Tanpa withdraw buyer; seller/kreator auto-disburse IDR |
 | F007 | NFC NTAG 424 tap & verify | 180 | CMAC server-side; fallback QR di dus |
@@ -134,9 +134,10 @@ F001-F007, F009-F011, F013-F015, F017-F019, F036, ADM-01..10.
 
 ## 4. Definition of Done (Release MVP)
 
-- [ ] Primary drop: beli → bayar (C-Coin) → escrow → vault
-      default (fisik dipegang platform) → ship-out opsional (ongkir
-      C-Coin), jalan end-to-end.
+- [ ] Primary drop: beli → bayar (C-Coin) → settle langsung ke
+      vault (fisik dipegang platform, founder 2026-08-28: purchase
+      → vault only) → ship-out pasca-vault (ongkir saat ship-out),
+      jalan end-to-end.
 - [ ] Verify: tap NFC → LANGSUNG halaman 3D kartu (CMAC
       verified); QR di dus → halaman info kartu (Registered).
       TIDAK ada halaman verifikasi terpisah, TIDAK ada input

@@ -66,8 +66,9 @@ unit tersisa per pool (peminat < stok) -> checkout biasa
    -> user yang MENANG tidak boleh (limit 1 kartu/drop)
    -> DEFAULT: SIMPAN DI INVENTORY (vault) — kartu ter-bind
       virtual, fisik dipegang platform, tanpa alamat/ongkir/tracking
-   -> OPSIONAL: kirim fisik sekarang (isi alamat + bayar ongkir
-      C-Coin, misal 2 C-Coin)
+   -> SEMUA pembelian settle LANGSUNG ke vault (founder
+      2026-08-28: purchase → vault only) — tidak ada opsi kirim
+      fisik saat checkout
    Winner raffle juga bisa minta kirim kapan saja setelah order
    via "Kirim dari vault" (PG-USR-07) — ongkir dibayar saat itu.
 
@@ -97,19 +98,19 @@ Decision points:
   di-snapshot ke `orders.price_ccoin`; selisih hold winner reguler
   — SEMUA pool yang hold-nya lebih besar dari harga (termasuk pool
   premium yang jatuh ke reguler, FIX 2026-08-16) — di-release
-  otomatis. FCFS: debit langsung + ongkir bila kirim sekarang.
-- **DELIVERY**: vault = default, tanpa alamat/ongkir. Kirim fisik
-  = opsional saat checkout FCFS (isi alamat + `shipping_fee_ccoin`);
-  row `shipments` type='primary_shipping' status='requested'
-  dibuat OTOMATIS (queue fulfillment admin). Winner raffle: order
-  dibuat default vault.
+  otomatis. FCFS: debit langsung (harga pool saja — tanpa ongkir).
+- **DELIVERY**: SEMUA checkout settle ke vault (founder 2026-08-28:
+  purchase → vault only) — tanpa alamat/ongkir, tidak ada
+  shipment otomatis saat pembelian. Winner raffle: order dibuat
+  default vault.
 - **SHIP-FROM-VAULT**: setelah order settled, owner bisa minta
   kirim kapan saja via PG-USR-07 (bayar ongkir saat itu, bukan
   saat checkout).
 
 Status order:
-- `shipping`: `PAID → QC → SHIPPED → DELIVERED → SETTLED`.
-- `vault` (default): `PAID → QC → SETTLED` (tidak ada shipped/delivered).
+- Order pembelian (semua): `PAID → QC → SETTLED` (founder
+  2026-08-28: purchase → vault only) — tidak ada status
+  shipped/delivered; tracking hanya di shipment `vault_shipout`.
 
 > **ATURAN C-Coin**: semua nominal integer ≥ 1, tanpa desimal
 > (konversi IDR → C-Coin dibulatkan ke atas).
@@ -120,13 +121,11 @@ Status order:
 [ADMIN] order baru (PAID) -> production batch
    -> NFC provisioning (ADM-04): assign UUID<->UID, config NDEF/SDM
    -> QC semua unit (defect < 2%) -> input hasil QC
-   -> PER CABANG delivery_option:
-        shipping -> packing + no resi -> SHIPPED -> 3PL pickup
-                    -> buyer terima -> DELIVERED
-                    -> auto-release escrow H+7 (window komplain)
-        vault    -> bind ke akun buyer (inventory) -> SETTLED
-                    (fisik dipegang platform di gudang/vault)
-                    -> escrow release LANGSUNG (tidak ada risiko kirim)
+   -> SEMUA order pembelian -> vault: bind ke akun buyer
+        (inventory) -> SETTLED (founder 2026-08-28: purchase →
+        vault only; fisik dipegang platform, release saat settled)
+   -> pengiriman HANYA pasca-vault: owner minta `vault_shipout`
+        (PG-USR-07, bayar ship fee) -> packing -> 3PL -> delivered
 ```
 
 SOP fulfillment: admin packing, panggil kurir, input no resi, update status order. QC: periksa dus (cetak, lipatan), acrylic (retak, gores, magnet), kartu (cetak, holo, NFC tap). Defect rate > 2% = investigasi batch.
@@ -134,17 +133,19 @@ SOP fulfillment: admin packing, panggil kurir, input no resi, update status orde
 > Admin update status shipment (`PATCH /api/shipments/:id/status`) dilakukan
 > secara **atomik** via RPC `admin_fulfill_shipment(p_id, p_status, p_tracking)`
 > di `04_rpc.sql` (sebelumnya `20260823010000_admin_fulfill_shipment.sql`,
-> dilebur saat konsolidasi): update shipments + orders (delivery_option=
-> 'shipping' sesuai status prereq) + `cards.location='with_owner'` (saat
-> delivered) dalam satu transaksi. service_role only. Precheck transisi
+> dilebur saat konsolidasi): update shipments dalam satu transaksi +
+> `cards.location='with_owner'` (saat delivered) — shipment kini hanya
+> `vault_shipout` (purchase → vault only, founder 2026-08-28).
+> service_role only. Precheck transisi
 > tetap di route untuk respons 409 yang ramah.
 
 ## Flow 3: Payment & Settlement (C-Coin)
 
 ```
 checkout -> debit WalletTransaction (immutable, append-only)
-   -> escrow hold state di ledger (vault: release saat SETTLED; shipping: release DELIVERED + H+7)
-   -> DELIVERED (buyer confirm SETELAH status shipped — guard 409) -> auto-release H+7
+   -> SEMUA pembelian settle LANGSUNG: release saat SETTLED
+      (founder 2026-08-28: purchase → vault only — tidak ada
+      escrow DELIVERED+H+7; endpoint confirm-delivered dihapus)
    -> split dalam C-Coin + LEDGER platform_revenue (FIX 2026-08-16):
        primary (platform-produced): 70% platform / 30% kreator
        secondary (buyout/bid): 7,5% platform / 7,5% royalti / 85% seller
@@ -210,8 +211,9 @@ TIDAK ADA NFC re-write. Transfer = perpindahan record database.
 ```
 > Lokasi fisik kartu (custody) terpisah dari kepemilikan:
 > `cards.location enum('platform_stock','with_owner','platform_vault')`.
-> Pada secondary, buyer memilih tujuan kirim (lihat Flow 7) —
-> ke alamatnya ATAU dikirim/rawat di platform (vault).
+> Pada secondary, kartu selalu masuk/tetap di vault (founder
+> 2026-08-28: purchase → vault only) — fisik tidak bergerak saat
+> settlement; kirim fisik via ship-out (lihat Flow 7).
 
 ## Flow 7: Secondary — Marketplace + Browse
 
@@ -249,11 +251,10 @@ Settlement:
    + 85% owner — ketiganya DIREKAM di platform_revenue
      (snapshot fee rate) + wallet treasury (FIX 2026-08-16)
    -> buyer bayar C-Coin -> transfer ownership (Flow 6)
-   -> dest 'buyer_address' (alamat wajib >= 10 char): row
-      shipments type='secondary_buyout'/'secondary_bid'
-      status='requested' dibuat OTOMATIS di RPC (queue admin)
-   -> dest 'platform_vault': ownership pindah, fisik tetap
-      / masuk vault — buyer bisa minta ship-out kapan saja
+   -> kartu masuk/tetap `platform_vault` (founder 2026-08-28:
+      purchase → vault only) — TANPA alamat buyer, tidak ada
+      shipment otomatis; buyer bisa minta ship-out kapan saja
+      via PG-USR-07 (bayar ongkir saat itu)
    -> seller payout (Flow 3) — HANYA setelah KYC approved
 ```
 

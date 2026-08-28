@@ -16,7 +16,7 @@ repo-root (pnpm workspace)
 
 Infra pendukung:
   Supabase (Postgres + Auth + Realtime + Supavisor)
-  Cloudflare R2 (artwork, 3D, KYC private) + Queues (email, payout) + Cron Triggers (escrow settlement, raffle draw, payout batch — badge murni event-driven tanpa cron, lihat `05_data_model.md`)
+  Cloudflare R2 (artwork, 3D, KYC private) + Queues (email, payout) + Cron Triggers (raffle draw, payout batch — settlement pembelian langsung di RPC, founder 2026-08-28; badge murni event-driven tanpa cron, lihat `05_data_model.md`)
   SumoPod SMTP (email), FCM (push), Midtrans/Xendit (top-up + disbursement)
   Domain FINAL: c-verse.co (primary), c-verse.id → 301 redirect
   NDEF URL final: https://c-verse.co/cards/{shortId}/3d (LOCK sebelum provisioning)
