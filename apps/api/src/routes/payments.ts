@@ -275,7 +275,19 @@ app.post("/midtrans/payout-webhook", async (c) => {
   const next = status === "paid" ? "disbursed" : status === "failed" ? "failed" : null;
   if (!next) return c.json({ ok: true, ignored: true });
 
-  const { error } = await supabase.from("payouts").update({ status: next }).eq("id", payoutId);
+  // State guard (audit 2026-08-29, docs/14): webhook hanya memfinalisasi payout
+  // yang masih pending/processing — status terminal (disbursed/failed/refunded)
+  // tidak boleh ditimpa (mis. replay failed -> disbursed).
+  const { data: current, error: fetchErr } = await supabase.from("payouts").select("status").eq("id", payoutId).single();
+  if (fetchErr || !current) {
+    return c.json({ error: "Payout tidak ditemukan" }, 404);
+  }
+  const currentStatus = (current as { status: string }).status;
+  if (currentStatus !== "pending" && currentStatus !== "processing") {
+    return c.json({ ok: true, ignored: true, status: currentStatus });
+  }
+
+  const { error } = await supabase.from("payouts").update({ status: next }).eq("id", payoutId).eq("status", currentStatus);
   if (error) return c.json({ error: sanitizeDbError(error) }, 500);
   return c.json({ ok: true, payoutId, status: next });
 });

@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.hoisted(() => {
   (globalThis as unknown as Record<string, string | undefined>).SUPABASE_URL = "http://localhost:54321";
+  (globalThis as unknown as Record<string, string | undefined>).PAYOUT_WEBHOOK_SIGNING_KEY = "test-payout-signing-key";
 });
 
 // Mutable test doubles — toggled per test via the exported control object.
@@ -11,6 +12,9 @@ const control = vi.hoisted(() => ({
   getStatusThrows: false,
   rpcResult: { data: { amount_ccoin: 15 }, error: null } as { data: unknown; error: { message: string } | null },
   rpcCalls: [] as Array<Record<string, unknown>>,
+  payoutRow: { status: "pending" } as { status: string } | null,
+  payoutFetchErr: null as { message: string } | null,
+  payoutUpdates: [] as Array<{ table: string; payload: Record<string, unknown> }>,
 }));
 
 vi.mock("../../lib/payments/index.js", () => ({
@@ -32,6 +36,22 @@ vi.mock("../../lib/supabase.js", () => ({
       control.rpcCalls.push(args);
       return Promise.resolve(control.rpcResult);
     },
+    from: (table: string) => ({
+      select: () => ({
+        eq: () => ({
+          single: () => Promise.resolve({ data: control.payoutRow, error: control.payoutFetchErr }),
+        }),
+      }),
+      update: (payload: Record<string, unknown>) => {
+        control.payoutUpdates.push({ table, payload });
+        // Chain fixed-depth, meniru route: .eq("id", ...).eq("status", ...).
+        return {
+          eq: () => ({
+            eq: () => Promise.resolve({ data: null, error: null }),
+          }),
+        };
+      },
+    }),
   }),
 }));
 
@@ -167,5 +187,82 @@ describe("redactOrderId (M2 audit log PII)", () => {
     const logged = errSpy.mock.calls.map((c) => c.map((a) => String(a)).join(" ")).join("\n");
     expect(logged).not.toContain(USER_ID);
     expect(logged).toMatch(/top-\?…abc123/);
+  });
+});
+
+const PAYOUT_ID = "payout-12345678";
+
+function payoutWebhook(body: Record<string, unknown>) {
+  return app.request("/api/payments/midtrans/payout-webhook", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "x-signature-key": "test-payout-signing-key" },
+    body: JSON.stringify(body),
+  });
+}
+
+describe("payout webhook state guard (audit 2026-08-29)", () => {
+  beforeEach(() => {
+    control.payoutRow = { status: "pending" };
+    control.payoutFetchErr = null;
+    control.payoutUpdates = [];
+  });
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("finalizes pending -> disbursed on paid", async () => {
+    const res = await payoutWebhook({ payout_id: PAYOUT_ID, status: "paid" });
+    expect(res.status).toBe(200);
+    expect(control.payoutUpdates).toHaveLength(1);
+    expect(control.payoutUpdates[0].payload).toMatchObject({ status: "disbursed" });
+  });
+
+  it("finalizes processing -> failed on failed", async () => {
+    control.payoutRow = { status: "processing" };
+    const res = await payoutWebhook({ payout_id: PAYOUT_ID, status: "failed" });
+    expect(res.status).toBe(200);
+    expect(control.payoutUpdates).toHaveLength(1);
+    expect(control.payoutUpdates[0].payload).toMatchObject({ status: "failed" });
+  });
+
+  it("ignores webhook on terminal refunded payout (no update)", async () => {
+    control.payoutRow = { status: "refunded" };
+    const res = await payoutWebhook({ payout_id: PAYOUT_ID, status: "paid" });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { ignored?: boolean };
+    expect(body.ignored).toBe(true);
+    expect(control.payoutUpdates).toHaveLength(0);
+  });
+
+  it("blocks failed -> disbursed replay (no update)", async () => {
+    control.payoutRow = { status: "failed" };
+    const res = await payoutWebhook({ payout_id: PAYOUT_ID, status: "paid" });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { ignored?: boolean };
+    expect(body.ignored).toBe(true);
+    expect(control.payoutUpdates).toHaveLength(0);
+  });
+
+  it("blocks disbursed -> failed flip (no update)", async () => {
+    control.payoutRow = { status: "disbursed" };
+    const res = await payoutWebhook({ payout_id: PAYOUT_ID, status: "failed" });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { ignored?: boolean };
+    expect(body.ignored).toBe(true);
+    expect(control.payoutUpdates).toHaveLength(0);
+  });
+
+  it("404 when payout id unknown (no update)", async () => {
+    control.payoutRow = null;
+    control.payoutFetchErr = { message: "PGRST116" };
+    const res = await payoutWebhook({ payout_id: PAYOUT_ID, status: "paid" });
+    expect(res.status).toBe(404);
+    expect(control.payoutUpdates).toHaveLength(0);
+  });
+
+  it("ignores unknown status values (no update)", async () => {
+    const res = await payoutWebhook({ payout_id: PAYOUT_ID, status: "weird" });
+    expect(res.status).toBe(200);
+    expect(control.payoutUpdates).toHaveLength(0);
   });
 });
