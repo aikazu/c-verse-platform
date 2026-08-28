@@ -1,3 +1,4 @@
+import { acceptBidSchema } from "@c-verse/shared";
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import { z } from "zod";
@@ -78,39 +79,25 @@ app.post("/:id/cancel", async (c) => {
 });
 
 // POST /cards/:cardId/accept — accept current active bid on card.
-// dest buyer_address -> wajib alamat; RPC membuat shipment 'requested' otomatis.
-app.post(
-  "/cards/:cardId/accept",
-  zValidator(
-    "json",
-    z.object({
-      bidId: z.string().optional(),
-      destination: z.enum(["buyer_address", "platform_vault"]).optional().default("buyer_address"),
-      shippingAddress: z.string().min(10).max(500).optional(),
-      shippingFeeCcoin: z.number().int().min(1).optional().nullable(),
-    }),
-  ),
-  async (c) => {
-    const authRes = await requireUser(c);
-    if ("error" in authRes) return c.json({ error: authRes.error === 403 ? "Akun disuspend" : "Unauthorized" }, authRes.error);
-    const cardId = c.req.param("cardId");
-    const body = c.req.valid("json");
-    const destination = body.destination ?? "buyer_address";
-    if (destination === "buyer_address" && !body.shippingAddress) {
-      return c.json({ error: "Alamat pengiriman wajib (min 10 karakter) untuk kirim fisik" }, 400);
+// Founder 2026-08-28: SEMUA pembelian settle ke vault — body kosong (strict),
+// destination/address bukan lagi input user. Shipping pasca-vault via
+// POST /api/orders/vault-shipout; RPC SQL mengabaikan address untuk settle
+// non-seed.
+app.post("/cards/:cardId/accept", zValidator("json", acceptBidSchema), async (c) => {
+  const authRes = await requireUser(c);
+  if ("error" in authRes) return c.json({ error: authRes.error === 403 ? "Akun disuspend" : "Unauthorized" }, authRes.error);
+  const cardId = c.req.param("cardId");
+  const db = userDb(authRes.token);
+  try {
+    const bid = await rpcAcceptBid(db, cardId, "platform_vault", null);
+    return c.json({ ok: true, bid });
+  } catch (err) {
+    if (err instanceof RpcError) {
+      const status = err.code === "FORBIDDEN" || err.code === "CARD_NOT_TRADABLE" ? 403 : 400;
+      return c.json({ error: err.message, code: err.code }, status);
     }
-    const db = userDb(authRes.token);
-    try {
-      const bid = await rpcAcceptBid(db, cardId, destination, body.shippingAddress ?? null);
-      return c.json({ ok: true, bid });
-    } catch (err) {
-      if (err instanceof RpcError) {
-        const status = err.code === "FORBIDDEN" || err.code === "CARD_NOT_TRADABLE" ? 403 : 400;
-        return c.json({ error: err.message, code: err.code }, status);
-      }
-      throw err;
-    }
-  },
-);
+    throw err;
+  }
+});
 
 export default app;

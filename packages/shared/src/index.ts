@@ -149,15 +149,13 @@ export const createDropSchema = z.object({
 });
 export type CreateDropInput = z.infer<typeof createDropSchema>;
 
-// Checkout: single-card, 1 kartu/user/drop, delivery option + on-chain shipping fee (integer >=1)
+// Checkout: single-card, 1 kartu/user/drop. Founder 2026-08-28: semua pembelian
+// settle LANGSUNG ke vault — tanpa alamat/ongkir di titik beli. Shipping adalah
+// flow pasca-vault via POST /api/orders/vault-shipout. Pool = pilihan unit
+// (regular/premium); guard INVALID_POOL di sisi RPC.
 export const checkoutSchema = z.object({
   dropId: z.string().min(1),
-  deliveryOption: deliveryOptionSchema.default("vault"), // C-10 FINAL: vault default, shipping = opt-in
-  shippingFeeCcoin: z.number().int().min(1).nullable().optional(), // required when shipping; must be >=1 (no fractional)
-  shippingAddress: z.string().min(10).max(500).nullable().optional(), // required when shipping
-  // legacy fields (accept but ignore/convert)
-  quantity: z.number().int().min(1).max(1).optional(),
-  variant: z.enum(["unsigned", "signed"]).optional(),
+  pool: z.enum(["regular", "premium"]).default("regular"),
 });
 export type CheckoutInput = z.infer<typeof checkoutSchema>;
 
@@ -177,12 +175,10 @@ export const placeBidSchema = z.object({
 });
 export type PlaceBidInput = z.infer<typeof placeBidSchema>;
 
-export const acceptBidSchema = z.object({
-  bidId: z.string().min(1).optional(), // optional: if omitted, accept current active bid on card
-  destination: shipmentToDestSchema.optional().default("buyer_address"), // secondary buyer chooses ship dest
-  shippingAddress: z.string().min(10).max(500).nullable().optional(),
-  shippingFeeCcoin: z.number().int().min(1).nullable().optional(),
-});
+// Accept bid: founder 2026-08-28 — SEMUA pembelian settle ke vault tanpa
+// alamat. Body kosong (strict): destination/address/fee bukan lagi input user;
+// shipping pasca-vault via POST /api/orders/vault-shipout.
+export const acceptBidSchema = z.object({}).strict();
 export type AcceptBidInput = z.infer<typeof acceptBidSchema>;
 
 export const cancelBidSchema = z.object({

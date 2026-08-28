@@ -79,21 +79,21 @@ async function callRpc<T>(db: SupabaseClient, fn: string, args: Record<string, u
   return data as T;
 }
 
-export interface CheckoutArgs {
-  dropId: string;
-  pool: "regular" | "premium";
-  delivery: "vault" | "shipping";
-  address?: string | null;
-  shippingFee?: number | null;
+// Founder 2026-08-28: checkout settle langsung ke vault, tanpa alamat/ongkir
+// di titik beli (shipping = flow pasca-vault). Pool = unit regular/premium;
+// guard INVALID_POOL di sisi SQL.
+export function rpcCheckout(db: SupabaseClient, dropId: string, pool: "regular" | "premium" = "regular") {
+  return callRpc<Record<string, unknown>>(db, "checkout", { p_drop_id: dropId, p_pool: pool });
 }
 
-export function rpcCheckout(db: SupabaseClient, args: CheckoutArgs) {
-  return callRpc<Record<string, unknown>>(db, "checkout", {
-    p_drop_id: args.dropId,
-    p_pool: args.pool,
-    p_delivery: args.delivery,
-    p_address: args.address ?? null,
-    p_shipping_fee: args.shippingFee ?? null,
+// Post-purchase ship-out dari platform vault (owner bayar ship fee).
+// Atomic di SQL: shipment insert + fee debit ke treasury + platform_revenue
+// (ref_type 'shipment') dalam satu transaksi.
+export function rpcVaultShipout(db: SupabaseClient, cardId: string, address: string, feeCcoin: number) {
+  return callRpc<Record<string, unknown>>(db, "vault_shipout", {
+    p_card_id: cardId,
+    p_address: address,
+    p_fee_ccoin: feeCcoin,
   });
 }
 
