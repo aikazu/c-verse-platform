@@ -14,7 +14,10 @@ Dokumen perencanaan **canonical = `docs/`** (`00_readme` → `16_foundation_clea
   - `apps/api/.dev.vars` ← `apps/api/.env.example` (satu file untuk Wrangler & Node): `SUPABASE_URL`/`SUPABASE_ANON_KEY`/`SUPABASE_SERVICE_ROLE_KEY`, `TURNSTILE_SECRET_KEY`, `NFC_MASTER_KEY`, `MIDTRANS_*`, `PAYOUT_WEBHOOK_SIGNING_KEY`, SMTP.
   - Secrets prod (tidak di repo): sama seperti di atas + `CF_ACCOUNT_ID`, `CF_API_TOKEN` via `wrangler secret put`.
 - Supabase WAJIB — tanpa `SUPABASE_URL` API gagal start (fail-fast, tidak ada fallback in-memory).
-- Supabase local (wajib untuk dev): `npx supabase start` (API :54321, DB :54322, Studio :54323), `npx supabase db reset` → `supabase/migrations/*.sql` + `supabase/seed.sql`.
+- Supabase — kerja DB LANGSUNG ke project cloud linked (`c-verse`), tanpa stack lokal/Docker:
+  - Apply migration + seed ulang: `"y" | npx supabase db reset --linked` — HANYA setelah konfirmasi eksplisit user (menghapus SELURUH data cloud; lihat Pitfalls). Pipe `"y"` wajib: prompt `Do you want to reset the remote database? [y/N]` dibaca dari stdin, shell non-interaktif tanpa pipe selalu mati `context canceled`. Edit pada file migration lama tidak pernah di-apply ulang oleh `db push` (sudah tercatat applied) — reset --linked adalah cara apply-nya.
+  - Query/verifikasi SQL: `npx supabase db query --linked "SQL"` — flag `--linked` WAJIB, tanpa itu CLI diam-diam konek ke database lokal; multi-statement OK. Linter security/performance (sama dengan Dashboard): `npx supabase db advisors --linked`. Tidak ada subcommand `db execute` di CLI ini; `psql` tidak ada di PATH Windows.
+  - Stack lokal (`npx supabase start` — API :54321, DB :54322, Studio :54323) hanya kalau diminta eksplisit.
   - `supabase/migrations/` ter-organisir 5 file by domain (consolidated 2026-08-24): `01_schema` (DDL/enums/tables/base indexes), `02_auth` (auth mirror + canonical_email), `03_rls` (policies + guard triggers), `04_rpc` (semua SECURITY DEFINER RPC FINAL versions + grants), `05_indexes` (performance). Setiap objek ditulis SATU KALI di versi final — TIDAK ada `create or replace` chain.
 
 ## Build & test
@@ -27,7 +30,7 @@ Dokumen perencanaan **canonical = `docs/`** (`00_readme` → `16_foundation_clea
   - `pnpm --filter @c-verse/admin dev` — `vite --host 127.0.0.1 --port 3000`
 - Typecheck: `pnpm run typecheck` (`pnpm -r typecheck` → `tsc --noEmit` per package; 4 workspaces: shared, api, web, admin)
 - Test: `pnpm test` (Vitest; proyek `packages/shared` + `apps/api`). Lint: `pnpm lint` (Biome, 0 error/warning hard gate). Format: `pnpm format`.
-- Integration SQL (RPC/RLS) butuh `npx supabase start` (Docker): `psql ... -f supabase/tests/rls_test.sql`.
+- Integration SQL (`supabase/tests/rls_test.sql` — fixture insert lalu commit): `npx supabase db query --linked (Get-Content supabase/tests/rls_test.sql -Raw)` (pwsh) atau `--linked "$(cat supabase/tests/rls_test.sql)"` (bash); jalankan reset --linked setelahnya untuk membersihkan fixture.
 - Build: `pnpm run build` (`pnpm -r build`); `pnpm --filter @c-verse/web build` → `apps/web/dist`, `pnpm --filter @c-verse/admin build` → `apps/admin/dist`, `pnpm --filter @c-verse/api build` = `tsc --noEmit` only. Workers deploy: `pnpm --filter @c-verse/api deploy` (`wrangler deploy`).
 - Lint: `pnpm run lint` — `biome check .` (0 error/warning hard gate, lihat `biome.json`). Format: `pnpm run format`.
 - CI: `.github/workflows/ci.yml` (PR + main): `pnpm install → typecheck → lint → test → build` + `supabase db lint` di PR.
@@ -94,5 +97,5 @@ Jika salah satu dari langkah 3-6 gagal, jangan commit. Fix dulu. Gunakan `git ad
 - Jangan bocorkan `service-role` / `NFC_MASTER_KEY` ke bundle publik — `apps/web` hanya `anon` key + RLS.
 - Jangan ubah kolom C-Coin ke desimal; jangan buat auction timer/anti-sniping di MVP (docs 07 C-07).
 - AGENTS/README: tulis ringkas. Jangan verbosity ("selalu prod & dev", "tidak pernah Supabase", disclaimer dual-env, atau penjelasan infrastruktur yang mengulang dirinya sendiri). Fakta cukup sekali; tidak perlu disclaim tiap paragraf.
-- **Operasi destruktif (db reset --linked, drop database, force-push)** — PAUSE dan minta konfirmasi user sebelum eksekusi. CLI Supabase `db reset --linked` menghapus SELURUH data di project cloud yang linked, bukan database lokal.
+- **Operasi destruktif (db reset --linked, drop database, force-push)** — PAUSE dan minta konfirmasi user sebelum eksekusi. CLI Supabase `db reset --linked` menghapus SELURUH data di project cloud yang linked, bukan database lokal. Setelah konfirmasi eksplisit, eksekusi non-interaktif dengan pipe jawaban: `"y" | npx supabase db reset --linked` — pola ini berlaku untuk semua prompt `[y/N]` CLI Supabase (tanpa pipe, shell non-interaktif mati `context canceled`).
 - **Error message dari Supabase/Postgres** — jangan echo raw `error.message` ke response (leak schema: constraint/column name). Pakai `apps/api/src/lib/errors.ts:sanitizeDbError` untuk memetakan 7 pola umum + fallback `Operasi gagal`. Log raw message server-side untuk debugging.
