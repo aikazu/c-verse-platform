@@ -15,9 +15,6 @@ export default function Checkout() {
   const { user } = useAuth();
   const { push } = useToast();
   const nav = useNavigate();
-  const [delivery, setDelivery] = useState<"shipping" | "vault">("vault");
-  const [addr, setAddr] = useState("");
-  const [fee, setFee] = useState(2);
   const [buying, setBuying] = useState(false);
   const { data, isLoading } = useQuery<ApiDropDetailResponse>({
     queryKey: ["drop", id],
@@ -41,7 +38,6 @@ export default function Checkout() {
     );
   const drop: ApiDrop = data;
   const price = drop.priceCcoin ?? drop.priceUnsignedCCoin ?? AOV_UNSIGNED_CCOIN;
-  const total = price + (delivery === "shipping" ? fee : 0);
   async function onCheckout() {
     if (!user) {
       push("Silakan login dulu", "info");
@@ -50,13 +46,10 @@ export default function Checkout() {
     }
     setBuying(true);
     try {
-      const res = await api.checkout({
-        dropId: drop.id,
-        deliveryOption: delivery,
-        shippingAddress: delivery === "shipping" ? addr : null,
-        shippingFeeCcoin: delivery === "shipping" ? fee : null,
-      });
-      push(`Checkout berhasil — ${total} C`, "success");
+      // Vault-only purchase (founder 2026-08-28): settle straight to vault,
+      // physical shipping requested later via ManageCards vault-shipout.
+      const res = await api.checkout(drop.id);
+      push(`Checkout berhasil — ${price} C · fisik tersimpan di vault`, "success");
       nav(`/orders/${res.order.id}`);
     } catch (e: unknown) {
       push(errorMessage(e), "error");
@@ -108,62 +101,21 @@ export default function Checkout() {
           </div>
           <div>
             <div className="label cm-summary-label-gold">TOTAL</div>
-            <div className="cm-summary-total">{total} C</div>
+            <div className="cm-summary-total">{price} C</div>
           </div>
         </div>
       </div>
       <div className="card card-pad">
-        <div className="label cm-form-label">Pengiriman</div>
-        <div className="cm-radio-row">
-          <label className={`cm-radio-card${delivery === "vault" ? " cm-radio-card-active" : ""}`}>
-            <input type="radio" className="cm-radio" checked={delivery === "vault"} onChange={() => setDelivery("vault")} />{" "}
-            <span>
-              <span className="cm-radio-title">Simpan di vault</span>
-              <br />
-              <span className="muted cm-radio-desc">Disimpan platform, kirim kapan saja</span>
-            </span>
-          </label>
-          <label className={`cm-radio-card${delivery === "shipping" ? " cm-radio-card-active" : ""}`}>
-            <input type="radio" className="cm-radio" checked={delivery === "shipping"} onChange={() => setDelivery("shipping")} />{" "}
-            <span>
-              <span className="cm-radio-title">Kirim sekarang</span>
-              <br />
-              <span className="muted cm-radio-desc">Masukkan alamat + ongkir</span>
-            </span>
-          </label>
+        <div className="label cm-form-label">Penyimpanan</div>
+        <div className="muted cm-panel-note">
+          C.Card fisik disimpan di vault platform — minta kirim kapan saja lewat{" "}
+          <Link to="/me/manage" style={{ color: "var(--gold)" }}>
+            Kelola C.Card
+          </Link>
+          .
         </div>
-        {delivery === "shipping" && (
-          <div className="cm-fields">
-            <div>
-              <label className="label" htmlFor="checkout-address">
-                Alamat
-              </label>
-              <textarea
-                id="checkout-address"
-                className="input"
-                value={addr}
-                onChange={(e) => setAddr(e.target.value)}
-                rows={3}
-                placeholder="Alamat lengkap"
-              />
-            </div>
-            <div>
-              <label className="label" htmlFor="checkout-fee">
-                Ongkir (C-Coin)
-              </label>
-              <input
-                id="checkout-fee"
-                className="input cm-fee-input"
-                type="number"
-                min={1}
-                value={fee}
-                onChange={(e) => setFee(Math.max(1, Number(e.target.value) || 1))}
-              />
-            </div>
-          </div>
-        )}
         <button className="btn-gold cm-cta" onClick={onCheckout} disabled={buying}>
-          {buying ? "Memproses…" : `Bayar ${total} C →`}
+          {buying ? "Memproses…" : `Bayar ${price} C →`}
         </button>
       </div>
     </div>

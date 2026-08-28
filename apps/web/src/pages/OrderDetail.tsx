@@ -48,19 +48,6 @@ function OrderDetailInner() {
   const cards = data.cards;
   const shipments = data.shipments ?? [];
   const isVault = o.deliveryOption === "vault" || (!o.shippingAddress && o.deliveryOption !== "shipping");
-  const isShipped = o.status === "shipped";
-  async function onConfirm() {
-    setBusy(true);
-    try {
-      await api.confirmDelivered(o.id);
-      push("Pesanan diterima — terima kasih!", "success");
-      refetch();
-    } catch (e: unknown) {
-      push(errorMessage(e), "error");
-    } finally {
-      setBusy(false);
-    }
-  }
   async function onDispute() {
     if (disputeReason.trim().length < 10) {
       push("Alasan dispute minimal 10 karakter", "info");
@@ -155,14 +142,6 @@ function OrderDetailInner() {
               })}
             </div>
             {o.shippingAddress && <div className="od-ship-address">Alamat: {o.shippingAddress}</div>}
-            {isShipped && (
-              <>
-                <button className="btn-gold od-mt-14" onClick={onConfirm} disabled={busy}>
-                  {busy ? "Memproses…" : "Konfirmasi Diterima"}
-                </button>
-                <div className="od-confirm-note">Dana dilepas otomatis H+7 setelah diterima.</div>
-              </>
-            )}
           </div>
         ) : (
           <div className="od-vault-note">
@@ -172,7 +151,9 @@ function OrderDetailInner() {
             </Link>
           </div>
         )}
-        {o.status !== "settled" && !disputeSent && (
+        {/* Vault-only purchases (founder 2026-08-28) settle as "released":
+            dispute stays available for settled orders too. */}
+        {!disputeSent && (
           <div className="od-dispute-block">
             {disputeOpen ? (
               <div className="od-form-col">

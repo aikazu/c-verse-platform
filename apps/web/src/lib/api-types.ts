@@ -135,8 +135,12 @@ export interface ApiOrderDetailResponse {
   shipments?: Shipment[];
 }
 
+// Vault-only checkout (founder 2026-08-28): every NEW order settles straight
+// to the vault — `deliveryOption` is always "vault" and `escrowStatus` is
+// always "released". The wider shared `Order` union is kept untouched for
+// legacy shipping orders already stored in the DB.
 export interface ApiCheckoutResponse {
-  order: Order;
+  order: Order & { deliveryOption?: "vault"; escrowStatus?: "released" };
   cards: Card[];
   wallet: Wallet;
 }
@@ -274,9 +278,12 @@ export interface ApiCancelBidResponse {
   bid: Bid;
 }
 
+// Vault-only accept (founder 2026-08-28): the accepted sale settles straight
+// to the vault — any returned order is always "vault"/"released" (legacy
+// shipping unions kept for data already stored).
 export interface ApiAcceptBidResponse {
   ok: boolean;
-  order?: Order;
+  order?: Order & { deliveryOption?: "vault"; escrowStatus?: "released" };
   shipment?: Shipment;
   card?: Card;
 }

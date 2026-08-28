@@ -25,8 +25,6 @@ function ManageCardsInner() {
   const [buyout, setBuyout] = useState<Record<string, string>>({});
   const [vaultAddr, setVaultAddr] = useState<Record<string, string>>({});
   const [vaultFee, setVaultFee] = useState<Record<string, number>>({});
-  const [acceptDest, setAcceptDest] = useState<Record<string, "buyer_address" | "platform_vault">>({});
-  const [acceptAddr, setAcceptAddr] = useState<Record<string, string>>({});
   const [busyId, setBusyId] = useState<string | null>(null);
   const { data, refetch } = useQuery({ queryKey: ["profile-manage"], queryFn: () => api.profile(), enabled: !!user });
 
@@ -97,16 +95,12 @@ function ManageCardsInner() {
     }
   }
   async function onAccept(card: Card) {
-    const destination = acceptDest[card.id] ?? "buyer_address";
-    const addr = (acceptAddr[card.id] ?? "").trim();
-    if (destination === "buyer_address" && addr.length < 10) {
-      push("Alamat minimal 10 karakter", "info");
-      return;
-    }
     setBusyId(card.id);
     try {
-      await api.acceptBidOnCard(card.id, destination, destination === "buyer_address" ? addr : undefined);
-      push("Penawaran diterima", "success");
+      // Vault-only accept (founder 2026-08-28): settle straight to vault, no
+      // address — buyer requests shipping later via "Kirim dari Vault".
+      await api.acceptBidOnCard(card.id);
+      push("Penawaran diterima — fisik disimpan di vault", "success");
       refetch();
     } catch (e: unknown) {
       push(e instanceof Error ? e.message : String(e), "error");
@@ -205,27 +199,9 @@ function ManageCardsInner() {
                     Terima Tawaran {card.activeBid.amountCCoin} C (dari {card.activeBid.bidderName})
                   </summary>
                   <div className="ac-card-body">
-                    <select
-                      className="select"
-                      aria-label="Tujuan pengiriman"
-                      value={acceptDest[card.id] ?? "buyer_address"}
-                      onChange={(e) => setAcceptDest((s) => ({ ...s, [card.id]: e.target.value as "buyer_address" | "platform_vault" }))}
-                      style={{ fontSize: 12 }}
-                    >
-                      <option value="buyer_address">Kirim ke alamat pembeli</option>
-                      <option value="platform_vault">Simpan di vault</option>
-                    </select>
-                    {(acceptDest[card.id] ?? "buyer_address") === "buyer_address" && (
-                      <textarea
-                        className="textarea"
-                        rows={2}
-                        aria-label="Alamat pembeli"
-                        placeholder="Alamat pembeli (min 10 karakter)"
-                        value={acceptAddr[card.id] ?? ""}
-                        onChange={(e) => setAcceptAddr((s) => ({ ...s, [card.id]: e.target.value }))}
-                        style={{ fontSize: 12 }}
-                      />
-                    )}
+                    <div style={{ fontSize: 12, color: "var(--text-dim)" }}>
+                      C.Card masuk vault — pembeli minta kirim fisik kapan saja via &quot;Kirim dari Vault&quot;.
+                    </div>
                     <button
                       className="btn-gold"
                       onClick={() => onAccept(card)}

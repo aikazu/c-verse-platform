@@ -106,9 +106,12 @@ export const api = {
   // orders (primary)
   orders: () => req<ApiOrdersResponse>("/orders"),
   order: (id: string) => req<ApiOrderDetailResponse>(`/orders/${id}`),
-  // Body validated server-side by checkoutSchema (docs/13). Server source of truth.
-  checkout: (body: Record<string, unknown>) => req<ApiCheckoutResponse>("/orders/checkout", { method: "POST", body: JSON.stringify(body) }),
-  confirmDelivered: (id: string) => req<{ order: Order }>(`/orders/${id}/confirm-delivered`, { method: "POST" }),
+  // Vault-only checkout (founder 2026-08-28): body is `{ dropId }` ONLY — no
+  // delivery option / address / shipping fee at purchase time. The physical
+  // card settles straight to the vault; shipping happens later via
+  // POST /orders/vault-shipout (see vaultShipout below).
+  // Body validated server-side by checkoutSchema. Server source of truth.
+  checkout: (dropId: string) => req<ApiCheckoutResponse>("/orders/checkout", { method: "POST", body: JSON.stringify({ dropId }) }),
   openDispute: (orderId: string, reason: string) =>
     req<{ order: Order }>(`/orders/${orderId}/dispute`, { method: "POST", body: JSON.stringify({ reason }) }),
   // Body validated server-side by vaultShipoutSchema. Server source of truth.
@@ -160,11 +163,10 @@ export const api = {
       body: JSON.stringify({ cardId, amountCCoin: amountCcoin, amountCcoin: amountCcoin }),
     }),
   cancelBid: (bidId: string) => req<ApiCancelBidResponse>(`/bids/${bidId}/cancel`, { method: "POST" }),
-  acceptBidOnCard: (cardId: string, destination?: "buyer_address" | "platform_vault", shippingAddress?: string) =>
-    req<ApiAcceptBidResponse>(`/bids/cards/${cardId}/accept`, {
-      method: "POST",
-      body: JSON.stringify({ destination, ...(shippingAddress ? { shippingAddress } : {}) }),
-    }),
+  // Vault-only accept (founder 2026-08-28): POST without body — the endpoint
+  // no longer accepts destination/address. Card settles straight to the vault;
+  // the buyer requests physical shipping later via vault-shipout.
+  acceptBidOnCard: (cardId: string) => req<ApiAcceptBidResponse>(`/bids/cards/${cardId}/accept`, { method: "POST" }),
 
   // profile
   profile: () => req<ApiProfileResponse>("/profile"),

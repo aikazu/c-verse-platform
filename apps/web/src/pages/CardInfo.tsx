@@ -24,7 +24,6 @@ const BUYOUT_ERRORS: Record<string, string> = {
   COOLING_PERIOD_24H: "Blok rebuy 24 jam — C.Card yang baru kamu jual belum bisa dibeli kembali",
   CREATOR_SELF_DEALING_30D: "Kreator tidak boleh membeli C.Card sendiri (30 hari)",
   CARD_NOT_TRADABLE: "C.Card ini tidak dapat diperdagangkan",
-  ADDRESS_REQUIRED: "Alamat wajib diisi (min 10 karakter)",
 };
 
 export default function CardInfo() {
@@ -32,8 +31,6 @@ export default function CardInfo() {
   const { user } = useAuth();
   const { push } = useToast();
   const [buyoutOpen, setBuyoutOpen] = useState(false);
-  const [destination, setDestination] = useState<"buyer_address" | "platform_vault">("platform_vault");
-  const [address, setAddress] = useState("");
   const [busy, setBusy] = useState(false);
   const { data, isLoading, refetch } = useQuery<ApiCardDetailResponse>({
     queryKey: ["card", cardId],
@@ -75,14 +72,12 @@ export default function CardInfo() {
   const myActiveBid = activeBid?.bidderId && user && activeBid.bidderId === user.id ? activeBid : null;
 
   async function onBuyout() {
-    if (destination === "buyer_address" && address.trim().length < 10) {
-      push("Alamat minimal 10 karakter", "info");
-      return;
-    }
     setBusy(true);
     try {
-      await api.buyout(card.id, destination, destination === "buyer_address" ? address.trim() : undefined);
-      push(`C.Card dibeli — ${card.buyoutPriceCcoin} C`, "success");
+      // Vault-only purchase (founder 2026-08-28): settle straight to vault,
+      // no destination/address at buy time — ship-out happens via ManageCards.
+      await api.buyout(card.id, "platform_vault");
+      push(`C.Card dibeli — fisik disimpan di vault (${card.buyoutPriceCcoin} C)`, "success");
       setBuyoutOpen(false);
       refetch();
     } catch (e) {
@@ -183,25 +178,7 @@ export default function CardInfo() {
                   )}
                   {canBuyout && buyoutOpen && (
                     <div className="ci-form">
-                      <select
-                        className="select"
-                        aria-label="Tujuan pengiriman"
-                        value={destination}
-                        onChange={(e) => setDestination(e.target.value as "buyer_address" | "platform_vault")}
-                      >
-                        <option value="platform_vault">Simpan di vault</option>
-                        <option value="buyer_address">Kirim ke alamat</option>
-                      </select>
-                      {destination === "buyer_address" && (
-                        <textarea
-                          className="textarea ci-textarea-sm"
-                          rows={3}
-                          aria-label="Alamat pengiriman"
-                          placeholder="Alamat lengkap (min 10 karakter)"
-                          value={address}
-                          onChange={(e) => setAddress(e.target.value)}
-                        />
-                      )}
+                      <div className="muted ci-note">C.Card masuk vault — kirim fisik nanti via Kelola C.Card.</div>
                       <div className="ci-actions">
                         <button className="btn-ghost ci-btn-sm" onClick={() => setBuyoutOpen(false)} disabled={busy}>
                           Batal
