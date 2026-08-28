@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useConfirm } from "../components/ConfirmProvider";
 import { StatusBadge } from "../components/StatusBadge";
 import { apiFetch } from "../lib/api";
 import { supabase } from "../lib/supabase";
@@ -6,6 +7,7 @@ import type { DropRow } from "../lib/types";
 import { errMessage } from "../lib/utils";
 
 export function DropsPage() {
+  const confirm = useConfirm();
   const [rows, setRows] = useState<DropRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [form, setForm] = useState({
@@ -64,7 +66,14 @@ export function DropsPage() {
 
   async function setStatus(id: string, status: string) {
     const labels: Record<string, string> = { published: "publish", live: "jadikan live", closed: "tutup" };
-    if (!window.confirm(`Ubah status drop menjadi "${status}" (${labels[status] ?? status})?`)) return;
+    if (
+      !(await confirm({
+        title: `Ubah status drop menjadi "${status}" (${labels[status] ?? status})?`,
+        confirmLabel: "Ubah",
+        danger: status === "closed",
+      }))
+    )
+      return;
     setMsg(null);
     setBusy(true);
     try {
@@ -78,7 +87,15 @@ export function DropsPage() {
   }
 
   async function draw(id: string) {
-    if (!window.confirm("Jalankan draw undian sekarang? Pemenang ditentukan permanen dan tidak bisa diulang.")) return;
+    if (
+      !(await confirm({
+        title: "Jalankan draw undian sekarang?",
+        message: "Pemenang ditentukan permanen dan tidak bisa diulang.",
+        confirmLabel: "Jalankan Draw",
+        danger: true,
+      }))
+    )
+      return;
     setMsg(null);
     setBusy(true);
     try {

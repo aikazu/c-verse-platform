@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useConfirm } from "../components/ConfirmProvider";
 import { StatusBadge } from "../components/StatusBadge";
 import { apiFetch } from "../lib/api";
 import { supabase } from "../lib/supabase";
@@ -13,6 +14,7 @@ type SeedPendingRow = CardRow & {
 };
 
 export function NfcPage() {
+  const confirm = useConfirm();
   const [batches, setBatches] = useState<NfcBatchRow[]>([]);
   const [cards, setCards] = useState<CardRow[]>([]);
   const [seedPending, setSeedPending] = useState<SeedPendingRow[]>([]);
@@ -48,7 +50,15 @@ export function NfcPage() {
   }, []);
 
   async function abortSeedSale(cardId: string) {
-    if (!window.confirm(`Batalkan PHASE-1 seed sale untuk C.Card ${cardId}? Buyer akan di-refund penuh.`)) return;
+    if (
+      !(await confirm({
+        title: `Batalkan PHASE-1 seed sale untuk C.Card ${cardId}?`,
+        message: "Buyer akan di-refund penuh.",
+        confirmLabel: "Batalkan",
+        danger: true,
+      }))
+    )
+      return;
     setMsg(null);
     setBusyId(cardId);
     try {

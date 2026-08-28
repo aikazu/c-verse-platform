@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
+import { useConfirm } from "../components/ConfirmProvider";
 import { StatusBadge } from "../components/StatusBadge";
 import { apiFetch } from "../lib/api";
 import type { DisputeRow } from "../lib/types";
 import { errMessage } from "../lib/utils";
 
 export function DisputesPage() {
+  const confirm = useConfirm();
   const [rows, setRows] = useState<DisputeRow[]>([]);
   const [drafts, setDrafts] = useState<Record<string, { status: string; notes: string }>>({});
   const [msg, setMsg] = useState<string | null>(null);
@@ -29,10 +31,15 @@ export function DisputesPage() {
   async function decide(id: string) {
     const draft = drafts[id] ?? { status: "under_review", notes: "" };
     const suspends = draft.status === "resolved_suspend";
-    const confirmMsg = suspends
-      ? "Selesaikan sengketa dengan SUSPEND user? Akun terkait akan dinonaktifkan."
-      : `Simpan keputusan sengketa (${draft.status})?`;
-    if (!window.confirm(confirmMsg)) return;
+    if (
+      !(await confirm({
+        title: suspends ? "Selesaikan sengketa dengan SUSPEND user?" : `Simpan keputusan sengketa (${draft.status})?`,
+        ...(suspends ? { message: "Akun terkait akan dinonaktifkan." } : {}),
+        confirmLabel: suspends ? "Suspend" : "Simpan",
+        danger: suspends,
+      }))
+    )
+      return;
     setMsg(null);
     setBusy(true);
     try {

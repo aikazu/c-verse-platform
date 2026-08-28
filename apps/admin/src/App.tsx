@@ -1,5 +1,6 @@
 import { Navigate, Route, Routes, useNavigate } from "react-router-dom";
 import { ConfigErrorScreen } from "./components/ConfigErrorScreen";
+import { ConfirmProvider } from "./components/ConfirmProvider";
 import { LoginPage } from "./components/LoginPage";
 import { Shell } from "./components/Shell";
 import { TotpRequired } from "./components/TotpRequired";
@@ -62,22 +63,28 @@ export default function App() {
           DEMO · aal1 tanpa TOTP
         </div>
       )}
-      <Shell email={session.user.email ?? "admin"} authLabel={isDemoDev ? "Supabase · aal1 (demo)" : "Supabase · aal2"} onLogout={onLogout}>
-        <Routes>
-          <Route path="/" element={<DashboardPage />} />
-          <Route path="/creators" element={<CreatorsPage />} />
-          <Route path="/drops" element={<DropsPage />} />
-          <Route path="/orders" element={<OrdersPage />} />
-          <Route path="/nfc" element={<NfcPage />} />
-          <Route path="/payouts" element={<PayoutsPage />} />
-          <Route path="/badges" element={<BadgesPage />} />
-          <Route path="/disputes" element={<DisputesPage />} />
-          <Route path="/kyc" element={<KycPage />} />
-          <Route path="/audit" element={<AuditPage />} />
-          <Route path="/investor" element={<InvestorPage />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </Shell>
+      <ConfirmProvider>
+        <Shell
+          email={session.user.email ?? "admin"}
+          authLabel={isDemoDev ? "Supabase · aal1 (demo)" : "Supabase · aal2"}
+          onLogout={onLogout}
+        >
+          <Routes>
+            <Route path="/" element={<DashboardPage />} />
+            <Route path="/creators" element={<CreatorsPage />} />
+            <Route path="/drops" element={<DropsPage />} />
+            <Route path="/orders" element={<OrdersPage />} />
+            <Route path="/nfc" element={<NfcPage />} />
+            <Route path="/payouts" element={<PayoutsPage />} />
+            <Route path="/badges" element={<BadgesPage />} />
+            <Route path="/disputes" element={<DisputesPage />} />
+            <Route path="/kyc" element={<KycPage />} />
+            <Route path="/audit" element={<AuditPage />} />
+            <Route path="/investor" element={<InvestorPage />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </Shell>
+      </ConfirmProvider>
     </>
   );
 }

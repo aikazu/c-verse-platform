@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
+import { useConfirm } from "../components/ConfirmProvider";
 import { StatusBadge } from "../components/StatusBadge";
 import { apiFetch } from "../lib/api";
 import type { KycRow } from "../lib/types";
 import { errMessage, maskNik } from "../lib/utils";
 
 export function KycPage() {
+  const confirm = useConfirm();
   const [rows, setRows] = useState<KycRow[]>([]);
   const [msg, setMsg] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -22,9 +24,16 @@ export function KycPage() {
   }, []);
 
   async function decide(id: string, action: "approve" | "reject") {
-    const confirmMsg =
-      action === "approve" ? "Setujui pengajuan KYC ini? User bisa menarik dana setelah disetujui." : "Tolak pengajuan KYC ini?";
-    if (!window.confirm(confirmMsg)) return;
+    const approved = action === "approve";
+    if (
+      !(await confirm({
+        title: approved ? "Setujui pengajuan KYC ini?" : "Tolak pengajuan KYC ini?",
+        ...(approved ? { message: "User bisa menarik dana setelah disetujui." } : {}),
+        confirmLabel: approved ? "Setujui" : "Tolak",
+        danger: !approved,
+      }))
+    )
+      return;
     setMsg(null);
     setBusy(true);
     try {

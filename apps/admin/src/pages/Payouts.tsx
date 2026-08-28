@@ -1,5 +1,6 @@
 import { formatIdr } from "@c-verse/shared";
 import { useEffect, useState } from "react";
+import { useConfirm } from "../components/ConfirmProvider";
 import { StatusBadge } from "../components/StatusBadge";
 import { apiFetch } from "../lib/api";
 import { supabase } from "../lib/supabase";
@@ -7,6 +8,7 @@ import type { PayoutBatchRow, PayoutRow } from "../lib/types";
 import { errMessage } from "../lib/utils";
 
 export function PayoutsPage() {
+  const confirm = useConfirm();
   const [batches, setBatches] = useState<PayoutBatchRow[]>([]);
   const [payouts, setPayouts] = useState<PayoutRow[]>([]);
   const [busy, setBusy] = useState(false);
@@ -33,7 +35,15 @@ export function PayoutsPage() {
   }, []);
 
   async function triggerBatch() {
-    if (!window.confirm("Jalankan batch payout sekarang? Semua payout eligible akan dikelompokkan dan dana dikunci.")) return;
+    if (
+      !(await confirm({
+        title: "Jalankan batch payout sekarang?",
+        message: "Semua payout eligible akan dikelompokkan dan dana dikunci.",
+        confirmLabel: "Jalankan",
+        danger: true,
+      }))
+    )
+      return;
     setBusy(true);
     setMsg(null);
     try {
@@ -53,9 +63,12 @@ export function PayoutsPage() {
 
   async function refundPayout(id: string, amount: number) {
     if (
-      !window.confirm(
-        `Refund payout ${id.slice(0, 8)} (${amount} C-Coin)? Dana akan dikembalikan ke wallet kreator dan status payout menjadi 'refunded'.`,
-      )
+      !(await confirm({
+        title: `Refund payout ${id.slice(0, 8)} (${amount} C-Coin)?`,
+        message: "Dana akan dikembalikan ke wallet kreator dan status payout menjadi 'refunded'.",
+        confirmLabel: "Refund",
+        danger: true,
+      }))
     )
       return;
     setBusy(true);

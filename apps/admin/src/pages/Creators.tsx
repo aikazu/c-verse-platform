@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useConfirm } from "../components/ConfirmProvider";
 import { StatusBadge } from "../components/StatusBadge";
 import { apiFetch } from "../lib/api";
 import { supabase } from "../lib/supabase";
@@ -6,6 +7,7 @@ import type { CreatorRow, ProvisionResult, UserRow } from "../lib/types";
 import { errMessage } from "../lib/utils";
 
 export function CreatorsPage() {
+  const confirm = useConfirm();
   const [creators, setCreators] = useState<CreatorRow[]>([]);
   const [users, setUsers] = useState<UserRow[]>([]);
   const [holds, setHolds] = useState<Record<string, string>>({});
@@ -47,7 +49,7 @@ export function CreatorsPage() {
   }, []);
 
   async function promote(userId: string) {
-    if (!window.confirm("Promosikan user ini menjadi creator?")) return;
+    if (!(await confirm({ title: "Promosikan user ini menjadi creator?", confirmLabel: "Promosikan" }))) return;
     setBusy(true);
     try {
       await apiFetch(`/api/admin/users/${userId}`, { method: "PATCH", body: JSON.stringify({ role: "creator" }) });
@@ -61,10 +63,16 @@ export function CreatorsPage() {
   }
   async function toggleSuspend(u: UserRow) {
     const flagReason = u.flag_reason ? null : `manual:${new Date().toISOString().slice(0, 10)}`;
-    const confirmMsg = flagReason
-      ? `Suspend user ${u.email}? Akun tidak bisa transaksi hingga diaktifkan kembali.`
-      : `Aktifkan kembali user ${u.email}?`;
-    if (!window.confirm(confirmMsg)) return;
+    const suspending = Boolean(flagReason);
+    if (
+      !(await confirm({
+        title: suspending ? `Suspend user ${u.email}?` : `Aktifkan kembali user ${u.email}?`,
+        ...(suspending ? { message: "Akun tidak bisa transaksi hingga diaktifkan kembali." } : {}),
+        confirmLabel: suspending ? "Suspend" : "Aktifkan",
+        danger: suspending,
+      }))
+    )
+      return;
     setBusy(true);
     try {
       await apiFetch(`/api/admin/users/${u.id}`, { method: "PATCH", body: JSON.stringify({ flagReason }) });
@@ -79,8 +87,13 @@ export function CreatorsPage() {
   async function toggleHold(u: UserRow) {
     const isHeld = Boolean(holds[u.id]);
     const holdPayoutUntil = isHeld ? null : new Date(Date.now() + 7 * 24 * 3600 * 1000).toISOString();
-    const confirmMsg = holdPayoutUntil ? `Hold payout ${u.email} selama 7 hari (fraud hold)?` : `Lepas fraud hold payout ${u.email}?`;
-    if (!window.confirm(confirmMsg)) return;
+    if (
+      !(await confirm({
+        title: holdPayoutUntil ? `Hold payout ${u.email} selama 7 hari (fraud hold)?` : `Lepas fraud hold payout ${u.email}?`,
+        confirmLabel: holdPayoutUntil ? "Hold" : "Lepas",
+      }))
+    )
+      return;
     setBusy(true);
     try {
       await apiFetch(`/api/admin/users/${u.id}/wallet-hold`, { method: "PATCH", body: JSON.stringify({ holdPayoutUntil }) });

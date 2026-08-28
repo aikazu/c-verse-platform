@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useConfirm } from "../components/ConfirmProvider";
 import { StatusBadge } from "../components/StatusBadge";
 import { apiFetch } from "../lib/api";
 import { supabase } from "../lib/supabase";
@@ -6,6 +7,7 @@ import type { OrderRow, ShipmentRow } from "../lib/types";
 import { errMessage } from "../lib/utils";
 
 export function OrdersPage() {
+  const confirm = useConfirm();
   const [rows, setRows] = useState<OrderRow[]>([]);
   const [shipments, setShipments] = useState<ShipmentRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -37,7 +39,16 @@ export function OrdersPage() {
   }
 
   async function updateShipment(shipmentId: string, status: string, trackingNumber?: string) {
-    if (status === "cancelled" && !window.confirm("Batalkan pengiriman ini? Aksi ini tidak dapat dibatalkan.")) return;
+    if (
+      status === "cancelled" &&
+      !(await confirm({
+        title: "Batalkan pengiriman ini?",
+        message: "Aksi ini tidak dapat dibatalkan.",
+        confirmLabel: "Batalkan",
+        danger: true,
+      }))
+    )
+      return;
     setMsg(null);
     setBusyId(shipmentId);
     try {
