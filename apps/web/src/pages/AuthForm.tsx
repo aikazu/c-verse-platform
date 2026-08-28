@@ -38,13 +38,17 @@ export default function AuthForm() {
   const [code, setCode] = useState("");
   const [otpSent, setOtpSent] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState<string | undefined>(undefined);
   const turnstileRef = useRef<HTMLDivElement | null>(null);
   const turnstileRefHandle = useRef<TurnstileHandle | null>(null);
 
+  // Widget hanya ada di form request-OTP (render saat !otpSent) — mount persis di situ,
+  // bukan setelah otpSent (container sudah unmount saat itu → ref null, widget tak pernah render).
   useEffect(() => {
+    if (otpSent) return;
     let destroyed = false;
-    if (otpSent && turnstileRef.current && !turnstileRefHandle.current) {
-      mountTurnstile(turnstileRef.current).then((handle) => {
+    if (turnstileRef.current && !turnstileRefHandle.current) {
+      mountTurnstile(turnstileRef.current, setCaptchaToken, () => setCaptchaToken(undefined)).then((handle) => {
         if (destroyed) handle.destroy();
         else turnstileRefHandle.current = handle;
       });
@@ -58,7 +62,7 @@ export default function AuthForm() {
 
   async function onRequestOtp(e: React.FormEvent) {
     e.preventDefault();
-    if (isTurnstileEnabled && turnstileRefHandle.current && !turnstileRefHandle.current.token()) {
+    if (isTurnstileEnabled && !captchaToken) {
       push("Selesaikan captcha dulu", "error");
       return;
     }
@@ -69,6 +73,9 @@ export default function AuthForm() {
       setOtpSent(true);
       push(`Kode 6 digit dikirim ke ${email}`, "success");
     } catch (err: unknown) {
+      // Token Turnstile single-use — reset agar percobaan berikutnya punya token baru.
+      turnstileRefHandle.current?.reset();
+      setCaptchaToken(undefined);
       push(errorMessage(err) || "Gagal mengirim kode", "error");
     } finally {
       setBusy(false);
@@ -147,7 +154,11 @@ export default function AuthForm() {
               />
             </div>
             <div ref={turnstileRef} />
-            <button className="btn-gold" disabled={busy || !isSupabaseAuth} style={{ padding: "12px", width: "100%" }}>
+            <button
+              className="btn-gold"
+              disabled={busy || !isSupabaseAuth || (isTurnstileEnabled && !captchaToken)}
+              style={{ padding: "12px", width: "100%" }}
+            >
               {busy ? "Memproses…" : "Kirim kode OTP (email)"}
             </button>
           </form>

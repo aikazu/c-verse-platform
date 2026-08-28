@@ -1,4 +1,5 @@
 // Cloudflare Turnstile widget loader (docs/10 §3.2) — render dulu, token disertakan tiap request OTP.
+// Salin dari apps/web/src/lib/turnstile.ts — jaga kedua salinan sinkron.
 
 const SITE_KEY = (import.meta.env.VITE_TURNSTILE_SITE_KEY as string | undefined) ?? "";
 

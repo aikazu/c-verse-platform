@@ -1,22 +1,48 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "../lib/supabase";
+import { isTurnstileEnabled, mountTurnstile, type TurnstileHandle } from "../lib/turnstile";
 
 export function LoginPage() {
   const [email, setEmail] = useState("");
   const [msg, setMsg] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState<string | undefined>(undefined);
+  const turnstileRef = useRef<HTMLDivElement | null>(null);
+  const turnstileHandleRef = useRef<TurnstileHandle | null>(null);
+
+  useEffect(() => {
+    let destroyed = false;
+    if (turnstileRef.current && !turnstileHandleRef.current) {
+      mountTurnstile(turnstileRef.current, setCaptchaToken, () => setCaptchaToken(undefined)).then((handle) => {
+        if (destroyed) handle.destroy();
+        else turnstileHandleRef.current = handle;
+      });
+    }
+    return () => {
+      destroyed = true;
+      turnstileHandleRef.current?.destroy();
+      turnstileHandleRef.current = null;
+    };
+  }, []);
 
   async function onLogin(e: React.FormEvent) {
     e.preventDefault();
+    if (isTurnstileEnabled && !captchaToken) {
+      setMsg("Selesaikan captcha dulu.");
+      return;
+    }
     setBusy(true);
     setMsg(null);
     try {
       const { error } = await supabase.auth.signInWithOtp({
         email,
-        options: { shouldCreateUser: false, emailRedirectTo: window.location.origin },
+        options: { shouldCreateUser: false, emailRedirectTo: window.location.origin, captchaToken },
       });
       if (error) setMsg(error.message);
       else setMsg("Tautan masuk terkirim — cek email (Inbucket di dev).");
+      // Token single-use dan widget tetap terlihat di form ini — reset agar retry punya token baru.
+      turnstileHandleRef.current?.reset();
+      setCaptchaToken(undefined);
     } finally {
       setBusy(false);
     }
@@ -52,7 +78,13 @@ export function LoginPage() {
               autoComplete="email"
             />
           </div>
-          <button className="btn-gold" type="submit" disabled={busy} style={{ marginTop: 6, padding: "11px", width: "100%" }}>
+          <div ref={turnstileRef} />
+          <button
+            className="btn-gold"
+            type="submit"
+            disabled={busy || (isTurnstileEnabled && !captchaToken)}
+            style={{ marginTop: 6, padding: "11px", width: "100%" }}
+          >
             {busy ? "Mengirim…" : "Kirim Tautan Masuk"}
           </button>
         </form>
