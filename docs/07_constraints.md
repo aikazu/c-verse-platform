@@ -181,6 +181,10 @@
 - Owner yang menjual kartu di secondary TIDAK BISA membeli kembali
   kartu yang sama dalam 1x24 jam (blok rebuy oleh seller sebelumnya —
   hanya memutus loop A→B→A di hari yang sama).
+- [2026-08-29] Enforcement di KEDUA jalur beli secondary:
+  `buyout_card` dan `place_bid` (COOLING_PERIOD_24H) — accept bid
+  otomatis tertutup karena bid aktif dari prev-owner <24 jam tidak
+  bisa lagi tercipta.
 - Pembeli BOLEH langsung listing ulang kapan saja setelah beli —
   TIDAK ada hold/cooling period untuk listing.
 - **Wash trading / jual-beli berulang untuk menaikkan harga

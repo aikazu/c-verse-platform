@@ -200,8 +200,10 @@ Retensi: minimum 1 tahun (UU PDP + forensik fraud).
   untuk aksi irreversible) — ikut raffle, bid, buyout, top-up,
   ship-out, terima bid, batal drop, suspend, fraud-hold, approve KYC,
   batch payout, draw, resolve sengketa, batal kirim. Native
-  `window.confirm` DILARANG di apps/web [update 2026-08-29]; admin
-  masih `window.confirm` + disable-while-loading.
+  `window.confirm` DILARANG di apps/web dan apps/admin
+  [update 2026-08-29] — admin memakai `ConfirmProvider` sendiri
+  (komponen setara, styling `cfm-*` ter-inherit via `@import`) +
+  disable-while-loading.
 - **Konsistensi visual**: warna lewat CSS var (`--gold-bg`,
   `--signal-bg`, `--alert-bg`, `--info-bg`, dst) — jangan hardcode
   rgba; komponen berulang diekstrak (`StatusBadge`, `LevelBar`); IDR

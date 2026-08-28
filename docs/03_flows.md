@@ -462,7 +462,8 @@ ADM-06: dispute masuk -> review bukti -> keputusan
       `04_rpc.sql` (sebelumnya `20260823050000_seed_sale_abort.sql`) +
       endpoint admin + section
       "Seed sale berjalan (PHASE-1)" di admin Nfc page dengan tombol
-      "Batalkan sale" (window.confirm + disable-while-loading).
+      "Batalkan sale" (modal konfirmasi in-app + disable-while-loading
+      [update 2026-08-29]; semula `window.confirm`).
 ```
 
 Split penjualan pertama seed card (secondary 85/7,5/7,5): karena

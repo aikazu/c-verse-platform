@@ -482,7 +482,10 @@ payouts
   ccoin_amount int
   idr_amount bigint
   withholding_tax jsonb   -- PPh 23, PPN 11
-  status enum('pending','disbursed','failed')
+  status enum('pending','processing','disbursed','failed','refunded')
+         -- 'processing' (batch run) + 'refunded' (admin refund) ditambah
+         -- 20260823000000_payout_refund.sql; webhook hanya boleh
+         -- memfinalisasi pending/processing (guard 2026-08-29)
 ```
 
 ## 3. Relasi Ringkas
@@ -521,7 +524,7 @@ profiles 1─N user_badges
 | I8 | QR verify tanpa CMAC hanya status "Registered" | Verify service |
 | I9 | Hanya SATU bid active per kartu (tertinggi); bid lebih tinggi meng-outbid yang lama + release C-Coin | App logic + transaction |
 | I10 | Max 20 kartu buyout aktif per user | App check |
-| I11 | Level = floor(total_xp / 10); total_xp = spend C-Coin (1 C-Coin = 1 XP) + reward badge; top-up tidak menambah XP | Trigger/app logic |
+| I11 | Level = floor(total_xp / 10) + 1 (clamp 1..100); total_xp = spend C-Coin (1 C-Coin = 1 XP) + reward badge; top-up tidak menambah XP | Trigger/app logic |
 | I12 | Profil publik hanya jika `is_anonymous = false` AND `flag_reason IS NULL` (suspended) — termasuk leaderboard (filter **di dalam RPC** `get_leaderboard`), sitemap, dan ownership history (historical owner di-mask jadi "Anonim") | RPC + RLS |
 | I13 | Blok rebuy seller 1 hari — kartu tidak bisa dibeli kembali oleh owner sebelumnya dalam 1x24 jam; pembeli bebas listing ulang kapan saja; wash trading diterima (fee 15% tetap kena) | App logic |
 | I14 | Creator self-dealing — kreator dilarang membeli kartu drop sendiri di secondary untuk 30 hari pertama | App logic + flag |
