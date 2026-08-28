@@ -194,9 +194,14 @@ Retensi: minimum 1 tahun (UU PDP + forensik fraud).
   (`LoadingState`/`ErrorState` + retry); akses `data` di-guard agar
   gagal fetch tidak crash ke ErrorBoundary. Di admin, kegagalan load
   ditampilkan (bukan tampil `0`/stuck "Memuat…").
-- **Aksi mutasi**: tombol di-`disable` saat request in-flight; aksi
-  destruktif/finansial (batal drop, suspend, fraud-hold, approve KYC,
-  batch payout, draw, resolve sengketa, batal kirim) minta konfirmasi.
+- **Aksi mutasi**: tombol di-`disable` saat request in-flight; SEMUA
+  aksi destruktif/finansial wajib konfirmasi modal in-app
+  `ConfirmProvider`/`useConfirm()` (tema Space Arcade; opsi `danger`
+  untuk aksi irreversible) — ikut raffle, bid, buyout, top-up,
+  ship-out, terima bid, batal drop, suspend, fraud-hold, approve KYC,
+  batch payout, draw, resolve sengketa, batal kirim. Native
+  `window.confirm` DILARANG di apps/web [update 2026-08-29]; admin
+  masih `window.confirm` + disable-while-loading.
 - **Konsistensi visual**: warna lewat CSS var (`--gold-bg`,
   `--signal-bg`, `--alert-bg`, `--info-bg`, dst) — jangan hardcode
   rgba; komponen berulang diekstrak (`StatusBadge`, `LevelBar`); IDR

@@ -45,6 +45,10 @@ Phase 1 — RAFFLE ENTRY (drop live s/d raffle_end_at, default 24 jam)
       TIDAK -> arahkan ke top-up (area user /wallet)
    -> limit 1 entry/user/drop; entry TIDAK bisa dibatalkan
       (dana otomatis kembali saat draw, maksimal H+24)
+   -> [2026-08-29] konfirmasi modal (D8) wajib sebelum hold;
+      GET /api/drops/:id mengembalikan `myEntry` (opsional-auth) —
+      sudah ikut => UI state "✓ Sudah ikut" (pilih pool & CTA
+      disembunyikan; unique index drop_entries(drop_id, user_id))
 
 Phase 2 — DRAW (otomatis, batch job saat window tutup)
 raffle_end_at tercapai -> cron 5-menit trigger RPC draw_drop()

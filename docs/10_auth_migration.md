@@ -166,3 +166,23 @@ Auth saat ini custom in-memory — tidak bisa dibawa ke produksi:
 - Keputusan Creator Seed C.Card (2026-08-20, [VALIDATED]) — seed
   card 1-of-1 memerlukan akun kreator aktif (Flow 11 provision
   sebelum listing).
+
+## 7. Demo Login (DEV ONLY — masa demo lokal, 2026-08-29)
+
+One-click login akun seed supaya seluruh flow pasca-auth bisa dites
+tanpa OTP/email. **Tetap passwordless** — tidak ada password login.
+
+- Endpoint: `POST /api/auth/demo-login` `{ email }` →
+  `{ email, tokenHash }`. Gerbang ganda: env `ENABLE_DEMO_LOGIN`
+  (tidak pernah di-set production → 404) + whitelist 8 email seed
+  (`supabase/seed.sql`).
+- Mekanisme: `auth.admin.generateLink({ type: "magiclink" })` — TIDAK
+  mengirim email (juga mem-bypass blokir GoTrue terhadap domain
+  `@cverse.id`) → client menukar `token_hash` jadi sesi via
+  `verifyOtp({ token_hash, type: "magiclink" })`.
+- UI: tombol "DEMO — one-click login" hanya ikut bundle saat
+  `import.meta.env.DEV` (web: user/creator; admin: admin).
+- **Admin dev build merelaksasi guard aal2** (login demo = aal1) —
+  badge "DEMO · aal1 tanpa TOTP"; production build tetap wajib aal2
+  server-side (`requireAdmin`).
+- Test: `apps/api/src/routes/__tests__/auth_demo_login.test.ts`.
