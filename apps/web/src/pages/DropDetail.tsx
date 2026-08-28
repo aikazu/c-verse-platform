@@ -195,6 +195,7 @@ export default function DropDetail() {
           priceRegular={priceRegular}
           priceSigned={priceSigned}
           userLoggedIn={!!user}
+          myEntry={data.myEntry ?? null}
           onLoginRequired={() => nav("/login")}
           onRefetchDrop={() => refetch()}
           onPush={(msg, kind) => push(msg, kind)}
@@ -222,6 +223,7 @@ function ActionPanel(props: {
   priceRegular: number;
   priceSigned: number;
   userLoggedIn: boolean;
+  myEntry: { pool: string; holdCcoin: number; status: string } | null;
   onLoginRequired: () => void;
   onRefetchDrop: () => void;
   onPush: (msg: string, kind: "info" | "error" | "success") => void;
@@ -236,10 +238,12 @@ function ActionPanel(props: {
       props.onLoginRequired();
       return;
     }
+    const poolLabel = pool === "regular" ? "reguler" : pool === "premium" ? "premium" : "kedua pool";
+    // Konfirmasi sebelum C-Coin ditahan (founder 2026-08-29: aksi spend wajib confirm).
+    if (!window.confirm(`Ikut raffle pool ${poolLabel} — ${holdAmount} C ditahan. Tidak menang, otomatis kembali. Lanjutkan?`)) return;
     setBusy(true);
     try {
       await api.entryRaffle(props.drop.id, pool);
-      const poolLabel = pool === "regular" ? "reguler" : pool === "premium" ? "premium" : "kedua pool";
       props.onPush(`Berhasil ikut raffle (${poolLabel})`, "success");
       props.onNavHome();
     } catch (e: unknown) {
@@ -252,6 +256,13 @@ function ActionPanel(props: {
   const remainingMs = props.countdownTarget != null ? Math.max(0, props.countdownTarget - props.countdownNow) : null;
   const countdownLabel = remainingMs != null ? fmtCountdown(remainingMs) : null;
   const holdAmount = pool === "regular" ? props.priceRegular : pool === "premium" ? props.priceSigned : props.priceSigned;
+  const myEntryLabel = props.myEntry
+    ? props.myEntry.pool === "regular"
+      ? "Reguler"
+      : props.myEntry.pool === "premium"
+        ? "Signed"
+        : "Keduanya"
+    : "";
 
   return (
     <div className="card card-pad cm-panel">
@@ -294,8 +305,16 @@ function ActionPanel(props: {
         </div>
       )}
 
-      {/* Pool selector hanya muncul saat raffle aktif */}
-      {props.phase === "raffle" && (
+      {/* Sudah ikut: entry unik per user/drop — tampilkan status, tanpa selector/CTA */}
+      {props.phase === "raffle" && props.myEntry && (
+        <div className="pill pill-success cm-phase-pill" role="status">
+          ✓ Sudah ikut ({myEntryLabel}) — {props.myEntry.holdCcoin} C{" "}
+          {props.myEntry.status === "held" ? "ditahan" : `· ${props.myEntry.status}`}
+        </div>
+      )}
+
+      {/* Pool selector hanya muncul saat raffle aktif dan belum ikut */}
+      {props.phase === "raffle" && !props.myEntry && (
         <div className="cm-pool">
           <div className="label">Pilih Pool</div>
           <div role="radiogroup" className="cm-pool-group">
@@ -325,7 +344,7 @@ function ActionPanel(props: {
       )}
 
       {/* CTA per phase */}
-      {props.phase === "raffle" && (
+      {props.phase === "raffle" && !props.myEntry && (
         <>
           <button className="btn-gold cm-cta" onClick={onEnterRaffle} disabled={busy}>
             {busy ? "Mengirim…" : `Ikuti Raffle · tahan ${holdAmount} C →`}

@@ -83,6 +83,8 @@ function ManageCardsInner() {
       push("Alamat minimal 10 karakter", "info");
       return;
     }
+    // Konfirmasi: ongkir dipotong + kartu berstatus dikirim (founder 2026-08-29).
+    if (!window.confirm(`Kirim C.Card ini ke alamat tujuan? Ongkir ${fee} C.`)) return;
     setBusyId(card.id);
     try {
       await api.vaultShipout(card.id, addr, fee);
@@ -94,7 +96,10 @@ function ManageCardsInner() {
       setBusyId(null);
     }
   }
-  async function onAccept(card: Card) {
+  async function onAccept(card: EnrichedCard) {
+    // Konfirmasi: kartu berpindah kepemilikan dan tidak bisa dibatalkan (founder 2026-08-29).
+    if (!window.confirm(`Terima tawaran ${card.activeBid?.amountCCoin} C dari ${card.activeBid?.bidderName}? Kartu pindah ke pembeli.`))
+      return;
     setBusyId(card.id);
     try {
       // Vault-only accept (founder 2026-08-28): settle straight to vault, no

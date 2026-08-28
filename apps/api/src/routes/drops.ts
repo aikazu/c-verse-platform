@@ -2,7 +2,7 @@ import { AOV_UNSIGNED_CCOIN, C_COIN_RATE_IDR } from "@c-verse/shared";
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import { z } from "zod";
-import { adminGateError, clientIp, requireAdmin, requireUser, tokenFingerprint } from "../lib/auth.js";
+import { adminGateError, clientIp, getOptionalUser, requireAdmin, requireUser, tokenFingerprint } from "../lib/auth.js";
 import { RpcError, rpcDropEntry, userDb } from "../lib/db.js";
 import { sanitizeDbError } from "../lib/errors.js";
 import { getCreatorByUserId } from "../lib/reads/creators.js";
@@ -72,8 +72,23 @@ app.get("/:id", async (c) => {
     getCreatorByUserId(d.creatorId),
   ]);
   const soldCards = cards.filter((ca) => ca.status !== "inventory");
+  // Personalisasi opsional (getOptionalUser — tanpa session tetap 200): UI pakai
+  // ini untuk state "sudah ikut raffle" dan menyembunyikan tombol entry ulang
+  // (unique index drop_entries(drop_id, user_id) memang melarang entry kedua).
+  const viewer = await getOptionalUser(c);
+  let myEntry: { pool: string; holdCcoin: number; status: string } | null = null;
+  if (viewer) {
+    const { data: entryRow } = await getSupabase()
+      .from("drop_entries")
+      .select("pool, hold_ccoin, status")
+      .eq("drop_id", d.id)
+      .eq("user_id", viewer.id)
+      .maybeSingle();
+    if (entryRow) myEntry = { pool: String(entryRow.pool), holdCcoin: Number(entryRow.hold_ccoin), status: String(entryRow.status) };
+  }
   return c.json({
     ...d,
+    myEntry,
     dropStartAt: d.dropStartAt ?? d.dropAt,
     priceCcoin: d.priceCcoin ?? d.priceUnsignedCCoin,
     remainingUnits: d.totalUnits - d.soldCount,

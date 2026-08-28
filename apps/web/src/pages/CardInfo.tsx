@@ -32,6 +32,7 @@ export default function CardInfo() {
   const { push } = useToast();
   const [buyoutOpen, setBuyoutOpen] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [bidAmount, setBidAmount] = useState("");
   const { data, isLoading, refetch } = useQuery<ApiCardDetailResponse>({
     queryKey: ["card", cardId],
     queryFn: () => api.card(cardId!),
@@ -72,6 +73,7 @@ export default function CardInfo() {
   const myActiveBid = activeBid?.bidderId && user && activeBid.bidderId === user.id ? activeBid : null;
 
   async function onBuyout() {
+    if (!window.confirm(`Beli C.Card ini seharga ${card.buyoutPriceCcoin} C? C.Card masuk vault.`)) return;
     setBusy(true);
     try {
       // Vault-only purchase (founder 2026-08-28): settle straight to vault,
@@ -95,6 +97,37 @@ export default function CardInfo() {
     try {
       await api.cancelBid(myActiveBid.id);
       push("Bid dibatalkan", "success");
+      refetch();
+    } catch (e) {
+      push(errorMessage(e), "error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const nextMinBid = (activeBid?.amountCCoin ?? 0) + 1;
+
+  async function onPlaceBid() {
+    if (!user) {
+      push("Masuk untuk menawar", "info");
+      return;
+    }
+    const amt = Number(bidAmount);
+    if (!Number.isFinite(amt) || amt < 1) {
+      push("Minimal 1 C", "info");
+      return;
+    }
+    if (activeBid && amt <= activeBid.amountCCoin) {
+      push(`Bid harus lebih tinggi dari ${activeBid.amountCCoin} C`, "info");
+      return;
+    }
+    // Konfirmasi sebelum C-Coin ditahan (founder 2026-08-29: aksi spend wajib confirm).
+    if (!window.confirm(`Tawar ${amt} C? C-Coin ditahan sampai bid kalah atau dibatalkan.`)) return;
+    setBusy(true);
+    try {
+      await api.placeBid(card.id, amt);
+      push(`Penawaran ${amt} C terkirim`, "success");
+      setBidAmount("");
       refetch();
     } catch (e) {
       push(errorMessage(e), "error");
@@ -193,7 +226,7 @@ export default function CardInfo() {
               ) : null}
               {activeBid && (
                 <div className="ci-bid-panel">
-                  <span className="label ci-label-gold">TAWARAN TERTINGGI</span>
+                  <span className="label ci-label-gold">{myActiveBid ? "BID KAMU — TERTINGGI" : "TAWARAN TERTINGGI"}</span>
                   <div className="ci-bid-amt">
                     {activeBid.amountCCoin} C <span className="ci-bid-by">oleh {activeBid.bidderName}</span>
                   </div>
@@ -202,6 +235,25 @@ export default function CardInfo() {
                       {busy ? "Memproses…" : "Batalkan bid"}
                     </button>
                   )}
+                </div>
+              )}
+              {user && !isOwnerDerived && (
+                <div className="ci-form">
+                  <div className="ci-actions">
+                    <input
+                      className="input"
+                      type="number"
+                      min={nextMinBid}
+                      aria-label="Jumlah tawaran C-Coin"
+                      placeholder={`min ${nextMinBid} C`}
+                      value={bidAmount}
+                      onChange={(e) => setBidAmount(e.target.value)}
+                      disabled={busy}
+                    />
+                    <button className="btn-gold ci-btn-sm" onClick={onPlaceBid} disabled={busy || bidAmount === ""}>
+                      Tawar
+                    </button>
+                  </div>
                 </div>
               )}
             </div>

@@ -53,6 +53,8 @@ function WalletInner() {
   }, []);
 
   async function onTopup() {
+    // Uang asli (IDR via Midtrans) — wajib konfirmasi sebelum redirect (founder 2026-08-29).
+    if (!window.confirm(`Top-up ${amount} C via Midtrans?`)) return;
     setBusyTopup(true);
     try {
       const r = await api.topup(amount);

@@ -139,6 +139,25 @@ export type RequireAdminResult =
   | { error: 403; reason: "suspended" | "not_admin" | "mfa_required" };
 
 /**
+ * Soft variant of requireUser for public endpoints that personalize when a valid
+ * session is present but MUST stay reachable anonymously — never throws and never
+ * 401s; missing/invalid/suspended tokens simply read as anonymous (null).
+ */
+export async function getOptionalUser(c: { req: { header: (k: string) => string | undefined } }): Promise<User | null> {
+  const token = authHeaderToToken(c.req.header("authorization"));
+  if (!token) return null;
+  const issuer = supabaseIssuer();
+  if (!issuer) return null;
+  const verified = await verifySupabaseJwt(token);
+  if (!verified) return null;
+  const { data, error } = await getSupabase().from("users").select("*").eq("id", verified.sub).maybeSingle();
+  if (error || !data) return null;
+  const user = dbUserToStoreUser(data as Record<string, unknown>);
+  if (user.flagReason) return null;
+  return user;
+}
+
+/**
  * Admin gate: authenticated + role=admin + MFA aal2 (docs: admin behind MFA TOTP).
  * aal2 is enforced SERVER-SIDE here — the admin SPA guard is UX only and bypassable.
  */

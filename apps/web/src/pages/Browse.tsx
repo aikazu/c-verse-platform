@@ -70,6 +70,8 @@ export default function Browse() {
       push(`Bid harus lebih tinggi dari ${activeHighest} C (saat ini aktif)`, "info");
       return;
     }
+    // Konfirmasi sebelum C-Coin ditahan (founder 2026-08-29: aksi spend wajib confirm).
+    if (!window.confirm(`Tawar ${amt} C? C-Coin ditahan sampai bid kalah atau dibatalkan.`)) return;
     setPendingBidCardIds((current) => [...current, cardId]);
     try {
       await api.placeBid(cardId, amt);
@@ -286,7 +288,7 @@ export default function Browse() {
                     <div className="browse-bid-status">
                       {activeBid ? (
                         <>
-                          <span className="eyebrow">TERTINGGI</span>
+                          <span className="eyebrow">{user && activeBid.bidderId === user.id ? "BID KAMU — TERTINGGI" : "TERTINGGI"}</span>
                           <span className="bid-amount">{activeBid.amountCCoin} C</span>
                           <span className="bid-min">· min {minNext} C</span>
                         </>

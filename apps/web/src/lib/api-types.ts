@@ -82,6 +82,9 @@ export interface ApiDropsResponse extends PagedMeta {
 
 export type ApiDropDetailResponse = ApiDrop & {
   cards?: Card[];
+  // Entry viewer yang login (unique 1/drop) — null saat anonim/belum ikut.
+  // UI: state "sudah ikut" menggantikan tombol entry.
+  myEntry?: { pool: string; holdCcoin: number; status: string } | null;
   // P0-1 (audit 2026-08-24): jumlah entry hidup per pool (reguler/premium)
   // ditambahkan saat endpoint tahu jumlah — saat ini route /api/drops/:id belum
   // mengembalikan field ini; dihitung dari endpoint /api/drops/:id/entry-counts
