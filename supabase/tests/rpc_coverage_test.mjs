@@ -9,7 +9,7 @@
 //           XP buyer, transfer kepemilikan, race 2 bid concurrent amount sama)
 //   M1-M5 : set_buyout / buyout_card (MAX 20 listing, fee split, cooling period
 //           24h, creator self-dealing 30d, race 2 buyout, re-sale pasca-cooling)
-//   C1-C3 : escrow_auto_release / draw_pending_drops / payout_batch_run (cron)
+//   C1-C3 : checkout settle vault (founder 2026-08-28) / draw_pending_drops / payout_batch_run (cron)
 //   W1-W2 : wallet_credit idempotency + INVALID_AMOUNT
 //   X1-X3 : lockdown EXECUTE RPC (anon denied, wallet_debit self-only, dsb.)
 import pgModule from "../../apps/api/node_modules/pg/lib/index.js";
@@ -187,7 +187,7 @@ await admin.query("commit");
   await a.query("select public.place_bid('cov-card-s1', 100)");
   const sellerBefore = await balance(U.seller);
   const creatorBefore = await balance(U.creator);
-  await s.query("select public.accept_bid('cov-card-s1', 'buyer_address')");
+  await s.query("select public.accept_bid('cov-card-s1')"); // settle non-seed: tanpa alamat
   const sellerAfter = await balance(U.seller);
   const creatorAfter = await balance(U.creator);
   const xpAfter = await admin.query("select total_xp::int as xp from public.users where id = $1", [U.a]);
@@ -206,7 +206,7 @@ await admin.query("commit");
       c.owner_id === U.a &&
       c.buyout_price_ccoin === null &&
       c.st === "sold" &&
-      c.loc === "with_owner" &&
+      c.loc === "platform_vault" &&
       xpAfter.rows[0].xp - xpBefore.rows[0].xp === 100 &&
       history.rows[0].n === 1,
     `seller+=${sellerAfter - sellerBefore} royalty+=${creatorAfter - creatorBefore} owner_ok=${c.owner_id === U.a} xp+=${xpAfter.rows[0].xp - xpBefore.rows[0].xp} history=${history.rows[0].n}`,
@@ -399,38 +399,38 @@ await admin.query("commit");
   await b2.end();
 }
 
-// ── C1: escrow_auto_release (checkout shipping → held → 7 hari → released) ─
+// ── C1: checkout single-param settle langsung vault (founder 2026-08-28) ───
 {
   const a = await userClient(U.a);
   const b1 = await userClient(U.b1);
   await admin.query("update public.wallets set balance_ccoin = 100 where user_id = $1", [U.a]);
   await admin.query("update public.wallets set balance_ccoin = 100 where user_id = $1", [U.b1]);
-  const ord1 = await a.query(
-    "select (public.checkout('cov-drop-main', 'regular', 'shipping', 'Jl. Testing No. 123, Jakarta', 5)).id as oid",
+  const ord1 = await a.query("select (public.checkout('cov-drop-main')).id as oid");
+  await b1.query("select public.checkout('cov-drop-main') as o");
+  const oid = ord1.rows[0].oid;
+  const order = await admin.query(
+    "select status::text as s, escrow_status::text as e, delivery_option::text as d, shipping_fee_ccoin as fee, shipping_address as addr from public.orders where id = $1",
+    [oid],
   );
-  await b1.query("select public.checkout('cov-drop-main', 'regular', 'shipping', 'Jl. Testing No. 123, Jakarta', 5) as o");
-  const agedId = ord1.rows[0].oid;
-  const freshCheck = await admin.query("select escrow_status::text as e, status::text as s from public.orders where id = $1", [agedId]);
-  // docs I6: shipping release saat DELIVERED + H+7
-  await admin.query(
-    "update public.orders set created_at = now() - interval '20 days', delivered_at = now() - interval '8 days' where id = $1",
-    [agedId],
+  const card = await admin.query(
+    "select location::text as l from public.cards where id = (select card_id from public.orders where id = $1)",
+    [oid],
   );
-  const released = await admin.query("select public.escrow_auto_release() as n");
-  const aged = await admin.query("select escrow_status::text as e, status::text as s from public.orders where id = $1", [agedId]);
-  const fresh = await admin.query(
-    "select escrow_status::text as e, status::text as s from public.orders where user_id = $1 order by created_at desc limit 1",
-    [U.b1],
+  const shipCount = await admin.query(
+    "select count(*)::int as n from public.shipments where card_id = (select card_id from public.orders where id = $1)",
+    [oid],
   );
+  const o = order.rows[0];
   report(
     "C1",
-    freshCheck.rows[0].e === "held" &&
-      freshCheck.rows[0].s === "paid" &&
-      aged.rows[0].e === "released" &&
-      aged.rows[0].s === "settled" &&
-      fresh.rows[0].e === "held" &&
-      released.rows[0].n >= 1,
-    `sebelum=${freshCheck.rows[0].e}/${freshCheck.rows[0].s} sesudah=${aged.rows[0].e}/${aged.rows[0].s} order_baru=${fresh.rows[0].e} released_n=${released.rows[0].n}`,
+    o.s === "settled" &&
+      o.e === "released" &&
+      o.d === "vault" &&
+      o.fee === null &&
+      o.addr === null &&
+      card.rows[0].l === "platform_vault" &&
+      shipCount.rows[0].n === 0,
+    `order=${o.s}/${o.e}/${o.d} fee=${o.fee} loc=${card.rows[0].l} shipments=${shipCount.rows[0].n}`,
   );
   await a.end();
   await b1.end();
@@ -596,10 +596,12 @@ await admin.query("commit");
   );
   await p2.end();
 
-  // checkout tetap bisa dieksekusi authenticated (auth.uid()-based RPC)
+  // checkout tetap bisa dieksekusi authenticated (auth.uid()-based RPC);
+  // pool guard INVALID_POOL aktif lagi (checkout 2-param, default 'regular')
   const p1 = await userClient(U.p1);
-  const exec = await expectCode(p1.query("select public.checkout('cov-drop-nope', 'regular')"));
-  report("X3", exec === "DROP_NOT_LIVE", `checkout_authenticated=${exec} (harus DROP_NOT_LIVE, bukan permission denied)`);
+  const badPool = await expectCode(p1.query("select public.checkout('cov-drop-main', 'both')"));
+  const exec = await expectCode(p1.query("select public.checkout('cov-drop-nope')"));
+  report("X3", exec === "DROP_NOT_LIVE" && badPool === "INVALID_POOL", `checkout_authenticated=${exec} bad_pool=${badPool}`);
   await p1.end();
 }
 

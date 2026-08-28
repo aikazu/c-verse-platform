@@ -3,14 +3,16 @@
 //   node supabase/tests/revenue_flow_test.mjs postgresql://postgres:postgres@127.0.0.1:54322/postgres
 // Prasyarat: `npx supabase db reset` (04_rpc.sql + seed).
 // Skenario:
-//   T1 checkout FCFS -> platform_revenue 70/30 + kredit treasury + royalty creator
+//   T1 checkout FCFS vault-only (founder 2026-08-28) -> order settled + kartu
+//      platform_vault + platform_revenue 70/30 + kredit treasury + royalty creator
 //   T2 draw_drop: pool premium jatuh ke regular -> refund selisih hold - price
 //   T3 place_bid: maks 3 bid aktif per user -> BID_LIMIT pada bid ke-4
 //   T4 wallet_credit top_up: cap 500 non-KYC; KYC approved tanpa cap
 //   T5 payout_request: KYC_REQUIRED / MIN_PAYOUT / happy path (debit + payouts row) / PAYOUT_HELD
-//   T6 buyout_card buyer_address -> shipment secondary_buyout + split 8/8/84 + revenue
-//   T7 accept_bid buyer_address -> shipment secondary_bid + split 5/5/50
-//   T8 escrow_auto_release: delivered H+8 -> released/settled; H-3 -> tetap held
+//   T6 buyout_card vault-only settle -> kartu platform_vault, TANPA shipment, split 8/8/84
+//   T7 accept_bid vault-only settle -> kartu platform_vault, TANPA shipment, split 5/5/50
+//   T8 vault_shipout: fee debit + treasury + platform_revenue 'shipment' +
+//      shipment requested; repeat shipout aktif -> SHIPMENT_ACTIVE; non-owner -> FORBIDDEN
 //   T9 activate_scheduled_drops: scheduled lewat start -> live; live lewat end -> closed
 import pgModule from "../../apps/api/node_modules/pg/lib/index.js";
 
@@ -107,7 +109,7 @@ try {
   // ── Fixture dasar ──────────────────────────────────────────────────────────
   await mkUser(U.creator, "Flow Creator", 0);
 
-  // ══ T1: checkout FCFS -> revenue 70/30 + treasury ═════════════════════════
+  // ══ T1: checkout FCFS vault-only -> revenue 70/30 + treasury + settled ════
   {
     const buyer = uuid(1);
     const drop = `flow-t1-${stamp}`;
@@ -120,15 +122,41 @@ try {
       drawn: "now() - interval '24 hours'",
     });
     const c = await asUser(buyer);
-    await c.query("select public.checkout($1, 'regular', 'vault')", [drop]);
+    // guard pool (dipulihkan 2026-08-28): INVALID_POOL sebelum checkout sah,
+    // tanpa side effect (guard berada sebelum kartu dipilih)
+    let invalidPool = false;
+    try {
+      await c.query("select public.checkout($1, 'both')", [drop]);
+    } catch (e) {
+      invalidPool = errCode(e) === "INVALID_POOL";
+    }
+    await c.query("select public.checkout($1, 'regular')", [drop]); // vault-only settle
     await c.end();
+    const order = await admin.query(
+      "select status::text as s, escrow_status::text as e, delivery_option::text as d, shipping_fee_ccoin, shipping_address from public.orders where drop_id = $1",
+      [drop],
+    );
+    const cardLoc = await admin.query(
+      "select location::text as l from public.cards where id = (select card_id from public.orders where drop_id = $1)",
+      [drop],
+    );
     const rev = await admin.query(
       "select gross_ccoin, platform_ccoin, royalty_ccoin, fee_snapshot->>'platform_pct' as pct from public.platform_revenue where ref_type = 'order' and ref_id in (select id from public.orders where drop_id = $1)",
       [drop],
     );
     const creatorBal = await walletBalance(U.creator);
     const treasuryBal = await walletBalance(TREASURY);
+    const vaultOk =
+      order.rows.length === 1 &&
+      order.rows[0].s === "settled" &&
+      order.rows[0].e === "released" &&
+      order.rows[0].d === "vault" &&
+      order.rows[0].shipping_fee_ccoin === null &&
+      order.rows[0].shipping_address === null &&
+      cardLoc.rows[0].l === "platform_vault";
     const ok =
+      invalidPool &&
+      vaultOk &&
       rev.rows.length === 1 &&
       Number(rev.rows[0].gross_ccoin) === 100 &&
       Number(rev.rows[0].platform_ccoin) === 70 &&
@@ -136,7 +164,11 @@ try {
       rev.rows[0].pct === "0.7" &&
       creatorBal === 30 &&
       treasuryBal === 70;
-    report("T1 checkout revenue 70/30", ok, `rev=${JSON.stringify(rev.rows[0] ?? {})} creator=${creatorBal} treasury=${treasuryBal}`);
+    report(
+      "T1 checkout revenue 70/30 (vault-only)",
+      ok,
+      `pool_guard=${invalidPool} order=${order.rows[0]?.s}/${order.rows[0]?.e}/${order.rows[0]?.d} loc=${cardLoc.rows[0]?.l} rev=${JSON.stringify(rev.rows[0] ?? {})} creator=${creatorBal} treasury=${treasuryBal}`,
+    );
   }
 
   // ══ T2: premium jatuh ke regular -> refund selisih ════════════════════════
@@ -258,7 +290,7 @@ try {
     );
   }
 
-  // ══ T6: buyout_card + shipment secondary ══════════════════════════════════
+  // ══ T6: buyout_card vault-only settle (tanpa alamat/shipment) ═════════════
   {
     const seller = uuid(6);
     const buyer = uuid(61);
@@ -270,9 +302,10 @@ try {
     await admin.query("update public.cards set owner_id = $2, status = 'sold', buyout_price_ccoin = 100 where id = $1", [card, seller]);
     const before = await walletBalance(TREASURY);
     const c = await asUser(buyer);
-    await c.query("select public.buyout_card($1, 'buyer_address', 'Jl. Test No. 3 Bandung')", [card]);
+    await c.query("select public.buyout_card($1)", [card]); // settle non-seed: tanpa alamat
     await c.end();
-    const ship = await admin.query("select type, status, address->>'street' as street from public.shipments where card_id = $1", [card]);
+    const ship = await admin.query("select count(*)::int as n from public.shipments where card_id = $1", [card]);
+    const cardRow = await admin.query("select location::text as l from public.cards where id = $1", [card]);
     const rev = await admin.query(
       "select platform_ccoin, royalty_ccoin, seller_ccoin from public.platform_revenue where ref_type = 'buyout' and ref_id in (select id from public.wallet_transactions where ref_id = $1 and type = 'platform_buy')",
       [card],
@@ -280,20 +313,19 @@ try {
     const sellerBal = await walletBalance(seller);
     const treasuryDelta = (await walletBalance(TREASURY)) - before;
     const ok =
-      ship.rows[0]?.type === "secondary_buyout" &&
-      ship.rows[0]?.status === "requested" &&
-      ship.rows[0]?.street === "Jl. Test No. 3 Bandung" &&
+      ship.rows[0].n === 0 &&
+      cardRow.rows[0].l === "platform_vault" &&
       Number(rev.rows[0]?.seller_ccoin) === 84 &&
       sellerBal === 84 &&
       treasuryDelta === 8;
     report(
-      "T6 buyout + shipment + split 8/8/84",
+      "T6 buyout vault-only + split 8/8/84",
       ok,
-      `ship=${ship.rows[0]?.type}/${ship.rows[0]?.status} seller=${sellerBal} treasuryΔ=${treasuryDelta} rev=${JSON.stringify(rev.rows[0] ?? {})}`,
+      `ship_n=${ship.rows[0].n} loc=${cardRow.rows[0].l} seller=${sellerBal} treasuryΔ=${treasuryDelta} rev=${JSON.stringify(rev.rows[0] ?? {})}`,
     );
   }
 
-  // ══ T7: accept_bid + shipment secondary_bid ═══════════════════════════════
+  // ══ T7: accept_bid vault-only settle (tanpa alamat/shipment) ══════════════
   {
     const seller = uuid(7);
     const bidder = uuid(71);
@@ -307,35 +339,85 @@ try {
     await cb.query("select public.place_bid($1, 60)", [card]);
     await cb.end();
     const cs = await asUser(seller);
-    await cs.query("select public.accept_bid($1, 'buyer_address', 'Jl. Test No. 4 Surabaya')", [card]);
+    await cs.query("select public.accept_bid($1)", [card]); // settle non-seed: tanpa alamat
     await cs.end();
-    const ship = await admin.query("select type, status from public.shipments where card_id = $1", [card]);
+    const ship = await admin.query("select count(*)::int as n from public.shipments where card_id = $1", [card]);
+    const cardRow = await admin.query("select location::text as l from public.cards where id = $1", [card]);
     const sellerBal = await walletBalance(seller);
     report(
-      "T7 accept_bid + shipment secondary_bid",
-      ship.rows[0]?.type === "secondary_bid" && ship.rows[0]?.status === "requested" && sellerBal === 50,
-      `ship=${ship.rows[0]?.type}/${ship.rows[0]?.status} seller=${sellerBal} (ekspektasi 50)`,
+      "T7 accept_bid vault-only (tanpa shipment)",
+      ship.rows[0].n === 0 && cardRow.rows[0].l === "platform_vault" && sellerBal === 50,
+      `ship_n=${ship.rows[0].n} loc=${cardRow.rows[0].l} seller=${sellerBal} (ekspektasi 50)`,
     );
   }
 
-  // ══ T8: escrow_auto_release H+7 ═══════════════════════════════════════════
+  // ══ T8: vault_shipout — fee + treasury + revenue 'shipment' + guards ══════
   {
+    const owner = uuid(8);
+    const other = uuid(81);
+    await mkUser(owner, "T8 Owner", 100);
+    await mkUser(other, "T8 Other", 100);
     const drop = `flow-t8-${stamp}`;
     await mkDrop(drop, { units: 2, signed: 0, priceU: 10, raffleEnd: "now() - interval '25 hours'", drawn: "now() - interval '24 hours'" });
     const cards = (await admin.query("select id from public.cards where drop_id = $1 order by unit_number", [drop])).rows;
-    await admin.query(
-      `insert into public.orders (id, user_id, drop_id, card_id, card_ids, total_ccoin, total_idr, status, delivery_option, escrow_status, delivered_at)
-       values ('ord-t8a-${stamp}', $1, $2, $3, array[$3], 10, 100000, 'delivered', 'shipping', 'held', now() - interval '8 days'),
-              ('ord-t8b-${stamp}', $1, $2, $4, array[$4], 10, 100000, 'delivered', 'shipping', 'held', now() - interval '3 days')`,
-      [U.creator, drop, cards[0].id, cards[1].id],
+    await admin.query("update public.cards set owner_id = $2, status = 'sold', location = 'platform_vault' where id in ($1, $3)", [
+      cards[0].id,
+      owner,
+      cards[1].id,
+    ]);
+    const treasuryBefore = await walletBalance(TREASURY);
+    const c = await asUser(owner);
+    await c.query("select public.vault_shipout($1, 'Jl. Shipout No. 8 Jakarta', 5)", [cards[0].id]);
+    await c.end();
+    const ship = await admin.query(
+      "select type::text as t, status::text as s, fee_ccoin::int as fee, address->>'street' as street from public.shipments where card_id = $1 and type = 'vault_shipout' order by created_at desc limit 1",
+      [cards[0].id],
     );
-    await admin.query("select public.escrow_auto_release()");
-    const a = await admin.query("select escrow_status, status from public.orders where id = $1", [`ord-t8a-${stamp}`]);
-    const b = await admin.query("select escrow_status from public.orders where id = $1", [`ord-t8b-${stamp}`]);
+    const rev = await admin.query(
+      "select gross_ccoin::int as g, platform_ccoin::int as p, royalty_ccoin::int as r, seller_ccoin::int as s, fee_snapshot->>'platform_pct' as pct from public.platform_revenue where ref_type = 'shipment' and ref_id in (select id from public.shipments where card_id = $1 and type = 'vault_shipout')",
+      [cards[0].id],
+    );
+    const debit = await admin.query(
+      "select count(*)::int as n from public.wallet_transactions where user_id = $1 and type = 'vault_shipout' and amount_ccoin = -5",
+      [owner],
+    );
+    const ownerBal = await walletBalance(owner);
+    const treasuryDelta = (await walletBalance(TREASURY)) - treasuryBefore;
+    // (iii) repeat shipout kartu dengan shipment aktif ditolak
+    const c2 = await asUser(owner);
+    let repeatRejected = false;
+    try {
+      await c2.query("select public.vault_shipout($1, 'Jl. Shipout No. 8 Jakarta', 5)", [cards[0].id]);
+    } catch (e) {
+      repeatRejected = errCode(e) === "SHIPMENT_ACTIVE";
+    }
+    // (iv) non-owner ditolak
+    let nonOwnerRejected = false;
+    try {
+      await c2.query("select public.vault_shipout($1, 'Jl. Intruder No. 9 Jakarta', 5)", [cards[1].id]);
+    } catch (e) {
+      nonOwnerRejected = errCode(e) === "FORBIDDEN";
+    }
+    await c2.end();
+    const ok =
+      ship.rows[0]?.t === "vault_shipout" &&
+      ship.rows[0]?.s === "requested" &&
+      Number(ship.rows[0]?.fee) === 5 &&
+      ship.rows[0]?.street === "Jl. Shipout No. 8 Jakarta" &&
+      Number(rev.rows[0]?.g) === 5 &&
+      Number(rev.rows[0]?.p) === 5 &&
+      Number(rev.rows[0]?.r) === 0 &&
+      Number(rev.rows[0]?.s) === 0 &&
+      rev.rows[0]?.pct === "1.0" &&
+      debit.rows[0].n === 1 &&
+      ownerBal === 95 &&
+      treasuryDelta === 5 &&
+      repeatRejected &&
+      nonOwnerRejected;
     report(
-      "T8 escrow auto-release H+7",
-      a.rows[0]?.escrow_status === "released" && a.rows[0]?.status === "settled" && b.rows[0]?.escrow_status === "held",
-      `h8=${a.rows[0]?.escrow_status}/${a.rows[0]?.status} h3=${b.rows[0]?.escrow_status}`,
+      "T8 vault_shipout fee ledger + guards",
+      ok,
+      `ship=${ship.rows[0]?.t}/${ship.rows[0]?.s} fee=${ship.rows[0]?.fee} owner=${ownerBal} treasuryΔ=${treasuryDelta} rev=${JSON.stringify(rev.rows[0] ?? {})} repeat=${repeatRejected} nonOwner=${nonOwnerRejected}`,
     );
   }
 

@@ -117,7 +117,7 @@ await admin.query("commit");
   const outcomes = await Promise.all(
     clients.map((c) =>
       c
-        .query("select public.checkout($1, 'regular', 'vault', null, null) as order_id", [drop1])
+        .query("select public.checkout($1) as order_id", [drop1])
         .then((r) => ({ ok: true, id: r.rows[0].order_id }))
         .catch((e) => ({ ok: false, code: errCode(e) })),
     ),
@@ -145,7 +145,7 @@ await admin.query("commit");
   const outcomes = await Promise.all(
     clients.map((c) =>
       c
-        .query("select public.checkout($1, 'regular', 'vault', null, null) as order_id", [drop2])
+        .query("select public.checkout($1) as order_id", [drop2])
         .then(() => ({ ok: true }))
         .catch((e) => ({ ok: false, code: errCode(e) })),
     ),

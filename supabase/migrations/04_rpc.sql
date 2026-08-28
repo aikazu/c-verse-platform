@@ -9,11 +9,14 @@
 --   - wallet_credit:            20260817060000_revenue_flow_hardening.sql (top-up cap)
 --   - award_badge_if_eligible:  20260817030000_rpc_atomic.sql
 --   - record_spend_conversion:  20260817030000_rpc_atomic.sql
---   - checkout:                 20260817060000_revenue_flow_hardening.sql (platform_revenue + shipment)
+--   - checkout:                 20260817060000_revenue_flow_hardening.sql (platform_revenue; vault-only settle 2026-08-28)
 --   - drop_entry:               20260817030000_rpc_atomic.sql
 --   - draw_drop:                20260817060000_revenue_flow_hardening.sql (platform_revenue + refund fallback)
 --   - draw_pending_drops:       20260817030000_rpc_atomic.sql
---   - escrow_auto_release:      20260817030000_rpc_atomic.sql
+--   (escrow_auto_release DIHAPUS 2026-08-28 — semua pembelian settle langsung
+--    ke vault, tidak ada lagi escrow order shipping; cron call dihapus di Lane API)
+--   - vault_shipout:            BARU 2026-08-28 (founder: ship fee dibayar saat
+--    ship-out pasca-vault; ledger via treasury + platform_revenue ref_type 'shipment')
 --   - place_bid:                20260821020000_seed_two_phase.sql (SALE_IN_PROGRESS + CARD_NOT_TRADABLE + BID_LIMIT)
 --   - cancel_bid:               20260817030000_rpc_atomic.sql
 --   - accept_bid:               20260821020000_seed_two_phase.sql (two-phase LOCK + settlement)
@@ -240,8 +243,12 @@ declare v_treasury constant uuid := '00000000-0000-4000-8000-0000000000c0';
 begin
   insert into platform_revenue (source, ref_type, ref_id, gross_ccoin, platform_ccoin, royalty_ccoin, seller_ccoin, fee_snapshot)
   values (p_source, p_ref_type, p_ref_id, p_gross, p_platform, p_royalty, p_seller,
-    case when p_source = 'primary'
-      then jsonb_build_object('platform_pct', 0.7, 'royalty_pct', 0.3, 'rate_idr', 10000)
+    case
+      -- shipment fee = pendapatan platform penuh (vault_shipout, 2026-08-28)
+      when p_source = 'shipment'
+        then jsonb_build_object('platform_pct', 1.0, 'royalty_pct', 0, 'seller_pct', 0, 'rate_idr', 10000)
+      when p_source = 'primary'
+        then jsonb_build_object('platform_pct', 0.7, 'royalty_pct', 0.3, 'rate_idr', 10000)
       else jsonb_build_object('platform_pct', 0.075, 'royalty_pct', 0.075, 'seller_pct', 0.85, 'rate_idr', 10000)
     end)
   on conflict (ref_type, ref_id) do nothing;
@@ -252,15 +259,17 @@ begin
 end $$;
 
 -- ══════════════════════════════════════════════════════════════════════════
--- checkout: FCFS primary sale — revenue 70/30 tercatat, shipment otomatis
--- untuk shipping. Lock + sold_out + limit 1/user/drop atomik.
+-- checkout: FCFS primary sale — settle LANGSUNG ke vault (founder 2026-08-28):
+-- tanpa alamat/ongkir di titik beli (pool regular/premium TETAP). Kartu ->
+-- platform_vault, order settled + escrow released. Revenue 70/30 tetap
+-- tercatat di titik beli. Shipping = flow terpisah pasca-vault via
+-- vault_shipout. Lock + sold_out + limit 1/user/drop atomik.
 -- ══════════════════════════════════════════════════════════════════════════
+drop function if exists public.checkout(text, text, public.delivery_option, text, integer);
+drop function if exists public.checkout(text);
 create or replace function public.checkout(
   p_drop_id text,
-  p_pool text,
-  p_delivery public.delivery_option default 'vault',
-  p_address text default null,
-  p_shipping_fee integer default null
+  p_pool text default 'regular'
 ) returns public.orders
 language plpgsql security definer set search_path = public as $$
 declare
@@ -268,7 +277,6 @@ declare
   v_drop public.drops;
   v_card public.cards;
   v_price integer;
-  v_total integer;
   v_order public.orders;
   v_creator_share integer;
   v_royalty_credited integer := 0;
@@ -292,8 +300,6 @@ begin
   end if;
 
   if p_pool not in ('regular','premium') then raise exception 'INVALID_POOL'; end if;
-  if p_delivery = 'shipping' and (p_address is null or length(trim(p_address)) < 10) then raise exception 'ADDRESS_REQUIRED'; end if;
-  if p_delivery = 'shipping' and (p_shipping_fee is null or p_shipping_fee < 1) then raise exception 'SHIPPING_FEE_REQUIRED'; end if;
 
   select * into v_card from cards
   where drop_id = p_drop_id and owner_id is null
@@ -306,14 +312,13 @@ begin
   v_price := case when v_card.variant = 'signed'::card_variant
              then coalesce(v_drop.price_signed_ccoin, v_drop.price_ccoin, v_drop.price_unsigned_ccoin)
              else coalesce(v_drop.price_ccoin, v_drop.price_unsigned_ccoin) end;
-  v_total := v_price + coalesce(case when p_delivery = 'shipping' then p_shipping_fee end, 0);
 
-  perform public.wallet_debit(v_user, v_total, 'checkout', 'drop', p_drop_id,
+  perform public.wallet_debit(v_user, v_price, 'checkout', 'drop', p_drop_id,
           'checkout-' || v_user || '-' || p_drop_id);
 
   update cards set owner_id = v_user,
     status = 'bound',
-    location = (case when p_delivery = 'vault' then 'platform_vault'::card_location else 'with_owner'::card_location end)
+    location = 'platform_vault'::card_location
   where id = v_card.id;
 
   update drops set sold_count = sold_count + 1,
@@ -322,22 +327,13 @@ begin
 
   insert into orders (id, user_id, drop_id, card_id, card_ids, total_ccoin, total_idr, status,
                       delivery_option, shipping_fee_ccoin, escrow_status, shipping_address, source)
-  values (gen_random_uuid()::text, v_user, p_drop_id, v_card.id, array[v_card.id], v_total, v_total * 10000,
-          (case when p_delivery = 'vault' then 'settled'::order_status else 'paid'::order_status end),
-          p_delivery, p_shipping_fee,
-          (case when p_delivery = 'vault' then 'released'::escrow_status else 'held'::escrow_status end),
-          p_address, 'fcfs')
+  values (gen_random_uuid()::text, v_user, p_drop_id, v_card.id, array[v_card.id], v_price, v_price * 10000,
+          'settled'::order_status, 'vault'::delivery_option, null,
+          'released'::escrow_status, null, 'fcfs')
   returning * into v_order;
 
   insert into ownership_history (id, card_id, owner_id, acquired_via, order_id)
   values (gen_random_uuid()::text, v_card.id, v_user, 'primary', v_order.id);
-
-  -- Fulfillment: order shipping lahir bersama shipment 'requested' (queue admin)
-  if p_delivery = 'shipping' then
-    insert into shipments (id, card_id, requester_id, type, from_location, to_dest, address, fee_ccoin, status)
-    values (gen_random_uuid()::text, v_card.id, v_user, 'primary_shipping', 'platform', 'buyer_address',
-            jsonb_build_object('street', p_address), p_shipping_fee, 'requested');
-  end if;
 
   -- Revenue share platform-produced 70/30 -> creator + ledger platform
   v_creator_share := floor(v_price * 0.3);
@@ -350,6 +346,72 @@ begin
           v_price - v_royalty_credited, v_royalty_credited, 0);
 
   return v_order;
+end $$;
+
+-- ══════════════════════════════════════════════════════════════════════════
+-- vault_shipout: owner minta ship-out kartu dari platform vault dan BAYAR
+-- ship fee di titik ini (founder 2026-08-28). Atomic dalam satu transaksi:
+-- wallet_debit fee + record_platform_revenue (ref_type 'shipment', fee penuh
+-- ke treasury) + insert shipments 'vault_shipout' requested (queue admin).
+-- Anti double-ship: raise manual SHIPMENT_ACTIVE (bukan raw unique violation),
+-- paritas dengan partial unique index uq_shipments_active_per_card.
+-- Catatan: p_type 'vault_shipout' WAJIB terdaftar di enum wallet_tx_type
+-- (01_schema.sql — domain Lane Schema).
+-- ══════════════════════════════════════════════════════════════════════════
+create or replace function public.vault_shipout(
+  p_card_id text,
+  p_address text,
+  p_fee_ccoin integer
+) returns public.shipments
+language plpgsql security definer set search_path = public as $$
+declare
+  v_user uuid := auth.uid();
+  v_card public.cards;
+  v_is_seed boolean := false;
+  v_shipment public.shipments;
+  v_shipment_id text := gen_random_uuid()::text;
+begin
+  if v_user is null then raise exception 'AUTH_REQUIRED'; end if;
+  if p_fee_ccoin is null or p_fee_ccoin < 1 then raise exception 'INVALID_AMOUNT'; end if;
+  if p_address is null or length(trim(p_address)) < 10 then raise exception 'ADDRESS_REQUIRED'; end if;
+
+  select * into v_card from cards where id = p_card_id for update;
+  if not found then raise exception 'CARD_NOT_FOUND'; end if;
+  if v_card.owner_id <> v_user then raise exception 'FORBIDDEN'; end if;
+  if v_card.location <> 'platform_vault'::card_location then raise exception 'CARD_NOT_IN_VAULT'; end if;
+
+  -- kartu tidak boleh dalam seed PHASE-1 pending (escrow hold / bid_pending)
+  select true into v_is_seed from drops d where d.id = v_card.drop_id and d.is_seed;
+  if coalesce(v_is_seed, false) and v_card.status = 'bid_pending'::card_status then
+    raise exception 'SEED_SALE_IN_PROGRESS';
+  end if;
+
+  -- anti double-ship: cek eksplisit sebelum insert; terminal (delivered/
+  -- cancelled) dikecualikan agar kartu bisa di-ship ulang (paritas index).
+  if exists (
+    select 1 from shipments
+    where card_id = p_card_id
+      and status not in ('delivered'::shipment_status, 'cancelled'::shipment_status)
+  ) then
+    raise exception 'SHIPMENT_ACTIVE';
+  end if;
+
+  -- 1) debit ship fee (idem unik per attempt; replay diblok guard SHIPMENT_ACTIVE;
+  --    bukan spend XP — type 'vault_shipout' di luar daftar XP wallet_debit)
+  perform public.wallet_debit(v_user, p_fee_ccoin, 'vault_shipout', 'card', p_card_id,
+          'shipout-' || v_user || '-' || p_card_id || '-' || v_shipment_id);
+
+  -- 2) ledger: ship fee = pendapatan platform penuh -> treasury + platform_revenue
+  perform public.record_platform_revenue('shipment', 'shipment', v_shipment_id, p_fee_ccoin,
+          p_fee_ccoin, 0, 0);
+
+  -- 3) shipment queue admin (fulfil via admin_fulfill_shipment)
+  insert into shipments (id, card_id, requester_id, type, from_location, to_dest, address, fee_ccoin, status)
+  values (v_shipment_id, p_card_id, v_user, 'vault_shipout', 'platform', 'buyer_address',
+          jsonb_build_object('street', p_address), p_fee_ccoin, 'requested')
+  returning * into v_shipment;
+
+  return v_shipment;
 end $$;
 
 -- ══════════════════════════════════════════════════════════════════════════
@@ -537,20 +599,11 @@ begin
 end $$;
 
 -- ══════════════════════════════════════════════════════════════════════════
--- escrow_auto_release: cron H+7 (shipping + delivered) -> settled/released.
+-- escrow_auto_release DIHAPUS (founder 2026-08-28): semua pembelian settle
+-- langsung ke vault — tidak ada lagi order shipping ber-escrow 'held' baru,
+-- jadi cron H+7 tidak punya pekerjaan. (Sebelumnya: 20260817030000.)
+-- drop function if exists public.escrow_auto_release();
 -- ══════════════════════════════════════════════════════════════════════════
-create or replace function public.escrow_auto_release() returns integer
-language plpgsql security definer set search_path = public as $$
-declare n int;
-begin
-  update orders set escrow_status = 'released'::escrow_status, status = 'settled'::order_status
-  where escrow_status = 'held'::escrow_status
-    and delivery_option = 'shipping'::delivery_option
-    and delivered_at is not null
-    and delivered_at < now() - interval '7 days';
-  get diagnostics n = row_count;
-  return n;
-end $$;
 
 -- ══════════════════════════════════════════════════════════════════════════
 -- place_bid: SALE_IN_PROGRESS guard (seed PHASE-1) + CARD_NOT_TRADABLE +
@@ -658,9 +711,6 @@ begin
   if v_card.status::text = 'bid_pending' then
     raise exception 'SALE_IN_PROGRESS';
   end if;
-  if p_destination = 'buyer_address' and (p_address is null or length(trim(p_address)) < 10) then
-    raise exception 'ADDRESS_REQUIRED';
-  end if;
 
   select true into v_is_seed from drops d where d.id = v_card.drop_id and d.is_seed;
 
@@ -671,6 +721,11 @@ begin
   -- ── PHASE-1 LOCK (seed belum vault-in + verified) ──────────────────────
   if v_is_seed and (v_card.location <> 'platform_vault'::card_location
                     or v_card.verify_status <> 'verified'::verify_status) then
+    -- alamat hanya relevan untuk seed PHASE-1 (disimpan di bid untuk
+    -- release_seed_sale); settle non-seed tidak butuh alamat (2026-08-28).
+    if p_destination = 'buyer_address' and (p_address is null or length(trim(p_address)) < 10) then
+      raise exception 'ADDRESS_REQUIRED';
+    end if;
     update bids set status = 'accepted', accepted_at = now(),
       destination = p_destination, shipping_address = p_address
     where id = v_bid.id;
@@ -714,19 +769,11 @@ begin
   end loop;
 
   update cards set owner_id = v_bid.bidder_id, buyout_price_ccoin = null, status = 'sold',
-    location = (case when p_destination = 'platform_vault' then 'platform_vault'::card_location else 'with_owner'::card_location end)
+    location = 'platform_vault'::card_location
   where id = p_card_id;
 
   insert into ownership_history (id, card_id, owner_id, acquired_via, bid_id)
   values (gen_random_uuid()::text, p_card_id, v_bid.bidder_id, 'secondary_bid', v_bid.id);
-
-  if p_destination = 'buyer_address' then
-    insert into shipments (id, card_id, requester_id, type, from_location, to_dest, address, status)
-    values (gen_random_uuid()::text, p_card_id, v_bid.bidder_id, 'secondary_bid',
-            (case when v_is_seed then 'platform'::shipment_from_location else 'seller'::shipment_from_location end),
-            'buyer_address',
-            jsonb_build_object('street', p_address), 'requested');
-  end if;
 
   return v_bid;
 end $$;
@@ -807,9 +854,6 @@ begin
   if v_card.status::text = 'bid_pending' then
     raise exception 'SALE_IN_PROGRESS';
   end if;
-  if p_destination = 'buyer_address' and (p_address is null or length(trim(p_address)) < 10) then
-    raise exception 'ADDRESS_REQUIRED';
-  end if;
 
   -- wash trading blok rebuy 24 jam (C-12 FINAL 2026-08-15) & creator self-dealing 30 hari (I14)
   if exists (select 1 from ownership_history h
@@ -846,6 +890,11 @@ begin
   -- ── PHASE-1 LOCK (seed belum vault-in + verified) ──────────────────────
   if v_is_seed and (v_card.location <> 'platform_vault'::card_location
                     or v_card.verify_status <> 'verified'::verify_status) then
+    -- alamat hanya relevan untuk seed PHASE-1 (disimpan di order untuk
+    -- release_seed_sale); settle non-seed tidak butuh alamat (2026-08-28).
+    if p_destination = 'buyer_address' and (p_address is null or length(trim(p_address)) < 10) then
+      raise exception 'ADDRESS_REQUIRED';
+    end if;
     -- Invarian founder 2026-08-23: PHASE-1 buyout seed = escrow hold (bukan
     -- platform_buy), supaya TIDAK grant XP via trigger. Saldo buyer tetap
     -- turun; XP granted sekali di PHASE-2 release_seed_sale.
@@ -895,20 +944,12 @@ begin
   end loop;
 
   update cards set owner_id = v_user, buyout_price_ccoin = null, status = 'sold',
-    location = (case when p_destination = 'platform_vault' then 'platform_vault'::card_location else 'with_owner'::card_location end)
+    location = 'platform_vault'::card_location
   where id = p_card_id
   returning * into v_card;
 
   insert into ownership_history (id, card_id, owner_id, acquired_via)
   values (gen_random_uuid()::text, p_card_id, v_user, 'secondary_buyout');
-
-  if p_destination = 'buyer_address' then
-    insert into shipments (id, card_id, requester_id, type, from_location, to_dest, address, status)
-    values (gen_random_uuid()::text, p_card_id, v_user, 'secondary_buyout',
-            (case when v_is_seed then 'platform'::shipment_from_location else 'seller'::shipment_from_location end),
-            'buyer_address',
-            jsonb_build_object('street', p_address), 'requested');
-  end if;
 
   return v_card;
 end $$;
@@ -1516,8 +1557,11 @@ revoke execute on function public.wallet_credit(uuid, integer, text, text, text,
 grant execute on function public.wallet_credit(uuid, integer, text, text, text, text) to service_role;
 
 -- Checkout / bid / marketplace — user-facing
-revoke execute on function public.checkout(text, text, public.delivery_option, text, integer) from public;
-grant execute on function public.checkout(text, text, public.delivery_option, text, integer) to authenticated;
+revoke execute on function public.checkout(text, text) from public;
+grant execute on function public.checkout(text, text) to authenticated;
+
+revoke execute on function public.vault_shipout(text, text, integer) from public;
+grant execute on function public.vault_shipout(text, text, integer) to authenticated;
 
 revoke execute on function public.drop_entry(text, text) from public;
 grant execute on function public.drop_entry(text, text) to authenticated;
@@ -1550,9 +1594,6 @@ grant execute on function public.draw_drop(text) to service_role;
 
 revoke execute on function public.draw_pending_drops() from public;
 grant execute on function public.draw_pending_drops() to service_role;
-
-revoke execute on function public.escrow_auto_release() from public;
-grant execute on function public.escrow_auto_release() to service_role;
 
 revoke execute on function public.activate_scheduled_drops() from public;
 grant execute on function public.activate_scheduled_drops() to service_role;

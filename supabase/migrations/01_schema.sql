@@ -25,6 +25,9 @@ create type public.user_role as enum ('user','creator','admin');
 create type public.drop_status as enum ('draft','scheduled','published','live','sold_out','closed','cancelled');
 create type public.order_status as enum ('paid','qc','shipped','delivered','settled','refunded','disputed');
 create type public.wallet_tx_type as enum ('top_up','checkout','escrow_hold','escrow_release','settlement','payout','royalty','refund','adjustment','platform_buy','platform_revenue','seed_abort','payout_refund');
+-- Founder 2026-08-28: ship-out fee dari platform vault (RPC vault_shipout,
+-- 04_rpc). Statement-level, idempotent untuk re-run migrator.
+alter type public.wallet_tx_type add value if not exists 'vault_shipout';
 create type public.verify_status as enum ('verified','tamper_detected','registered','unknown');
 create type public.kyc_status as enum ('pending','approved','rejected');
 create type public.card_variant as enum ('unsigned','signed');

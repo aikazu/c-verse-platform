@@ -435,35 +435,38 @@ insert into public.drop_entries (id, drop_id, user_id, pool, hold_ccoin, status,
   ('de-hype-cancel-r2',  'drop-hype-cancel','00000000-0000-4000-8000-000000000006','both',   46,'refunded', now() - interval '14 days 12 hours')
 on conflict (id) do nothing;
 
--- ORDERS — ≥10 spanning all order_status × delivery_option × source.
--- C5: total_ccoin = price + shipping_fee (or just price if vault).
+-- ORDERS — ≥10 spanning order_status × delivery_option × source.
+-- Founder 2026-08-28: pembelian settle LANGSUNG ke vault — FCFS/secondary
+-- tidak pernah melahirkan order 'shipping' baru (shipping = flow pasca-vault
+-- via vault_shipout). Baris FCFS lama disinkronkan ke 'vault'/'settled';
+-- id legacy dipertahankan. Satu-satunya order shipping yang sah = seed
+-- PHASE-1 secondary_buyout (ord-rival-buyout-phase1).
 -- C5: total_idr = total_ccoin * 10000.
 -- C5: card_ids[] non-empty + contains card_id.
--- C13 escrow H+7 bracket: one delivered-3d held; one delivered-10d released.
 insert into public.orders (
   id, user_id, drop_id, card_id, card_ids, total_ccoin, total_idr,
   status, delivery_option, shipping_fee_ccoin, escrow_status,
   shipping_address, tracking_number, shipped_at, delivered_at, created_at, source
 ) values
-  -- primary shipping — paid (admin belum fulfil)
+  -- FCFS vault — settled (id legacy 'shipping')
   ('ord-demo-shipping-paid','00000000-0000-4000-8000-000000000001','drop-aespa-live','card-aespa-live-01',
-   array['card-aespa-live-01'], 30, 300000,'paid','shipping', 2,'held',
-   'Jl. Demo No. 1, Jakarta Selatan', null, null, null, now() - interval '20 minutes','fcfs'),
+   array['card-aespa-live-01'], 30, 300000,'settled','vault', null,'released',
+   null, null, null, null, now() - interval '20 minutes','fcfs'),
 
-  -- primary shipping — shipped (delivered_at = null, escrow still held)
+  -- FCFS vault — settled (id legacy 'shipping')
   ('ord-demo-shipping-shipped','00000000-0000-4000-8000-000000000006','drop-aespa-live','card-aespa-live-02',
-   array['card-aespa-live-02'], 30, 300000,'shipped','shipping', 2,'held',
-   'Jl. Rival No. 99, Bandung', 'JNE-9988776655', now() - interval '3 hours', null, now() - interval '5 hours','fcfs'),
+   array['card-aespa-live-02'], 30, 300000,'settled','vault', null,'released',
+   null, null, null, null, now() - interval '5 hours','fcfs'),
 
-  -- primary shipping — delivered -3d (escrow H+7 bracket: still held)
+  -- FCFS vault — settled (id legacy 'shipping')
   ('ord-demo-shipping-deliv3','00000000-0000-4000-8000-000000000001','drop-aespa-live','card-aespa-live-04',
-   array['card-aespa-live-04'], 30, 300000,'delivered','shipping', 2,'held',
-   'Jl. Demo No. 1, Jakarta Selatan', 'JNE-111222333', now() - interval '6 days', now() - interval '3 days', now() - interval '8 days','fcfs'),
+   array['card-aespa-live-04'], 30, 300000,'settled','vault', null,'released',
+   null, null, null, null, now() - interval '8 days','fcfs'),
 
-  -- primary shipping — delivered -10d (released via cron)
+  -- FCFS vault — settled (id legacy 'shipping')
   ('ord-rival-shipping-deliv10','00000000-0000-4000-8000-000000000006','drop-aespa-live','card-aespa-live-05',
-   array['card-aespa-live-05'], 30, 300000,'settled','shipping', 2,'released',
-   'Jl. Rival No. 99, Bandung', 'JNE-444555666', now() - interval '20 days', now() - interval '10 days', now() - interval '22 days','fcfs'),
+   array['card-aespa-live-05'], 30, 300000,'settled','vault', null,'released',
+   null, null, null, null, now() - interval '22 days','fcfs'),
 
   -- primary vault — settled
   ('ord-demo-vault-settled','00000000-0000-4000-8000-000000000001','drop-genesis-live','card-genesis-live-02',
@@ -480,21 +483,21 @@ insert into public.orders (
    array['card-seed-karina-01'], 60, 600000,'paid','shipping', 3,'held',
    'Jl. Rival No. 99, Bandung', null, null, null, now() - interval '30 minutes','secondary_buyout'),
 
-  -- qc — order paused in QC (W2 remediation: shipping matches ship-ord-hype-1 'primary_shipping';
-  -- shipping_fee_ccoin=2 per convention of neighboring shipping rows; total_idr=270000 = (25+2)*10000)
+  -- qc — order paused in QC (W2 remediation; id legacy 'shipping' — kini vault,
+  -- escrow released; total_idr=250000 = 25*10000)
   ('ord-hype-qc','00000000-0000-4000-8000-000000000004','drop-genesis-live','card-genesis-live-06',
-   array['card-genesis-live-06'], 25, 270000,'qc','shipping', 2,'released',
-   'Jl. Hype No. 88, Jakarta', null, null, null, now() - interval '2 days','fcfs'),
+   array['card-genesis-live-06'], 25, 250000,'qc','vault', null,'released',
+   null, null, null, null, now() - interval '2 days','fcfs'),
 
-  -- refunded — refunded order (buyer klaim rusak sebelum diproses)
+  -- refunded — refunded order (buyer klaim rusak sebelum diproses; id legacy)
   ('ord-marked-refunded','00000000-0000-4000-8000-000000000008','drop-aespa-live','card-aespa-live-08',
-   array['card-aespa-live-08'], 30, 300000,'refunded','shipping', 2,'released',
-   'Jl. Marked No. 1, Surabaya', null, null, null, now() - interval '3 days','fcfs'),
+   array['card-aespa-live-08'], 30, 300000,'refunded','vault', null,'released',
+   null, null, null, null, now() - interval '3 days','fcfs'),
 
-  -- disputed — order disputed (creator issue)
+  -- disputed — order disputed (creator issue; dana tetap di-hold selama sengketa)
   ('ord-ghost-disputed','00000000-0000-4000-8000-000000000007','drop-genesis-live','card-genesis-live-12',
-   array['card-genesis-live-12'], 25, 250000,'disputed','shipping', 2,'held',
-   'Jl. Ghost No. 1, Yogyakarta', 'JNE-777888999', now() - interval '8 days', null, now() - interval '10 days','fcfs'),
+   array['card-genesis-live-12'], 25, 250000,'disputed','vault', null,'held',
+   null, null, null, null, now() - interval '10 days','fcfs'),
 
   -- additional past closed drop order
   ('ord-karina-nova-past','00000000-0000-4000-8000-000000000003','drop-nova-past','card-nova-past-01',
