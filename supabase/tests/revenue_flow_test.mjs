@@ -122,6 +122,7 @@ try {
       drawn: "now() - interval '24 hours'",
     });
     const c = await asUser(buyer);
+    const treasuryBefore = await walletBalance(TREASURY);
     // guard pool (dipulihkan 2026-08-28): INVALID_POOL sebelum checkout sah,
     // tanpa side effect (guard berada sebelum kartu dipilih)
     let invalidPool = false;
@@ -145,7 +146,7 @@ try {
       [drop],
     );
     const creatorBal = await walletBalance(U.creator);
-    const treasuryBal = await walletBalance(TREASURY);
+    const treasuryDelta = (await walletBalance(TREASURY)) - treasuryBefore;
     const vaultOk =
       order.rows.length === 1 &&
       order.rows[0].s === "settled" &&
@@ -163,11 +164,11 @@ try {
       Number(rev.rows[0].royalty_ccoin) === 30 &&
       rev.rows[0].pct === "0.7" &&
       creatorBal === 30 &&
-      treasuryBal === 70;
+      treasuryDelta === 70;
     report(
       "T1 checkout revenue 70/30 (vault-only)",
       ok,
-      `pool_guard=${invalidPool} order=${order.rows[0]?.s}/${order.rows[0]?.e}/${order.rows[0]?.d} loc=${cardLoc.rows[0]?.l} rev=${JSON.stringify(rev.rows[0] ?? {})} creator=${creatorBal} treasury=${treasuryBal}`,
+      `pool_guard=${invalidPool} order=${order.rows[0]?.s}/${order.rows[0]?.e}/${order.rows[0]?.d} loc=${cardLoc.rows[0]?.l} rev=${JSON.stringify(rev.rows[0] ?? {})} creator=${creatorBal} treasuryΔ=${treasuryDelta}`,
     );
   }
 

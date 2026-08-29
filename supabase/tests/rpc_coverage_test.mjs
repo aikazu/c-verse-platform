@@ -10,7 +10,7 @@
 //   M1-M5 : set_buyout / buyout_card (MAX 20 listing, fee split, cooling period
 //           24h, creator self-dealing 30d, race 2 buyout, re-sale pasca-cooling)
 //   C1-C3 : checkout settle vault (founder 2026-08-28) / draw_pending_drops / payout_batch_run (cron)
-//   W1-W2 : wallet_credit idempotency + INVALID_AMOUNT
+//   W1-W2 : wallet_credit idempotency + non-KYC top-up cap 500 + INVALID_AMOUNT
 //   X1-X3 : lockdown EXECUTE RPC (anon denied, wallet_debit self-only, dsb.)
 import pgModule from "../../apps/api/node_modules/pg/lib/index.js";
 
@@ -490,6 +490,14 @@ await admin.query("commit");
   );
   await admin.query("commit");
 
+  // Isolation: payout_batch_run sweeps ALL eligible pending payouts in the DB,
+  // including seed fixtures (po-h-3: 60 C pending, KYC-approved user) that would
+  // inflate the batch totals. Resolve non-C3 pending payouts to a terminal
+  // status so the batch only contains this scenario's fixtures.
+  await admin.query(
+    "update public.payouts set status = 'failed' where status = 'pending' and batch_id is null and id not like 'cov-pay-%'",
+  );
+
   const batch1 = await admin.query("select public.payout_batch_run(10) as id");
   c3BatchId = batch1.rows[0].id;
   const batch2 = await admin.query("select public.payout_batch_run(10) as id");
@@ -517,9 +525,20 @@ await admin.query("commit");
   );
 }
 
-// ── W1: wallet_credit idempotent ───────────────────────────────────────────
+// ── W1: wallet_credit idempotent + non-KYC top-up cap 500 (docs 07 C-08) ───
 {
+  // Cap: p2 is non-KYC; 500 + 50 > 500 -> hard error TOPUP_CAP_EXCEEDED,
+  // balance and total_topup untouched, no transaction row written.
   await admin.query("update public.wallets set balance_ccoin = 500, total_topup_ccoin = 0 where user_id = $1", [U.p2]);
+  const capped = await expectCode(admin.query("select public.wallet_credit($1, 50, 'top_up', 'test', 'w1', 'cov-idem-w1')", [U.p2]));
+  const wCap = await admin.query("select balance_ccoin::int as b, total_topup_ccoin::int as t from public.wallets where user_id = $1", [
+    U.p2,
+  ]);
+  const txCap = await admin.query(
+    "select count(*)::int as n from public.wallet_transactions where metadata->>'idempotency_key' = 'cov-idem-w1'",
+  );
+  // Idempotency: below the cap, two calls with the same idem key -> 1 tx.
+  await admin.query("update public.wallets set balance_ccoin = 400, total_topup_ccoin = 0 where user_id = $1", [U.p2]);
   await admin.query("select public.wallet_credit($1, 50, 'top_up', 'test', 'w1', 'cov-idem-w1')", [U.p2]);
   await admin.query("select public.wallet_credit($1, 50, 'top_up', 'test', 'w1', 'cov-idem-w1')", [U.p2]);
   const w = await admin.query("select balance_ccoin::int as b, total_topup_ccoin::int as t from public.wallets where user_id = $1", [U.p2]);
@@ -528,8 +547,14 @@ await admin.query("commit");
   );
   report(
     "W1",
-    w.rows[0].b === 550 && w.rows[0].t === 50 && txCount.rows[0].n === 1,
-    `saldo=${w.rows[0].b} topup_total=${w.rows[0].t} tx=${txCount.rows[0].n}`,
+    capped === "TOPUP_CAP_EXCEEDED" &&
+      wCap.rows[0].b === 500 &&
+      wCap.rows[0].t === 0 &&
+      txCap.rows[0].n === 0 &&
+      w.rows[0].b === 450 &&
+      w.rows[0].t === 50 &&
+      txCount.rows[0].n === 1,
+    `cap=${capped} saldo_cap=${wCap.rows[0].b} topup_cap=${wCap.rows[0].t} tx_cap=${txCap.rows[0].n} saldo=${w.rows[0].b} topup_total=${w.rows[0].t} tx=${txCount.rows[0].n}`,
   );
 }
 
@@ -656,9 +681,12 @@ await admin.query("commit");
 
 // ── Cleanup ────────────────────────────────────────────────────────────────
 await admin.query("begin");
-await admin.query("alter table public.wallet_transactions disable trigger trg_wtx_immutable");
+// ALTER TABLE ... DISABLE TRIGGER needs the table owner (postgres); the query
+// wrapper re-asserts service_role before every call, so reset to the session
+// owner role for the trigger toggles only.
+await admin.query("reset role; alter table public.wallet_transactions disable trigger trg_wtx_immutable");
 await admin.query("delete from public.wallet_transactions where user_id = any($1)", [Object.values(U)]);
-await admin.query("alter table public.wallet_transactions enable trigger trg_wtx_immutable");
+await admin.query("reset role; alter table public.wallet_transactions enable trigger trg_wtx_immutable");
 await admin.query("delete from public.kyc_records where id like 'cov-kyc-%'");
 await admin.query("delete from public.payouts where id like 'cov-pay-%'");
 if (c3BatchId) await admin.query("delete from public.payout_batches where id = $1", [c3BatchId]);
