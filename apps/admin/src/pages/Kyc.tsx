@@ -2,18 +2,18 @@ import { useEffect, useState } from "react";
 import { useConfirm } from "../components/ConfirmProvider";
 import { StatusBadge } from "../components/StatusBadge";
 import { apiFetch } from "../lib/api";
-import type { KycRow } from "../lib/types";
-import { errMessage, maskNik } from "../lib/utils";
+import { errMessage } from "../lib/utils";
+import { type KycAdminRow, kycRowToDisplay } from "./kycRows";
 
 export function KycPage() {
   const confirm = useConfirm();
-  const [rows, setRows] = useState<KycRow[]>([]);
+  const [rows, setRows] = useState<KycAdminRow[]>([]);
   const [msg, setMsg] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   async function load() {
     try {
-      const { kyc } = await apiFetch<{ kyc: KycRow[] }>("/api/kyc/admin/all");
+      const { kyc } = await apiFetch<{ kyc: KycAdminRow[] }>("/api/kyc/admin/all");
       setRows(kyc);
     } catch (err) {
       setMsg(errMessage(err));
@@ -80,33 +80,36 @@ export function KycPage() {
                   </td>
                 </tr>
               ) : (
-                rows.map((r) => (
-                  <tr key={r.id}>
-                    <td className="mono fs-11">{r.user_id.slice(0, 8)}</td>
-                    <td style={{ fontSize: 12, fontWeight: 600 }}>{r.full_name}</td>
-                    <td className="mono fs-11">{maskNik(r.nik)}</td>
-                    <td>
-                      <StatusBadge status={r.status} kind="kyc" />
-                    </td>
-                    <td style={{ fontSize: 11 }}>{new Date(r.created_at).toLocaleDateString("id-ID")}</td>
-                    <td className="flex-gap-6">
-                      {r.status === "pending" ? (
-                        <>
-                          <button className="btn-gold admin-mini" onClick={() => decide(r.id, "approve")} disabled={busy}>
-                            Setujui
-                          </button>
-                          <button className="btn-ghost admin-mini" onClick={() => decide(r.id, "reject")} disabled={busy}>
-                            Tolak
-                          </button>
-                        </>
-                      ) : (
-                        <span className="muted" style={{ fontSize: 11 }}>
-                          Selesai
-                        </span>
-                      )}
-                    </td>
-                  </tr>
-                ))
+                rows.map((row) => {
+                  const view = kycRowToDisplay(row);
+                  return (
+                    <tr key={view.id}>
+                      <td className="mono fs-11">{view.userShort}</td>
+                      <td style={{ fontSize: 12, fontWeight: 600 }}>{view.fullName}</td>
+                      <td className="mono fs-11">{view.maskedNik}</td>
+                      <td>
+                        <StatusBadge status={view.status} kind="kyc" />
+                      </td>
+                      <td style={{ fontSize: 11 }}>{view.submittedLabel}</td>
+                      <td className="flex-gap-6">
+                        {view.status === "pending" ? (
+                          <>
+                            <button className="btn-gold admin-mini" onClick={() => decide(view.id, "approve")} disabled={busy}>
+                              Setujui
+                            </button>
+                            <button className="btn-ghost admin-mini" onClick={() => decide(view.id, "reject")} disabled={busy}>
+                              Tolak
+                            </button>
+                          </>
+                        ) : (
+                          <span className="muted" style={{ fontSize: 11 }}>
+                            Selesai
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>
