@@ -96,7 +96,7 @@ pnpm run build       # shared + web/dist + admin/dist (api = tsc only)
 # Integration & e2e (butuh Docker / server hidup)
 npx supabase start && npx supabase db reset   # local stack (DB :54322)
 node supabase/tests/rpc_c13_bid_test.mjs "postgresql://postgres:postgres@127.0.0.1:54322/postgres"
-pnpm run test:e2e    # Playwright (9 spec, termasuk admin)
+pnpm run test:e2e    # Playwright (15 file spec / 40 test, web + admin)
 ```
 
 ### Environment
@@ -181,7 +181,7 @@ Belum diimplementasi: notifikasi in-app/push (F010, F013). Email transaksional A
 │   ├── seed.sql
 │   ├── tests/               # rls_test.sql, rpc_*.mjs, revenue_flow_test.mjs
 │   └── config.toml
-├── e2e/                     # Playwright (9 spec, termasuk admin)
+├── e2e/                     # Playwright (15 file spec / 40 test, web + admin)
 └── docs/                    # canonical 00_readme → 16_foundation_cleanup
 ```
 
