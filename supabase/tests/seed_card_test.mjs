@@ -493,6 +493,86 @@ const BID_AMOUNT = 150; // split: round(7,5%)=11 platform + 11 royalti + 128 sel
   );
 }
 
+// ── T-SEED-7 (P2-2): cancel_seed_sale — admin abort PHASE-1 (path bid) ────
+// Refund penuh escrow buyer, bid -> 'cancelled', kartu -> 'inventory'
+// (tradable lagi), seller tidak pernah dibayar, XP TIDAK di-grant di PHASE-1
+// (release belum terjadi — tidak ada yang perlu di-revoke), dan RPC INI
+// TIDAK menulis admin_audit_log (append audit ada di API layer).
+{
+  const drop = `seed-t7-${stamp}`;
+  const card = `seed-card-t7-${stamp}`;
+  await mkSeedDrop(drop, card);
+  const buyerBalBase = await walletBalance(U.buyer);
+  const creatorBalBase = await walletBalance(U.creator);
+  const buyerXpBase = (
+    await admin.query("select total_xp::int as xp, cumulative_spend_ccoin::int as spend from public.users where id = $1", [U.buyer])
+  ).rows[0];
+  const auditBase = (await admin.query("select count(*)::int as n from public.admin_audit_log where target_id = $1", [card])).rows[0].n;
+
+  const cBuyer = await asUser(U.buyer);
+  await cBuyer.query("select public.place_bid($1, $2)", [card, BID_AMOUNT]);
+  await cBuyer.end();
+  const cCreator = await asUser(U.creator);
+  await cCreator.query("select public.accept_bid($1, 'buyer_address', 'Jl. Seed Test No. 7 Jakarta')", [card]);
+  await cCreator.end();
+  const escrowBal = await walletBalance(U.buyer); // base - 150 (escrow hold)
+  const creatorPhase1 = await walletBalance(U.creator); // 0 delta — belum dibayar
+
+  const res = await admin.query("select public.cancel_seed_sale($1) as r", [card]);
+  const r = res.rows[0].r;
+  const buyerBalAfter = await walletBalance(U.buyer);
+  const buyerXpAfter = (
+    await admin.query("select total_xp::int as xp, cumulative_spend_ccoin::int as spend from public.users where id = $1", [U.buyer])
+  ).rows[0];
+  const bidRow = (
+    await admin.query("select status, cancelled_at from public.bids where card_id = $1 order by created_at desc limit 1", [card])
+  ).rows[0];
+  const cardRow = (await admin.query("select status, owner_id from public.cards where id = $1", [card])).rows[0];
+  const abortTx = (
+    await admin.query(
+      "select amount_ccoin::int as amt from public.wallet_transactions where user_id = $1 and type = 'seed_abort' and metadata->>'idempotency_key' = $2",
+      [U.buyer, `seed-abort-${card}`],
+    )
+  ).rows[0];
+  const auditAfter = (await admin.query("select count(*)::int as n from public.admin_audit_log where target_id = $1", [card])).rows[0].n;
+
+  // idempotent: panggilan kedua -> alreadyAborted tanpa double-credit
+  const r2 = (await admin.query("select public.cancel_seed_sale($1) as r", [card])).rows[0].r;
+  const buyerBalFinal = await walletBalance(U.buyer);
+
+  // guard: kartu non-seed -> NOT_SEED_CARD
+  const notSeed = await admin.query("select public.cancel_seed_sale($1)", [`seed-card-t3-${stamp}`]).then(
+    () => "UNEXPECTED_OK",
+    (e) => errCode(e),
+  );
+
+  const ok =
+    r?.refundedCcoin === BID_AMOUNT &&
+    r?.buyerId === U.buyer &&
+    r?.path === "bid" &&
+    escrowBal === buyerBalBase - BID_AMOUNT && // escrow terpotong PHASE-1
+    creatorPhase1 === creatorBalBase && // seller tidak pernah dibayar
+    buyerBalAfter - buyerBalBase === 0 && // refund penuh
+    abortTx?.amt === BID_AMOUNT && // tx seed_abort +150, idem key per kartu
+    buyerXpAfter.xp === buyerXpBase.xp && // XP: tidak di-grant di PHASE-1, tidak di-revoke
+    buyerXpAfter.spend === buyerXpBase.spend && // cumulative_spend juga tak tersentuh
+    bidRow?.status === "cancelled" &&
+    bidRow?.cancelled_at !== null &&
+    cardRow?.status === "inventory" && // tradable lagi
+    cardRow?.owner_id === U.creator && // ownership tidak pernah pindah
+    auditBase === 0 &&
+    auditAfter === 0 && // RPC TIDAK menulis admin_audit_log
+    r2?.alreadyAborted === true &&
+    r2?.refundedCcoin === BID_AMOUNT &&
+    buyerBalFinal === buyerBalAfter && // tanpa double-credit
+    notSeed === "NOT_SEED_CARD";
+  report(
+    "T-SEED-7 cancel_seed_sale abort PHASE-1 (refund penuh, bid cancelled, kartu inventory, idempotent)",
+    ok,
+    `refund=${r?.refundedCcoin}/${r?.path} escrow=${escrowBal} refundDelta=${buyerBalAfter - buyerBalBase} abortTx=${abortTx?.amt} xpDelta=${buyerXpAfter.xp - buyerXpBase.xp} bid=${bidRow?.status} card=${cardRow?.status}/${cardRow?.owner_id === U.creator ? "creator" : cardRow?.owner_id} auditRows=${auditAfter} alreadyAborted=${r2?.alreadyAborted ?? false} second=${buyerBalFinal === buyerBalAfter ? "no-double-credit" : "DOUBLE-CREDIT"} notSeed=${notSeed}`,
+  );
+}
+
 await admin.end();
 
 const failed = results.filter((r) => !r.pass).length;

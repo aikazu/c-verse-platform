@@ -282,9 +282,9 @@ await admin.query("commit");
   );
 
   await admin.query("begin");
-  await admin.query("alter table public.wallet_transactions disable trigger trg_wtx_immutable");
+  await admin.query("reset role; alter table public.wallet_transactions disable trigger trg_wtx_immutable");
   await admin.query("delete from public.wallet_transactions where user_id = any($1)", [users]);
-  await admin.query("alter table public.wallet_transactions enable trigger trg_wtx_immutable");
+  await admin.query("reset role; alter table public.wallet_transactions enable trigger trg_wtx_immutable");
   await admin.query("delete from public.ownership_history where card_id like $1", [`card-${drop4}%`]);
   await admin.query("delete from public.orders where drop_id = $1", [drop4]);
   await admin.query("delete from public.wallets where user_id = any($1)", [users]);
@@ -294,10 +294,10 @@ await admin.query("commit");
 
 // ── Cleanup fixture ─────────────────────────────────────────────────────────
 await admin.query("begin");
-await admin.query("alter table public.wallet_transactions disable trigger trg_wtx_immutable");
+await admin.query("reset role; alter table public.wallet_transactions disable trigger trg_wtx_immutable");
 const allTest = [...r1Users.map((u) => u.id), r2User.id, r3User.id, r4User.id];
 await admin.query("delete from public.wallet_transactions where user_id = any($1)", [allTest]);
-await admin.query("alter table public.wallet_transactions enable trigger trg_wtx_immutable");
+await admin.query("reset role; alter table public.wallet_transactions enable trigger trg_wtx_immutable");
 await admin.query("delete from public.ownership_history where card_id like $1", [`card-${drop1}%`]);
 await admin.query("delete from public.ownership_history where card_id like $1", [`card-${drop2}%`]);
 await admin.query("delete from public.ownership_history where card_id like $1", [`card-${drop3}%`]);
