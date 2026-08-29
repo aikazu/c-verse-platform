@@ -187,8 +187,15 @@ app.post(
       creator_name: user.displayName,
       created_by: user.id,
     });
-    if (dropError) return c.json({ error: dropError.message }, 400);
+    if (dropError) {
+      console.error("[drops] insert drops gagal:", dropError.message);
+      return c.json({ error: sanitizeDbError(dropError) }, 400);
+    }
 
+    // Short id unik per drop: prefix hex acak (pola nfc_uid). Slice(0,4) lama
+    // selalu "drop" sehingga drop kedua menabrak unique index
+    // cards_nfc_short_id_key dengan drop-001… (e2e bug 2026-08-29).
+    const nfcShortIdPrefix = randomHex(3).toUpperCase();
     const cardRows = Array.from({ length: body.totalUnits }, (_, i) => {
       const unit = i + 1;
       return {
@@ -204,14 +211,17 @@ app.post(
         owner_id: null,
         // 7-byte UID (14 hex): fixed prefix + 4 crypto-random bytes + unit tail
         nfc_uid: `04A1${randomHex(4).toUpperCase()}${String(unit).padStart(2, "0")}`,
-        nfc_short_id: `${id.slice(0, 4)}-${String(unit).padStart(3, "0")}`,
+        nfc_short_id: `${nfcShortIdPrefix}-${String(unit).padStart(3, "0")}`,
         // 'verified' HANYA via tap CMAC — kartu baru belum terverifikasi (docs 12)
         verify_status: "unknown",
         last_ctr: 0,
       };
     });
     const { error: cardsError } = await db.from("cards").insert(cardRows);
-    if (cardsError) return c.json({ error: cardsError.message }, 400);
+    if (cardsError) {
+      console.error("[drops] insert cards gagal:", cardsError.message);
+      return c.json({ error: sanitizeDbError(cardsError) }, 400);
+    }
 
     await logAuditDb(
       user.id,
