@@ -1,101 +1,84 @@
 # C.Verse Platform — AGENTS.md
 
-Monorepo `pnpm` workspaces: React 19/Vite SPA (`apps/web` → Cloudflare Pages) + Hono 4 API (`apps/api` → Cloudflare Workers / Node) + React 19/Vite Admin (`apps/admin` → VPS + Cloudflare Tunnel + Access) + shared Zod schemas/constants (`packages/shared`). C.Card MVP — 9 flows. Supabase Postgres (SG) + Cloudflare R2.
+Monorepo (`pnpm` workspaces): React 19/Vite SPA (`apps/web` → Cloudflare Pages), Hono 4 API (`apps/api` → Cloudflare Workers; Node for local dev), React 19 admin SPA (`apps/admin` → VPS behind Cloudflare Tunnel + Access), shared Zod schemas & constants (`packages/shared`). C.Card MVP — 11 flows. Supabase Postgres + Cloudflare R2.
 
-Dokumen perencanaan **canonical = `docs/`** (`00_readme` → `16_foundation_cleanup`, 17 files, `[VALIDATED]`) — cukup ini untuk kerja codebase, jangan perlu baca repo spec. `docs/` adalah **MIRROR byte-identik** dari `00_Dream_Project/dev-strategy/` (repo spec terpisah: `C:\Users\iqbal\Documents\C-Verse\00_Dream_Project`), disinkron **DUA ARAH**: keputusan/temuan saat implementasi di sini → propagasi balik ke repo spec; ide baru dari repo spec → dibawa ke sini untuk diimplementasi. **Codebase = source of truth.** Tiap edit `docs/` WAJIB disalin identik ke `dev-strategy/` lalu commit di kedua repo (AGENTS.md tidak di-mirror).
+Architecture: **fat database, thin API**. All money/stock mutations run inside Postgres SECURITY DEFINER RPCs (`supabase/migrations/04_rpc.sql`) through the `apps/api/src/lib/db.ts` facade — single-transaction by construction. Routes only verify auth → validate (zValidator) → call RPC → map errors. Reads go through selector modules. The browser holds only the anon key — RLS is the real enforcement layer.
 
-## Dev environment
+## Docs
 
-- Requires Node >=20 and `pnpm@9.12.3` — do not use npm/yarn. Lockfile `pnpm-lock.yaml` v9.
-- `pnpm install` at repo root (workspaces: `apps/*` + `packages/*`).
-- Env — template per app (copy dari `.env.example` di masing-masing folder):
-  - `apps/web/.env.local` ← `apps/web/.env.example`: `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY`, `VITE_TURNSTILE_SITE_KEY`. Anon only — service-role DILARANG di web bundle.
-  - `apps/admin/.env.local` ← `apps/admin/.env.example`: `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` (anon + MFA aal2, di belakang Cloudflare Access) + `VITE_API_URL` (dev `http://localhost:8787`, kosong = same-origin).
-  - `apps/api/.dev.vars` ← `apps/api/.env.example` (satu file untuk Wrangler & Node): `SUPABASE_URL`/`SUPABASE_ANON_KEY`/`SUPABASE_SERVICE_ROLE_KEY`, `TURNSTILE_SECRET_KEY`, `NFC_MASTER_KEY`, `MIDTRANS_*`, `PAYOUT_WEBHOOK_SIGNING_KEY`, SMTP.
-  - Secrets prod (tidak di repo): sama seperti di atas + `CF_ACCOUNT_ID`, `CF_API_TOKEN` via `wrangler secret put`.
-- Supabase WAJIB — tanpa `SUPABASE_URL` API gagal start (fail-fast, tidak ada fallback in-memory).
-- Supabase — kerja DB LANGSUNG ke project cloud linked (`c-verse`), tanpa stack lokal/Docker:
-  - Apply migration + seed ulang: `"y" | npx supabase db reset --linked` — HANYA setelah konfirmasi eksplisit user (menghapus SELURUH data cloud; lihat Pitfalls). Pipe `"y"` wajib: prompt `Do you want to reset the remote database? [y/N]` dibaca dari stdin, shell non-interaktif tanpa pipe selalu mati `context canceled`. Edit pada file migration lama tidak pernah di-apply ulang oleh `db push` (sudah tercatat applied) — reset --linked adalah cara apply-nya.
-  - Query/verifikasi SQL: `npx supabase db query --linked "SQL"` — flag `--linked` WAJIB, tanpa itu CLI diam-diam konek ke database lokal; multi-statement OK. Linter security/performance (sama dengan Dashboard): `npx supabase db advisors --linked`. Tidak ada subcommand `db execute` di CLI ini; `psql` tidak ada di PATH Windows.
-  - Stack lokal (`npx supabase start` — API :54321, DB :54322, Studio :54323) hanya kalau diminta eksplisit.
-  - `supabase/migrations/` ter-organisir 5 file by domain (consolidated 2026-08-24): `01_schema` (DDL/enums/tables/base indexes), `02_auth` (auth mirror + canonical_email), `03_rls` (policies + guard triggers), `04_rpc` (semua SECURITY DEFINER RPC FINAL versions + grants), `05_indexes` (performance). Setiap objek ditulis SATU KALI di versi final — TIDAK ada `create or replace` chain.
+- Canonical planning docs: `docs/` (`00_readme` … `16_foundation_cleanup`, 17 files, read in order) — enough for all codebase work; do not read the spec repo.
+- `docs/` is a byte-identical mirror of `00_Dream_Project/dev-strategy/` in the separate spec repo (`C:\Users\iqbal\Documents\C-Verse\00_Dream_Project`), synced both ways. **Codebase = source of truth.** Every `docs/` edit must be committed to BOTH repos (`pnpm sync:docs` after committing here). AGENTS.md is not mirrored.
 
-## Build & test
+## Environment
 
-- Jalankan semua: `pnpm dev` (`scripts-dev.mjs` → API :8787 + web :5173). Admin terpisah: `pnpm --filter @c-verse/admin dev` → :3000.
-- Per app:
-  - `pnpm --filter @c-verse/api dev:node` — Hono via `@hono/node-server` + `tsx watch src/server.ts` :8787
-  - `pnpm --filter @c-verse/api dev` — `wrangler dev --port 8787` (Workers runtime, butuh `wrangler.toml` bindings)
-  - `pnpm --filter @c-verse/web dev` — `vite --host 0.0.0.0 --port 5173` (proxy `/api` → `http://localhost:8787`)
-  - `pnpm --filter @c-verse/admin dev` — `vite --host 127.0.0.1 --port 3000`
-- Typecheck: `pnpm run typecheck` (`pnpm -r typecheck` → `tsc --noEmit` per package; 4 workspaces: shared, api, web, admin)
-- Test: `pnpm test` (Vitest; proyek `packages/shared` + `apps/api`). Lint: `pnpm lint` (Biome, 0 error/warning hard gate). Format: `pnpm format`.
-- Integration SQL (`supabase/tests/rls_test.sql` — fixture insert lalu commit): `npx supabase db query --linked (Get-Content supabase/tests/rls_test.sql -Raw)` (pwsh) atau `--linked "$(cat supabase/tests/rls_test.sql)"` (bash); jalankan reset --linked setelahnya untuk membersihkan fixture.
-- Build: `pnpm run build` (`pnpm -r build`); `pnpm --filter @c-verse/web build` → `apps/web/dist`, `pnpm --filter @c-verse/admin build` → `apps/admin/dist`, `pnpm --filter @c-verse/api build` = `tsc --noEmit` only. Workers deploy: `pnpm --filter @c-verse/api deploy` (`wrangler deploy`).
-- Lint: `pnpm run lint` — `biome check .` (0 error/warning hard gate, lihat `biome.json`). Format: `pnpm run format`.
-- CI: `.github/workflows/ci.yml` (PR + main): `pnpm install → typecheck → lint → lint:boundaries (api modules) → test → build` + `supabase db lint` di PR.
+- Node >= 20, `pnpm@12.0.0` (lockfile v9) — never npm/yarn. Install: `pnpm install` at root (workspaces `apps/*` + `packages/*`).
+- Dev all: `pnpm dev` (API :8787 + web :5173; web proxies `/api` → 8787). Admin: `pnpm --filter @c-verse/admin dev` (:3000).
+- API dev: `pnpm --filter @c-verse/api dev:node` (tsx watch, :8787) or `dev` (wrangler dev — needs `wrangler.toml` bindings).
+- Env files (copy each app's `.env.example`):
+  - `apps/web/.env.local` — `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY`, `VITE_TURNSTILE_SITE_KEY`. Anon only — service-role keys must NEVER enter web/admin bundles.
+  - `apps/admin/.env.local` — anon key + `VITE_API_URL` (dev `http://localhost:8787`; empty = same-origin), `VITE_TURNSTILE_SITE_KEY`.
+  - `apps/api/.dev.vars` — `SUPABASE_URL`/`SUPABASE_ANON_KEY`/`SUPABASE_SERVICE_ROLE_KEY`, `TURNSTILE_SECRET_KEY`, `NFC_MASTER_KEY`, `MIDTRANS_*`, `PAYOUT_WEBHOOK_SIGNING_KEY`, SMTP. One file serves Wrangler and Node.
+  - Prod secrets: `wrangler secret put` (+ `CF_ACCOUNT_ID`, `CF_API_TOKEN`) — never in the repo.
+- API fails fast without `SUPABASE_URL` — the DB is mandatory, no in-memory fallback.
 
-## Commit workflow
+## Supabase (linked cloud project `c-verse` — no local stack)
 
-Sebelum setiap commit, WAJIB jalankan:
-1. `pnpm run format` — biome auto-format
-2. `pnpm run lint:fix` — biome auto-fix (import ordering, dll)
-3. `pnpm run typecheck` — tsc strict di 4 workspace
-4. `pnpm run test` — vitest (50+ test, harus PASS)
-5. `pnpm run lint` — 0 error, 0 warning
-6. `pnpm run build` — semua workspace build
-7. **Doc changes?** Jalankan `pnpm sync:docs` setelah commit untuk propagate ke spec repo (mirror byte-identik).
+- Query/verify: `npx supabase db query --linked "SQL"` — `--linked` is MANDATORY; without it the CLI silently targets a local DB. Multi-statement OK. Linter: `npx supabase db advisors --linked`. (No `db execute` subcommand; no `psql` in PATH.)
+- Apply migrations + reseed: `"y" | npx supabase db reset --linked` — WIPES ALL cloud data. Owner confirmation required every time; the `"y"` pipe is mandatory (non-interactive shells die with `context canceled` on the `[y/N]` prompt). Edits to already-applied migrations are never re-applied by `db push` — reset is the way to apply them.
+- `supabase/migrations/`: 5 consolidated files, every object written ONCE in final form (no `create or replace` chains): `01_schema` (DDL/enums/tables), `02_auth` (auth mirror + canonical email), `03_rls` (policies + guard triggers), `04_rpc` (all SECURITY DEFINER RPCs + grants), `05_indexes` (performance). Never edit an applied migration.
+- Local stack (`npx supabase start`) only on explicit request.
 
-Jika salah satu dari langkah 3-6 gagal, jangan commit. Fix dulu. Gunakan `git add -A && git commit -m "..."` hanya setelah semua gate hijau.
+## Quality gates
 
-**Pola per logical unit** — setiap fix/feature/security change = 1 commit atomic dengan:
-- Test gagal dulu (Red) untuk logika baru, lalu implementasi (Green), gate, commit.
-- Mock `lib/db.js` (bukan `lib/supabase.js`) untuk test RPC routes — `userDb()` ada di db.js.
-- Naming Conventional Commits (`fix:`, `feat:`, `refactor:`, `docs:`, `test:`, `chore:`, `tools:`). Audit/security fix pakai prefix `fix(audit):` atau `fix(security):` kalau relevan.
+- `pnpm run typecheck` — `tsc --noEmit`, strict, 4 workspaces (shared/api/web/admin).
+- `pnpm test` — Vitest (shared + api + admin).
+- `pnpm run lint` — Biome, 0 errors / 0 warnings hard gate. Auto-fix: `pnpm run lint:fix`, `pnpm run format`.
+- `pnpm run build` — all workspaces. Note: api build = `tsc --noEmit` only; deploy = `pnpm --filter @c-verse/api deploy`.
+- Module boundaries: `pnpm --filter @c-verse/api lint:boundaries` (see Layout).
+- CI (`.github/workflows/ci.yml`, PR + main): install → typecheck → lint → lint:boundaries → test → build, plus `supabase db lint` on PRs.
+- Integration SQL: run `supabase/tests/*.sql` via `db query --linked "$(cat file.sql)"`, then a `reset --linked` to clear fixtures.
 
-## Project layout
+## Layout
 
-- `apps/api/src/index.ts` — Hono app (CORS + logger, mounts `/api/*`, JSON 404). `apps/api/src/server.ts` — Node entry lokal.
-- `apps/api/src/modules/<name>/` — 18 domain modules (`routes.ts` + `index.ts`; `reads.ts` bila single-consumer): `auth`, `drops`, `orders`, `wallet`, `nfc`, `marketplace` (buyout-on-card; alias `/api/listings`), `bids`, `browse`, `profile`, `publicProfile`, `shipments`, `gamification`, `creators`, `kyc`, `seo`, `payments` (Midtrans), `admin` (mutasi admin role-gated: users/wallet-hold/disputes/audit), `notifications`. Mutasi lintas modul hanya via `index.ts` — di-enforce `pnpm --filter @c-verse/api lint:boundaries` (CI-wired).
-- `apps/api/src/lib/` — `auth.ts` (Supabase JWT verify + `requireUser`), `cmac.ts` (AES-CMAC RFC 4493 + SUN AN12196), `db.ts` (RPC facade — klien pakai JWT user karena RPC baca `auth.uid()`), `reads.ts` + `reads/` (multi-consumer selectors — Supabase select + mapper snake_case→camelCase; single-consumer selector di `modules/<name>/reads.ts`), `cron.ts` (scheduled handler → `activate_scheduled_drops`/`draw_pending_drops`/`payout_batch_run`), `payments/` (provider + midtrans), `supabase.ts` (klien wajib — throw saat env absen).
-- `apps/api/src/lib/store.ts` — domain types (dipakai mapper/route) + helper murni `uid`/`nowIso`. Tidak ada lagi data in-memory.
-- `apps/web/src/` — `App.tsx` (routes: `/`, `/drops`, `/drops/:id/checkout`, `/home`, `/cards/:cardId/3d`, `/marketplace`, `/browse`, `/collection`, `/me/manage`, `/me/privacy`, `/me/kyc`, `/wallet`, `/leaderboard`, `/c/:username`, `/u/:username`, `/creator`) + `pages/` + `lib/api.ts` + `worker-seo.ts`.
-- `apps/admin/src/` — Vite SPA terpisah (Guard `aal2` via Supabase MFA TOTP, nav ADM-01..10: dashboard/creators/drops/orders/nfc/payouts/badges/disputes/audit/investor).
-- `packages/shared/src/index.ts` — **single source** Zod schemas + constants (`C_COIN_RATE_IDR=10_000`, `SECONDARY_*`, `REVENUE_SHARE_*`, `calcLevel`, `calcSignedPrice` (+20 flat), `BALANCE_CAP_CCOIN=500`, `MAX_ACTIVE_BIDS_PER_USER=3`, `MAX_BUYOUT 20`). Import via `@c-verse/shared`.
-- `supabase/` — `config.toml`, `migrations/*.sql` (5 file by domain: schema/auth/rls/rpc/indexes — lihat Dev environment untuk breakdown), `seed.sql` (fixed UUID = `auth.users`), `tests/` (`rls_test.sql`, `rpc_*.mjs`, `revenue_flow_test.mjs`).
-- `docs/` — `00_readme.md` … `16_foundation_cleanup.md` (17 files). Baca urut 00→16. Mirror byte-identik ke `00_Dream_Project/dev-strategy/` via `sync-docs.mjs`.
-- `sync-docs.mjs` (root) — byte-identical mirror sync Platform/docs ↔ spec/dev-strategy. Mode: `pnpm sync:docs` (apply), `:check` (dry-run, CI-friendly exit codes), `:reverse` (spec → Platform). Tidak auto-commit.
+- `apps/api/src/index.ts` — composition root: mounts 18 modules under `/api/*`, alias `/api/listings` → marketplace, `scheduled` handler → `lib/cron.ts` (drop activation/draw, payout batch). `server.ts` = local Node entry.
+- `apps/api/src/modules/<name>/` — one module per domain: auth, drops, orders, wallet, nfc, marketplace, bids, browse, profile, publicProfile, shipments, gamification, creators, kyc, seo, notifications, payments, admin. Each has `routes.ts` + a one-line `index.ts` (the only legal import surface from outside), `reads.ts` when its selectors have a single consumer, unit tests in `__tests__/`. Boundary rules (`apps/api/tools/check-boundaries.mjs`): `lib/` never imports `modules/`; anything outside a module may import only that module's `index.ts`.
+- `apps/api/src/lib/` — kernel: `auth.ts` (JWT verify, `requireUser`), `db.ts` (RPC facade; the client uses the user's JWT so RPCs see `auth.uid()`), `reads.ts` + `reads/` (multi-consumer selectors, snake→camel mappers), `errors.ts` (`sanitizeDbError`), `cmac.ts` (AES-CMAC RFC 4493 + SUN AN12196), `payments/` (Midtrans), `cron.ts`, `supabase.ts` (fail-fast client), `store.ts` (domain types, `uid`/`nowIso`).
+- `apps/web/src/` — public SPA (`App.tsx` routes, `pages/`, `lib/api.ts`). `apps/admin/src/` — separate admin SPA (Supabase MFA `aal2`).
+- `packages/shared/src/index.ts` — single source of Zod schemas + business constants (rates, fee shares, caps, `calcLevel`, `calcSignedPrice`). Import via `@c-verse/shared` — never hardcode rates/fees/thresholds in apps.
+- `supabase/` — `config.toml`, `migrations/`, `seed.sql` (fixed UUIDs in `auth.users`), `tests/` (SQL + `.mjs` integration tests).
+- `sync-docs.mjs` (root) — docs mirror: `pnpm sync:docs` (apply) / `:check` (dry-run) / `:reverse`. Never auto-commits.
 
-## Conventions
+## Domain rules
 
-- ESM only (`"type": "module"`), Strict TS (`strict: true`, `moduleResolution: bundler`).
-- API: `Hono` + `zValidator` dengan schema dari `@c-verse/shared`. Mount via `app.route("/api/<name>", module)` di `apps/api/src/index.ts`. Alias `/api/listings` → marketplace (buyout).
-- Auth: Supabase JWT (Google OAuth + email OTP + Turnstile) — `requireUser(c)` di semua route; 401 invalid, 403 suspend (`flag_reason`). Register/login password DILARANG. Demo-login dev-only (masa demo): `POST /api/auth/demo-login` via `admin.generateLink` — flag `ENABLE_DEMO_LOGIN` + whitelist email seed; tombol hanya ikut bundle DEV; admin dev build merelaksasi aal2 (docs/10 §7). Konfirmasi aksi spend/destruktif di web & admin WAJIB modal in-app `useConfirm()` (D8) — native `window.confirm` dilarang.
-- Uang & stok: wajib lewat RPC (`apps/api/src/lib/db.ts`: checkout, drop_entry/draw, place/cancel/accept bid, set_buyout/buyout_card, payout_request, wallet_credit/debit — single transaction). DB wajib — fail-fast tanpa `SUPABASE_URL` (F-08).
-- Revenue ledger: setiap settlement primary (70/30) & secondary (7,5/7,5/85) menulis `platform_revenue` (fee snapshot) + kredit wallet **treasury** (user sistem `...0c0`) via `record_platform_revenue` — pendapatan platform tidak boleh menguap.
-- NFC: verdict `verified` HANYA via CMAC valid (`lib/cmac.ts`, key diversification N5) + counter maju (UPDATE atomic `WHERE last_ctr < ctr`). QR → maksimal `registered`, tidak pernah menurunkan `verified`. Tamper permanen + audit log.
-- Shared constants canonical — jangan hard-code rate/fee/threshold di app (`idrToCCoin = Math.ceil`).
-- C-Coin: **integer ≥1 tanpa desimal** (`CHECK x >= 1`), konversi IDR→C-Coin ceil. Kolom `int`, jangan `numeric`.
-- Drop: `priceCcoin` canonical (platform-produced 70/30), `signedCount = ceil(total/10)`, `priceSigned = priceUnsigned + 20` FLAT (founder 2026-08-16). Rilis default 12:00 WIB; raffle window 24 jam (`raffle_end_at`), draw via cron; `scheduled→live` otomatis cron.
-- Checkout: 1 kartu/user/drop, pilih pool (regular=unsigned, premium=signed). Semua pembelian (drop/FCFS, buyout, bid accept) settle LANGSUNG ke vault — tanpa alamat/ongkir di titik beli (founder 2026-08-28: purchase → vault only); kartu `location='platform_vault'`, order `settled`. Shipping = SATU flow pasca-vault: owner minta `vault_shipout` dari Kelola Kartu, ship fee di titik itu → treasury + `platform_revenue` ref_type 'shipment'. Seed two-phase (PHASE-1 escrow_hold → admin vault-in + verify → release) tetap.
-- Secondary: Marketplace `buyout_price_ccoin NOT NULL` (max 20/user); Browse bid langsung (1 active/kartu, **max 3 aktif/user**, outbid/cancel release, accept only, tanpa expire; history 90 hari). Fee 15% (7,5 platform + 7,5 royalti) — ketiga bagian dicatat `platform_revenue` + treasury. Settle → `platform_vault` (tanpa `buyer_address`); pengiriman via `vault_shipout`. Blok rebuy 24 jam (C-12). Kartu tampered/defect/lost tidak tradable.
-- Verify: tap NFC → `/cards/:cardId/3d` (Verified), QR → `/cards/:cardId` (Registered). Ownership history hanya di info. iOS SUN URL via `GET /api/nfc/sun-verify`.
-- Gamifikasi: `level = floor(total_xp/10) + 1` (clamp 1..100), `spend 1 C = 1 XP` (+ badge `xp_reward` via trigger SQL), top-up tidak menambah XP. Badge di `apps/admin` (ADM-07). Leaderboard multi-type (`xp`|`cards`|`badges`|`creator`) via RPC `get_leaderboard` (`04_rpc.sql`, privasi + tie-break deterministik); endpoint `GET /api/gamification/leaderboard` di `apps/api/src/modules/gamification/routes.ts`.
-- Profil: `/u/:username` & `/c/:username`; `is_anonymous` hide koleksi/level/badge; user suspended (`flag_reason`) disembunyikan dari profil publik. Domain `c-verse.co` + `c-verse.id` redirect — LOCK sebelum NFC.
-- KYC: wajib payout (`payout_request` RPC gate). Cap saldo top-up non-KYC 500 C-Coin (KYC approved = tanpa cap). Tidak untuk pasang buyout/accept bid. `hold_payout_until` untuk fraud hold.
-- Payments: top-up `POST /api/payments/topup` (Snap) → webhook verifikasi signature + status + **ceil**; payout `POST /api/payments/payout` (request, dana dikunci) → batch mingguan `POST /api/payments/admin/payout-run` → admin transfer MANUAL via IRIS dashboard (founder 2026-08-23; auto-disburse = post-MVP) → webhook IRIS opsional untuk status update. Refund path: `POST /api/payments/admin/payouts/:id/refund` (RPC `payout_refund`, ter-audit) untuk payout failed/aborted — kredit wallet kreator + status `refunded`.
-- Admin: terpisah, anon key + MFA TOTP (`aal2`) + Cloudflare Access; **mutasi lewat route API role-gated** (`/api/admin/*`, `/api/kyc/:id/approve`, `PATCH /api/drops/:id/status`, `PATCH /api/shipments/:id/status`) — semua ter-audit `admin_audit_log` append-only. Login admin = email OTP (magic link), tanpa password.
-- Seed dev (fixed UUID, login via OTP/Google): `demo@cverse.id` (120 C-Coin), `admin@cverse.id`; creator `karina@creator.id` dll. Role `user`, `creator`, `admin`. Onboarding creator: `POST /api/creators/apply` → admin approve.
+- Auth: Supabase JWT (Google OAuth / email OTP + Turnstile) via `requireUser(c)` on every route; 401 invalid, 403 suspended (`flag_reason`). **Passwordless everywhere** — web: OAuth/OTP; admin: email OTP + MFA `aal2` + Cloudflare Access. Demo-login `POST /api/auth/demo-login` is dev-only (`ENABLE_DEMO_LOGIN` + seed-email whitelist).
+- Confirmations: every spend/destructive action in web & admin MUST go through the in-app `useConfirm()` modal (D8) — native `window.confirm` is banned.
+- C-Coin: integers only (`CHECK >= 1`), IDR→C-Coin = `ceil`, `int` columns — never numeric/decimal.
+- Revenue: every settlement writes `platform_revenue` + credits the treasury system user via `record_platform_revenue` — primary 70/30; secondary 15% = 7.5 platform / 7.5 royalty / 85 seller; shipment fees (`ref_type 'shipment'`). Platform revenue must never evaporate.
+- Drops: admin-only create/cancel/status. `priceCcoin` canonical; `signedCount = ceil(total/10)`; signed premium = +20 flat; release 12:00 WIB; raffle window 24h (`raffle_end_at`), draw via cron; `scheduled→live` auto via cron.
+- Purchases settle straight to vault — no address/shipping at buy time; card `location='platform_vault'`, order `settled`. Shipping is ONE post-vault flow: owner requests `vault_shipout`, fee charged there. Seed sales: two-phase (escrow_hold → admin vault-in + verify → release); abort via `cancel_seed_sale`.
+- Secondary: buyout (max 20 active/user) and direct bids (1 active/card, max 3 active/user, accept-only, no expiry, 90-day history). The 24h rebuy cooldown (C-12) applies in BOTH `buyout_card` and `place_bid`. Tampered/defect/lost cards are not tradable.
+- NFC: `verified` ONLY via valid CMAC + forward-only counter (atomic `UPDATE ... WHERE last_ctr < ctr`); QR caps at `registered`; tamper = permanent + audit log. Tap → `/cards/:cardId/3d`, QR → `/cards/:cardId`; iOS SUN URL via `GET /api/nfc/sun-verify`.
+- KYC: required for payouts (`payout_request` gate; `hold_payout_until` fraud hold); non-KYC top-up balance cap 500 C-Coin; not required for buyout/bid acceptance.
+- Payments: top-up via Midtrans Snap → webhook verifies signature + status + ceil. Payout: request (funds locked) → weekly batch → admin transfers MANUALLY via IRIS (auto-disburse = post-MVP) → optional IRIS webhook. Refund: `payout_refund` RPC for failed/aborted payouts.
+- Admin mutations: only via role-gated API routes (`/api/admin/*`, KYC approve, drop/shipment status PATCHes) — all appended to `admin_audit_log` (append-only).
+- Gamification: `level = floor(total_xp/10) + 1` (clamp 1..100); spend 1 C = 1 XP (badge rewards via SQL trigger); top-ups give no XP. Leaderboard: RPC `get_leaderboard` (`xp|cards|badges|creator`, deterministic tie-break) via `GET /api/gamification/leaderboard`.
+- Profiles: `/u/:username`, `/c/:username`; `is_anonymous` hides collection/level/badges; suspended users are hidden from public profiles.
+- Errors: never echo raw Supabase/Postgres `error.message` (leaks schema) — map through `lib/errors.ts:sanitizeDbError`; log raw server-side.
+- Seed dev (fixed UUIDs; login via OTP/Google): `demo@cverse.id`, `admin@cverse.id`, `karina@creator.id`; roles user/creator/admin. Creator accounts are admin-provisioned — there is no self-apply route.
 
 ## Pitfalls
 
-- Wajib `pnpm` — `pnpm-lock.yaml` v9; jangan pakai npm/yarn.
-- Ports 8787 (API) + 5173 (web) + 3000 (admin) harus free; `scripts-dev.mjs` kill children on SIGINT/SIGTERM.
-- `apps/api` build tidak emit — `tsc --noEmit` only; deploy = `wrangler deploy`.
-- `.env`, `.env.local`, `.wrangler/`, `supabase/.temp` gitignored — jangan commit secrets; Wrangler vars di `.dev.vars`.
-- `git` di Windows via git-bash: `bash` POSIX, bukan PowerShell. Konversi path dengan `cygpath -w`.
-- Jangan bocorkan `service-role` / `NFC_MASTER_KEY` ke bundle publik — `apps/web` hanya `anon` key + RLS.
-- Jangan ubah kolom C-Coin ke desimal; jangan buat auction timer/anti-sniping di MVP (docs 07 C-07).
-- AGENTS/README: tulis ringkas. Jangan verbosity ("selalu prod & dev", "tidak pernah Supabase", disclaimer dual-env, atau penjelasan infrastruktur yang mengulang dirinya sendiri). Fakta cukup sekali; tidak perlu disclaim tiap paragraf.
-- **Operasi destruktif (db reset --linked, drop database, force-push)** — PAUSE dan minta konfirmasi user sebelum eksekusi. CLI Supabase `db reset --linked` menghapus SELURUH data di project cloud yang linked, bukan database lokal. Setelah konfirmasi eksplisit, eksekusi non-interaktif dengan pipe jawaban: `"y" | npx supabase db reset --linked` — pola ini berlaku untuk semua prompt `[y/N]` CLI Supabase (tanpa pipe, shell non-interaktif mati `context canceled`).
-- **Error message dari Supabase/Postgres** — jangan echo raw `error.message` ke response (leak schema: constraint/column name). Pakai `apps/api/src/lib/errors.ts:sanitizeDbError` untuk memetakan 7 pola umum + fallback `Operasi gagal`. Log raw message server-side untuk debugging.
+- Destructive ops (`db reset --linked`, drop database, force-push): STOP and ask the owner first; then execute non-interactively with the `"y"` pipe (see Supabase).
+- Windows shell is git-bash (POSIX, not PowerShell) — convert paths with `cygpath -w`.
+- Ports 8787/5173/3000 must be free; `scripts-dev.mjs` kills children on SIGINT/SIGTERM.
+- `.env*`, `.dev.vars`, `.wrangler/`, `supabase/.temp` are gitignored — never commit secrets; public bundles get only anon keys.
+- Do not reintroduce: password login, auction timers/anti-sniping (C-07, post-MVP), in-memory stores, decimal C-Coin.
+- AGENTS.md/README: stay concise — facts once, no repeating infra disclaimers.
+
+## Commit workflow
+
+Run before EVERY commit, in order: `pnpm run format` → `pnpm run lint:fix` → `pnpm run typecheck` → `pnpm test` → `pnpm run lint` (0/0) → `pnpm run build`. A failure in typecheck/test/lint/build = do not commit; fix first. Stage explicit paths (never `-A`/`.`).
+
+- Conventional Commits (`fix:`, `feat:`, `refactor:`, `docs:`, `test:`, `chore:`, `tools:`, `perf:`); audit/security fixes as `fix(audit):` / `fix(security):`.
+- One atomic commit per logical unit. TDD: failing test first (Red) → implement (Green) → gates → commit. RPC route tests mock `lib/db.js` (not `lib/supabase.js`) — the user-scoped client lives there.
+- Docs changes: run `pnpm sync:docs` after the commit, then commit the mirror in the spec repo.
