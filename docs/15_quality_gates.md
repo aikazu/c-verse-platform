@@ -93,7 +93,7 @@ test -> build`. Deploy job hanya `main` (lihat `08_deployment.md`).
 |---|---|
 | `packages/shared` | ≥ 90% lines (murni fungsi, murah) |
 | `apps/api/src/lib` (cmac, auth, payments) | ≥ 80% |
-| `apps/api/src/routes` | happy path + error utama per route (angka bebas, review manual) |
+| `apps/api/src/modules` | happy path + error utama per route (angka bebas, review manual) |
 | Web/admin UI | tanpa unit test Y1 (smoke manual cukup) |
 | Biome lint | 0 error 0 warning di CI (hard gate) |
 

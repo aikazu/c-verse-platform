@@ -131,7 +131,7 @@ apps/api/src/lib/payments/
                      #        getStatus, registerBeneficiary, disburse
                      #        (disburse() tidak dipanggil di MVP)
   index.ts           # export getProvider() (env-driven)
-apps/api/src/routes/payments.ts
+apps/api/src/modules/payments/routes.ts
   POST /topup
   POST /payout                      (creator request, self-service)
   POST /admin/payout-run            (admin trigger batch)

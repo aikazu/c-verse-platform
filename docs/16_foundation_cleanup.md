@@ -12,7 +12,7 @@
 ### F-01 Vault default (pelanggaran C-10 FINAL)
 - `packages/shared/src/index.ts` baris ~129:
   `deliveryOptionSchema.default("shipping")` → `.default("vault")`.
-- `apps/api/src/routes/orders.ts`: default parameter checkout ke
+- `apps/api/src/modules/orders/routes.ts`: default parameter checkout ke
   `vault`; shipping = opt-in eksplisit.
   (Update 2026-08-28 — founder: purchase → vault only; opsi
   shipping dihapus dari checkout, bukan sekadar non-default.)
@@ -55,7 +55,7 @@
   bohong saat ini).
 
 ### F-05 Hapus endpoint publik berbahaya
-- `apps/api/src/routes/nfc.ts` `POST /simulate-tamper/:cardId` —
+- `apps/api/src/modules/nfc/routes.ts` `POST /simulate-tamper/:cardId` —
   pindah ke route admin service-role (atau hapus total; set status
   tamper cukup via admin app ADM-04).
 

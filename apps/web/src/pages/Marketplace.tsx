@@ -32,7 +32,7 @@ export default function Marketplace() {
     getNextPageParam: (last) => (last.hasMore ? last.offset + last.limit : undefined),
   });
   // Endpoint returns the same shape under `marketplace` / `cards` / `listings`
-  // (compat aliases — see apps/api/src/routes/marketplace.ts:68). Read whichever
+  // (compat aliases — see apps/api/src/modules/marketplace/routes.ts:68). Read whichever
   // the server fills; first non-empty wins.
   const pages = data?.pages ?? [];
   const rawCards: ApiMarketplaceEntry[] = pages

@@ -2,7 +2,7 @@
 
 > Status: [IMPLEMENTED 2026-08-16]
 > Created: 2026-08-15; updated: 2026-08-20
-> Basis audit awal: `apps/api/src/routes/auth.ts` (password plaintext, token
+> Basis audit awal: `apps/api/src/modules/auth/routes.ts` (password plaintext, token
 > in-memory). Migration selesai: route auth.ts sudah clean (hanya `/me`),
 > JWT verify via `jose` + JWKS, tidak ada password/in-memory session.
 > Admin app MFA TOTP (aal2) via `TotpRequired.tsx`.
@@ -159,7 +159,7 @@ Auth saat ini custom in-memory — tidak bisa dibawa ke produksi:
 - `dev-strategy/06_tech_decisions.md` D-so (Supabase Auth FINAL).
 - Memory `mvp-product-rules-2026-08-13`: Google OAuth + email OTP + captcha Turnstile.
 - `dev-strategy/08_deployment.md` §Supabase setup (Auth Google+OTP+captcha).
-- Audit Platform 2026-08-15: `apps/api/src/routes/auth.ts` (plaintext,
+- Audit Platform 2026-08-15: `apps/api/src/modules/auth/routes.ts` (plaintext,
   in-memory session).
 - Keputusan akun kreator admin-provisioned + passwordless
   (2026-08-20, [VALIDATED]) — dasar section 3,6.
@@ -185,4 +185,4 @@ tanpa OTP/email. **Tetap passwordless** — tidak ada password login.
 - **Admin dev build merelaksasi guard aal2** (login demo = aal1) —
   badge "DEMO · aal1 tanpa TOTP"; production build tetap wajib aal2
   server-side (`requireAdmin`).
-- Test: `apps/api/src/routes/__tests__/auth_demo_login.test.ts`.
+- Test: `apps/api/src/modules/auth/__tests__/auth_demo_login.test.ts`.

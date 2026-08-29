@@ -44,7 +44,7 @@ export interface ApiDrop {
   createdAt: string;
   createdBy?: string | null;
   isSeed: boolean;
-  // Fields ditambahkan route /api/drops GET (lihat apps/api/src/routes/drops.ts:52-88)
+  // Fields ditambahkan route /api/drops GET (lihat apps/api/src/modules/drops/routes.ts)
   remainingUnits?: number;
   idrPrice?: number;
   idrUnsigned?: number;
@@ -149,7 +149,7 @@ export interface ApiCheckoutResponse {
 }
 
 // ── NFC / Cards ────────────────────────────────────────────────────────────
-// GET /api/nfc/cards/:cardId (apps/api/src/routes/nfc.ts:188) — info lengkap:
+// GET /api/nfc/cards/:cardId (apps/api/src/modules/nfc/routes.ts:188) — info lengkap:
 //   card ringkas + drop ringkas + owner + bids aktif + ownership history.
 // Owner ditampilkan anonim jika user.isAnonymous || user.flagReason (route:204).
 export interface ApiCardOwnerRef {
@@ -208,7 +208,7 @@ export interface ApiVerifyNfcResponse {
 }
 
 // ── Marketplace (buyout on card) ───────────────────────────────────────────
-// GET /api/listings response shape (apps/api/src/routes/marketplace.ts:42-68)
+// GET /api/listings response shape (apps/api/src/modules/marketplace/routes.ts:42-68)
 // — setiap entry adalah gabungan: kartu + drop ringkas + seller + harga.
 export interface ApiMarketplaceEntry {
   kind: "buyout";

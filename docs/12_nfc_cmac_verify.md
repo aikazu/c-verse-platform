@@ -2,7 +2,7 @@
 
 > Status: [DRAFT — SPEC SIAP EKSEKUSI]
 > Created: 2026-08-15
-> Basis audit: `apps/api/src/routes/nfc.ts` — endpoint `verify-nfc` menerima
+> Basis audit: `apps/api/src/modules/nfc/routes.ts` — endpoint `verify-nfc` menerima
 > `cmac`+`counter` lalu MENGABAIKANNYA; verdict "verified" hanya dari lookup
 > UID. Badge "Verified Card" bisa dipalsukan siapa pun yang tahu UID.
 > Estimasi: 2-4 hari AI-assisted. Dependency: tidak ada (paralel dengan 10/11).
@@ -64,7 +64,7 @@ verifySun({ uidHex, ctrHex, cmacHex, tamperBit }, master): {
   3. Anti-replay: `UPDATE cards SET last_ctr = $ctr
      WHERE id = $id AND last_ctr < $ctr` — 0 row = counter mundur/ulang →
      tolak + fraud signal. [IMPLEMENTED 2026-08-16 — persist atomic
-     di `apps/api/src/routes/nfc.ts`, bukan read-modify-write JS]
+     di `apps/api/src/modules/nfc/routes.ts`, bukan read-modify-write JS]
   4. TagTamper bit set → set `cards.verify_status = 'tamper_detected'`
      (permanen, irreversible) → tampil badge tamper + WAJIB audit log
      (`nfc_tamper_flagged`) — counter tetap dimajukan (tap valid).

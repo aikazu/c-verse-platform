@@ -54,7 +54,7 @@ flowchart LR
   Pages -->|/api/*| Api
 ```
 
-- **Web publik** → Cloudflare Pages. SEO tanpa SSR: satu Worker di depan SPA inject `og:*` + `JSON-LD` dan mem-proxy `sitemap.xml` dari `apps/api/src/routes/seo.ts`.
+- **Web publik** → Cloudflare Pages. SEO tanpa SSR: satu Worker di depan SPA inject `og:*` + `JSON-LD` dan mem-proxy `sitemap.xml` dari `apps/api/src/modules/seo/routes.ts`.
 - **API** → Hono di Workers (lokal via `@hono/node-server`). Supabase wajib — tanpa `SUPABASE_URL` API mati keras di startup (`src/index.ts:27`), tidak ada mode in-memory. Storage R2 disiapkan di `wrangler.toml` (binding masih dikomentari sampai bucket dibuat).
 - **Admin** → Vite SPA terpisah di VPS + Cloudflare Tunnel + Access. Baca lewat anon key + RLS policy admin; **semua mutasi** lewat `/api/admin/*` role-gated supaya ter-audit. 2FA TOTP (`aal2`) wajib, audit log append-only.
 
@@ -157,10 +157,11 @@ Belum diimplementasi: notifikasi in-app/push (F010, F013) dan layer email transa
 ├── apps/
 │   ├── api/                 # Hono Workers — /api/* + /health + /sitemap.xml
 │   │   ├── src/index.ts     # mount routes + CORS + security headers + rate limit
-│   │   ├── src/routes/      # auth, drops, orders, wallet, nfc, marketplace (alias
-│   │   │                    # /api/listings), bids, browse, profile, publicProfile,
-│   │   │                    # shipments, gamification, creators, kyc, seo,
-│   │   │                    # payments, admin
+│   │   ├── src/modules/     # 18 modul domain (routes.ts + index.ts): auth, drops,
+│   │   │                    # orders, wallet, nfc, marketplace (alias /api/listings),
+│   │   │                    # bids, browse, profile, publicProfile, shipments,
+│   │   │                    # gamification, creators, kyc, seo, payments, admin,
+│   │   │                    # notifications
 │   │   ├── src/lib/db.ts    # facade RPC uang & stok (single transaction)
 │   │   ├── src/lib/reads*   # selector domain: select + mapper snake_case→camelCase
 │   │   ├── src/lib/cmac.ts  # AES-CMAC RFC 4493 + SUN AN12196
