@@ -266,3 +266,57 @@ describe("payout webhook state guard (audit 2026-08-29)", () => {
     expect(control.payoutUpdates).toHaveLength(0);
   });
 });
+
+function payoutWebhookWithSignature(body: Record<string, unknown>, signature: string) {
+  return app.request("/api/payments/midtrans/payout-webhook", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "x-signature-key": signature },
+    body: JSON.stringify(body),
+  });
+}
+
+// P1-1: signature gate dievaluasi SEBELUM akses DB mana pun — pemanggil tanpa
+// signature valid tidak boleh memicu fetch/update state payout sama sekali.
+describe("payout webhook signature gate (P1-1)", () => {
+  beforeEach(() => {
+    control.payoutRow = { status: "pending" };
+    control.payoutFetchErr = null;
+    control.payoutUpdates = [];
+    control.rpcCalls = [];
+  });
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("missing x-signature-key header -> 401 Invalid signature, no state flip", async () => {
+    const res = await app.request("/api/payments/midtrans/payout-webhook", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ payout_id: PAYOUT_ID, status: "paid" }),
+    });
+    expect(res.status).toBe(401);
+    const body = (await res.json()) as { error?: string };
+    expect(body.error).toBe("Invalid signature");
+    expect(control.payoutUpdates).toHaveLength(0);
+    expect(control.rpcCalls).toHaveLength(0);
+  });
+
+  it("wrong signature (same length, reaches constant-time compare) -> 401, no state flip", async () => {
+    const wrong = "x".repeat("test-payout-signing-key".length);
+    const res = await payoutWebhookWithSignature({ payout_id: PAYOUT_ID, status: "paid" }, wrong);
+    expect(res.status).toBe(401);
+    const body = (await res.json()) as { error?: string };
+    expect(body.error).toBe("Invalid signature");
+    expect(control.payoutUpdates).toHaveLength(0);
+    expect(control.rpcCalls).toHaveLength(0);
+  });
+
+  it("wrong signature (different length, short-circuit) -> 401, no state flip", async () => {
+    const res = await payoutWebhookWithSignature({ payout_id: PAYOUT_ID, status: "paid" }, "short");
+    expect(res.status).toBe(401);
+    const body = (await res.json()) as { error?: string };
+    expect(body.error).toBe("Invalid signature");
+    expect(control.payoutUpdates).toHaveLength(0);
+    expect(control.rpcCalls).toHaveLength(0);
+  });
+});

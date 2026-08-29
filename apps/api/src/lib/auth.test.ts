@@ -1,5 +1,5 @@
-import { exportJWK, generateKeyPair, SignJWT } from "jose";
-import { describe, expect, it } from "vitest";
+import { exportJWK, generateKeyPair, type JWK, SignJWT } from "jose";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { type SupabaseJwtConfig, tokenFingerprint, verifySupabaseJwt } from "./auth";
 
 // Matriks docs/15 §3.2: JWT expired / tampered / aud salah -> ditolak verifier (=> 401 di route).
@@ -148,5 +148,111 @@ describe("clientIp", () => {
         req: { header: () => undefined },
       }),
     ).toBeNull();
+  });
+});
+
+// P2-6: suspension gate — requireUser resolves issuer+JWKS from SUPABASE_URL env
+// (no injected config path) and loads the users row via getSupabase(). Env dipin,
+// JWKS endpoint disajikan lewat fetch stub, dan users table di-mock via supabase.js.
+const requireUserControl = vi.hoisted(() => ({
+  userRow: null as Record<string, unknown> | null,
+  dbLookups: [] as Array<{ table: string; id: string }>,
+}));
+
+vi.hoisted(() => {
+  // Literal (bukan konstanta ISSUER) — vi.hoisted dieksekusi sebelum deklarasi modul.
+  (globalThis as unknown as Record<string, string | undefined>).SUPABASE_URL = "https://test.supabase.co";
+});
+
+vi.mock("./supabase.js", () => ({
+  getSupabase: () => ({
+    from: (table: string) => ({
+      select: () => ({
+        eq: (column: string, id: string) => {
+          requireUserControl.dbLookups.push({ table: `${table}.${column}`, id });
+          return {
+            maybeSingle: () => Promise.resolve({ data: requireUserControl.userRow, error: null }),
+          };
+        },
+      }),
+    }),
+  }),
+}));
+
+describe("requireUser suspension gate (P2-6: 401 invalid vs 403 suspended)", () => {
+  // GoTrue issuer = <SUPABASE_URL>/auth/v1 — token harus di-signing dengan issuer
+  // env-derived ini, dan JWKS disajikan di <issuer>/.well-known/jwks.json.
+  const ENV_ISSUER = `${ISSUER}/auth/v1`;
+  const JWKS_URL = `${ENV_ISSUER}/.well-known/jwks.json`;
+  let originalFetch: typeof fetch;
+  // Satu keypair untuk seluruh describe: createRemoteJWKSet di-cache module-level
+  // (auth.ts) — keypair baru per-test dengan kid sama akan gagal verifikasi dari cache.
+  let jwtKit: Awaited<ReturnType<typeof makeConfig>>;
+
+  const callerFor = (token?: string) => ({
+    req: {
+      header: (k: string) => (token !== undefined && k.toLowerCase() === "authorization" ? `Bearer ${token}` : undefined),
+    },
+  });
+
+  const stubJwksFetch = (jwks: { keys: JWK[] }) => {
+    globalThis.fetch = (async (input: RequestInfo | URL) => {
+      const href = input instanceof URL ? input.href : typeof input === "string" ? input : input.url;
+      if (href === JWKS_URL) {
+        return new Response(JSON.stringify(jwks), { status: 200, headers: { "Content-Type": "application/json" } });
+      }
+      throw new Error(`unexpected network call in test: ${href}`);
+    }) as typeof fetch;
+  };
+
+  beforeAll(async () => {
+    jwtKit = await makeConfig();
+  });
+  beforeEach(() => {
+    originalFetch = globalThis.fetch;
+    stubJwksFetch(jwtKit.config.jwks);
+    requireUserControl.userRow = null;
+    requireUserControl.dbLookups = [];
+  });
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  it("valid JWT but user row has flag_reason -> 403 { reason: 'suspended' }, after DB lookup by JWT sub", async () => {
+    const { requireUser } = await import("./auth");
+    requireUserControl.userRow = { id: SUB, email: "member@cverse.id", flag_reason: "fraud" };
+    const res = await requireUser(callerFor(await jwtKit.sign({ issuer: ENV_ISSUER })));
+    expect(res).toEqual({ error: 403, reason: "suspended" });
+    // Row lookup must use the token's sub — proves the rejection happened AFTER
+    // successful JWT verification, purely because of flag_reason.
+    expect(requireUserControl.dbLookups).toEqual([{ table: "users.id", id: SUB }]);
+  });
+
+  it("valid JWT with clean row -> resolves user (proves the 403 is flag_reason-specific)", async () => {
+    const { requireUser } = await import("./auth");
+    requireUserControl.userRow = { id: SUB, email: "member@cverse.id", flag_reason: null, role: "user" };
+    const token = await jwtKit.sign({ issuer: ENV_ISSUER });
+    const res = await requireUser(callerFor(token));
+    if ("error" in res) throw new Error(`expected success, got ${JSON.stringify(res)}`);
+    expect(res.user.id).toBe(SUB);
+    expect(res.user.flagReason).toBeNull();
+    expect(res.token).toBe(token);
+    expect(requireUserControl.dbLookups).toHaveLength(1);
+  });
+
+  it("tampered JWT -> 401 without touching the users table", async () => {
+    const { requireUser } = await import("./auth");
+    requireUserControl.userRow = { id: SUB, flag_reason: null };
+    const token = await jwtKit.sign({ issuer: ENV_ISSUER });
+    const res = await requireUser(callerFor(`${token.slice(0, -4)}beef`));
+    expect(res).toEqual({ error: 401 });
+    expect(requireUserControl.dbLookups).toHaveLength(0);
+  });
+
+  it("missing Authorization header -> 401 without touching the users table", async () => {
+    const { requireUser } = await import("./auth");
+    const res = await requireUser(callerFor(undefined));
+    expect(res).toEqual({ error: 401 });
+    expect(requireUserControl.dbLookups).toHaveLength(0);
   });
 });
