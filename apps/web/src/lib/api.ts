@@ -177,10 +177,12 @@ export const api = {
       body: JSON.stringify({ cardId, amountCCoin: amountCcoin, amountCcoin: amountCcoin }),
     }),
   cancelBid: (bidId: string) => req<ApiCancelBidResponse>(`/bids/${bidId}/cancel`, { method: "POST" }),
-  // Vault-only accept (founder 2026-08-28): POST without body — the endpoint
-  // no longer accepts destination/address. Card settles straight to the vault;
-  // the buyer requests physical shipping later via vault-shipout.
-  acceptBidOnCard: (cardId: string) => req<ApiAcceptBidResponse>(`/bids/cards/${cardId}/accept`, { method: "POST" }),
+  // Vault-only accept (founder 2026-08-28): no destination/address — the card
+  // settles straight to the vault; the buyer requests physical shipping later
+  // via vault-shipout. Route validates acceptBidSchema = z.object({}).strict()
+  // via zValidator("json") → the POST must carry an empty JSON body.
+  acceptBidOnCard: (cardId: string) =>
+    req<ApiAcceptBidResponse>(`/bids/cards/${cardId}/accept`, { method: "POST", body: JSON.stringify({}) }),
 
   // profile
   profile: () => req<ApiProfileResponse>("/profile"),
