@@ -1583,12 +1583,19 @@ end $$;
 -- grant to target role. In-body is_service_role() guard tetap pagar kedua.
 -- ══════════════════════════════════════════════════════════════════════════
 
--- Wallet operations
+-- Wallet operations (X1 audit 2026-08-29: default privileges Supabase memberi
+-- EXECUTE ke anon/authenticated saat CREATE FUNCTION — revoke from public saja
+-- tidak menghapusnya; revoke eksplisit per-role, pola payout_batch_run).
+-- debit: authenticated self-only (guard auth.uid() in-body); credit: service_role
+-- only (top-up mint via Midtrans webhook).
 revoke execute on function public.wallet_debit(uuid, integer, text, text, text, text) from public;
+revoke execute on function public.wallet_debit(uuid, integer, text, text, text, text) from anon;
 grant execute on function public.wallet_debit(uuid, integer, text, text, text, text) to service_role;
 grant execute on function public.wallet_debit(uuid, integer, text, text, text, text) to authenticated;
 
 revoke execute on function public.wallet_credit(uuid, integer, text, text, text, text) from public;
+revoke execute on function public.wallet_credit(uuid, integer, text, text, text, text) from anon;
+revoke execute on function public.wallet_credit(uuid, integer, text, text, text, text) from authenticated;
 grant execute on function public.wallet_credit(uuid, integer, text, text, text, text) to service_role;
 
 -- Checkout / bid / marketplace — user-facing
@@ -1616,8 +1623,11 @@ grant execute on function public.set_buyout(text, integer) to authenticated;
 revoke execute on function public.buyout_card(text, public.shipment_to_dest, text) from public;
 grant execute on function public.buyout_card(text, public.shipment_to_dest, text) to authenticated;
 
--- Badges + XP — internal/service
+-- Badges + XP — internal/service (X1 audit 2026-08-29: trigger-invoked only
+-- via perform; tidak ada path end-user — revoke anon+authenticated).
 revoke execute on function public.award_badge_if_eligible(uuid, text) from public;
+revoke execute on function public.award_badge_if_eligible(uuid, text) from anon;
+revoke execute on function public.award_badge_if_eligible(uuid, text) from authenticated;
 grant execute on function public.award_badge_if_eligible(uuid, text) to service_role;
 
 revoke execute on function public.record_spend_conversion(uuid, integer, text) from public;
