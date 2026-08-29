@@ -679,6 +679,155 @@ await admin.query("commit");
   await s.end();
 }
 
+// ── SH1: admin_fulfill_shipment — state machine + money flow ───────────────
+// Fix 2026-08-29: `set status = p_status::shipment_status` — transisi legal
+// tidak lagi 42804. SH1 kini assert PERILAKU BENAR: guards (INVALID_ARG/
+// NOT_FOUND), lompatan illegal -> INVALID_TRANSITION, drive requested ->
+// packed (tracking di-trim) -> shipped (order 'shipped' + notifikasi) ->
+// delivered (card 'with_owner' + order 'delivered'), terminal lock, jalur
+// requested -> cancelled, fulfill TIDAK mencetak platform_revenue, dan aliran
+// uang vault_shipout (fee 'shipment' -> platform_revenue) yang tetap
+// satu-satunya settle ongkir.
+{
+  await admin.query("begin");
+  // kartu 1: di vault, sudah dibayar (order 'paid' shipping) — bahan fulfill
+  await admin.query(
+    `insert into public.cards (id, drop_id, unit_number, variant, status, owner_id, nfc_uid, nfc_short_id, verify_status, location, nfc_configured, qc_status)
+     values ('cov-card-ship-1', 'cov-drop-main', 90, 'unsigned', 'sold', $1, $2, $3, 'verified', 'platform_vault', true, 'passed')`,
+    [U.a, `COV${stamp}S1`, `cv-${stamp}-s1`],
+  );
+  await admin.query(
+    `insert into public.orders (id, user_id, drop_id, card_id, card_ids, total_ccoin, total_idr, status, escrow_status, delivery_option, source, shipping_address)
+     values ('cov-order-ship-1', $1, 'cov-drop-main', 'cov-card-ship-1', array['cov-card-ship-1']::text[], 10, 0, 'paid', 'released', 'shipping', 'fcfs', 'Jl. Coverage Ship No. 1 Bandung')`,
+    [U.a],
+  );
+  // kartu 2: masih di vault, belum ada shipment — bahan vault_shipout
+  await admin.query(
+    `insert into public.cards (id, drop_id, unit_number, variant, status, owner_id, nfc_uid, nfc_short_id, verify_status, location, nfc_configured, qc_status)
+     values ('cov-card-ship-2', 'cov-drop-main', 91, 'unsigned', 'sold', $1, $2, $3, 'verified', 'platform_vault', true, 'passed')`,
+    [U.a, `COV${stamp}S2`, `cv-${stamp}-s2`],
+  );
+  // kartu 3: jalur requested -> cancelled (uq_shipments_active_per_card:
+  // 1 shipment aktif/card, jadi TIDAK boleh share card dengan cov-ship-1)
+  await admin.query(
+    `insert into public.cards (id, drop_id, unit_number, variant, status, owner_id, nfc_uid, nfc_short_id, verify_status, location, nfc_configured, qc_status)
+     values ('cov-card-ship-3', 'cov-drop-main', 92, 'unsigned', 'sold', $1, $2, $3, 'verified', 'platform_vault', true, 'passed')`,
+    [U.a, `COV${stamp}S3`, `cv-${stamp}-s3`],
+  );
+  await admin.query("commit");
+  // shipment 'requested' — meniru output vault_shipout (queue admin)
+  await admin.query(
+    `insert into public.shipments (id, card_id, requester_id, type, from_location, to_dest, address, fee_ccoin, status)
+     values ('cov-ship-1', 'cov-card-ship-1', $1, 'vault_shipout', 'platform', 'buyer_address',
+             jsonb_build_object('street', 'Jl. Coverage Ship No. 1 Bandung'), 25, 'requested')`,
+    [U.a],
+  );
+  // shipment kedua untuk jalur requested -> cancelled (tanpa side effect)
+  await admin.query(
+    `insert into public.shipments (id, card_id, requester_id, type, from_location, to_dest, address, fee_ccoin, status)
+     values ('cov-ship-1c', 'cov-card-ship-3', $1, 'vault_shipout', 'platform', 'buyer_address',
+             jsonb_build_object('street', 'Jl. Coverage Ship No. 1 Bandung'), 25, 'requested')`,
+    [U.a],
+  );
+
+  // Guards yang dieksekusi SEBELUM UPDATE tetap bekerja:
+  const badStatus = await expectCode(admin.query("select public.admin_fulfill_shipment('cov-ship-1', 'flying')"));
+  const notFound = await expectCode(admin.query("select public.admin_fulfill_shipment('cov-ship-nope', 'packed')"));
+  // Lompatan illegal requested -> delivered (skip packed/shipped) -> INVALID_TRANSITION
+  const skipHop = await expectCode(admin.query("select public.admin_fulfill_shipment('cov-ship-1', 'delivered')"));
+
+  // Hop 1: requested -> packed — status berubah + tracking di-trim
+  await admin.query("select public.admin_fulfill_shipment('cov-ship-1', 'packed', '  TRK-W2B-1  ')");
+  const packed = (await admin.query("select status::text as st, tracking_number as trk from public.shipments where id = 'cov-ship-1'"))
+    .rows[0];
+  // fulfill TIDAK settle ongkir — fee 'shipment' hanya lewat vault_shipout
+  const revFulfill = (
+    await admin.query("select count(*)::int as n from public.platform_revenue where ref_type = 'shipment' and ref_id = 'cov-ship-1'")
+  ).rows[0].n;
+
+  // Hop 2: packed -> shipped — order 'shipped' + shipped_at + notifikasi trigger
+  await admin.query("select public.admin_fulfill_shipment('cov-ship-1', 'shipped')");
+  const shipped = (await admin.query("select status::text as st from public.shipments where id = 'cov-ship-1'")).rows[0].st;
+  const shippedCard = (await admin.query("select location::text as loc from public.cards where id = 'cov-card-ship-1'")).rows[0].loc;
+  const shippedOrder = (
+    await admin.query("select status::text as st, shipped_at is not null as at from public.orders where id = 'cov-order-ship-1'")
+  ).rows[0];
+  const notifShip = (
+    await admin.query(
+      "select count(*)::int as n from public.notifications where template_key = 'shipment_shipped' and payload->>'cardId' = 'cov-card-ship-1'",
+    )
+  ).rows[0].n;
+
+  // Hop 3: shipped -> delivered — card 'with_owner' + order 'delivered'
+  await admin.query("select public.admin_fulfill_shipment('cov-ship-1', 'delivered')");
+  const delivered = (await admin.query("select status::text as st from public.shipments where id = 'cov-ship-1'")).rows[0].st;
+  const deliveredCard = (await admin.query("select location::text as loc from public.cards where id = 'cov-card-ship-1'")).rows[0].loc;
+  const deliveredOrder = (
+    await admin.query("select status::text as st, delivered_at is not null as at from public.orders where id = 'cov-order-ship-1'")
+  ).rows[0];
+  const notifDeliv = (
+    await admin.query(
+      "select count(*)::int as n from public.notifications where template_key = 'shipment_delivered' and payload->>'cardId' = 'cov-card-ship-1'",
+    )
+  ).rows[0].n;
+
+  // Terminal: delivered -> cancelled ditolak (state terminal)
+  const terminal = await expectCode(admin.query("select public.admin_fulfill_shipment('cov-ship-1', 'cancelled')"));
+
+  // Jalur cancelled: requested -> cancelled langsung (legal per state machine)
+  await admin.query("select public.admin_fulfill_shipment('cov-ship-1c', 'cancelled')");
+  const cancelledSt = (await admin.query("select status::text as st from public.shipments where id = 'cov-ship-1c'")).rows[0].st;
+
+  // vault_shipout sungguhan (sebagai owner): fee 25 -> debit + revenue 'shipment'
+  const aBalBefore = await balance(U.a);
+  const a = await userClient(U.a);
+  // pg tidak mem-parse composite return jadi object — ambil field id langsung.
+  const soId = (await a.query("select (public.vault_shipout('cov-card-ship-2', 'Jl. Coverage Shipout No. 2 Bandung', 25)).id as sid"))
+    .rows[0].sid;
+  // anti double-ship: shipment aktif kedua -> SHIPMENT_ACTIVE
+  const doubleShip = await expectCode(a.query("select public.vault_shipout('cov-card-ship-2', 'Jl. Coverage Shipout No. 2 Bandung', 25)"));
+  await a.end();
+  const aBalAfter = await balance(U.a);
+  const revShipout = (
+    await admin.query(
+      "select platform_ccoin::int as p, royalty_ccoin::int as r, seller_ccoin::int as s from public.platform_revenue where ref_type = 'shipment' and ref_id = $1",
+      [soId],
+    )
+  ).rows[0];
+  const soCardQc = (await admin.query("select qc_status::text as qc from public.cards where id = 'cov-card-ship-2'")).rows[0].qc;
+
+  const ok =
+    badStatus.startsWith("INVALID_ARG") &&
+    notFound === "NOT_FOUND" &&
+    skipHop.startsWith("INVALID_TRANSITION") && // lompatan illegal ditolak
+    packed.st === "packed" &&
+    packed.trk === "TRK-W2B-1" && // tracking di-trim
+    revFulfill === 0 && // fulfill tidak settle ongkir
+    shipped === "shipped" &&
+    shippedCard === "platform_vault" && // location baru berubah saat delivered
+    shippedOrder.st === "shipped" &&
+    shippedOrder.at && // shipped_at terisi
+    notifShip === 1 && // trigger notifikasi shipped
+    delivered === "delivered" &&
+    deliveredCard === "with_owner" && // delivered: card ke owner
+    deliveredOrder.st === "delivered" &&
+    deliveredOrder.at && // delivered_at terisi
+    notifDeliv === 1 && // trigger notifikasi delivered
+    terminal.startsWith("INVALID_TRANSITION") && // delivered = terminal
+    cancelledSt === "cancelled" &&
+    aBalBefore - aBalAfter === 25 && // vault_shipout: debit fee tepat sekali
+    revShipout?.p === 25 &&
+    revShipout?.r === 0 &&
+    revShipout?.s === 0 && // fee penuh ke platform/treasury
+    doubleShip === "SHIPMENT_ACTIVE" &&
+    soCardQc === "passed";
+  report(
+    "SH1 admin_fulfill_shipment state machine: transisi legal OK (post-fix cast); guards + INVALID_TRANSITION; vault_shipout settle 'shipment'",
+    ok,
+    `badStatus=${badStatus} notFound=${notFound} skipHop=${skipHop} packed=${packed.st}/${packed.trk} revFulfill=${revFulfill} shipped=${shipped}/${shippedOrder.st}/loc=${shippedCard}/at=${shippedOrder.at}/notif=${notifShip} delivered=${delivered}/${deliveredOrder.st}/loc=${deliveredCard}/at=${deliveredOrder.at}/notif=${notifDeliv} terminal=${terminal} cancel=${cancelledSt} shipoutDebit=${aBalBefore - aBalAfter} revShipout=${JSON.stringify(revShipout ?? {})} doubleShip=${doubleShip} qc=${soCardQc}`,
+  );
+}
+
 // ── Cleanup ────────────────────────────────────────────────────────────────
 await admin.query("begin");
 // ALTER TABLE ... DISABLE TRIGGER needs the table owner (postgres); the query

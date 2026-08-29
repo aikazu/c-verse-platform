@@ -1394,7 +1394,7 @@ begin
 
   -- 1) Update shipment row (status selalu, tracking_number hanya jika non-empty).
   update shipments
-    set status = p_status,
+    set status = p_status::shipment_status,
         tracking_number = coalesce(v_tracking, tracking_number)
     where id = v_shipment.id
     returning * into v_shipment;
