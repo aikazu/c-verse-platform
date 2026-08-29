@@ -22,6 +22,12 @@ function report(id, pass, detail) {
   results.push({ id, pass });
   console.log(`${id} ${pass ? "PASS" : "FAIL"}${detail ? ` (${detail})` : ""}`);
 }
+// Env-gated skip: pass:false + skipped:true (konvensi rpc_nfc_replay_test) —
+// skip tidak boleh terlihat hijau; menahan exit code 2 (PENDING).
+function skip(id, detail) {
+  results.push({ id, pass: false, skipped: true });
+  console.log(`${id} SKIP (${detail})`);
+}
 function errCode(e) {
   return String(e.message).trim().split("\n")[0];
 }
@@ -581,7 +587,7 @@ await admin.query("commit");
     return res.status;
   }
   if (!anonKey) {
-    report("X1", true, "SKIP — set env SUPABASE_ANON_KEY (lihat header file) untuk mengaktifkan probe PostgREST anon");
+    skip("X1", 'SUPABASE_ANON_KEY missing — jalankan: eval "$(npx supabase status -o env)" lalu ulangi; probe PostgREST anon PENDING');
   } else {
     const s1 = await restRpc("wallet_credit", {
       p_user: U.p1,
@@ -851,6 +857,17 @@ await admin.query("commit");
 console.log("CLEANUP OK");
 await admin.end();
 
-const failed = results.filter((r) => !r.pass).length;
-console.log(failed === 0 ? "ALL PASS" : `${failed} FAILED`);
-if (failed > 0) process.exit(1);
+// Exit code: 1 = kegagalan nyata, 2 = PENDING (env-gated skip), 0 = ALL PASS.
+const skipped = results.filter((r) => r.skipped);
+const failed = results.filter((r) => !r.pass && !r.skipped).length;
+if (failed > 0) {
+  console.log(`${failed} FAILED${skipped.length ? ` (+${skipped.length} SKIP: ${skipped.map((s) => s.id).join(",")})` : ""}`);
+  process.exit(1);
+}
+if (skipped.length > 0) {
+  console.log(
+    `RESULT: PENDING — ${skipped.map((s) => s.id).join(",")} SKIP: SUPABASE_ANON_KEY tidak diset (source via eval "$(npx supabase status -o env)"); seri non-X tetap tervalidasi.`,
+  );
+  process.exit(2);
+}
+console.log("ALL PASS");
