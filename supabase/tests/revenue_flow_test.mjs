@@ -14,6 +14,8 @@
 //   T8 vault_shipout: fee debit + treasury + platform_revenue 'shipment' +
 //      shipment requested; repeat shipout aktif -> SHIPMENT_ACTIVE; non-owner -> FORBIDDEN
 //   T9 activate_scheduled_drops: scheduled lewat start -> live; live lewat end -> closed
+//   T10 checkout pool='premium': harga = price_signed_ccoin (kolom; +20 flat
+//      dihitung app-level via calcSignedPrice), split 70/30 atas harga signed
 import pgModule from "../../apps/api/node_modules/pg/lib/index.js";
 
 const { Client } = pgModule;
@@ -452,6 +454,69 @@ try {
       "T9 activate_scheduled_drops",
       a.rows[0]?.status === "live" && b.rows[0]?.status === "closed",
       `sched=${a.rows[0]?.status} ended=${b.rows[0]?.status}`,
+    );
+  }
+  // ══ T10: checkout pool='premium' — harga signed + split 70/30 di atasnya ══
+  {
+    const buyer = uuid(9);
+    const drop = `flow-t10-${stamp}`;
+    await mkUser(buyer, "T10 Premium Buyer", 500);
+    await mkDrop(drop, {
+      units: 1,
+      signed: 1,
+      priceU: 100,
+      priceS: 120,
+      raffleEnd: "now() - interval '25 hours'",
+      drawn: "now() - interval '24 hours'",
+    });
+    const c = await asUser(buyer);
+    const treasuryBefore = await walletBalance(TREASURY);
+    const creatorBefore = await walletBalance(U.creator);
+    await c.query("select public.checkout($1, 'premium')", [drop]);
+    await c.end();
+    const order = await admin.query(
+      "select status::text as s, escrow_status::text as e, delivery_option::text as d, total_ccoin, shipping_fee_ccoin, shipping_address from public.orders where drop_id = $1",
+      [drop],
+    );
+    const card = await admin.query(
+      "select location::text as l, owner_id, variant::text as v from public.cards where id = (select card_id from public.orders where drop_id = $1)",
+      [drop],
+    );
+    const rev = await admin.query(
+      "select gross_ccoin, platform_ccoin, royalty_ccoin, fee_snapshot->>'platform_pct' as pct from public.platform_revenue where ref_type = 'order' and ref_id in (select id from public.orders where drop_id = $1)",
+      [drop],
+    );
+    const creatorDelta = (await walletBalance(U.creator)) - creatorBefore;
+    const buyerBal = await walletBalance(buyer);
+    const treasuryDelta = (await walletBalance(TREASURY)) - treasuryBefore;
+    // RPC membaca price_signed_ccoin apa adanya (premium fee TIDAK diarahkan ke
+    // pihak ketiga — seluruh harga masuk split 70/30 primary yang sama dengan
+    // regular: royalty creator floor(30%), platform sisanya ke treasury).
+    const vaultOk =
+      order.rows.length === 1 &&
+      order.rows[0].s === "settled" &&
+      order.rows[0].e === "released" &&
+      order.rows[0].d === "vault" &&
+      Number(order.rows[0].total_ccoin) === 120 &&
+      order.rows[0].shipping_fee_ccoin === null &&
+      order.rows[0].shipping_address === null;
+    const ok =
+      vaultOk &&
+      card.rows[0].v === "signed" &&
+      card.rows[0].l === "platform_vault" &&
+      String(card.rows[0].owner_id) === buyer &&
+      rev.rows.length === 1 &&
+      Number(rev.rows[0].gross_ccoin) === 120 &&
+      Number(rev.rows[0].platform_ccoin) === 84 &&
+      Number(rev.rows[0].royalty_ccoin) === 36 &&
+      rev.rows[0].pct === "0.7" &&
+      creatorDelta === 36 &&
+      buyerBal === 380 &&
+      treasuryDelta === 84;
+    report(
+      "T10 checkout premium (signed) revenue 70/30 atas harga signed",
+      ok,
+      `order=${order.rows[0]?.s}/${order.rows[0]?.e}/${order.rows[0]?.d} total=${order.rows[0]?.total_ccoin} variant=${card.rows[0]?.v} loc=${card.rows[0]?.l} rev=${JSON.stringify(rev.rows[0] ?? {})} creatorΔ=${creatorDelta} buyer=${buyerBal} treasuryΔ=${treasuryDelta}`,
     );
   }
 } finally {
