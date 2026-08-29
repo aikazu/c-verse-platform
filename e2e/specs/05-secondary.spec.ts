@@ -22,19 +22,53 @@ test.describe("Secondary market", () => {
     await expect(page.locator("body")).not.toContainText("Error");
   });
 
-  test("place bid pada kartu (jika tersedia)", async ({ page }) => {
+  test("place bid pada kartu milik user lain (rival@cverse.id)", async ({ page }) => {
     await loginAs(page, "demo@cverse.id");
+
+    // Seed menjamin target bid-able milik user LAIN: card-aespa-live-02 (AESL-002,
+    // status 'bound', owner rival@cverse.id — bukan demo). Cari via NFC short ID
+    // agar determinis (urutan default /browse memunculkan kartu milik demo dulu).
     await page.goto("/browse");
-    const bidBtn = page.locator("text=Bid").first();
-    if (await bidBtn.isVisible({ timeout: 5000 }).catch(() => false)) {
-      await bidBtn.click();
-      const input = page.locator("input[type=number]").first();
-      if (await input.isVisible()) {
-        await input.fill("5");
-        await page.click('button:has-text("Konfirmasi")');
-        await expect(page.locator("text=Berhasil").or(page.locator("text=Bid"))).toBeVisible({ timeout: 10000 });
-      }
+    const search = page.locator('input[aria-label="Cari C.Card"]');
+    await expect(search).toBeVisible({ timeout: 10000 });
+    await search.fill("AESL-002");
+    const cardLink = page.locator("article.browse-card a[href*='/cards/']").first();
+    await expect(cardLink).toBeVisible({ timeout: 10000 });
+    await cardLink.click();
+    await expect(page).toHaveURL(/\/cards\/card-aespa-live-02/);
+
+    // Form bid hanya render untuk non-owner (CardInfo.tsx: user && !isOwnerDerived).
+    const bidInput = page.locator('input[aria-label="Jumlah tawaran C-Coin"]');
+    await expect(bidInput).toBeVisible({ timeout: 10000 });
+
+    // Idempoten antar-run: bid aktif sisa run sebelumnya (jika run sebelumnya
+    // crash sebelum cleanup) dibatalkan dulu — cancel_bid melepas escrow hold.
+    // Toast difilter per-teks: toast sukses sebelumnya hidup 4 detik (TTL) sehingga
+    // locator .toast-success polos bisa resolve >1 elemen (strict mode violation).
+    const cancelBtn = page.locator("button:has-text('Batalkan bid')");
+    if (await cancelBtn.isVisible()) {
+      await cancelBtn.click();
+      await expect(page.locator(".toast-success").filter({ hasText: "Bid dibatalkan" })).toBeVisible();
+      await expect(cancelBtn).toBeHidden();
     }
-    // Jika tidak ada kartu yang bisa di-bid, skip — bukan error
+
+    // Place bid 5 C → modal konfirmasi (useConfirm, wajib untuk aksi spend) →
+    // place_bid RPC menahan C-Coin (escrow_hold) → toast sukses + panel "BID KAMU".
+    await bidInput.fill("5");
+    await page.locator("button:has-text('Tawar')").first().click();
+    const confirmModal = page.locator(".cfm-card");
+    await expect(confirmModal).toContainText("Tawar 5 C?");
+    await confirmModal.locator("button:has-text('Tawar')").click();
+    await expect(page.locator(".toast-success").filter({ hasText: "Penawaran 5 C terkirim" })).toBeVisible();
+
+    const bidPanel = page.locator(".ci-bid-panel");
+    await expect(bidPanel).toContainText("BID KAMU");
+    await expect(bidPanel).toContainText("5 C");
+
+    // Cleanup: batalkan bid agar state seed kembali bersih (saldo demo ter-refund,
+    // slot bid aktif demo tidak naik) — sekaligus menguji cancel_bid RPC.
+    await page.locator("button:has-text('Batalkan bid')").click();
+    await expect(page.locator(".toast-success").filter({ hasText: "Bid dibatalkan" })).toBeVisible();
+    await expect(page.locator(".ci-bid-panel")).toBeHidden();
   });
 });

@@ -16,7 +16,8 @@ test.describe("Public browsing (unauthenticated)", () => {
 
   test("halaman browse bisa diakses tanpa login", async ({ page }) => {
     await page.goto("/browse");
-    await expect(page.locator("text=Secondary").or(page.locator("text=Browse")).or(page.locator("body"))).toBeVisible();
+    // Body saja (locator .or(body) → strict violation: body + link nav sama-sama match)
+    await expect(page.locator("body")).toBeVisible();
     await expect(page.locator("body")).not.toContainText("Error");
   });
 
@@ -32,6 +33,7 @@ test.describe("Public browsing (unauthenticated)", () => {
 
   test("halaman 404 menampilkan error page", async ({ page }) => {
     await page.goto("/halaman-tidak-ada");
-    await expect(page.locator("text=404").or(page.locator("text=tidak ditemukan"))).toBeVisible({ timeout: 10000 });
+    // .first(): error page render 2 elemen match (span "404" + heading "tidak ditemukan")
+    await expect(page.locator("text=404").or(page.locator("text=tidak ditemukan")).first()).toBeVisible({ timeout: 10000 });
   });
 });

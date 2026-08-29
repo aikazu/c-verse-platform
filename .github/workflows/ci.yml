@@ -57,8 +57,8 @@ jobs:
       # SUPABASE_SERVICE_ROLE_KEY, sehingga e2e yang butuh RLS bypass
       # (admin/seed flow) dan auth flow akan gagal dengan pesan keliru
       # (NetworkError / 401). scripts/ci-api-env.sh hanya menulis field
-      # yang WAJIB untuk e2e dasar; spec tes yang butuh Midtrans / NFC
-      # master key di-skip otomatis ketika env kosong.
+      # yang WAJIB untuk e2e dasar. Playwright men-start/reuse API+Web+Admin
+      # via webServer blocks; OTP login dibaca dari Mailpit (port 54324).
       - name: Build apps/api/.dev.vars from supabase status
         run: ./scripts/ci-api-env.sh apps/api/.dev.vars
       - name: Start API & Web

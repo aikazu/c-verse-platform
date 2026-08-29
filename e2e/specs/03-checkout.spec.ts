@@ -30,32 +30,23 @@ test.describe("Primary checkout", () => {
 
     // Cari tombol checkout/beli
     const beliBtn = page.locator("text=Beli").or(page.locator("text=Checkout")).first();
-    if (await beliBtn.isVisible()) {
-      await beliBtn.click();
-      await expect(page).toHaveURL(/checkout/);
-      await expect(page.locator("text=Vault").or(page.locator("text=Simpan"))).toBeVisible({ timeout: 10000 });
-    }
-    // Jika tidak ada tombol (drop sold_out), skip — bukan error
+    const isBeliVisible = await beliBtn.isVisible();
+    // Seed punya drop live ber-stok (drop-aespa-live/drop-genesis-live), tapi TIDAK
+    // menjamin posisi PERTAMA /drops adalah drop live yang bisa dibeli (urutan
+    // listing tidak deterministik) → fixture yang hilang: jaminan urutan /drops.
+    test.skip(
+      !isBeliVisible,
+      "reason: first drop di /drops belum tentu live ber-stok — butuh fixture jaminan urutan listing /drops (drop live + stok > 0 di posisi pertama)",
+    );
+    await beliBtn.click();
+    await expect(page).toHaveURL(/checkout/);
+    await expect(page.locator("text=Vault").or(page.locator("text=Simpan"))).toBeVisible({ timeout: 10000 });
   });
 
-  test("checkout shipping: alamat wajib diisi", async ({ page }) => {
-    await loginAs(page, "demo@cverse.id");
-    await page.goto("/drops");
-    const firstDrop = page.locator("a[href*='/drops/']").first();
-    await firstDrop.waitFor({ state: "visible", timeout: 10000 });
-    await firstDrop.click();
-
-    const beliBtn = page.locator("text=Beli").or(page.locator("text=Checkout")).first();
-    if (await beliBtn.isVisible()) {
-      await beliBtn.click();
-      // Pilih shipping
-      const shippingRadio = page.locator("text=Kirim").or(page.locator('input[value="shipping"]')).first();
-      if (await shippingRadio.isVisible()) {
-        await shippingRadio.click();
-        // Submit tanpa alamat → error
-        await page.click('button:has-text("Konfirmasi")');
-        await expect(page.locator("text=alamat").or(page.locator("[class*=error]"))).toBeVisible({ timeout: 5000 });
-      }
-    }
+  test("checkout shipping: alamat wajib diisi", async () => {
+    // Vault-settle MVP: checkout TIDAK punya langkah shipping — pembelian settle
+    // langsung ke vault (card location='platform_vault', order 'settled') tanpa
+    // alamat. Shipping hanya flow pasca-vault via vault_shipout (post-MVP).
+    test.fixme(true, "shipping flow returns post-MVP; vault checkout settles without address");
   });
 });

@@ -1,65 +1,110 @@
 import { expect, type Page } from "@playwright/test";
 
 /**
- * Ambil OTP 6 digit dari Inbucket untuk email tertentu.
- * Inbucket menyimpan email di /api/v1/mailbox/{email}.
- * Retry sampai 10× dengan delay 1s (email butuh waktu sampai).
+ * Mailpit (email UI dari Supabase stack lokal, port 54324) — API v1.
+ * Shape dipin dari swagger instance hidup: http://127.0.0.1:54324/api/v1/swagger.json
+ * - GET /api/v1/search?query=to:<email> → { messages: [{ ID, ... }] }  (terbaru dulu)
+ * - GET /api/v1/message/<ID>           → { ID, Subject, Text, HTML, ... }
+ * - DELETE /api/v1/messages            → body { "IDs": [<ID>, ...] }
  */
-export async function getOtpFromInbucket(email: string): Promise<string> {
-  for (let i = 0; i < 10; i++) {
-    try {
-      const res = await fetch(`http://localhost:9000/api/v1/mailbox/${encodeURIComponent(email)}`);
-      if (!res.ok) {
-        await new Promise((r) => setTimeout(r, 1000));
-        continue;
-      }
-      const messages = await res.json();
-      if (!Array.isArray(messages) || messages.length === 0) {
-        await new Promise((r) => setTimeout(r, 1000));
-        continue;
-      }
-      const body = messages[messages.length - 1].body?.text ?? "";
-      const match = body.match(/(\d{6})/);
-      if (match) return match[1];
-    } catch {
-      // Inbucket belum siap
-    }
-    await new Promise((r) => setTimeout(r, 1000));
-  }
-  throw new Error(`OTP tidak ditemukan untuk ${email} setelah 10 percobaan`);
+const MAILPIT_API = "http://127.0.0.1:54324/api/v1";
+
+// Sesi Supabase hidup di localStorage per-origin. redirect_to bawaan email =
+// site_url (127.0.0.1:5173) — origin BERBEDA dari baseURL test (localhost:5173)
+// sehingga sesi tidak terbaca. `localhost:5173` sudah terdaftar di
+// supabase/config.toml `additional_redirect_urls`, jadi rewrite ini valid.
+const WEB_ORIGIN = "http://localhost:5173";
+
+interface MailpitMessageSummary {
+  ID: string;
+}
+
+interface MailpitMessage {
+  ID: string;
+  Text?: string;
+}
+
+/** Cari email berdasarkan alamat penerima via endpoint search Mailpit. */
+async function searchMessagesByRecipient(email: string): Promise<MailpitMessageSummary[]> {
+  const res = await fetch(`${MAILPIT_API}/search?query=${encodeURIComponent(`to:${email}`)}`);
+  if (!res.ok) return [];
+  const body = (await res.json()) as { messages?: MailpitMessageSummary[] };
+  return body.messages ?? [];
 }
 
 /**
- * Login sebagai seed user via email OTP.
- * 1. Buka halaman login
- * 2. Isi email
- * 3. Kirim OTP
- * 4. Ambil OTP dari Inbucket
- * 5. Verifikasi OTP
- * 6. Tunggu redirect ke halaman utama
+ * Ambil magic-link GoTrue dari Mailpit untuk email tertentu (terbaru dulu).
+ * GoTrue lokal mengirim MAGIC LINK, bukan kode OTP 6 digit (subject
+ * "Your sign-in link", tipe `magiclink`; dibuktikan di run E2E 2026-08-29) —
+ * satu-satunya cara menyelesaikan login email di bench lokal. Retry 15×1s.
+ */
+export async function getMagicLinkFromMailpit(email: string): Promise<string> {
+  for (let attempt = 0; attempt < 15; attempt++) {
+    try {
+      const summaries = await searchMessagesByRecipient(email);
+      for (const summary of summaries) {
+        const res = await fetch(`${MAILPIT_API}/message/${summary.ID}`);
+        if (!res.ok) continue;
+        const message = (await res.json()) as MailpitMessage;
+        const match = (message.Text ?? "").match(/(https?:\/\/[^\s)]+\/auth\/v1\/verify\?[^\s)]+)/);
+        if (match) return match[1];
+      }
+    } catch {
+      // Mailpit belum siap / network hiccup — retry
+    }
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+  }
+  throw new Error(`Magic link tidak ditemukan untuk ${email} setelah 15 percobaan (Mailpit di ${MAILPIT_API})`);
+}
+
+/** Arahkan redirect_to magic link ke origin test (localhost:5173). */
+export function toLocalOrigin(magicLink: string): string {
+  return magicLink.replace(/redirect_to=[^&\s)]+/, `redirect_to=${encodeURIComponent(WEB_ORIGIN)}`);
+}
+
+/**
+ * UserMenu hanya dirender setelah auth state resolved — App.tsx:
+ * `if (!user) return null`. Ini satu-satunya indikator login yang pasti;
+ * teks "Koleksi" dsb. juga muncul di landing tanpa login (false-pass).
+ */
+export function userMenuLocator(page: Page) {
+  return page.locator('button[aria-haspopup="menu"]');
+}
+
+/**
+ * Login sebagai seed user via magic link GoTrue.
+ * 1. Hapus email lama (token single-use tidak boleh tertukar)
+ * 2. Kirim email login dari /login
+ * 3. Ambil magic link dari Mailpit
+ * 4. Kunjungi link (GoTrue verify → redirect ke app dengan sesi di fragment →
+ *    supabase-js detectSessionInUrl menyimpan sesi → profil dimuat)
+ * 5. Tunggu UserMenu terlihat
  */
 export async function loginAs(page: Page, email: string): Promise<void> {
+  await clearMailbox(email);
   await page.goto("/login");
   await page.waitForSelector('input[type="email"]', { timeout: 10000 });
 
-  // Isi email
   await page.fill('input[type="email"]', email);
   await page.click('button:has-text("Kirim")');
 
-  // Ambil OTP dari Inbucket
-  const otp = await getOtpFromInbucket(email);
-  await page.fill('input[inputmode="numeric"]', otp);
-  await page.click('button:has-text("Verifikasi")');
+  const magicLink = await getMagicLinkFromMailpit(email);
+  await page.goto(toLocalOrigin(magicLink));
 
-  // Tunggu login sukses — landing page atau home
-  await expect(page.locator("text=Koleksi").or(page.locator("[class*=user-menu]")).first()).toBeVisible({ timeout: 15000 });
+  await expect(userMenuLocator(page)).toBeVisible({ timeout: 15000 });
 }
 
-/** Bersihkan Inbucket mailbox antar test */
+/** Hapus email milik alamat tertentu antar test (cleanup best-effort). */
 export async function clearMailbox(email: string): Promise<void> {
   try {
-    await fetch(`http://localhost:9000/api/v1/mailbox/${encodeURIComponent(email)}`, { method: "DELETE" });
+    const summaries = await searchMessagesByRecipient(email);
+    if (summaries.length === 0) return;
+    await fetch(`${MAILPIT_API}/messages`, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ IDs: summaries.map((summary) => summary.ID) }),
+    });
   } catch {
-    // ok
+    // cleanup gagal tidak boleh menggagalkan test
   }
 }
