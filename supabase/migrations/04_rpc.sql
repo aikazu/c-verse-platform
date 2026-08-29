@@ -611,6 +611,8 @@ drop function if exists public.escrow_auto_release();
 -- ══════════════════════════════════════════════════════════════════════════
 -- place_bid: SALE_IN_PROGRESS guard (seed PHASE-1) + CARD_NOT_TRADABLE +
 -- maks 3 bid aktif per user. Refund active bid saat outbid.
+-- COOLING_PERIOD_24H + CREATOR_SELF_DEALING_30D (C-13 FINAL, paritas
+-- buyout_card — audit 2026-08-29: guard sebelumnya hanya ada di buyout).
 -- ══════════════════════════════════════════════════════════════════════════
 create or replace function public.place_bid(
   p_card_id text,
@@ -642,6 +644,28 @@ begin
              where h.card_id = p_card_id and h.owner_id = v_user
              and h.transferred_at > now() - interval '24 hours') then
     raise exception 'COOLING_PERIOD_24H';
+  end if;
+  -- C-13 creator self-dealing 30 hari (FINAL, paritas buyout_card 2026-08-29):
+  -- kreator drop tidak boleh bid kartu drop-nya sendiri dalam 30 hari.
+  if exists (select 1 from drops d where d.id = v_card.drop_id and d.creator_id = v_user
+             and coalesce(d.drop_start_at, d.drop_at, d.created_at) > now() - interval '30 days') then
+    raise exception 'CREATOR_SELF_DEALING_30D';
+  end if;
+  -- C-13 EXTENSION untuk seed card (Flow 10, keputusan 2026-08-20):
+  -- kreator pemilik seed TIDAK boleh membeli kembali kartu seed miliknya dalam
+  -- 30 hari sejak kartu berada di tangan kreator. Hanya memblok KREATOR seed.
+  if exists (select 1 from drops d where d.id = v_card.drop_id and d.is_seed and d.creator_id = v_user) then
+    if exists (
+      select 1 from ownership_history h
+      join drops d on d.id = v_card.drop_id
+      where h.card_id = p_card_id and h.owner_id = d.creator_id
+        and h.transferred_at > now() - interval '30 days'
+    ) or (
+      not exists (select 1 from ownership_history h where h.card_id = p_card_id and h.owner_id = v_user)
+      and (select created_at from cards where id = p_card_id) > now() - interval '30 days'
+    ) then
+      raise exception 'CREATOR_SELF_DEALING_30D';
+    end if;
   end if;
 
   select * into v_active from bids where card_id = p_card_id and status = 'active' for update;
