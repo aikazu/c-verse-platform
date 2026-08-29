@@ -1717,7 +1717,7 @@ begin
   if tg_op = 'UPDATE' and old.status = 'active' and new.status = 'outbid' then
     insert into public.notifications(id, user_id, channel, template_key, payload, status)
     values (
-      'nfb-'|| new.id || '-outbid-' || extract(epoch from now())::int::text,
+      'nfb-'|| new.id || '-outbid-' || gen_random_uuid()::text,
       old.bidder_id,
       'in_app',
       'bid_outbid',
@@ -1731,7 +1731,7 @@ begin
   if tg_op = 'UPDATE' and new.status = 'accepted' and old.status is distinct from 'accepted' then
     insert into public.notifications(id, user_id, channel, template_key, payload, status)
     values (
-      'nfb-' || new.id || '-accept-' || extract(epoch from now())::int::text,
+      'nfb-' || new.id || '-accept-' || gen_random_uuid()::text,
       new.bidder_id,
       'in_app',
       'bid_accepted',
@@ -1763,7 +1763,7 @@ begin
   if v_owner is not null and v_owner <> new.bidder_id then
     insert into public.notifications(id, user_id, channel, template_key, payload, status)
     values (
-      'nfb-' || new.id || '-new-' || extract(epoch from now())::int::text,
+      'nfb-' || new.id || '-new-' || gen_random_uuid()::text,
       v_owner,
       'in_app',
       'bid_received',
@@ -1800,7 +1800,7 @@ begin
 
     insert into public.notifications(id, user_id, channel, template_key, payload, status)
     values (
-      'nfc-' || new.id || '-sold-' || extract(epoch from now())::int::text,
+      'nfc-' || new.id || '-sold-' || gen_random_uuid()::text,
       old.owner_id,
       'in_app',
       'card_bought',
@@ -1830,7 +1830,7 @@ begin
     if new.status = 'paid' then
       insert into public.notifications(id, user_id, channel, template_key, payload, status)
       values (
-        'nfp-' || new.id || '-paid-' || extract(epoch from now())::int::text,
+        'nfp-' || new.id || '-paid-' || gen_random_uuid()::text,
         new.user_id,
         'in_app',
         'payout_disbursed',
@@ -1840,7 +1840,7 @@ begin
     elsif new.status = 'failed' or new.status = 'refunded' then
       insert into public.notifications(id, user_id, channel, template_key, payload, status)
       values (
-        'nfp-' || new.id || '-fail-' || extract(epoch from now())::int::text,
+        'nfp-' || new.id || '-fail-' || gen_random_uuid()::text,
         new.user_id,
         'in_app',
         'payout_failed',
@@ -1877,7 +1877,7 @@ begin
     if new.status = 'shipped' then
       insert into public.notifications(id, user_id, channel, template_key, payload, status)
       values (
-        'nfs-' || new.id || '-ship-' || extract(epoch from now())::int::text,
+        'nfs-' || new.id || '-ship-' || gen_random_uuid()::text,
         v_buyer,
         'in_app',
         'shipment_shipped',
@@ -1887,7 +1887,7 @@ begin
     elsif new.status = 'delivered' then
       insert into public.notifications(id, user_id, channel, template_key, payload, status)
       values (
-        'nfs-' || new.id || '-deliv-' || extract(epoch from now())::int::text,
+        'nfs-' || new.id || '-deliv-' || gen_random_uuid()::text,
         v_buyer,
         'in_app',
         'shipment_delivered',
