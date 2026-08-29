@@ -89,7 +89,7 @@ pnpm --filter @c-verse/admin dev      # Vite :3000  (127.0.0.1 only)
 pnpm run format      # biome auto-format
 pnpm run lint:fix    # biome auto-fix (import ordering)
 pnpm run typecheck   # tsc --noEmit × 4 workspaces
-pnpm run test        # vitest (packages/shared + apps/api)
+pnpm run test        # vitest (packages/shared + apps/api + apps/admin)
 pnpm run lint        # biome check . (0 error/warning hard gate)
 pnpm run build       # shared + web/dist + admin/dist (api = tsc only)
 

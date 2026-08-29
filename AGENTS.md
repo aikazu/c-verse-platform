@@ -17,7 +17,7 @@ Architecture: **fat database, thin API**. All money/stock mutations run inside P
 - Env files (copy each app's `.env.example`):
   - `apps/web/.env.local` — `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY`, `VITE_TURNSTILE_SITE_KEY`. Anon only — service-role keys must NEVER enter web/admin bundles.
   - `apps/admin/.env.local` — anon key + `VITE_API_URL` (dev `http://localhost:8787`; empty = same-origin), `VITE_TURNSTILE_SITE_KEY`.
-  - `apps/api/.dev.vars` — `SUPABASE_URL`/`SUPABASE_ANON_KEY`/`SUPABASE_SERVICE_ROLE_KEY`, `TURNSTILE_SECRET_KEY`, `NFC_MASTER_KEY`, `MIDTRANS_*`, `PAYOUT_WEBHOOK_SIGNING_KEY`, `EMAIL_ENABLED`/`EMAIL_FROM`/`ADMIN_ALERT_EMAIL` (Cloudflare Email Service; SMTP dropped). One file serves Wrangler and Node.
+  - `apps/api/.dev.vars` — `SUPABASE_URL`/`SUPABASE_ANON_KEY`/`SUPABASE_SERVICE_ROLE_KEY`, `NFC_MASTER_KEY`, `MIDTRANS_*`, `PAYOUT_WEBHOOK_SIGNING_KEY`, `EMAIL_ENABLED`/`EMAIL_FROM`/`ADMIN_ALERT_EMAIL` (Cloudflare Email Service; SMTP dropped). One file serves Wrangler and Node.
   - Prod secrets: `wrangler secret put` (+ `CF_ACCOUNT_ID`, `CF_API_TOKEN`) — never in the repo.
 - API fails fast without `SUPABASE_URL` — the DB is mandatory, no in-memory fallback.
 
@@ -25,18 +25,19 @@ Architecture: **fat database, thin API**. All money/stock mutations run inside P
 
 - Cloud stays canonical data. Cloud queries: `npx supabase db query --linked "SQL"` (multi-statement OK), linter `db advisors --linked`. (No `db execute` subcommand; no `psql` in PATH.)
 - `supabase/migrations/`: 5 consolidated files, every object written ONCE in final form (no `create or replace` chains): `01_schema` (DDL/enums/tables), `02_auth` (auth mirror + canonical email), `03_rls` (policies + guard triggers), `04_rpc` (all SECURITY DEFINER RPCs + grants), `05_indexes` (performance). Never edit an applied migration; `db push` never re-applies edits to applied files — changes land via a reset.
-- LOCAL stack is the standard test bench: `npx supabase start` (needs Docker), then `npx supabase db reset` (local) applies migrations + seed.sql. Integration tests in `supabase/tests/` run against the local DB (`postgresql://postgres:postgres@127.0.0.1:54322/postgres`) via `node <test>.mjs <url>` or plain `db query` (no `--linked`); a local `db reset` clears fixtures. Local reset is routine — no confirmation needed.
+- LOCAL stack is the standard test bench: `npx supabase start` (needs Docker), then `npx supabase db reset` (local) applies migrations + seed.sql. Integration tests in `supabase/tests/` run against the local DB (`postgresql://postgres:postgres@127.0.0.1:54322/postgres`) via `node <test>.mjs <url>` or plain `db query` (no `--linked`); a local `db reset` clears fixtures. Local auth emails are magic links (not OTP codes), visible in Mailpit :54324. Local reset is routine — no confirmation needed.
 - Cloud (`--linked`) reset stays owner-run destructive: it WIPES ALL cloud data — STOP and ask the owner first, then `"y" | npx supabase db reset --linked` (the pipe is mandatory; non-interactive shells die with `context canceled` on the `[y/N]` prompt). See Pitfalls.
 
 ## Quality gates
 
 - `pnpm run typecheck` — `tsc --noEmit`, strict, 4 workspaces (shared/api/web/admin).
 - `pnpm test` — Vitest (shared + api + admin).
+- `pnpm test:e2e` — Playwright from repo root (`playwright.config.ts`): webServer auto-starts/reuses API :8787, web :5173, admin :3000 (Turnstile suppressed on servers it starts); needs the local Supabase stack.
 - `pnpm run lint` — Biome, 0 errors / 0 warnings hard gate. Auto-fix: `pnpm run lint:fix`, `pnpm run format`.
 - `pnpm run build` — all workspaces. Note: api build = `tsc --noEmit` only; deploy = `pnpm --filter @c-verse/api deploy`.
 - Module boundaries: `pnpm --filter @c-verse/api lint:boundaries` (see Layout).
-- CI (`.github/workflows/ci.yml`, PR + main): install → typecheck → lint → lint:boundaries → test → build, plus `supabase db lint` on PRs.
-- Integration tests: run `supabase/tests/*` against the LOCAL stack (`.mjs` via `node <test>.mjs postgresql://postgres:postgres@127.0.0.1:54322/postgres`; SQL via plain `db query "$(cat file.sql)"`), then a local `db reset` to clear fixtures.
+- CI (`.github/workflows/ci.yml`, PR + main): install → typecheck → lint → lint:boundaries → test → build, plus PR-only `supabase db lint` and Playwright e2e (webServer auto-start/reuse) on PRs.
+- Integration tests: run `supabase/tests/*` against the LOCAL stack (`.mjs` via `node <test>.mjs postgresql://postgres:postgres@127.0.0.1:54322/postgres`; SQL via plain `db query "$(cat file.sql)"`), then a local `db reset` to clear fixtures. `rpc_nfc_replay_test.mjs` needs `NFC_MASTER_KEY` in env (from `apps/api/.dev.vars`) or it skips.
 
 ## Layout
 

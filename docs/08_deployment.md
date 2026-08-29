@@ -139,7 +139,8 @@ tidak membacanya. Public vars boleh di bundle dengan konvensi
    (prod: `https://c-verse.co`, preview: `https://*.pages.dev`).
 4. Migrasi: `npx supabase db push` (atau `npx supabase db reset`
    untuk lokal) — file SQL murni di `supabase/migrations/*.sql`
-   (7 fase). Cek `npx supabase db lint` untuk drift.
+   (5 file konsolidasi: schema → auth → RLS → RPC → indexes).
+   Cek `npx supabase db lint` untuk drift.
 5. RLS: apply policy per tabel (lihat `05_data_model.md` RLS) —
    verifikasi dengan `supabase/rls` test setelah deploy.
 6. Realtime: enable broadcast untuk channel `drop_countdown` &
@@ -152,7 +153,7 @@ pnpm install                 # install deps workspace
 pnpm run format              # biome auto-format
 pnpm run lint:fix            # biome auto-fix
 pnpm run typecheck           # tsc --noEmit × 4 workspace
-pnpm run test                # vitest (packages/shared + apps/api, wajib hijau)
+pnpm run test                # vitest (packages/shared + apps/api + apps/admin, wajib hijau)
 pnpm run lint                # biome check . — 0 error/warning
 pnpm run build               # pnpm -r build (shared → web/admin dist, api = tsc)
 ```
