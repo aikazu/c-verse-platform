@@ -67,7 +67,7 @@ flowchart LR
 | Tool | Versi |
 |------|-------|
 | Node | `>=20` |
-| pnpm | `9.12.3` (`npm i -g pnpm@9.12.3`) |
+| pnpm | `12.0.0` (`corepack use pnpm@12.0.0`) |
 
 > Jangan pakai `npm`/`yarn` — lockfile `pnpm-lock.yaml` v9.
 

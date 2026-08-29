@@ -45,7 +45,7 @@ Akun & kredensial yang harus sudah ada:
 | 5 | Midtrans/Xendit (sandbox dulu) | Top-up & disbursement (top-up bisa live setelah T&C final + cap saldo) |
 | 6 | Firebase (FCM) | Push notification — **post-MVP, belum diimplementasi** |
 
-Tool lokal: Node 20+, pnpm 9.12.3, wrangler CLI (`pnpm dlx wrangler`),
+Tool lokal: Node 20+, pnpm 12.0.0, wrangler CLI (`pnpm dlx wrangler`),
 Supabase CLI (`npx supabase`, migrasi SQL), git + GitHub CLI.
 
 Kredensial yang disimpan rahasia (tidak pernah di repo):
