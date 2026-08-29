@@ -199,6 +199,47 @@ create trigger trg_kyc_status_guard before insert or update on public.kyc_record
   for each row execute function public.kyc_status_guard();
 
 -- ══════════════════════════════════════════════════════════════════════════
+-- KYC files — storage.objects (bucket 'kyc-files', diprovision via
+-- config.toml — private). SATU-SATUNYA policy storage.objects di repo:
+-- tanpa ini upload dari browser (Kyc.tsx uploadKycFile) selalu ditolak RLS
+-- "new row violates row-level security policy" (RLS storage.objects aktif
+-- by default, terbukti empiris 2026-08-29; bucket public pun tetap kena RLS
+-- untuk insert). Scope minimal: INSERT saja, hanya ke folder per-user
+-- `<uid>/...`. Review admin membaca object via service-role (bypass RLS)
+-- untuk menandatangani URL — lihat apps/api/src/lib/store.ts (KycRecord
+-- comment).
+-- ══════════════════════════════════════════════════════════════════════════
+create policy kyc_files_owner_insert on storage.objects for insert to authenticated
+  with check (
+    bucket_id = 'kyc-files'
+    and (storage.foldername(name))[1] = auth.uid()::text
+  );
+
+-- supabase-js upload() selalu mengirim header x-upsert (Kyc.tsx: upsert true) —
+-- storage mengeksekusi INSERT .. ON CONFLICT DO UPDATE, dan Postgres menuntut
+-- policy UPDATE untuk path itu meski tidak ada konflik (tanpa ini upload tetap
+-- "new row violates row-level security policy"; terbukti empiris 2026-08-29).
+create policy kyc_files_owner_update on storage.objects for update to authenticated
+  using (
+    bucket_id = 'kyc-files'
+    and (storage.foldername(name))[1] = auth.uid()::text
+  )
+  with check (
+    bucket_id = 'kyc-files'
+    and (storage.foldername(name))[1] = auth.uid()::text
+  );
+
+-- Statement upsert storage berakhir dengan RETURNING * — Postgres menuntut
+-- policy SELECT agar baris baru boleh dikembalikan (tanpa ini x-upsert upload
+-- tetap RLS AccessDenied meski policy INSERT/UPDATE ada; dibuktikan via
+-- bisect psql 2026-08-29).
+create policy kyc_files_owner_select on storage.objects for select to authenticated
+  using (
+    bucket_id = 'kyc-files'
+    and (storage.foldername(name))[1] = auth.uid()::text
+  );
+
+-- ══════════════════════════════════════════════════════════════════════════
 -- payouts
 -- ══════════════════════════════════════════════════════════════════════════
 create policy payouts_select_own on public.payouts for select

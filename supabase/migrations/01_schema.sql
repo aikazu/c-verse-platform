@@ -259,12 +259,21 @@ create table public.user_badges (
   primary key (user_id, badge_id)
 );
 
+-- Kolom dob/ktp_url/npwp_url/selfie_url = kelengkapan KYC US-USR-011 (P0-5 audit
+-- 2026-08-24): DOB + foto KTP + selfie wajib, NPWP opsional — ditulis
+-- upsertKycSubmission (apps/api/src/lib/reads/kyc.ts), dibaca ulang via mapKycRow.
+-- dob memakai tipe date karena UI (<input type="date">) dan API selalu
+-- mengirim ISO yyyy-mm-dd. Semua nullable (npwp opsional + resubmit parsial).
 create table public.kyc_records (
   id text primary key,
   user_id uuid not null references public.users(id) on delete cascade,
   full_name text not null,
   nik text not null check (char_length(nik)=16),
   address text not null,
+  dob date,
+  ktp_url text,
+  npwp_url text,
+  selfie_url text,
   status kyc_status not null default 'pending',
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
