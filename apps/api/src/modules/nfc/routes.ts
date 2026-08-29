@@ -326,10 +326,13 @@ app.post(
       counter: z.string().optional(),
       cmac: z.string().optional(),
       shortId: z.string().optional(),
+      // SUN tamper bit pass-through ("1" = set) — hanya dipercaya setelah CMAC
+      // tervalidasi di dalam verifyTap (paritas dengan path GET 3d / sun-verify).
+      t: z.string().optional(),
     }),
   ),
   async (c) => {
-    const { uid, counter, cmac, shortId } = c.req.valid("json");
+    const { uid, counter, cmac, shortId, t } = c.req.valid("json");
     let card = await getCardByNfcUid(uid);
     if (!card && shortId) card = await getCardByNfcShortId(shortId);
     if (!card) return c.json({ status: "unknown", message: "UID tidak terdaftar", verifyStatus: "unknown" as const }, 404);
@@ -346,7 +349,7 @@ app.post(
       });
     }
 
-    const outcome = await verifyTap(card, { uidHex: uid, ctrHex: counter, cmacHex: cmac });
+    const outcome = await verifyTap(card, { uidHex: uid, ctrHex: counter, cmacHex: cmac, tamperFlag: t === "1" });
     const [drop, owner] = await Promise.all([getDropById(card.dropId), card.ownerId ? getUserById(card.ownerId) : Promise.resolve(null)]);
     return c.json({
       verifyStatus: outcome.verifyStatus,

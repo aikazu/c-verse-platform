@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useRef } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 import { api } from "../lib/api";
 import type { ApiCard3dResponse, ApiDrop } from "../lib/api-types";
 import { useCardViewer } from "../lib/viewer";
@@ -8,10 +8,19 @@ import "./cards.css";
 
 export default function Card3D() {
   const { cardId } = useParams();
+  const [searchParams] = useSearchParams();
   const viewerRef = useRef<HTMLDivElement>(null);
+  // iOS SUN tap: the NDEF URL lands here with ?uid=&ctr=&c=&t= — forward them so
+  // the backend runs real CMAC verification instead of capping at "registered".
+  const tapParams = {
+    uid: searchParams.get("uid") ?? undefined,
+    ctr: searchParams.get("ctr") ?? undefined,
+    cmac: searchParams.get("c") ?? searchParams.get("cmac") ?? undefined,
+    t: searchParams.get("t") ?? undefined,
+  };
   const { data, isLoading } = useQuery<ApiCard3dResponse>({
-    queryKey: ["card3d", cardId],
-    queryFn: () => api.card3d(cardId!),
+    queryKey: ["card3d", cardId, searchParams.toString()],
+    queryFn: () => api.card3d(cardId!, tapParams),
     enabled: !!cardId,
   });
   const drop: ApiDrop | null = data?.drop ?? null;

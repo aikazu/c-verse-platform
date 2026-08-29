@@ -7,6 +7,7 @@ import { useConfirm } from "../components/ConfirmProvider";
 import { ApiError, api } from "../lib/api";
 import type { ApiCardDetailResponse, ApiCardOwnershipRow } from "../lib/api-types";
 import { useAuth } from "../lib/auth";
+import { scanNfcTaps } from "../lib/nfc-web";
 import { useToast } from "../lib/toast";
 import "./cards.css";
 
@@ -51,6 +52,42 @@ export default function CardInfo() {
     if (typeof window === "undefined") return;
     if (canBuyoutDerived && window.location.hash === "#beli") setBuyoutOpen(true);
   }, [canBuyoutDerived]);
+  // QR visit (box QR / shared link): record the visit server-side so the physical
+  // C.Card persists at most "registered" — the existing badge above reflects it
+  // after refetch. Best-effort: a network error must never block the page.
+  const nfcShortId = data?.card?.nfcShortId ?? null;
+  useEffect(() => {
+    if (!nfcShortId) return;
+    let isCancelled = false;
+    api
+      .verifyShortId(nfcShortId)
+      .then(() => {
+        if (!isCancelled) refetch();
+      })
+      .catch(() => {
+        // Silent failure — verification is never a render blocker.
+      });
+    return () => {
+      isCancelled = true;
+    };
+  }, [nfcShortId, refetch]);
+  // Android Web NFC: tapping the physical card on the phone relays the tag's own
+  // payload (opaque pass-through) to /api/nfc/verify-nfc. Feature-detected
+  // silently — no UI when 'NDEFReader' is unsupported.
+  useEffect(() => {
+    return scanNfcTaps((payload) => {
+      api
+        .verifyNfc(payload)
+        .then((res) => {
+          refetch();
+          const badge = VERIFY_BADGES[res.verifyStatus] ?? VERIFY_BADGES.unknown;
+          push(badge.label, res.verifyStatus === "verified" ? "success" : res.verifyStatus === "tamper_detected" ? "error" : "info");
+        })
+        .catch(() => {
+          // Silent: unregistered UID / network error must not nag.
+        });
+    });
+  }, [push, refetch]);
   if (isLoading) return <div className="muted ci-note">Memuat…</div>;
   if (!data)
     return (
