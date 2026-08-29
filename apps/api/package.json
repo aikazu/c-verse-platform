@@ -8,6 +8,7 @@
     "dev:node": "tsx watch src/server.ts",
     "build": "tsc --noEmit",
     "typecheck": "tsc --noEmit",
+    "lint:boundaries": "node tools/check-boundaries.mjs",
     "deploy": "wrangler deploy"
   },
   "dependencies": {
