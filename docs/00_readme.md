@@ -1,7 +1,7 @@
 # 00 — README: Development Strategy C.Verse MVP
 
 > Status: [VALIDATED]
-> Last updated: 2026-08-20 (Flow 10-11 baru + keputusan auth passwordless / akun kreator admin-provisioned)
+> Last updated: 2026-08-29 (email Cloudflare Email Service, analytics foundation creator_page_views, C-13 paritas place_bid, wiring NFC web, Supabase lokal = test bench standar)
 > Konteks: foundation code sudah ada di
 > `C:\Users\iqbal\Documents\C-Verse\Platform` (mulai 2026-08-12).
 > Folder ini = satu-satunya acuan eksekusi; dok ini = pintu masuk.

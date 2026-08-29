@@ -204,6 +204,13 @@ Non-NFC / gagal: scan QR di dus
       (tanpa CMAC, lebih lemah)
 ```
 
+- **[Update 2026-08-29] Wiring web TERIMPLEMENTASI**: halaman 3D
+  meneruskan param SUN (`uid/ctr/c/t`) ke verify backend; QR di dus
+  ter-wire ke `POST /api/nfc/verify-nfc` (shortId, cap `registered`);
+  hook `NDEFReader` (Android) via `apps/web/src/lib/nfc-web.ts`;
+  tamper flag `t` diproses server. Validasi device nyata (C-03)
+  tetap pending.
+
 ## Flow 6: Ownership Transfer (secondary)
 
 ```
@@ -493,7 +500,7 @@ penjualan — tidak ada split/gateway/escrow.
            total_followers_combined default 0) — handle bentrok -> 409
            "Handle sudah dipakai" + rollback hapus auth user
         5. kirim email akses via modul email ber-flag EMAIL_ENABLED
-           (default OFF di dev -> emailSent:false; SumoPod SMTP saat ON)
+           (default OFF di dev -> emailSent:false; Cloudflare Email Service saat ON)
         6. audit log admin_audit_log (action 'create', payload
            { provision:true, handle, emailSent })
    -> [KREATOR] login pertama & seterusnya via OTP email ATAU Google
@@ -530,5 +537,5 @@ penjualan — tidak ada split/gateway/escrow.
 - Akun kreator admin-provisioned (keputusan 2026-08-20, [VALIDATED])
   — Flow 11: endpoint `POST /api/admin/users/provision` (create auth
   user tanpa password, `profiles.role='creator'`, isi `creators.user_id`,
-  email akses via SumoPod SMTP); login OTP email / Google OAuth.
+  email akses via Cloudflare Email Service); login OTP email / Google OAuth.
   TERIMPLEMENTASI 2026-08-21.

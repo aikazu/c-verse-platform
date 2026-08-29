@@ -7,7 +7,8 @@
 > JWT verify via `jose` + JWKS, tidak ada password/in-memory session.
 > Admin app MFA TOTP (aal2) via `TotpRequired.tsx`.
 > Estimasi: 3-5 hari AI-assisted. Dependency: tidak ada (mulai duluan).
-> Blok: `11_rls_policy.md`, `13_atomic_checkout_rpc.md` menunggu ini.
+> Blok: tidak ada — `11_rls_policy.md` & `13_atomic_checkout_rpc.md`
+> sudah terealisasi (RLS + RPC di `supabase/migrations/`).
 
 ## 1. Masalah
 
@@ -125,17 +126,16 @@ Auth saat ini custom in-memory — tidak bisa dibawa ke produksi:
   yang di-set admin. Pencatatan `admin_audit_log` wajib (aksi
   account-provisioning).
 
-### 3,6,1 Prod email checklist (2026-08-23)
-- Set `EMAIL_ENABLED=true` + `SMTP_HOST`/`SMTP_PORT`/`SMTP_USER`/
-  `SMTP_PASS` di API env (sama dengan dev). Modul `apps/api/src/lib/email.ts`
-  memuat `nodemailer` via dynamic import — runtime **Node only**.
-- Di Cloudflare Workers (prod) `nodemailer` tidak tersedia → email
-  akan error eksplisit. Opsi MVP: pindahkan dispatch ke deployment
-  Node (worker cron/queue) atau pakai email HTTP API eksternal
-  post-MVP. Sampai itu jalan, kreator yang di-provision admin
-  cukup menerima info akses dari UI admin ("akun sudah dibuat —
-  login via OTP/Google dengan email berikut") tanpa email keluar.
-- Tidak ada fallback silent; flag OFF atau transport gagal = audit
+### 3.6.1 Prod email checklist (update 2026-08-29 — Cloudflare Email Service)
+- Transport: Workers binding `send_email` (`env.EMAIL`) — SMTP/nodemailer
+  dihapus total (Node-only, tidak jalan di Workers). Set `EMAIL_ENABLED=true`
+  + `EMAIL_FROM` (domain harus onboarded ke Email Service) di env prod.
+- Node dev (tsx) tidak punya binding → payload di-log (penerima di-redact),
+  tidak terkirim (`email_binding_unavailable`). Failure send dipetakan ke
+  reason code — tidak pernah throw ke route.
+- `ADMIN_ALERT_EMAIL` = penerima digest failure cron (`lib/cron.ts`) —
+  satu email ringkas per run bila ada job yang gagal.
+- Tetap tidak ada fallback silent; flag OFF atau transport gagal = audit
   log tetap merekam `emailSent:false`.
 
 ## 4. Jangan Dilakukan

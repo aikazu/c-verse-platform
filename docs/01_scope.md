@@ -144,8 +144,9 @@ F001-F007, F009-F011, F013-F015, F017-F019, F036, ADM-01..10.
       serial manual.
 - [ ] Secondary: Marketplace (buyout price) + Browse (bid
       langsung di kartu, owner accept) jalan.
-- [ ] KYC: trigger payout/disbursement ke IDR + akumulasi top-up
-      besar (validasi lawyer 2026-08-13).
+- [ ] KYC: gate payout/disbursement ke IDR (request + approval admin;
+      threshold akumulasi top-up besar DEFERRED — lihat
+      `16_foundation_cleanup.md` F-03; validasi lawyer 2026-08-13).
 - [ ] Level naik via XP (spend 1 C-Coin = 1 XP, 10 XP = 1
       level); badge (kriteria + ikon + XP reward) dikonfigurasi
       di admin page.

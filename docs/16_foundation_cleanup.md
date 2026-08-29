@@ -1,6 +1,6 @@
 # 16 — Foundation Cleanup (quick fixes hasil audit 2026-08-15)
 
-> Status: [DRAFT — SPEC SIAP EKSEKUSI]
+> Status: [SEBAGIAN TEREEKSEKUSI — F-05/F-09/F-10 RESOLVED di kode; F-03 DEFERRED; F-06 RESOLVED-INVALID — lihat catatan per item]
 > Created: 2026-08-15
 > Daftar perbaikan kecil hasil audit `C:\Users\iqbal\Documents\C-Verse\Platform`
 > yang tidak masuk spec besar 10-14. Eksekusi sekali jalan (1-2 hari),
@@ -58,6 +58,9 @@
 - `apps/api/src/modules/nfc/routes.ts` `POST /simulate-tamper/:cardId` —
   pindah ke route admin service-role (atau hapus total; set status
   tamper cukup via admin app ADM-04).
+- **[RESOLVED 2026-08-29]** Endpoint sudah TIDAK ADA di source
+  (`apps/api/src`) — hanya sisa artefak build `.wrangler/tmp`; tidak
+  ada route yang perlu dihapus.
 
 ### F-06 Dead code `calcLevel` — [RESOLVED-INVALID 2026-08-23, REFRESHED 2026-08-27]
 - Premis audit salah: `packages/shared/src/index.ts:432-442`

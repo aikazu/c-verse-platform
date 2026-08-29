@@ -101,6 +101,13 @@ Tool desktop custom (ACR122U/Python) = opsional Y2 kalau volume > 200 tag.
 
 ## 3. Validasi Device (gate C-03 — wajib sebelum fallback QR dimatikan)
 
+> **[Update 2026-08-29] Wiring web TERIMPLEMENTASI (bukan validasi device):**
+> SUN tap params (`uid/ctr/c/t`) di-forward halaman 3D ke verify backend;
+> QR verify ter-wire (`POST /api/nfc/verify-nfc`); hook `NDEFReader`
+> (Android) via `apps/web/src/lib/nfc-web.ts`; tamper flag `t` diproses
+> server (paritas path 3d / sun-verify). Checklist device di bawah
+> TETAP pending.
+
 Checklist uji iPhone nyata (minimal 2 device: iOS lama 15-16 & baru 17+):
 - [ ] Layar terkunci / mati → tap → muncul notifikasi tag? URL terbuka?
 - [ ] Prompt "Open in Safari?" muncul atau langsung navigate?

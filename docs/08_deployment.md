@@ -24,8 +24,10 @@ Infra pendukung:
 - Cloudflare Cron Triggers (raffle draw, payout batch — settlement
   pembelian langsung di RPC, tanpa cron; founder 2026-08-28)
 - Midtrans (sandbox → prod)
-- Belum aktif: Cloudflare Queues (email/notifikasi/payout), SMTP
-  transaksional di API, FCM push
+- Belum aktif: Cloudflare Queues (notifikasi/payout), FCM push.
+  Email transaksional API (akses kreator + digest failure cron) via
+  Cloudflare Email Service — binding `send_email` (`EMAIL`), gate
+  `EMAIL_ENABLED` (update 2026-08-29; SMTP/nodemailer dihapus)
 ```
 
 Environment:
@@ -99,8 +101,9 @@ tidak membacanya. Public vars boleh di bundle dengan konvensi
    di `wrangler.toml`; aktifkan saat notifikasi diimplementasi.
 5. Secrets (wrangler secret put, TIDAK di repo):
    `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`,
-   `JWT_SECRET` (JWKS verifikasi), `SMTP_HOST`, `SMTP_PORT`,
-   `SMTP_USER`, `SMTP_PASS` (smtp.sumopod.com:465 SSL),
+   `JWT_SECRET` (JWKS verifikasi), `EMAIL_ENABLED`, `EMAIL_FROM`,
+   `ADMIN_ALERT_EMAIL` (Cloudflare Email Service — binding `EMAIL`
+   di `wrangler.toml`; SMTP dihapus 2026-08-29),
    `MIDTRANS_SERVER_KEY`, `NFC_MASTER_KEY`,
    `PAYOUT_WEBHOOK_SIGNING_KEY`.
 
@@ -223,7 +226,7 @@ Preview (PR): deploy web ke Pages `--branch <pr-ref>` (URL
 
 Secrets CI yang wajib diset (GitHub Settings → Secrets):
 `CF_API_TOKEN`, `CF_ACCOUNT_ID`, `SUPABASE_SERVICE_ROLE_KEY`,
-`SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`,
+`EMAIL_ENABLED`, `EMAIL_FROM`, `ADMIN_ALERT_EMAIL`,
 `MIDTRANS_SERVER_KEY` (sandbox), `NFC_MASTER_KEY`,
 `PAYOUT_WEBHOOK_SIGNING_KEY`.
 
@@ -247,7 +250,8 @@ Secrets CI yang wajib diset (GitHub Settings → Secrets):
 - [ ] Web NFC verify OK di device nyata (C-03); fallback QR OK.
 - [ ] Supabase RLS verified (service-role tidak bocor ke publik).
 - [ ] Secrets tidak ada di bundle publik (cari `service_role|SERVER_KEY` di `dist/`).
-- [ ] Email (SumoPod SMTP) terkirim: order, payout, notifikasi.
+- [ ] Email via Cloudflare Email Service terkirim: akses kreator +
+      digest failure cron (`EMAIL_ENABLED=true`, binding `EMAIL`).
 - [ ] Monitoring aktif: Sentry (error) + BetterStack (uptime) +
       PostHog/Plausible (analitik). Alert ke #ops channel.
 - [ ] Cron OK: settlement release, raffle draw, payout Selasa.
@@ -265,7 +269,6 @@ Secrets CI yang wajib diset (GitHub Settings → Secrets):
 | Cloudflare Free tier | Pages+Workers+R2+Queues | Rp 0 (worst case upgrade ~Rp 500rb) |
 | Supabase Free → Pro | 500 MB → 8 GB | Rp 0 → ~Rp 350rb |
 | VPS admin (tunnel) | 1 vCPU/1 GB | Rp 100-200rb |
-| SumoPod SMTP | sesuaikan plan (cek kuota vendor) | cek vendor |
 | Midtrans/Xendit | fee top-up + disbursement | variabel (cost of goods) |
 | **Total infra Y1** | | **≤ Rp 1 juta/bln** (dalam opex Rp 38 jt/thn, recompute 2026-08-20; angka lama 135 jt dibatalkan) |
 

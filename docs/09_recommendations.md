@@ -110,6 +110,14 @@
     vs secondary buyout vs secondary bid.
   - Data ini dikumpulkan sejak day 1, meski dashboard kreator
     dibangun di Sprint berikutnya. Retrofit data historis mahal.
+- **[Update 2026-08-29] Foundation TERIMPLEMENTASI**: tabel
+  `creator_page_views` (`01_schema.sql`) + RPC
+  `record_creator_page_view` / `get_creator_page_stats` (`04_rpc.sql`);
+  API `POST /api/public/:username/view` (beacon, anon allowed,
+  referrer + city derivasi server-side) dan `GET
+  /api/public/:username/views/stats` (owner-fenced); beacon web
+  `apps/web/src/lib/analytics.ts` di `/c/:username`. Dashboard
+  kreator tetap sprint berikutnya.
 
 ## 3. Build-Time Implications — Antisipasi Y2+
 
@@ -155,6 +163,8 @@ belum dibangun. Retrofit di Y2+ akan jauh lebih mahal.
   tidak akan merespons.
 
 ### 3.5 Creator Analytics — Log dari Day 1
+> **[Update 2026-08-29]** Terimplementasi sesuai struktur di bawah —
+> tabel `creator_page_views` live (lihat §2.8 untuk endpoint).
 - Page view kreator, referrer, demografi (kota) — cukup simpan
   sebagai row di tabel `creator_page_views` (cardinalitas rendah,
   Y1 < 10k/hari).
@@ -202,7 +212,7 @@ tetap manual:
 
 | Item | Deadline | Owner |
 |------|----------|-------|
-| Threshold KYC akumulasi top-up besar | Sebelum payout pertama | Founder bisnis |
+| Threshold KYC akumulasi top-up besar | DEFERRED ke Y2+ — pra-launch payout = request + approval admin, tidak ada auto-trigger (`16_foundation_cleanup.md` F-03) | Founder bisnis |
 | Cap saldo maksimum (Rp 5-10 juta) | Sebelum top-up live | Founder bisnis |
 | Besaran diskon redistribute defect (10-30%) | Sebelum secondary live | Founder produk |
 

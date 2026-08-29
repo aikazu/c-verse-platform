@@ -171,7 +171,8 @@ apps/api/src/modules/payments/routes.ts
 - [ ] Payout sandbox: batch cron → disburse → status paid → wallet tx
       `payout` + `payout_fee` benar.
 - [ ] Semua webhook idempotent (bukti test duplicate).
-- [ ] `.env.example` diperbarui dengan variabel Midtrans.
+- [x] `.env.example` diperbarui dengan variabel Midtrans. (RESOLVED —
+      lihat `16_foundation_cleanup.md` F-09)
 
 ## 8. Sumber
 

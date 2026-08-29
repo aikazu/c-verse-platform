@@ -94,7 +94,8 @@ pnpm run lint        # biome check . (0 error/warning hard gate)
 pnpm run build       # shared + web/dist + admin/dist (api = tsc only)
 
 # Integration & e2e (butuh Docker / server hidup)
-psql "$DB_URL" -f supabase/tests/rls_test.sql
+npx supabase start && npx supabase db reset   # local stack (DB :54322)
+node supabase/tests/rpc_c13_bid_test.mjs "postgresql://postgres:postgres@127.0.0.1:54322/postgres"
 pnpm run test:e2e    # Playwright (9 spec, termasuk admin)
 ```
 
@@ -106,7 +107,7 @@ Template per app — copy `<folder>/.env.example` jadi file lokal masing-masing:
 |---|---|---|---|
 | `apps/web` | `apps/web/.env.example` | `.env.local` | `VITE_SUPABASE_*` (anon only), `VITE_TURNSTILE_SITE_KEY` |
 | `apps/admin` | `apps/admin/.env.example` | `.env.local` | `VITE_SUPABASE_*` (anon + MFA, di belakang Access), `VITE_API_URL` (dev `http://localhost:8787`, kosong = same-origin) |
-| `apps/api` | `apps/api/.env.example` | `.dev.vars` (dipakai Wrangler **dan** Node) | `SUPABASE_*`, `NFC_MASTER_KEY`, `MIDTRANS_*`, `PAYOUT_WEBHOOK_SIGNING_KEY` |
+| `apps/api` | `apps/api/.env.example` | `.dev.vars` (dipakai Wrangler **dan** Node) | `SUPABASE_*`, `NFC_MASTER_KEY`, `MIDTRANS_*`, `PAYOUT_WEBHOOK_SIGNING_KEY`, `EMAIL_*`/`ADMIN_ALERT_EMAIL` (Cloudflare Email Service) |
 
 Secrets prod via `wrangler secret put` — tidak pernah di repo. Turnstile secret & SMTP OTP dikonfigurasi di **Supabase Dashboard** (dipakai GoTrue), bukan dibaca API.
 
@@ -146,7 +147,7 @@ Login **tanpa password** — email OTP atau Google. UUID fixed di `supabase/seed
 
 Semua angka & enum canonical di `packages/shared/src/index.ts` — jangan hard-code di app.
 
-Belum diimplementasi: notifikasi in-app/push (F010, F013) dan layer email transaksional di API — email saat ini hanya OTP dari Supabase Auth.
+Belum diimplementasi: notifikasi in-app/push (F010, F013). Email transaksional API (akses kreator + digest failure cron) via Cloudflare Email Service — binding `send_email` (`EMAIL`), gate `EMAIL_ENABLED`; SMTP/nodemailer dihapus.
 
 ---
 
@@ -313,7 +314,7 @@ Cron Workers (`wrangler.toml` — hanya 2 trigger):
 
 | Ekspresi | WIB | Aksi |
 |---|---|---|
-| `*/5 * * * *` | tiap 5 menit | `activate_scheduled_drops` → `escrow_auto_release` → `draw_pending_drops` |
+| `*/5 * * * *` | tiap 5 menit | `activate_scheduled_drops` → `draw_pending_drops` (settlement pembelian langsung di RPC, tanpa escrow cron — founder 2026-08-28) |
 | `0 23 * * 1` | Selasa 06:00 | `payout_batch_run` (fee 1%, KYC + hold + min 10 C) |
 
 **Go-live checklist** (08): SSL aktif, `/health` OK, NFC verify di device nyata, RLS tanpa leak `service_role`, secret tidak di bundle, email OTP terkirim, cron OK, T&C + cap saldo live sebelum top-up uang riil.
