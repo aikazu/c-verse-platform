@@ -26,6 +26,8 @@ vi.mock("../../../lib/auth.js", () => ({
       },
       token: "mock-token",
     }),
+  clientIp: () => "127.0.0.1",
+  tokenFingerprint: () => Promise.resolve("sha256:test"),
 }));
 
 vi.mock("../reads.js", () => ({

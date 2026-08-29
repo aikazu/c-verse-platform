@@ -33,6 +33,8 @@ vi.mock("../../../lib/auth.js", () => ({
       token: "t",
       aal: "aal1",
     }),
+  clientIp: () => "127.0.0.1",
+  tokenFingerprint: () => Promise.resolve("sha256:test"),
 }));
 
 vi.mock("../../../lib/supabase.js", () => {
