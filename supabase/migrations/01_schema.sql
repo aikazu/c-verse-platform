@@ -415,7 +415,8 @@ create table public.drop_entries (
 -- Snapshot fee rate per transaksi (docs/05 I6/I11).
 create table public.platform_revenue (
   id text primary key default gen_random_uuid()::text,
-  source text not null check (source in ('primary','secondary_buyout','secondary_bid')),
+  -- 'shipment': vault_shipout ship fee (founder 2026-08-28, full fee to treasury).
+  source text not null check (source in ('primary','secondary_buyout','secondary_bid','shipment')),
   ref_type text not null,
   ref_id text not null,
   gross_ccoin integer not null check (gross_ccoin >= 1),

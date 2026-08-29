@@ -391,13 +391,16 @@ try {
     } catch (e) {
       repeatRejected = errCode(e) === "SHIPMENT_ACTIVE";
     }
-    // (iv) non-owner ditolak
+    // (iv) non-owner ditolak — the call must come from a different user
+    // (`other`), not the owner itself (cards[1] is also owned by owner).
     let nonOwnerRejected = false;
+    const c3 = await asUser(other);
     try {
-      await c2.query("select public.vault_shipout($1, 'Jl. Intruder No. 9 Jakarta', 5)", [cards[1].id]);
+      await c3.query("select public.vault_shipout($1, 'Jl. Intruder No. 9 Jakarta', 5)", [cards[1].id]);
     } catch (e) {
       nonOwnerRejected = errCode(e) === "FORBIDDEN";
     }
+    await c3.end();
     await c2.end();
     const ok =
       ship.rows[0]?.t === "vault_shipout" &&

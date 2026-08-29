@@ -253,8 +253,8 @@ wallet_transactions
 
 platform_revenue                                   [BARU 2026-08-16]
   id text PK
-  source text                 -- 'primary' | 'secondary_buyout' | 'secondary_bid'
-  ref_type text               -- 'order' | 'bid' | 'buyout'
+  source text                 -- 'primary' | 'secondary_buyout' | 'secondary_bid' | 'shipment'
+  ref_type text               -- 'order' | 'bid' | 'buyout' | 'shipment'
   ref_id text                 -- UNIQUE (ref_type, ref_id): id order/bid/tx debit
   gross_ccoin int
   platform_ccoin int          -- bagian platform (70% primary / 7,5% secondary)
