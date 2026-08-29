@@ -108,3 +108,36 @@ export async function clearMailbox(email: string): Promise<void> {
     // cleanup gagal tidak boleh menggagalkan test
   }
 }
+
+// ── Admin SPA (apps/admin, port 3000) ────────────────────────────────────────
+//
+// Alur login admin di bench lokal (diverifikasi di source, 2026-08-29):
+// - PROD: email OTP/magic-link + TOTP (aal2) — TotpRequired.tsx.
+// - DEV: LoginPage menyediakan tombol demo ("DEMO — Masuk sebagai admin@cverse.id")
+//   yang memanggil POST /api/auth/demo-login (butuh ENABLE_DEMO_LOGIN=1 di
+//   apps/api/.dev.vars) lalu supabase.auth.verifyOtp({ token_hash }) IN-PAGE —
+//   sesi aal1 tersimpan di localStorage origin :3000 tanpa email/redirect.
+// - Bypass aal2 hanya di SPA (App.tsx `isDemoDev`); server tetap menegakkan
+//   aal2 via requireAdmin (apps/api/src/lib/auth.ts) untuk endpoint
+//   requireAdmin — dan TOTP enrollment dinonaktifkan di supabase/config.toml,
+//   sehingga aal2 tidak bisa diperoleh di bench lokal.
+
+const ADMIN_ORIGIN = "http://localhost:3000";
+
+/**
+ * Login ke admin SPA sebagai admin@cverse.id via tombol demo (DEV-only).
+ * Idempotent: bila sesi masih hidup (tombol "Keluar" terlihat), tidak ada aksi.
+ * Selesai = Shell dirender, ditandai tombol logout "Keluar" yang hanya ada
+ * di dalam Shell (indikator authenticated, analog userMenuLocator di web).
+ */
+export async function adminLogin(page: Page): Promise<void> {
+  await page.goto(`${ADMIN_ORIGIN}/`);
+  const logout = page.getByRole("button", { name: "Keluar" });
+  const isAuthenticated = await logout.isVisible().catch(() => false);
+  if (isAuthenticated) return;
+
+  const demoButton = page.getByRole("button", { name: /DEMO — Masuk sebagai/ });
+  await expect(demoButton).toBeVisible({ timeout: 10000 });
+  await demoButton.click();
+  await expect(logout).toBeVisible({ timeout: 15000 });
+}
