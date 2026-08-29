@@ -1,3 +1,4 @@
+import { AOV_UNSIGNED_CCOIN, calcSignedPrice } from "@c-verse/shared";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
@@ -90,8 +91,8 @@ export default function DropDetail() {
       </div>
     );
   const drop = data;
-  const priceRegular = drop.priceCcoin ?? drop.priceUnsignedCCoin ?? 30;
-  const priceSigned = drop.priceSignedCCoin ?? priceRegular + 20;
+  const priceRegular = drop.priceCcoin ?? drop.priceUnsignedCCoin ?? AOV_UNSIGNED_CCOIN;
+  const priceSigned = drop.priceSignedCCoin ?? calcSignedPrice(priceRegular);
   const ph = derivePhase(drop, now);
   const pct = drop.totalUnits ? Math.round((drop.soldCount / drop.totalUnits) * 100) : 0;
   const dropStart = dropStartRaw;
@@ -231,6 +232,9 @@ function ActionPanel(props: {
   onNavHome: () => void;
 }) {
   const [pool, setPool] = useState<"regular" | "premium" | "both">("regular");
+  // Pool pembelian FCFS (post-draw) — terpisah dari pool raffle: checkout hanya
+  // menerima regular/premium (checkoutSchema) dan diteruskan ke RPC checkout.
+  const [buyPool, setBuyPool] = useState<"regular" | "premium">("regular");
   const [busy, setBusy] = useState(false);
   const confirm = useConfirm();
 
@@ -361,9 +365,32 @@ function ActionPanel(props: {
           <div className="cm-footnote">Limit 1 entry per user/drop; tidak bisa dibatalkan.</div>
         </>
       )}
+      {/* Pool selector FCFS: signed unit hanya dibeli via pool premium
+          (RPC checkout memetakan pool premium -> variant signed). */}
+      {props.phase === "fcfs" && (
+        <div className="cm-pool">
+          <div className="label">Pilih Pool</div>
+          <div role="radiogroup" className="cm-pool-group">
+            <PoolOption
+              checked={buyPool === "regular"}
+              onSelect={() => setBuyPool("regular")}
+              title="Reguler"
+              hold={props.priceRegular}
+              desc={`Harga unsigned (${props.priceRegular} C).`}
+            />
+            <PoolOption
+              checked={buyPool === "premium"}
+              onSelect={() => setBuyPool("premium")}
+              title="Signed (Premium)"
+              hold={props.priceSigned}
+              desc={`Harga signed = ${props.priceSigned} C.`}
+            />
+          </div>
+        </div>
+      )}
       {props.phase === "fcfs" && (
         <>
-          <Link to={`/drops/${props.drop.id}/checkout`} className="btn-gold cm-cta">
+          <Link to={`/drops/${props.drop.id}/checkout${buyPool === "premium" ? "?pool=premium" : ""}`} className="btn-gold cm-cta">
             Beli Sekarang →
           </Link>
           <div className="cm-footnote">

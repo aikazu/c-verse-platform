@@ -106,12 +106,15 @@ export const api = {
   // orders (primary)
   orders: () => req<ApiOrdersResponse>("/orders"),
   order: (id: string) => req<ApiOrderDetailResponse>(`/orders/${id}`),
-  // Vault-only checkout (founder 2026-08-28): body is `{ dropId }` ONLY — no
+  // Vault-only checkout (founder 2026-08-28): body is `{ dropId, pool }` — no
   // delivery option / address / shipping fee at purchase time. The physical
   // card settles straight to the vault; shipping happens later via
   // POST /orders/vault-shipout (see vaultShipout below).
-  // Body validated server-side by checkoutSchema. Server source of truth.
-  checkout: (dropId: string) => req<ApiCheckoutResponse>("/orders/checkout", { method: "POST", body: JSON.stringify({ dropId }) }),
+  // `pool` selects the card pool: "regular" (unsigned) or "premium" (signed
+  // units, priced priceSignedCCoin by the checkout RPC). Omitted → "regular"
+  // (checkoutSchema default). Server source of truth.
+  checkout: (dropId: string, pool: "regular" | "premium" = "regular") =>
+    req<ApiCheckoutResponse>("/orders/checkout", { method: "POST", body: JSON.stringify({ dropId, pool }) }),
   openDispute: (orderId: string, reason: string) =>
     req<{ order: Order }>(`/orders/${orderId}/dispute`, { method: "POST", body: JSON.stringify({ reason }) }),
   // Body validated server-side by vaultShipoutSchema. Server source of truth.

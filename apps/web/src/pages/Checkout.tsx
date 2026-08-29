@@ -1,7 +1,7 @@
 import { AOV_UNSIGNED_CCOIN } from "@c-verse/shared";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { api, formatIdr } from "../lib/api";
 import type { ApiDrop, ApiDropDetailResponse } from "../lib/api-types";
 import { useAuth } from "../lib/auth";
@@ -12,6 +12,7 @@ const errorMessage = (e: unknown): string => (e instanceof Error ? e.message : S
 
 export default function Checkout() {
   const { id } = useParams();
+  const [searchParams] = useSearchParams();
   const { user } = useAuth();
   const { push } = useToast();
   const nav = useNavigate();
@@ -37,7 +38,15 @@ export default function Checkout() {
       </div>
     );
   const drop: ApiDrop = data;
-  const price = drop.priceCcoin ?? drop.priceUnsignedCCoin ?? AOV_UNSIGNED_CCOIN;
+  // Pool dipilih di DropDetail FCFS dan diteruskan via query (?pool=premium);
+  // nilai lain jatuh ke "regular" sesuai default checkoutSchema (@c-verse/shared).
+  const pool: "regular" | "premium" = searchParams.get("pool") === "premium" ? "premium" : "regular";
+  // Mirror coalesce harga RPC checkout (supabase/migrations/04_rpc.sql):
+  // premium -> priceSignedCCoin dulu, regular -> priceCcoin dulu. Server
+  // tetap source of truth saat debit.
+  const priceRegular = drop.priceCcoin ?? drop.priceUnsignedCCoin ?? AOV_UNSIGNED_CCOIN;
+  const price =
+    pool === "premium" ? (drop.priceSignedCCoin ?? drop.priceCcoin ?? drop.priceUnsignedCCoin ?? AOV_UNSIGNED_CCOIN) : priceRegular;
   async function onCheckout() {
     if (!user) {
       push("Silakan login dulu", "info");
@@ -48,7 +57,7 @@ export default function Checkout() {
     try {
       // Vault-only purchase (founder 2026-08-28): settle straight to vault,
       // physical shipping requested later via ManageCards vault-shipout.
-      const res = await api.checkout(drop.id);
+      const res = await api.checkout(drop.id, pool);
       push(`Checkout berhasil — ${price} C · fisik tersimpan di vault`, "success");
       nav(`/orders/${res.order.id}`);
     } catch (e: unknown) {
