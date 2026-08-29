@@ -1,4 +1,5 @@
-import { describe, expect, it, vi } from "vitest";
+import { BALANCE_CAP_CCOIN, C_COIN_RATE_IDR, MIN_PAYOUT_CCOIN } from "@c-verse/shared";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.hoisted(() => {
   (globalThis as unknown as Record<string, string | undefined>).SUPABASE_URL = "http://localhost:54321";
@@ -30,42 +31,87 @@ vi.mock("../../../lib/auth.js", () => ({
   tokenFingerprint: () => Promise.resolve("sha256:test"),
 }));
 
-vi.mock("../reads.js", () => ({
-  getWallet: () =>
-    Promise.resolve({
+const control = vi.hoisted(() => ({
+  wallet: {
+    userId: "user-1",
+    balanceCCoin: 120,
+    totalTopupCCoin: 200,
+    totalSpentCCoin: 80,
+    holdPayoutUntil: null,
+  },
+  txs: [
+    {
+      id: "tx-1",
       userId: "user-1",
-      balanceCCoin: 120,
-      totalTopupCCoin: 200,
-      totalSpentCCoin: 80,
-    }),
-  listWalletTxs: () =>
-    Promise.resolve([
-      {
-        id: "tx-1",
-        userId: "user-1",
-        type: "top_up",
-        amountCCoin: 100,
-        balanceAfterCCoin: 200,
-        refType: null,
-        refId: null,
-        note: null,
-        createdAt: new Date().toISOString(),
-      },
-    ]),
-  isPayoutHeld: () => Promise.resolve({ held: false, until: null }),
+      type: "top_up",
+      amountCCoin: 100,
+      balanceAfterCCoin: 200,
+      refType: null,
+      refId: null,
+      note: null,
+      createdAt: new Date().toISOString(),
+    },
+  ],
+  payoutHeld: { held: false, until: null as string | null },
 }));
+
+const reads = vi.hoisted(() => ({
+  getWallet: vi.fn(() => Promise.resolve(control.wallet)),
+  listWalletTxs: vi.fn(() => Promise.resolve(control.txs)),
+  isPayoutHeld: vi.fn(() => Promise.resolve(control.payoutHeld)),
+}));
+
+vi.mock("../reads.js", () => reads);
 
 const { app } = await import("../../../index.js");
 
 describe("Wallet routes", () => {
-  it("GET /api/wallet returns wallet data for authenticated user", async () => {
+  beforeEach(() => {
+    control.payoutHeld = { held: false, until: null };
+    vi.clearAllMocks();
+  });
+
+  it("GET /api/wallet scopes reads to the caller and derives idr equivalent", async () => {
     const res = await app.request("/api/wallet", {
       headers: { Authorization: "Bearer mock-token" },
     });
     expect(res.status).toBe(200);
-    const body = (await res.json()) as { wallet: { balanceCCoin: number } };
-    expect(body.wallet).toBeDefined();
+    const body = (await res.json()) as {
+      wallet: { balanceCCoin: number; balanceIdrEquiv: number };
+      transactions: Array<{ id: string }>;
+      topupCapNoKyc: number;
+      minPayout: number;
+      payoutHeld: boolean;
+      payoutHoldUntil: string | null;
+    };
+
+    // camelCase mapping passthrough + DERIVED idr equivalent (not echoed by the mock)
     expect(body.wallet.balanceCCoin).toBe(120);
+    expect(body.wallet.balanceIdrEquiv).toBe(120 * C_COIN_RATE_IDR);
+
+    // owner scoping: every read is keyed to the authenticated user id only
+    expect(reads.getWallet).toHaveBeenCalledTimes(1);
+    expect(reads.getWallet).toHaveBeenCalledWith("user-1");
+    expect(reads.listWalletTxs).toHaveBeenCalledWith("user-1", 100);
+    expect(reads.isPayoutHeld).toHaveBeenCalledWith("user-1");
+
+    expect(body.transactions).toHaveLength(1);
+    expect(body.transactions[0].id).toBe("tx-1");
+    expect(body.topupCapNoKyc).toBe(BALANCE_CAP_CCOIN);
+    expect(body.minPayout).toBe(MIN_PAYOUT_CCOIN);
+    expect(body.payoutHeld).toBe(false);
+    expect(body.payoutHoldUntil).toBeNull();
+  });
+
+  it("GET /api/wallet surfaces fraud hold from isPayoutHeld", async () => {
+    control.payoutHeld = { held: true, until: "2026-09-01T00:00:00.000Z" };
+    const res = await app.request("/api/wallet", {
+      headers: { Authorization: "Bearer mock-token" },
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { payoutHeld: boolean; payoutHoldUntil: string | null };
+    expect(body.payoutHeld).toBe(true);
+    expect(body.payoutHoldUntil).toBe("2026-09-01T00:00:00.000Z");
   });
 
   it("GET /api/wallet returns disclosure statement", async () => {
