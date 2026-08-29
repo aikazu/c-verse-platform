@@ -1904,3 +1904,128 @@ drop trigger if exists trg_shipments_status on public.shipments;
 create trigger trg_shipments_status
   after update on public.shipments
   for each row execute function public.fn_notify_shipment_status();
+
+-- ══════════════════════════════════════════════════════════════════════════
+-- record_creator_page_view: analytics untuk /c/:username (docs 09 §2.8 +
+-- §3.5 — log from day 1 di DB sendiri, BUKAN Google Analytics; tanpa PII
+-- di luar referrer host + kota kasar). SECURITY DEFINER supaya pengunjung
+-- anon bisa log; username di-resolve ke user PUBLIK (bukan anonim, tidak
+-- suspended) yang punya baris creators — unknown/suspended/tanpa creators
+-- row = silent no-op (tidak membocorkan username mana yang ada).
+-- viewer = auth.uid() nullable (view anon tetap tercatat tanpa viewer).
+-- ══════════════════════════════════════════════════════════════════════════
+create or replace function public.record_creator_page_view(
+  p_username text,
+  p_referrer_host text default null,
+  p_city text default null
+) returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_creator_user_id uuid;
+  v_creator_id text;
+begin
+  if p_username is null or length(trim(p_username)) = 0 then
+    return; -- silent no-op: nothing to attribute
+  end if;
+
+  select u.id into v_creator_user_id
+  from public.users u
+  where lower(u.username) = lower(trim(p_username))
+    and u.is_anonymous = false
+    and u.flag_reason is null
+  order by u.created_at
+  limit 1;
+  if not found then return; end if;
+
+  select cr.id into v_creator_id
+  from public.creators cr
+  where cr.user_id = v_creator_user_id
+  order by cr.created_at
+  limit 1;
+  if not found then return; end if;
+
+  insert into public.creator_page_views (id, creator_id, viewed_at, referrer, city, user_id)
+  values (gen_random_uuid()::text, v_creator_id, now(), p_referrer_host, p_city, auth.uid());
+end $$;
+
+revoke execute on function public.record_creator_page_view(text, text, text) from public;
+grant execute on function public.record_creator_page_view(text, text, text) to anon;
+grant execute on function public.record_creator_page_view(text, text, text) to authenticated;
+grant execute on function public.record_creator_page_view(text, text, text) to service_role;
+
+-- ══════════════════════════════════════════════════════════════════════════
+-- get_creator_page_stats: agregat page-view milik creator sendiri (docs 09
+-- §3.5 — dashboard read; satu-satunya read surface non-service selain RLS
+-- owner-select). Caller HARUS creator (auth.uid() = creators.user_id).
+-- Return: { days, total, distinct_viewers, daily:[{day,views,distinct_viewers}],
+--           top_referrers:[{referrer_host,views}] } — day dibucket WIB
+-- (Asia/Jakarta, konsisten domain 12:00 WIB). p_days di-clamp 1..365.
+-- ══════════════════════════════════════════════════════════════════════════
+create or replace function public.get_creator_page_stats(p_days integer default 30)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+stable
+as $$
+declare
+  v_user uuid := auth.uid();
+  v_creator_id text;
+  v_days integer := greatest(1, least(coalesce(p_days, 30), 365));
+  v_since timestamptz := now() - make_interval(days => v_days);
+begin
+  if v_user is null then raise exception 'AUTH_REQUIRED'; end if;
+  select cr.id into v_creator_id
+  from public.creators cr
+  where cr.user_id = v_user
+  order by cr.created_at
+  limit 1;
+  if not found then raise exception 'FORBIDDEN'; end if;
+
+  return jsonb_build_object(
+    'days', v_days,
+    'total', (
+      select count(*)::bigint from public.creator_page_views v
+      where v.creator_id = v_creator_id and v.viewed_at >= v_since
+    ),
+    'distinct_viewers', (
+      select count(distinct v.user_id)::bigint from public.creator_page_views v
+      where v.creator_id = v_creator_id and v.viewed_at >= v_since
+    ),
+    'daily', (
+      select coalesce(
+        jsonb_agg(jsonb_build_object('day', d.day, 'views', d.views, 'distinct_viewers', d.distinct_viewers) order by d.day),
+        '[]'::jsonb)
+      from (
+        select (v.viewed_at at time zone 'Asia/Jakarta')::date as day,
+               count(*)::bigint as views,
+               count(distinct v.user_id)::bigint as distinct_viewers
+        from public.creator_page_views v
+        where v.creator_id = v_creator_id and v.viewed_at >= v_since
+        group by 1
+      ) d
+    ),
+    'top_referrers', (
+      select coalesce(
+        jsonb_agg(jsonb_build_object('referrer_host', r.referrer_host, 'views', r.views) order by r.views desc),
+        '[]'::jsonb)
+      from (
+        select v.referrer as referrer_host, count(*)::bigint as views
+        from public.creator_page_views v
+        where v.creator_id = v_creator_id and v.viewed_at >= v_since
+          and v.referrer is not null and length(trim(v.referrer)) > 0
+        group by 1
+        order by views desc
+        limit 10
+      ) r
+    )
+  );
+end $$;
+
+revoke execute on function public.get_creator_page_stats(integer) from public;
+revoke execute on function public.get_creator_page_stats(integer) from anon;
+grant execute on function public.get_creator_page_stats(integer) to authenticated;
+grant execute on function public.get_creator_page_stats(integer) to service_role;

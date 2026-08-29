@@ -1,8 +1,10 @@
 import type { LeaderboardEntry, LevelTier } from "@c-verse/shared";
 import { LEVEL_TIERS } from "@c-verse/shared";
 import { useQuery } from "@tanstack/react-query";
+import { useEffect } from "react";
 import { Link, useParams } from "react-router-dom";
 import { StatusBadge } from "../components/StatusBadge";
+import { trackCreatorPageView } from "../lib/analytics";
 import { ApiError, api } from "../lib/api";
 import type { ApiCreatorPublicResponse, ApiDrop, ApiLeaderboardResponse } from "../lib/api-types";
 import { ErrorState, LoadingState } from "../lib/QueryStates";
@@ -50,6 +52,12 @@ export default function CreatorPage() {
       return count < 1;
     },
   });
+
+  // Page-view beacon (docs 09 §2.8): fire-and-forget once per mount/username,
+  // invisible to users — UI for the stats is a later sprint (docs 09 §3.5).
+  useEffect(() => {
+    if (username) trackCreatorPageView(username);
+  }, [username]);
 
   // The /api/creators/:id route returns `creator.id` = userId (creators.ts:115/129)
   // — that's the value the leaderboard RPC expects as `creatorId` for the

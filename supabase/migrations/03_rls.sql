@@ -221,11 +221,23 @@ create policy notifications_update_own on public.notifications for update
   using (user_id = auth.uid()) with check (user_id = auth.uid());
 
 -- ══════════════════════════════════════════════════════════════════════════
--- creator_page_views: insert-only anon (read via admin / creator SPA;
--- rate-limit per-IP di API route M4 audit 2026-08-24).
+-- creator_page_views: writes ONLY via the SECURITY DEFINER RPC
+-- record_creator_page_view (granted to anon+authenticated; runs as table
+-- owner, unaffected by RLS). The insert-open policy was removed
+-- (audit 2026-08-29): `with check (true)` let any anon key insert rows for
+-- ANY creator_id, bypassing the RPC's suspended/unknown/no-creator guards.
 -- ══════════════════════════════════════════════════════════════════════════
-create policy creator_page_views_insert on public.creator_page_views for insert
-  with check (true);
+
+-- Owner-only read (audit 2026-08-29, docs 09 §3.5): creator may SELECT the
+-- page views of its own creator page (dashboard). Non-owners get default
+-- deny; no UPDATE/DELETE policy exists for non-admin roles at all.
+create policy creator_page_views_select_own on public.creator_page_views for select
+  using (
+    exists (
+      select 1 from public.creators cr
+      where cr.id = creator_page_views.creator_id and cr.user_id = auth.uid()
+    )
+  );
 
 -- ══════════════════════════════════════════════════════════════════════════
 -- drop_entries: seleksi milik sendiri

@@ -70,13 +70,15 @@ begin
   if n = 0 then raise notice 'T3 PASS'; else raise notice 'T3 FAIL (% rows)', n; end if;
 end $$;
 
--- T8: anon insert creator_page_views -> OK
+-- T8: anon insert creator_page_views -> rejected (writes go ONLY through the
+-- SECURITY DEFINER RPC record_creator_page_view; the insert-open policy was
+-- removed — audit 2026-08-29, advisors rls_policy_always_true finding).
 do $$
 begin
   insert into public.creator_page_views (id, creator_id, viewed_at) values (gen_random_uuid()::text, 'cr-karina', now());
-  raise notice 'T8 PASS';
+  raise notice 'T8 FAIL (anon insert went through)';
 exception when others then
-  raise notice 'T8 FAIL (%)', sqlerrm;
+  raise notice 'T8 PASS (%)', sqlerrm;
 end $$;
 
 -- T9: anon select creator_page_views -> ditolak (permission denied atau 0 rows)

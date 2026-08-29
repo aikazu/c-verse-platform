@@ -544,16 +544,16 @@ create unique index if not exists uq_shipments_active_per_card
 grant all on all tables in schema public to service_role;
 grant usage, select on all sequences in schema public to service_role;
 
--- anon: read publik + insert page-view (rate-limit per-IP di API route M4).
+-- anon: read publik. creator_page_views is write-via-RPC-only
+-- (record_creator_page_view SECURITY DEFINER; RLS default-deny, no direct INSERT).
 grant select on public.users, public.creators, public.drops, public.cards, public.bids, public.ownership_history, public.badges to anon;
-grant insert on public.creator_page_views to anon;
 
 -- authenticated: read sesuai matriks RLS + write minimum (guard trigger).
 grant select on
   public.users, public.creators, public.drops, public.cards, public.orders,
   public.wallets, public.wallet_transactions, public.bids, public.shipments,
   public.ownership_history, public.badges, public.user_badges, public.kyc_records,
-  public.payouts, public.notifications, public.disputes
+  public.payouts, public.notifications, public.disputes, public.creator_page_views
 to authenticated;
-grant insert on public.bids, public.kyc_records, public.disputes, public.creator_page_views to authenticated;
+grant insert on public.bids, public.kyc_records, public.disputes to authenticated;
 grant update on public.users, public.cards, public.notifications to authenticated;
