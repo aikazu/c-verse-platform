@@ -4,6 +4,7 @@ import { logger } from "hono/logger";
 import { rateLimiter } from "hono-rate-limiter";
 import { clientIp } from "./lib/auth.js";
 import { runCron } from "./lib/cron.js";
+import type { EmailBindings } from "./lib/email.js";
 import admin from "./modules/admin/index.js";
 import auth from "./modules/auth/index.js";
 import bids from "./modules/bids/index.js";
@@ -23,8 +24,9 @@ import seo from "./modules/seo/index.js";
 import shipments from "./modules/shipments/index.js";
 import wallet from "./modules/wallet/index.js";
 
-export type Bindings = {
+export type Bindings = EmailBindings & {
   ENV?: string;
+  ADMIN_ALERT_EMAIL?: string; // cron failure digest recipient (lib/cron.ts)
 };
 
 // Fail-fast (F-08 diperketat): tanpa SUPABASE_URL API menolak start — tidak ada

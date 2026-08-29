@@ -3,7 +3,7 @@ import { Hono } from "hono";
 import { z } from "zod";
 import { adminGateError, clientIp, requireAdmin, tokenFingerprint } from "../../lib/auth.js";
 import { RpcError, rpcCancelSeedSale, rpcReleaseSeedSale } from "../../lib/db.js";
-import { sendCreatorAccessEmail } from "../../lib/email.js";
+import { type EmailBindings, sendCreatorAccessEmail } from "../../lib/email.js";
 import { sanitizeDbError } from "../../lib/errors.js";
 import { logAuditDb } from "../../lib/reads/kyc.js";
 import { readDb } from "../../lib/reads.js";
@@ -14,7 +14,9 @@ import { getSupabase } from "../../lib/supabase.js";
 // Reads tetap via Supabase RLS di admin SPA — mutasi sensitif (role/suspend/dispute)
 // WAJIB lewat sini agar ter-audit di admin_audit_log (append-only).
 
-const app = new Hono();
+// Env slice typed to EmailBindings so handlers can pass `c.env` into the email
+// module — the EMAIL binding / EMAIL_FROM var exist only on the Workers env.
+const app = new Hono<{ Bindings: EmailBindings }>();
 
 // GET /audit — admin baca audit log (RLS deny utk authenticated; API = service-role)
 app.get("/audit", async (c) => {
@@ -257,7 +259,8 @@ app.post(
     }
 
     // 4) Email akses (flag EMAIL_ENABLED default OFF di dev -> { sent:false, reason:'disabled' }).
-    const emailResult = await sendCreatorAccessEmail({ to: email, displayName });
+    // `c.env` wajib: binding EMAIL + EMAIL_FROM hanya ada di Workers env (module syntax).
+    const emailResult = await sendCreatorAccessEmail({ to: email, displayName }, c.env);
 
     // 5) Audit log — action 'create' valid (enum audit_action).
     await logAuditDb(

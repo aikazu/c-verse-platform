@@ -1,9 +1,13 @@
-// Email akses akun kreator (admin-provisioned, docs/10 §3.6 — FINAL 2026-08-20).
-// Flag `EMAIL_ENABLED` default OFF di dev: tanpa flag, modul tidak pernah
-// menyentuh SMTP — hanya mencatat info dan return { sent: false }.
-// Saat diaktifkan, kirim via SumoPod SMTP (smtp.sumopod.com:465, SSL) memakai
-// nodemailer bila tersedia di runtime; kalau transport tidak tersedia, lempar
-// error yang jelas (jalur ini TIDAK dieksekusi di test/dev karena flag OFF).
+// Creator access email (admin provisioning, docs/10 §3.6 — FINAL 2026-08-20).
+// Transport (owner decision 2026-08-29): Cloudflare Email Service via the Workers
+// `send_email` binding (`env.EMAIL`, rich message form) — SMTP/nodemailer dropped
+// entirely (nodemailer is Node-only and breaks on Workers).
+// Flag `EMAIL_ENABLED` default OFF in dev: without the flag the module never
+// touches a transport — it logs an info line and returns { sent: false }.
+// When enabled but the binding is absent (local Node dev via tsx), the message
+// metadata is logged (recipient redacted, M2; bodies omitted) instead of sent.
+// Send failures are caught and mapped to a reason code — nothing ever throws
+// into the route.
 
 export interface CreatorAccessEmailInput {
   to: string;
@@ -15,6 +19,35 @@ export interface EmailSendResult {
   reason?: string;
 }
 
+/** Rich message form of the Email Service Workers API (canonical contract). */
+export interface SendEmailMessage {
+  to: string;
+  from: { email: string; name?: string };
+  subject: string;
+  text: string;
+  html: string;
+}
+
+/** Minimal structural type of the Workers `send_email` binding (name: EMAIL). */
+export interface SendEmailBinding {
+  send(message: SendEmailMessage): Promise<unknown>;
+}
+
+/** Env slice needed for sending — mirrored by `Bindings` in src/index.ts. */
+export interface EmailBindings {
+  EMAIL?: SendEmailBinding;
+  EMAIL_FROM?: string;
+}
+
+export interface EmailSendInput {
+  to: string;
+  subject: string;
+  text: string;
+  html: string;
+}
+
+const EMAIL_FROM_NAME = "C.Verse";
+
 function getEnv(name: string): string | undefined {
   // Wrangler / Workers: `globalThis` may have env injected; also check process.env for Node
   const g = globalThis as unknown as Record<string, string | undefined>;
@@ -23,8 +56,16 @@ function getEnv(name: string): string | undefined {
   return g[name] ?? processEnv?.[name];
 }
 
+function escapeHtml(value: string): string {
+  return value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;");
+}
+
 /** Template email akses — Bahasa Indonesia, login passwordless (tanpa password). */
-export function creatorAccessEmailTemplate(input: CreatorAccessEmailInput): { subject: string; text: string } {
+export function creatorAccessEmailTemplate(input: CreatorAccessEmailInput): {
+  subject: string;
+  text: string;
+  html: string;
+} {
   const subject = "Akun Kreator C.Verse kamu sudah aktif";
   const text = [
     `Halo ${input.displayName},`,
@@ -42,10 +83,22 @@ export function creatorAccessEmailTemplate(input: CreatorAccessEmailInput): { su
     "Selamat berkarya!",
     "— Tim C.Verse",
   ].join("\n");
-  return { subject, text };
+  const displayName = escapeHtml(input.displayName);
+  const to = escapeHtml(input.to);
+  const html = [
+    `<p>Halo ${displayName},</p>`,
+    "<p>Akun Kreator C.Verse kamu sudah aktif dan siap dipakai.</p>",
+    "<p>Cara login (tanpa password):</p>",
+    "<ol>",
+    `<li>Buka <a href="https://c-verse.co">https://c-verse.co</a></li>`,
+    `<li>Pilih login lewat email — masukkan alamat email ini: <strong>${to}</strong></li>`,
+    "<li>Masukkan kode OTP 6 digit yang dikirim ke email kamu (atau login lewat Google dengan email yang sama).</li>",
+    "</ol>",
+    "<p><strong>Penting:</strong> platform ini tidak memakai password sama sekali. Jangan pernah memasukkan password di mana pun.</p>",
+    "<p>Selamat berkarya!<br>— Tim C.Verse</p>",
+  ].join("\n");
+  return { subject, text, html };
 }
-
-type NodeMailerTransportLike = { sendMail: (opts: Record<string, string>) => Promise<unknown> };
 
 /**
  * Mask an email address for log output (M2). Keeps the first character and the
@@ -62,52 +115,70 @@ export function redactEmail(email: string): string {
   return `${local[0]}${"*".repeat(Math.max(1, local.length - 1))}@${domain}`;
 }
 
-type NodeMailerModule = {
-  default?: {
-    createTransport: (opts: Record<string, unknown>) => NodeMailerTransportLike;
-  };
-};
+function resolveBinding(env?: EmailBindings): SendEmailBinding | undefined {
+  if (env?.EMAIL) return env.EMAIL;
+  // Same env-probe idiom as getEnv: some runtimes expose bindings on globalThis;
+  // in plain Node dev it is simply absent -> "email_binding_unavailable".
+  const g = globalThis as unknown as { EMAIL?: SendEmailBinding };
+  return g.EMAIL;
+}
+
+function resolveEmailFrom(env?: EmailBindings): string | undefined {
+  return env?.EMAIL_FROM ?? getEnv("EMAIL_FROM");
+}
+
+function extractSendErrorCode(err: unknown): string {
+  if (typeof err === "object" && err !== null && "code" in err) {
+    const code = (err as { code?: unknown }).code;
+    if (typeof code === "string" && code.length > 0) return code;
+  }
+  return "email_send_failed";
+}
 
 /**
- * Kirim via SumoPod SMTP memakai nodemailer jika tersedia di runtime.
- * Tanpa nodemailer di runtime ini SMTP belum bisa dikirim — error eksplisit,
- * bukan silent fail (modul TIDAK menambah dependency baru).
+ * Low-level send via the Cloudflare Email Service binding. Resolution order:
+ * 1. EMAIL_ENABLED off -> { sent:false, reason:"email_disabled" } (no transport touched);
+ * 2. enabled + EMAIL_FROM missing -> { sent:false, reason:"email_from_missing" };
+ * 3. enabled + binding present -> binding.send(...) with both text and html;
+ * 4. enabled + binding absent (local Node dev) -> payload logged (redacted), no send;
+ * 5. send throws -> raw error logged server-side, mapped reason — never rethrown.
  */
-async function sendViaSmtp(input: CreatorAccessEmailInput): Promise<void> {
-  // Dynamic import dengan specifier non-literal: nodemailer bukan dependency —
-  // kalau runtime tidak punya paketnya, import gagal dan kita lempar error jelas.
-  const modId = "nodemailer";
-  const nodemailer = (await import(modId).catch(() => null)) as NodeMailerModule | null;
-  if (!nodemailer?.default?.createTransport) {
-    throw new Error("SMTP transport belum tersedia di runtime ini (nodemailer tidak terinstall)");
+export async function sendEmail(input: EmailSendInput, env?: EmailBindings): Promise<EmailSendResult> {
+  if (getEnv("EMAIL_ENABLED") !== "true") {
+    console.info(`[email] kirim ke ${redactEmail(input.to)} di-skip (EMAIL_ENABLED nonaktif)`);
+    return { sent: false, reason: "email_disabled" };
   }
-  const host = getEnv("SMTP_HOST") ?? "smtp.sumopod.com";
-  const port = Number(getEnv("SMTP_PORT") ?? "465");
-  const user = getEnv("SMTP_USER");
-  const pass = getEnv("SMTP_PASS");
-  const transport: NodeMailerTransportLike = nodemailer.default.createTransport({
-    host,
-    port,
-    secure: port === 465,
-    auth: user && pass ? { user, pass } : undefined,
-  });
-  const { subject, text } = creatorAccessEmailTemplate(input);
-  await transport.sendMail({ from: user ? `C.Verse <${user}>` : "C.Verse <no-reply@c-verse.co>", to: input.to, subject, text });
+  const from = resolveEmailFrom(env);
+  if (!from) return { sent: false, reason: "email_from_missing" };
+  const binding = resolveBinding(env);
+  if (!binding) {
+    // Log metadata only — the creator template embeds the raw recipient address
+    // in text/html, so logging the full payload would defeat the `to` redaction.
+    const payload = JSON.stringify({
+      to: redactEmail(input.to),
+      from: { email: from, name: EMAIL_FROM_NAME },
+      subject: input.subject,
+    });
+    console.info(`[email] send_email binding tidak tersedia di runtime ini — payload (tujuan di-redact): ${payload}`);
+    return { sent: false, reason: "email_binding_unavailable" };
+  }
+  try {
+    await binding.send({
+      to: input.to,
+      from: { email: from, name: EMAIL_FROM_NAME },
+      subject: input.subject,
+      text: input.text,
+      html: input.html,
+    });
+    return { sent: true };
+  } catch (err) {
+    console.error("[email] gagal kirim:", err);
+    return { sent: false, reason: extractSendErrorCode(err) };
+  }
 }
 
 /** Kirim email akses kreator — flag EMAIL_ENABLED default OFF (dev). */
-export async function sendCreatorAccessEmail(input: CreatorAccessEmailInput): Promise<EmailSendResult> {
-  if (getEnv("EMAIL_ENABLED") !== "true") {
-    // M2 (audit 2026-08-24): redact the destination address in logs — the local-part
-    // is PII. Domain is kept for ops correlation.
-    console.info(`[email] akses kreator ke ${redactEmail(input.to)} di-skip (EMAIL_ENABLED nonaktif)`);
-    return { sent: false, reason: "disabled" };
-  }
-  try {
-    await sendViaSmtp(input);
-    return { sent: true };
-  } catch (err) {
-    console.error("[email] gagal kirim akses kreator:", err instanceof Error ? err.message : String(err));
-    return { sent: false, reason: "error" };
-  }
+export async function sendCreatorAccessEmail(input: CreatorAccessEmailInput, env?: EmailBindings): Promise<EmailSendResult> {
+  const { subject, text, html } = creatorAccessEmailTemplate(input);
+  return sendEmail({ to: input.to, subject, text, html }, env);
 }

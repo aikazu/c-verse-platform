@@ -10,10 +10,18 @@ ENV = "production"
 
 # Secrets (set via `wrangler secret put` — see docs/08 §3.3 + §7):
 # SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY,
-# SMTP_HOST (smtp.sumopod.com), SMTP_PORT (465), SMTP_USER, SMTP_PASS,
 # EMAIL_ENABLED (flag email akses kreator — docs/10 §3.6; 'true' enable, default OFF di dev),
+# EMAIL_FROM (sender address, e.g. no-reply@c-verse.co — domain must be onboarded to Email Service),
+# ADMIN_ALERT_EMAIL (recipient of the cron failure digest — lib/cron.ts sends one summary email per run when jobs fail),
 # MIDTRANS_SERVER_KEY, NFC_MASTER_KEY, PAYOUT_WEBHOOK_SIGNING_KEY,
 # FCM_SERVICE_ACCOUNT (JSON), JWT_SECRET.
+
+# Email sending (owner decision 2026-08-29): Cloudflare Email Service binding —
+# replaces the old SMTP/nodemailer transport. Prereq: onboard the sender domain
+# (`npx wrangler email sending enable c-verse.co`), else sends fail with
+# E_SENDER_NOT_VERIFIED.
+[[send_email]]
+name = "EMAIL"
 
 # R2 buckets (§3.4) — uncomment when R2 created in Cloudflare dashboard:
 # [[r2_buckets]]
