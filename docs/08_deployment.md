@@ -53,7 +53,10 @@ Supabase CLI (`npx supabase`, migrasi SQL), git + GitHub CLI.
 Kredensial yang disimpan rahasia (tidak pernah di repo):
 `CF_ACCOUNT_ID`, `CF_API_TOKEN`, `SUPABASE_SERVICE_ROLE_KEY`,
 `MIDTRANS_SERVER_KEY`, `PAYOUT_WEBHOOK_SIGNING_KEY`,
-`NFC_MASTER_KEY`. Kredensial SMTP (`SMTP_HOST`/`PORT`/`USER`/`PASS`)
+`NFC_MASTER_KEY` (generate: `openssl rand -hex 16` — AES-128,
+32 karakter hex; nilai dev `.dev.vars` dan produksi harus konsisten
+per environment karena dipakai diversifikasi AppKey per-UID).
+Kredensial SMTP (`SMTP_HOST`/`PORT`/`USER`/`PASS`)
 dan captcha secret Turnstile diisi di **Supabase Dashboard** — API
 tidak membacanya. Public vars boleh di bundle dengan konvensi
 **Vite `VITE_*`** (anon keys).

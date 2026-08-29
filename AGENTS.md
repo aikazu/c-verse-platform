@@ -37,7 +37,7 @@ Architecture: **fat database, thin API**. All money/stock mutations run inside P
 - `pnpm run build` — all workspaces. Note: api build = `tsc --noEmit` only; deploy = `pnpm --filter @c-verse/api deploy`.
 - Module boundaries: `pnpm --filter @c-verse/api lint:boundaries` (see Layout).
 - CI (`.github/workflows/ci.yml`, PR + main): install → typecheck → lint → lint:boundaries → test → build, plus PR-only `supabase db lint` and Playwright e2e (webServer auto-start/reuse) on PRs.
-- Integration tests: run `supabase/tests/*` against the LOCAL stack (`.mjs` via `node <test>.mjs postgresql://postgres:postgres@127.0.0.1:54322/postgres`; SQL via plain `db query "$(cat file.sql)"`), then a local `db reset` to clear fixtures. `rpc_nfc_replay_test.mjs` needs `NFC_MASTER_KEY` in env (from `apps/api/.dev.vars`) or it skips.
+- Integration tests: run `supabase/tests/*` against the LOCAL stack (`.mjs` via `node <test>.mjs postgresql://postgres:postgres@127.0.0.1:54322/postgres`; SQL via plain `db query "$(cat file.sql)"`), then a local `db reset` to clear fixtures. `rpc_nfc_replay_test.mjs` needs `NFC_MASTER_KEY` in env (from `apps/api/.dev.vars`, generate: `openssl rand -hex 16`) or it skips.
 
 ## Layout
 
