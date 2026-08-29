@@ -30,7 +30,7 @@
     "sync:docs:check": "node sync-docs.mjs --check",
     "sync:docs:reverse": "node sync-docs.mjs --reverse"
   },
-  "packageManager": "pnpm@9.12.3",
+  "packageManager": "pnpm@12.0.0",
   "engines": {
     "node": ">=20"
   },
@@ -38,8 +38,8 @@
     "pg": "^8.23.0"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.5.8",
+    "@biomejs/biome": "^2.5.11",
     "@playwright/test": "^1.62.1",
-    "vitest": "^4.1.10"
+    "vitest": "^4.1.11"
   }
 }

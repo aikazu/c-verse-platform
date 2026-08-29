@@ -142,9 +142,9 @@ export const createDropSchema = z.object({
   // backwards compat: unsigned/signed split still accepted by API but mapped to priceCCoin
   priceUnsignedCCoin: z.number().int().min(1).optional(),
   priceSignedCCoin: z.number().int().min(1).optional(),
-  dropStartAt: z.string().datetime().optional(),
-  dropEndAt: z.string().datetime().optional(),
-  dropAt: z.string().datetime().optional(), // legacy alias for dropStartAt
+  dropStartAt: z.iso.datetime().optional(),
+  dropEndAt: z.iso.datetime().optional(),
+  dropAt: z.iso.datetime().optional(), // legacy alias for dropStartAt
   creatorId: z.string().optional(),
 });
 export type CreateDropInput = z.infer<typeof createDropSchema>;
@@ -262,7 +262,7 @@ export const leaderboardEntrySchema = z.object({
   level: z.number().int().min(1).max(100),
   tier: levelTierSchema,
   score: z.number().int().min(0),
-  reachedAt: z.string().datetime(),
+  reachedAt: z.iso.datetime(),
 });
 export type LeaderboardEntry = z.infer<typeof leaderboardEntrySchema>;
 

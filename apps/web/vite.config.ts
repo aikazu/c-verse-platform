@@ -18,11 +18,15 @@ export default defineConfig({
   build: {
     outDir: "dist",
     sourcemap: false,
-    rollupOptions: {
+    // Vite 8 (Rolldown): rollupOptions -> rolldownOptions; object-form
+    // manualChunks dihapus, replacement canonical = output.codeSplitting.
+    rolldownOptions: {
       output: {
-        manualChunks: {
-          supabase: ["@supabase/supabase-js"],
-          three: ["three"],
+        codeSplitting: {
+          groups: [
+            { name: "supabase", test: /node_modules[\\/]@supabase[\\/]supabase-js/ },
+            { name: "three", test: /node_modules[\\/]three[\\/]/ },
+          ],
         },
       },
     },
