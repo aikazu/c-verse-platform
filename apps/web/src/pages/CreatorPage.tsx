@@ -191,7 +191,8 @@ export default function CreatorPage() {
   }
 
   const creator = data.creator;
-  const drops: ApiDrop[] = creator.drops ?? [];
+  // Response shape: drops is a sibling of `creator` (GET /api/creators/:id).
+  const drops: ApiDrop[] = data.drops ?? [];
   // doc 02 PG-CRT-PUB-01 hanya handle + drop list (tanpa follower count, tanpa bio / links
   // — API tidak mengembalikan field tersebut saat ini).
   const handle = creator.handle ?? creator.username ?? null;

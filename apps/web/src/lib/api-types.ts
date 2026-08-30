@@ -335,12 +335,13 @@ export interface ApiCreatorPublicResponse {
     handle: string | null;
     totalFollowersCombined: number | null;
     xp?: number;
-    drops?: ApiDrop[];
-    stats?: {
-      totalViews?: number;
-      uniqueViewers?: number;
-      topReferrer?: { domain: string; count: number } | null;
-    };
+  };
+  // GET /api/creators/:id returns drops/stats as siblings of `creator`.
+  drops?: ApiDrop[];
+  stats?: {
+    totalViews?: number;
+    uniqueViewers?: number;
+    topReferrer?: { domain: string; count: number } | null;
   };
 }
 
