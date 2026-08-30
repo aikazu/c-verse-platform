@@ -246,30 +246,6 @@ export interface ApiPatchBuyoutResponse {
   card: Card;
 }
 
-// ── Browse ─────────────────────────────────────────────────────────────────
-// GET /api/browse — kartu ber-pemilik dengan buyout aktif + bid tertinggi.
-// `activeBid` adalah Bid lengkap dari listBids(active); `canBid` flag server.
-export interface ApiBrowseEntry {
-  card: Card;
-  drop: {
-    id: string;
-    title: string;
-    series: string;
-    artworkUrl: string;
-    creatorName: string;
-    isSeed: boolean;
-  } | null;
-  owner: { id: string; displayName: string } | null;
-  buyoutIdr: number | null;
-  activeBid: Bid | null;
-  canBid: boolean;
-}
-
-export interface ApiBrowseResponse extends PagedMeta {
-  cards: ApiBrowseEntry[];
-  results?: ApiBrowseEntry[];
-}
-
 // ── Bids ───────────────────────────────────────────────────────────────────
 export interface ApiBidResponse {
   bid: Bid;
