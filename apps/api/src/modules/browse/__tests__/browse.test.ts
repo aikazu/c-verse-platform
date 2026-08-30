@@ -1,4 +1,3 @@
-import { C_COIN_RATE_IDR } from "@c-verse/shared";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.hoisted(() => {
@@ -6,33 +5,22 @@ vi.hoisted(() => {
 });
 
 const control = vi.hoisted(() => ({
-  ownedCards: [] as Array<Record<string, unknown>>,
-  drops: [] as Array<Record<string, unknown>>,
-  users: [] as Array<Record<string, unknown>>,
-  activeBids: [] as Array<Record<string, unknown>>,
   cardById: null as Record<string, unknown> | null,
   detailDrop: null as Record<string, unknown> | null,
+  users: [] as Array<Record<string, unknown>>,
   bidsByCard: [] as Array<Record<string, unknown>>,
 }));
 
 const readsDrops = vi.hoisted(() => ({
-  listOwnedCards: vi.fn(() => Promise.resolve(control.ownedCards)),
-  listDrops: vi.fn(() => Promise.resolve(control.drops)),
-  getDropById: vi.fn(() => Promise.resolve(control.detailDrop)),
   getCardByIdOrNfc: vi.fn(() => Promise.resolve(control.cardById)),
-  listCardsByDrop: vi.fn(() => Promise.resolve([])),
-  listCardsByIds: vi.fn(() => Promise.resolve([])),
-  listCards: vi.fn(() => Promise.resolve([])),
+  getDropById: vi.fn(() => Promise.resolve(control.detailDrop)),
 }));
 
 const readsUsers = vi.hoisted(() => ({
   listUsersByIds: vi.fn((ids: string[]) => Promise.resolve(control.users.filter((u) => ids.includes(String(u.id))))),
-  getUserById: vi.fn(() => Promise.resolve(null)),
-  getUserByUsername: vi.fn(() => Promise.resolve(null)),
 }));
 
 const readsBids = vi.hoisted(() => ({
-  listBids: vi.fn(() => Promise.resolve(control.activeBids)),
   listBidsByCard: vi.fn(() => Promise.resolve(control.bidsByCard)),
 }));
 
@@ -89,133 +77,56 @@ function dropFixture(over: Record<string, unknown> = {}): Record<string, unknown
   };
 }
 
-const ownerOne = {
-  id: "owner-1",
-  email: "owner1@cverse.id",
-  displayName: "Owner One",
-  username: "owner1",
-  role: "user",
-  avatarUrl: null,
-  xp: 0,
-  totalXp: 0,
-  level: 1,
-  cumulativeSpendCcoin: 0,
-  isAnonymous: false,
-  flagReason: null,
-  consentAnalyticsDetail: false,
-  consentDataMarket: false,
-  createdAt: "2026-08-01T00:00:00.000Z",
-};
+function userFixture(over: Record<string, unknown> = {}): Record<string, unknown> {
+  return {
+    id: "owner-1",
+    email: "owner1@cverse.id",
+    displayName: "Owner One",
+    username: "owner1",
+    role: "user",
+    avatarUrl: null,
+    xp: 0,
+    totalXp: 0,
+    level: 1,
+    cumulativeSpendCcoin: 0,
+    isAnonymous: false,
+    flagReason: null,
+    consentAnalyticsDetail: false,
+    consentDataMarket: false,
+    createdAt: "2026-08-01T00:00:00.000Z",
+    ...over,
+  };
+}
 
-type BrowseCard = {
-  card: { id: string; nfcShortId: string; buyoutPriceCcoin: number | null };
-  drop: { title: string } | null;
+type BrowseDetailBody = {
+  card: { id: string };
+  drop: { id: string } | null;
   owner: { id: string; displayName: string } | null;
-  buyoutIdr: number | null;
-  activeBid: { id: string } | null;
-  canBid: boolean;
+  activeBid: { id: string; bidderName: string } | null;
+  bids: Array<{ id: string; bidderName: string; amountCCoin: number }>;
 };
 
-type BrowseBody = { cards: BrowseCard[]; results: BrowseCard[]; total: number };
-
-describe("GET /api/browse (PG-BROWSE-01)", () => {
+// Flat GET /api/browse dihapus (konsumen tunggal Browse.tsx pindah ke
+// GET /api/drops) — browse module kini hanya menyajikan detail per kartu.
+describe("GET /api/browse/cards/:id — detail + A3 masking", () => {
   beforeEach(() => {
-    control.ownedCards = [];
-    control.drops = [];
-    control.users = [];
-    control.activeBids = [];
     control.cardById = null;
     control.detailDrop = null;
+    control.users = [];
     control.bidsByCard = [];
     vi.clearAllMocks();
   });
 
-  it("lists owned cards enriched with drop/owner/activeBid and camelCase shape", async () => {
-    control.ownedCards = [
-      cardFixture({ id: "card-b", nfcShortId: "b-002", ownerId: "owner-2", dropId: "drop-404", buyoutPriceCcoin: null }),
-      cardFixture(),
-    ];
-    control.drops = [dropFixture()];
-    control.users = [ownerOne];
-    control.activeBids = [
-      { id: "bid-0", cardId: "card-a", bidderId: "u-9", bidderName: "Bidder", amountCCoin: 50, status: "active" },
-      { id: "bid-1", cardId: "card-a", bidderId: "u-8", bidderName: "Bidder 2", amountCCoin: 70, status: "active" },
-    ];
-
-    const res = await app.request("/api/browse");
-    expect(res.status).toBe(200);
-    const body = (await res.json()) as BrowseBody;
-
-    // default sort: nfcShortId asc
-    expect(body.cards.map((c) => c.card.nfcShortId)).toEqual(["a-001", "b-002"]);
-    expect(body.total).toBe(2);
-    expect(body.results).toEqual(body.cards);
-
-    // camelCase passthrough + derived buyoutIdr from shared rate
-    expect(body.cards[0].card.id).toBe("card-a");
-    expect(body.cards[0].drop?.title).toBe("Genesis Box");
-    expect(body.cards[0].owner).toEqual({ id: "owner-1", displayName: "Owner One" });
-    expect(body.cards[0].buyoutIdr).toBe(45 * C_COIN_RATE_IDR);
-    expect(body.cards[0].canBid).toBe(true);
-    // first active bid per card wins (list order)
-    expect(body.cards[0].activeBid?.id).toBe("bid-0");
-    // missing drop/owner degrade to null instead of throwing
-    expect(body.cards[1].drop).toBeNull();
-    expect(body.cards[1].owner).toBeNull();
-    expect(body.cards[1].buyoutIdr).toBeNull();
-
-    // db-facade interactions
-    expect(readsDrops.listOwnedCards).toHaveBeenCalledTimes(1);
-    expect(readsDrops.listDrops).toHaveBeenCalledTimes(1);
-    expect(readsUsers.listUsersByIds).toHaveBeenCalledWith(expect.arrayContaining(["owner-1", "owner-2"]));
-    expect(readsBids.listBids).toHaveBeenCalledWith({ status: "active" });
-  });
-
-  it("filters by q across nfcShortId/title/series/creatorName before owner lookup", async () => {
-    control.ownedCards = [cardFixture({ id: "card-b", nfcShortId: "b-002", ownerId: "owner-2", dropId: "drop-2" }), cardFixture()];
-    control.drops = [dropFixture(), dropFixture({ id: "drop-2", title: "Other Series", series: "Other Line" })];
-    control.users = [ownerOne];
-
-    const res = await app.request("/api/browse?q=genesis");
-    expect(res.status).toBe(200);
-    const body = (await res.json()) as BrowseBody;
-    expect(body.total).toBe(1);
-    expect(body.cards[0].card.id).toBe("card-a");
-    // owner fetch happens on the FILTERED set only
-    expect(readsUsers.listUsersByIds).toHaveBeenCalledWith(["owner-1"]);
-  });
-
-  it("filters by creator substring on creatorName or creatorId", async () => {
-    control.ownedCards = [cardFixture({ id: "card-b", nfcShortId: "b-002", ownerId: "owner-2", dropId: "drop-2" }), cardFixture()];
-    control.drops = [dropFixture(), dropFixture({ id: "drop-2", creatorName: "Other", creatorId: "creator-9" })];
-
-    const res = await app.request("/api/browse?creator=nova");
-    expect(res.status).toBe(200);
-    const body = (await res.json()) as BrowseBody;
-    expect(body.total).toBe(1);
-    expect(body.cards[0].card.id).toBe("card-a");
-  });
-
-  it("sort=unit_number&order=desc orders by unitNumber desc", async () => {
-    control.ownedCards = [cardFixture(), cardFixture({ id: "card-b", nfcShortId: "b-002", unitNumber: 7 })];
-    control.drops = [dropFixture()];
-
-    const res = await app.request("/api/browse?sort=unit_number&order=desc");
-    expect(res.status).toBe(200);
-    const body = (await res.json()) as BrowseBody;
-    expect(body.cards.map((c) => c.card.id)).toEqual(["card-b", "card-a"]);
-  });
-
-  it("GET /cards/:id returns 404 for unknown card", async () => {
+  it("returns 404 for unknown card", async () => {
     const res = await app.request("/api/browse/cards/nope");
     expect(res.status).toBe(404);
     expect(readsDrops.getCardByIdOrNfc).toHaveBeenCalledWith("nope");
   });
 
-  it("GET /cards/:id returns detail: bids desc capped at 20, activeBid, owner mapping", async () => {
+  it("returns detail: bids desc capped at 20, activeBid, owner mapping", async () => {
     control.cardById = cardFixture();
     control.detailDrop = dropFixture();
-    control.users = [ownerOne];
+    control.users = [userFixture()];
     control.bidsByCard = Array.from({ length: 22 }, (_, i) => {
       const amount = i + 1;
       return {
@@ -230,13 +141,7 @@ describe("GET /api/browse (PG-BROWSE-01)", () => {
 
     const res = await app.request("/api/browse/cards/card-a");
     expect(res.status).toBe(200);
-    const body = (await res.json()) as {
-      card: { id: string };
-      drop: { id: string };
-      owner: { id: string; displayName: string } | null;
-      activeBid: { id: string; status: string } | null;
-      bids: Array<{ amountCCoin: number }>;
-    };
+    const body = (await res.json()) as BrowseDetailBody;
     expect(body.card.id).toBe("card-a");
     expect(body.drop?.id).toBe("drop-1");
     expect(body.owner).toEqual({ id: "owner-1", displayName: "Owner One" });
@@ -250,5 +155,47 @@ describe("GET /api/browse (PG-BROWSE-01)", () => {
     expect(readsDrops.getDropById).toHaveBeenCalledWith("drop-1");
     expect(readsBids.listBidsByCard).toHaveBeenCalledWith("card-a");
     expect(readsUsers.listUsersByIds).toHaveBeenCalledWith(["owner-1"]);
+  });
+
+  it("owner anonim → displayName 'Anonim'", async () => {
+    control.cardById = cardFixture({ ownerId: "anon-1" });
+    control.detailDrop = dropFixture();
+    control.users = [userFixture({ id: "anon-1", isAnonymous: true })];
+
+    const res = await app.request("/api/browse/cards/card-a");
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as BrowseDetailBody;
+    expect(body.owner).toEqual({ id: "anon-1", displayName: "Anonim" });
+  });
+
+  it("owner flagged (suspended) → displayName 'Anonim'", async () => {
+    control.cardById = cardFixture({ ownerId: "flag-1" });
+    control.detailDrop = dropFixture();
+    control.users = [userFixture({ id: "flag-1", flagReason: "suspended" })];
+
+    const res = await app.request("/api/browse/cards/card-a");
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as BrowseDetailBody;
+    expect(body.owner).toEqual({ id: "flag-1", displayName: "Anonim" });
+  });
+
+  it("bidder anonim → bids[].bidderName dan activeBid.bidderName 'Anonim'", async () => {
+    control.cardById = cardFixture();
+    control.detailDrop = dropFixture();
+    control.bidsByCard = [
+      { id: "bid-2", cardId: "card-a", bidderId: "anon-b", bidderName: "Hidden Bidder", amountCCoin: 90, status: "active" },
+      { id: "bid-1", cardId: "card-a", bidderId: "ok-1", bidderName: "Visible Bidder", amountCCoin: 40, status: "outbid" },
+    ];
+    control.users = [
+      userFixture({ id: "anon-b", isAnonymous: true }),
+      userFixture({ id: "ok-1", displayName: "Visible Bidder", username: "visible1" }),
+    ];
+
+    const res = await app.request("/api/browse/cards/card-a");
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as BrowseDetailBody;
+    expect(body.activeBid?.bidderName).toBe("Anonim");
+    expect(body.bids.find((b) => b.id === "bid-2")?.bidderName).toBe("Anonim");
+    expect(body.bids.find((b) => b.id === "bid-1")?.bidderName).toBe("Visible Bidder");
   });
 });

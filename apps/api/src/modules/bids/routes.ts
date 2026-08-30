@@ -5,8 +5,25 @@ import { z } from "zod";
 import { requireUser } from "../../lib/auth.js";
 import { RpcError, rpcAcceptBid, rpcCancelBid, rpcPlaceBid, userDb } from "../../lib/db.js";
 import { listBidsByCard } from "../../lib/reads/bids.js";
+import { listUsersByIds } from "../../lib/reads/users.js";
+import type { Bid } from "../../lib/store.js";
 
 const app = new Hono();
+
+// Privacy (A3): bidder_name adalah kolom denormalized di bids, masking dilakukan
+// di read boundary — bidder anonim/flagged (suspended) tampil sebagai 'Anonim'
+// (aturan sama dengan seller marketplace / owner NFC). Bidder yang hilang dari
+// tabel users dimasking defensif.
+async function maskBidderNames(bids: Bid[]): Promise<Bid[]> {
+  if (bids.length === 0) return bids;
+  const bidderIds = [...new Set(bids.map((b) => b.bidderId))];
+  const bidderById = new Map((await listUsersByIds(bidderIds)).map((u) => [u.id, u]));
+  return bids.map((b) => {
+    const bidder = bidderById.get(b.bidderId);
+    const isMasked = !bidder || bidder.isAnonymous || bidder.flagReason != null;
+    return isMasked ? { ...b, bidderName: "Anonim" } : b;
+  });
+}
 
 // GET bids for a card
 app.get("/:id", async (c) => {
@@ -14,7 +31,7 @@ app.get("/:id", async (c) => {
   const sorted = [...bids].sort(
     (a, b) => b.amountCCoin - a.amountCCoin || new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
   );
-  return c.json({ bids: sorted });
+  return c.json({ bids: await maskBidderNames(sorted) });
 });
 
 app.get("/card/:cardId", async (c) => {
@@ -25,7 +42,7 @@ app.get("/card/:cardId", async (c) => {
   const filtered = bids
     .filter((b) => b.status === "accepted" || new Date(b.createdAt).getTime() >= cutoff)
     .sort((a, b) => b.amountCCoin - a.amountCCoin || new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-  return c.json({ bids: filtered });
+  return c.json({ bids: await maskBidderNames(filtered) });
 });
 
 // POST / — place bid directly on card (docs 03 Flow 7: outbid + hold)
