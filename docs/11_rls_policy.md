@@ -1,7 +1,7 @@
 # 11 — RLS Policy Matrix (ganti `allow all using(true)`)
 
 > Status: [IMPLEMENTED 2026-08-16]
-> Created: 2026-08-15; updated: 2026-08-18
+> Created: 2026-08-15; updated: 2026-08-30
 > Basis audit awal: semua policy `for all using (true) with check (true)`.
 > Migration `03_rls.sql` (sebelumnya `20260817020000_rls_policies.sql`,
 > dilebur saat konsolidasi 2026-08-24) sudah mengimplementasikan
@@ -29,7 +29,7 @@ Helper: `create policy ... for select using (...)`, dst.
 
 | Tabel | anon SELECT | user SELECT (owner) | INSERT | UPDATE | DELETE | Catatan |
 |---|---|---|---|---|---|---|
-| `users` (profiles) | baris `not is_anonymous` | own row | trigger only | own (non-role field) | tidak | role & flag_reason: service only |
+| `users` (profiles) | - (revoke all from anon) | own row; admin = semua baris via `public.is_admin()` | trigger only | own (non-role field) | tidak | role & flag_reason: service only; hardening 2026-08-30 |
 | `creators` | publish (handle/bio) | own | service | service | service | `status='active'` saja anon |
 | `drops` | `status in ('live','published','sold_out','closed')` | - | service | service | service | draft tidak bocor |
 | `cards` | baris ter-own ATAU status terjual publik | own cards | service | owner kolom buyout saja | service | lihat policy khusus |
@@ -61,8 +61,11 @@ pembacaan lewat API service-role (agregat ke kreator).
   kolom `buyout_price_ccoin` — pakai trigger guard kolom lain ditolak
   (`raise exception` jika `cards.*` lain berubah dari sesi non-service).
 
-### Policy khusus `users.is_anonymous`
-- SELECT: `(id = auth.uid()) or (not is_anonymous)`.
+### Policy khusus `users`
+- SELECT: `(id = auth.uid()) or public.is_admin()` — hardening 2026-08-30
+  (pentest F4): `revoke all on public.users from anon` (`01_schema.sql`);
+  `is_anonymous` tidak lagi gate SELECT di RLS — profil publik dilayani
+  API service-role dengan filter `is_anonymous`.
 - Profil anonymous tetap bisa muncul sebagai "owner kartu" via API
   service-role yang strip display name — jangan bocorkan username di RLS.
 

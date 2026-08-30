@@ -539,7 +539,7 @@ profiles 1─N user_badges
 | wallet_transactions | OWNER read | |
 | bids | READ publik (90 hari, complete selamanya); WRITE bidder (place/cancel); accept hanya OWNER kartu | |
 | cards.buyout_price_ccoin | WRITE hanya OWNER kartu | |
-| profiles (koleksi/level/badge) | READ publik HANYA jika is_anonymous=false | |
+| profiles (users; koleksi/level/badge) | READ publik via API service-role HANYA jika is_anonymous=false; akses tabel langsung: anon ditolak (`revoke all on users from anon`), authenticated = own row, admin = semua (`public.is_admin()`) | hardening 2026-08-30 |
 | badge_definitions | READ publik; WRITE admin | |
 | user_badges | READ publik (via profil); WRITE system | |
 | creators, kyc, payout, disputes | NO public access | admin (service-role) only + creator read own |
