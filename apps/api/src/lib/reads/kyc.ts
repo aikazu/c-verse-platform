@@ -81,6 +81,14 @@ export async function setKycStatus(id: string, status: "approved" | "rejected"):
   return data ? mapKycRow(data as Record<string, unknown>) : null;
 }
 
+// Pentest F3 (2026-08-30): admin_audit_log.admin_user_id is `uuid not null`
+// (supabase/migrations/01_schema.sql), so the reserved actor "system" — passed
+// by the NFC/payments fraud-rejection call sites (nfc/routes.ts:130,143,158,173;
+// payments/routes.ts:236) — must map to the canonical treasury/system user
+// UUID (04_rpc.sql record_platform_revenue v_treasury). Any other non-uuid
+// value still fails loudly (fail-loud audit integrity is preserved).
+export const SYSTEM_ACTOR_ID = "00000000-0000-4000-8000-0000000000c0";
+
 /** Audit trail: append-only insert ke admin_audit_log. */
 export async function logAuditDb(
   adminUserId: string,
@@ -94,7 +102,7 @@ export async function logAuditDb(
   const db = readDb();
   const { error } = await db.from("admin_audit_log").insert({
     id: uid("audit-"),
-    admin_user_id: adminUserId,
+    admin_user_id: adminUserId === "system" ? SYSTEM_ACTOR_ID : adminUserId,
     action,
     target_table: targetTable,
     target_id: targetId,
