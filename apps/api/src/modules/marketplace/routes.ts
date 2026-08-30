@@ -57,7 +57,8 @@ app.get("/", async (c) => {
               isSeed: drop.isSeed,
             }
           : null,
-        seller: seller ? { id: seller.id, displayName: seller.displayName } : null,
+        // Privacy (A3): seller anon/suspended disamarkan 'Anonim' — gaya masking NFC module.
+        seller: seller ? { id: seller.id, displayName: seller.isAnonymous || seller.flagReason ? "Anonim" : seller.displayName } : null,
         buyoutPriceCcoin: card.buyoutPriceCcoin,
         idrPrice: (card.buyoutPriceCcoin ?? 0) * C_COIN_RATE_IDR,
       };
