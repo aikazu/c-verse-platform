@@ -67,9 +67,13 @@ User pilih nominal C-Coin (min 1, max 10000; cap saldo lihat C-08)
 ## 3. Payout / Disbursement (Midtrans Disbursement API — MANUAL)
 
 ### 3.0 Locked flow (founder 2026-08-23)
-Disbursement = **manual**: admin transfer via dashboard IRIS (atau kanal
-lain) by hand. Tidak ada auto-call `provider.disburse()` dari code
-untuk MVP — itu post-MVP. Yang sudah jalan:
+Disbursement = **manual**: admin eksekusi transfer via dashboard IRIS
+(fitur disbursement PSP berizin) by hand. Channel transfer dana keluar
+WAJIB fitur disbursement PSP berizin — transfer manual di luar fitur
+PSP (mis. internet banking/ATM biasa) DILARANG (kepatuhan UU No. 3
+Tahun 2011 tentang Transfer Dana). Tidak ada auto-call
+`provider.disburse()` dari code untuk MVP — itu post-MVP.
+Yang sudah jalan:
 
 - creator request via `POST /api/payments/payout` (RPC `payout_request`,
   KYC-gated, min 10 C-Coin, hold-aware) — dana di-debit, row payouts
@@ -77,8 +81,10 @@ untuk MVP — itu post-MVP. Yang sudah jalan:
 - admin trigger batch via `POST /api/payments/admin/payout-run`
   (RPC `payout_batch_run`) — grup payout eligible ke satu batch (status
   `processing`). Cron Workers Selasa 06:00 WIB.
-- admin transfer dana via IRIS dashboard / channel lain (manual,
-  di luar code).
+- admin transfer dana via IRIS dashboard (manual, di luar code).
+  Channel = fitur disbursement PSP berizin saja; transfer manual di
+  luar fitur PSP tidak boleh (UU No. 3 Tahun 2011 tentang Transfer
+  Dana).
 - (opsional) webhook `POST /api/payments/midtrans/payout-webhook`
   untuk update status `disbursed`/`failed` jika Midtrans mengirim
   notifikasi.
@@ -187,3 +193,5 @@ apps/api/src/modules/payments/routes.ts
   Y1 SLA 1x24 jam; [DRAFT]).
 - Midtrans docs: Snap API, Payment Notification Verifikasi Signature,
   Disbursement/IRIS API.
+- Checklist legal founder 2026-08-30 (kepatuhan transfer dana keluar
+  via disbursement PSP, UU 3/2011).
