@@ -5,6 +5,7 @@ import { rateLimiter } from "hono-rate-limiter";
 import { clientIp } from "./lib/auth.js";
 import { runCron } from "./lib/cron.js";
 import type { EmailBindings } from "./lib/email.js";
+import { clientErrorMessage } from "./lib/errors.js";
 import admin from "./modules/admin/index.js";
 import auth from "./modules/auth/index.js";
 import bids from "./modules/bids/index.js";
@@ -155,14 +156,12 @@ app.route("/api/listings", marketplace);
 // Fallback JSON 404
 app.notFound((c) => c.json({ error: "Not found", path: c.req.path }, 404));
 app.onError((err, c) => {
+  // Raw error tetap dilog server-side untuk incident response — jangan pernah echo.
   console.error(err);
-  // M-03: sanitasi HTML leak dari upstream (Cloudflare block page, dll)
-  const raw = err.message || "Internal error";
-  const sanitized =
-    raw.includes("<!DOCTYPE") || raw.includes("<html") || raw.includes("<script") ? "External service blocked the request" : raw;
-  // I-02: jangan expose detail error yang panjang (Zod schema, stack trace)
-  const message = sanitized.length > 300 ? "Internal server error" : sanitized;
-  return c.json({ error: message }, 500);
+  // M-03 + pentest P2 (2026-08-30): pesan untuk klien lewat satu seam allowlist —
+  // HTML upstream diblok, pesan teknis dipetakan/fallback, hanya curated RPC
+  // business codes (UPPER_SNAKE token) yang lolos verbatim.
+  return c.json({ error: clientErrorMessage(err) }, 500);
 });
 
 // Cron Triggers (docs/08 §3.3) — escrow/draw tiap 5 menit, payout batch Selasa 06:00 WIB.

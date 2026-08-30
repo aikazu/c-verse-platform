@@ -12,7 +12,15 @@ const control = vi.hoisted(() => ({
   getStatusThrows: false,
   rpcResult: { data: { amount_ccoin: 15 }, error: null } as { data: unknown; error: { message: string } | null },
   rpcCalls: [] as Array<Record<string, unknown>>,
+  // Pentest P2: make getSupabase()/db.rpc() throw so the uncaught error travels
+  // through the root app onError handler.
+  supabaseThrow: null as Error | null,
+  rpcReject: null as Error | null,
   payoutRow: { status: "pending" } as { status: string } | null,
+  refundRow: { id: "payout-12345678", status: "pending", user_id: "11111111-1111-4111-8111-111111111111", ccoin_amount: 10 } as Record<
+    string,
+    unknown
+  > | null,
   payoutFetchErr: null as { message: string } | null,
   payoutUpdates: [] as Array<{ table: string; payload: Record<string, unknown> }>,
 }));
@@ -30,29 +38,49 @@ vi.mock("../../../lib/payments/index.js", () => ({
     }),
 }));
 
+// Pentest P2: auth gates are unit-stubbed so admin-only routes (payout refund)
+// are reachable without a real Supabase JWT/MFA — the seam under test is the
+// error sanitizer, not authentication.
+vi.mock("../../../lib/auth.js", () => ({
+  requireUser: () => Promise.resolve({ user: { id: "11111111-1111-4111-8111-111111111111" }, token: "test-token" }),
+  requireAdmin: () => Promise.resolve({ user: { id: "22222222-2222-4222-8222-222222222222", role: "admin" }, token: "admin-token" }),
+  getOptionalUser: () => Promise.resolve(null),
+  authHeaderToToken: () => "test-token",
+  verifySupabaseJwt: () => Promise.resolve(null),
+  adminGateError: (res: { error: 401 | 403; reason?: string }) =>
+    res.error === 401 ? { body: { error: "Unauthorized" }, status: 401 } : { body: { error: "Hanya admin" }, status: 403 },
+  clientIp: () => "127.0.0.1",
+  tokenFingerprint: () => Promise.resolve("fp-test"),
+}));
+
 vi.mock("../../../lib/supabase.js", () => ({
-  getSupabase: () => ({
-    rpc: (_fn: string, args: Record<string, unknown>) => {
-      control.rpcCalls.push(args);
-      return Promise.resolve(control.rpcResult);
-    },
-    from: (table: string) => ({
-      select: () => ({
-        eq: () => ({
-          single: () => Promise.resolve({ data: control.payoutRow, error: control.payoutFetchErr }),
-        }),
-      }),
-      update: (payload: Record<string, unknown>) => {
-        control.payoutUpdates.push({ table, payload });
-        // Chain fixed-depth, meniru route: .eq("id", ...).eq("status", ...).
-        return {
-          eq: () => ({
-            eq: () => Promise.resolve({ data: null, error: null }),
-          }),
-        };
+  getSupabase: () => {
+    if (control.supabaseThrow) throw control.supabaseThrow;
+    return {
+      rpc: (_fn: string, args: Record<string, unknown>) => {
+        if (control.rpcReject) return Promise.reject(control.rpcReject);
+        control.rpcCalls.push(args);
+        return Promise.resolve(control.rpcResult);
       },
-    }),
-  }),
+      from: (table: string) => ({
+        select: () => ({
+          eq: () => ({
+            single: () => Promise.resolve({ data: control.payoutRow, error: control.payoutFetchErr }),
+            maybeSingle: () => Promise.resolve({ data: control.refundRow, error: null }),
+          }),
+        }),
+        update: (payload: Record<string, unknown>) => {
+          control.payoutUpdates.push({ table, payload });
+          // Chain fixed-depth, meniru route: .eq("id", ...).eq("status", ...).
+          return {
+            eq: () => ({
+              eq: () => Promise.resolve({ data: null, error: null }),
+            }),
+          };
+        },
+      }),
+    };
+  },
 }));
 
 vi.mock("../../../lib/reads/kyc.js", () => ({
@@ -318,5 +346,81 @@ describe("payout webhook signature gate (P1-1)", () => {
     expect(body.error).toBe("Invalid signature");
     expect(control.payoutUpdates).toHaveLength(0);
     expect(control.rpcCalls).toHaveLength(0);
+  });
+});
+
+// Pentest P2 (2026-08-30): raw Postgres messages (e.g. `invalid input syntax for
+// type uuid: "system"`) were proven to leak through the root onError 500 body.
+describe("global onError sanitization (pentest P2)", () => {
+  beforeEach(() => {
+    control.signatureValid = true;
+    control.getStatusThrows = false;
+    control.rpcReject = null;
+    control.rpcCalls = [];
+  });
+  afterEach(() => {
+    control.supabaseThrow = null;
+    vi.clearAllMocks();
+  });
+
+  it("webhook 500 body never carries the raw uuid syntax error", async () => {
+    control.supabaseThrow = new Error('invalid input syntax for type uuid: "system"');
+    const res = await webhook({ order_id: ORDER_ID, gross_amount: "150000", transaction_status: "settlement" });
+    expect(res.status).toBe(500);
+    const body = (await res.json()) as { error?: string };
+    expect(body.error).toBe("Invalid identifier");
+    expect(body.error).not.toContain("uuid");
+    expect(body.error).not.toContain("system");
+  });
+
+  it("curated business code thrown to onError still reaches the client verbatim", async () => {
+    control.supabaseThrow = new Error("COOLDOWN_PERIOD_24H");
+    const res = await webhook({ order_id: ORDER_ID, gross_amount: "150000", transaction_status: "settlement" });
+    expect(res.status).toBe(500);
+    const body = (await res.json()) as { error?: string };
+    expect(body.error).toBe("COOLDOWN_PERIOD_24H");
+  });
+});
+
+// Pentest P2: POST /admin/payouts/:id/refund 500 catch-all returned raw
+// `err.message` — non-RpcError DB failures must be sanitized too.
+describe("admin payout refund 500 sanitization (pentest P2)", () => {
+  beforeEach(() => {
+    control.rpcReject = null;
+    control.rpcCalls = [];
+    control.refundRow = { id: PAYOUT_ID, status: "pending", user_id: USER_ID, ccoin_amount: 10 };
+  });
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
+  function refund(payoutId: string) {
+    return app.request(`/api/payments/admin/payouts/${payoutId}/refund`, { method: "POST" });
+  }
+
+  it("404 keeps business mapping when payout is unknown", async () => {
+    control.refundRow = null;
+    const res = await refund(PAYOUT_ID);
+    expect(res.status).toBe(404);
+    const body = (await res.json()) as { error?: string };
+    expect(body.error).toBe("Payout tidak ditemukan");
+  });
+
+  it("non-RpcError DB failure -> 500 with sanitized message, never raw", async () => {
+    control.rpcReject = new Error("could not serialize access due to concurrent update");
+    const res = await refund(PAYOUT_ID);
+    expect(res.status).toBe(500);
+    const body = (await res.json()) as { error?: string };
+    expect(body.error).toBe("Operasi gagal");
+    expect(body.error).not.toContain("serialize");
+  });
+
+  it("raw technical failure message class (uuid syntax) -> mapped, never verbatim", async () => {
+    control.rpcReject = new Error('invalid input syntax for type uuid: "system"');
+    const res = await refund(PAYOUT_ID);
+    expect(res.status).toBe(500);
+    const body = (await res.json()) as { error?: string };
+    expect(body.error).toBe("Invalid identifier");
+    expect(body.error).not.toContain("uuid");
   });
 });

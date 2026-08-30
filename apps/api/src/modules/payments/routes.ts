@@ -161,7 +161,9 @@ app.post("/admin/payouts/:id/refund", async (c) => {
       if (err.code === "INVALID_STATE") return c.json({ error: err.message }, 409);
       return c.json({ error: err.message }, 400);
     }
-    return c.json({ error: err instanceof Error ? err.message : String(err) }, 500);
+    // Pentest P2 (2026-08-30): non-RpcError failures (network/serialization) used
+    // to echo raw err.message — route through the sanitizer instead.
+    return c.json({ error: sanitizeDbError(err instanceof Error ? err : { message: String(err) }) }, 500);
   }
 });
 
