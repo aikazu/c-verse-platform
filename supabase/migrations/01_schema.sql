@@ -28,6 +28,8 @@ create type public.wallet_tx_type as enum ('top_up','checkout','escrow_hold','es
 -- Founder 2026-08-28: ship-out fee dari platform vault (RPC vault_shipout,
 -- 04_rpc). Statement-level, idempotent untuk re-run migrator.
 alter type public.wallet_tx_type add value if not exists 'vault_shipout';
+-- A1 2026-08-31: fan dukungan C-Coin ke kreator (RPC send_support, 04_rpc).
+alter type public.wallet_tx_type add value if not exists 'support';
 create type public.verify_status as enum ('verified','tamper_detected','registered','unknown');
 create type public.kyc_status as enum ('pending','approved','rejected');
 create type public.card_variant as enum ('unsigned','signed');

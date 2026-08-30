@@ -55,6 +55,8 @@ const ERROR_MESSAGES: Record<string, string> = {
   CREATOR_SELF_DEALING_30D: "Creator self-dealing dilarang 30 hari — kreator tidak bisa membeli kartu drop sendiri",
   CARD_NOT_TRADABLE: "Kartu berstatus non-tradable (tampered/defect/lost) — tidak bisa ditransaksikan",
   BID_LIMIT: "Maksimum 3 bid aktif — batalkan salah satu bid dulu",
+  SELF_SUPPORT: "Tidak bisa mengirim dukungan ke diri sendiri",
+  CREATOR_NOT_FOUND: "Kreator tujuan tidak ditemukan",
   KYC_REQUIRED: "KYC harus disetujui dulu sebelum payout",
   MIN_PAYOUT: "Payout minimum 10 C-Coin",
   PAYOUT_HELD: "Payout sedang ditahan admin (fraud hold)",
@@ -129,6 +131,16 @@ export function rpcBuyoutCard(
   address: string | null = null,
 ) {
   return callRpc<Record<string, unknown>>(db, "buyout_card", { p_card_id: cardId, p_destination: destination, p_address: address });
+}
+
+// Support (A1 2026-08-31): fan dukungan C-Coin 100% ke kreator (tanpa potongan
+// platform). Atomic di SQL: debit pengirim + kredit kreator; pengirim dapat
+// XP 1:1 (aturan spend). Returns { transactionId, balanceCcoin }.
+export function rpcSendSupport(db: SupabaseClient, creatorId: string, amountCcoin: number) {
+  return callRpc<{ transactionId: string; balanceCcoin: number }>(db, "send_support", {
+    p_creator: creatorId,
+    p_amount: amountCcoin,
+  });
 }
 
 // PHASE-2 settlement seed (service_role HANYA — dipanggil admin via API).

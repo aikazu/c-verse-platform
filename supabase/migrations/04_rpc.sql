@@ -30,6 +30,7 @@
 --   - cancel_seed_sale:         20260823050000_seed_sale_abort.sql (+ guard + idempotent)
 --   - admin_fulfill_shipment:   20260823040000_admin_fulfill_tracking_trim.sql (+ guard + trim tracking)
 --   - payout_refund:            20260823030000_release_seed_grant_lock.sql (+ guard)
+--   - send_support:             BARU 2026-08-31 (A1: fan dukungan 100% ke kreator; XP 1:1 pengirim)
 --
 -- Defense-in-depth: 4 service-only RPC (release_seed_sale, admin_fulfill_shipment,
 -- payout_refund, payout_batch_run) + cancel_seed_sale SEMUA punya in-body
@@ -37,7 +38,7 @@
 -- ══════════════════════════════════════════════════════════════════════════
 
 -- ══════════════════════════════════════════════════════════════════════════
--- wallet_debit: idempotent by p_idem + XP trigger for checkout/platform_buy.
+-- wallet_debit: idempotent by p_idem + XP trigger for checkout/platform_buy/support.
 -- Guard: caller role in (authenticated, anon) → p_user must = auth.uid().
 -- ══════════════════════════════════════════════════════════════════════════
 create or replace function public.wallet_debit(
@@ -74,10 +75,12 @@ begin
   where user_id = p_user
   returning * into v_wallet;
 
-  -- spend 1 C-Coin = 1 XP (checkout/platform_buy); hold & payout bukan spend XP.
+  -- spend 1 C-Coin = 1 XP (checkout/platform_buy/support); hold & payout bukan spend XP.
   -- cumulative_spend_ccoin mirrors spend-derived XP only (badge rewards excluded);
   -- top-up never reaches here. Used by gamification leaderboards/leveling.
-  if p_type in ('checkout','platform_buy') then
+  -- support (A1 2026-08-31): pengirim dukungan tetap dapat XP 1:1 (aturan spend);
+  -- kredit kreator lewat wallet_credit TIDAK memberi XP.
+  if p_type in ('checkout','platform_buy','support') then
     update users set total_xp = total_xp + p_amount,
       cumulative_spend_ccoin = cumulative_spend_ccoin + p_amount,
       level = least(100, greatest(1, floor((total_xp + p_amount) / 10) + 1))
@@ -990,6 +993,45 @@ begin
 end $$;
 
 -- ══════════════════════════════════════════════════════════════════════════
+-- send_support (A1 2026-08-31): fan dukungan C-Coin ke kreator — TANPA
+-- potongan platform (100% ke kreator, tidak menulis platform_revenue).
+-- Pengirim dapat XP 1:1 via wallet_debit type 'support' (aturan spend);
+-- kredit kreator TIDAK memberi XP. Target wajib kreator aktif (role
+-- 'creator', flag_reason null). Single transaction.
+--
+-- Idempotency: wallet_debit/wallet_credit memindai wallet_transactions GLOBAL
+-- by metadata->>'idempotency_key', jadi debit & kredit WAJIB pakai dua key
+-- berbeda (pola buyout-…/settle-… di buyout_card) — key sama membuat kredit
+-- replay-return baris debit tanpa mengkredit.
+-- ══════════════════════════════════════════════════════════════════════════
+create or replace function public.send_support(
+  p_creator uuid,
+  p_amount integer
+) returns jsonb
+language plpgsql security definer set search_path = public as $$
+declare
+  v_user uuid := auth.uid();
+  v_debit_tx public.wallet_transactions;
+begin
+  if v_user is null then raise exception 'AUTH_REQUIRED'; end if;
+  if p_amount is null or p_amount < 1 then raise exception 'INVALID_AMOUNT'; end if;
+  if p_creator = v_user then raise exception 'SELF_SUPPORT'; end if;
+  if not exists (select 1 from users where id = p_creator and role = 'creator' and flag_reason is null) then
+    raise exception 'CREATOR_NOT_FOUND';
+  end if;
+
+  v_debit_tx := public.wallet_debit(v_user, p_amount, 'support', 'user', p_creator::text,
+          'support-debit-' || gen_random_uuid()::text);
+  perform public.wallet_credit(p_creator, p_amount, 'support', 'user', v_user::text,
+          'support-credit-' || gen_random_uuid()::text);
+
+  return jsonb_build_object(
+    'transactionId', v_debit_tx.id,
+    'balanceCcoin', v_debit_tx.balance_after_ccoin
+  );
+end $$;
+
+-- ══════════════════════════════════════════════════════════════════════════
 -- payout_request: creator minta disbursement (KYC + min 10 + hold check).
 -- ══════════════════════════════════════════════════════════════════════════
 create or replace function public.payout_request(p_amount integer) returns public.payouts
@@ -1622,6 +1664,12 @@ grant execute on function public.set_buyout(text, integer) to authenticated;
 
 revoke execute on function public.buyout_card(text, public.shipment_to_dest, text) from public;
 grant execute on function public.buyout_card(text, public.shipment_to_dest, text) to authenticated;
+
+-- send_support (A1 2026-08-31) — user-facing. Pentest lesson: revoke eksplisit
+-- anon + public (default-privileges Supabase memberi EXECUTE saat CREATE FUNCTION).
+revoke execute on function public.send_support(uuid, integer) from public;
+revoke execute on function public.send_support(uuid, integer) from anon;
+grant execute on function public.send_support(uuid, integer) to authenticated;
 
 -- Badges + XP — internal/service (X1 audit 2026-08-29: trigger-invoked only
 -- via perform; tidak ada path end-user — revoke anon+authenticated).

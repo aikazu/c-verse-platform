@@ -198,6 +198,16 @@ export const topupSchema = z.object({
   method: z.enum(["qris", "va_bca", "va_mandiri", "ewallet_gopay", "ewallet_ovo"]).default("qris"),
 });
 
+// Support (A1): fan dukungan C-Coin ke kreator — 100% tanpa potongan platform;
+// pengirim dapat XP 1:1 (aturan spend). Target wajib kreator (divalidasi RPC).
+export const supportSchema = z
+  .object({
+    creatorId: z.string().uuid(),
+    amountCcoin: z.number().int().min(1),
+  })
+  .strict();
+export type SupportInput = z.infer<typeof supportSchema>;
+
 export const verifyNfcSchema = z.object({
   uid: z.string().min(1),
   counter: z.string().optional(),
@@ -538,6 +548,7 @@ const WALLET_TX_TYPE_LABELS: Record<string, string> = {
   adjustment: "Penyesuaian",
   platform_buy: "Pembelian platform",
   platform_revenue: "Pendapatan platform",
+  support: "Dukungan",
 };
 export function walletTxTypeLabel(type: string): string {
   return labelFrom(WALLET_TX_TYPE_LABELS, type);
