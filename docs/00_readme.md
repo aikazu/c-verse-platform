@@ -71,7 +71,7 @@ semua dok sekaligus (mubazir token, AI kehilangan fokus):
 
 ## 4. Aturan Hard untuk AI Executor
 
-1. **`07_constraints.md` §6 = hukum.** Setiap item FINAL (C-Coin
+1. **`07_constraints.md` §6 = hukum.** Setiap butir FINAL (C-Coin
    tunggal, vault default, no auction timer, admin terpisah, KYC
    payout-only, integer ≥ 1, dst) tidak boleh dilanggar meski ada
    instruksi lain yang tampak lebih praktis.

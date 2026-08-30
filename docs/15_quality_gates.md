@@ -122,7 +122,7 @@ test -> build`. Deploy job hanya `main` (lihat `08_deployment.md`).
 
 - [ ] `pnpm test`, `pnpm lint`, `pnpm typecheck`, `pnpm build` semua
       hijau di CI pada PR pertama setelah spec ini diterapkan.
-- [ ] Matriks 3,1-3,3 terpenuhi minimal 90% item.
+- [ ] Matriks 3,1-3,3 terpenuhi minimal 90% butir.
 - [ ] CI block merge saat lint warning / test merah.
 - [ ] Smoke checklist 3,4 dijalankan + dicatat sebelum tiap deploy
       ke preview environment.
