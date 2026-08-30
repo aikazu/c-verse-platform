@@ -5,9 +5,11 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { CardThumb } from "../components/CardThumb";
 import { useConfirm } from "../components/ConfirmProvider";
 import { StatusBadge } from "../components/StatusBadge";
+import type { ApiDropCardRow, ApiDropDetailWithWinners } from "../lib/api";
 import { api } from "../lib/api";
-import type { ApiDrop, ApiDropDetailResponse } from "../lib/api-types";
+import type { ApiDrop } from "../lib/api-types";
 import { useAuth } from "../lib/auth";
+import { ErrorState, LoadingState } from "../lib/QueryStates";
 import { useToast } from "../lib/toast";
 import "./commerce.css";
 
@@ -53,11 +55,18 @@ export default function DropDetail() {
   const nav = useNavigate();
   const { user } = useAuth();
   const { push } = useToast();
-  const { data, isLoading, refetch } = useQuery<ApiDropDetailResponse>({
+  const { data, isLoading, refetch } = useQuery<ApiDropDetailWithWinners>({
     queryKey: ["drop", id],
     queryFn: () => api.drop(id!),
     enabled: !!id,
     refetchInterval: 60_000, // phase derivation akurat saat raffle window
+  });
+  // B2: seluruh unit drop untuk grid per-kartu (signed dulu, unitNumber asc —
+  // urutan server). Terpisah dari detail drop agar payload tetap ringan.
+  const cardsQuery = useQuery({
+    queryKey: ["drop-cards", id],
+    queryFn: () => api.dropCards(id!),
+    enabled: !!id,
   });
   // Tick tiap detik untuk countdown yang akurat (bukan refetch tiap detik → hemat).
   const [now, setNow] = useState(() => Date.now());
@@ -96,6 +105,12 @@ export default function DropDetail() {
   const ph = derivePhase(drop, now);
   const pct = drop.totalUnits ? Math.round((drop.soldCount / drop.totalUnits) * 100) : 0;
   const dropStart = dropStartRaw;
+  // Grid per-kartu: dua group — Premium (Signed) dulu, lalu Regular (Unsigned).
+  const allCards = cardsQuery.data?.cards ?? [];
+  const signedUnits = allCards.filter((row) => row.variant === "signed");
+  const unsignedUnits = allCards.filter((row) => row.variant === "unsigned");
+  // Pemenang hanya tersedia (server) setelah draw; tampilkan di phase ended.
+  const winners = ph === "ended" ? (data.winners ?? []) : [];
   return (
     <div className="page-stack">
       <section className="page-hero" aria-label="Header halaman Drop">
@@ -204,6 +219,52 @@ export default function DropDetail() {
           onNavHome={() => nav("/home")}
         />
       </div>
+      <section className="dd-units" aria-label="Semua C.Card dalam drop ini">
+        {cardsQuery.isLoading ? (
+          <LoadingState />
+        ) : cardsQuery.isError ? (
+          <ErrorState onRetry={() => cardsQuery.refetch()} label="Gagal memuat C.Card" />
+        ) : (
+          <>
+            {signedUnits.length > 0 && (
+              <div className="dd-group">
+                <div className="dd-group-label">Premium (Signed)</div>
+                <div className="dd-grid">
+                  {signedUnits.map((row) => (
+                    <UnitCell key={row.id} row={row} drop={drop} />
+                  ))}
+                </div>
+              </div>
+            )}
+            {unsignedUnits.length > 0 && (
+              <div className="dd-group">
+                <div className="dd-group-label">Regular (Unsigned)</div>
+                <div className="dd-grid">
+                  {unsignedUnits.map((row) => (
+                    <UnitCell key={row.id} row={row} drop={drop} />
+                  ))}
+                </div>
+              </div>
+            )}
+          </>
+        )}
+      </section>
+      {winners.length > 0 && (
+        <section className="dd-winners" aria-label="Pemenang drop">
+          <h2 className="dd-section-heading">Pemenang</h2>
+          <ul className="dd-winner-list">
+            {winners.map((winner) => (
+              <li key={`${winner.variant}-${winner.unitNumber}`} className="dd-winner-row">
+                <span className="dd-winner-unit">#{winner.unitNumber}</span>
+                <span className={`pill ${winner.variant === "signed" ? "pill-warn" : "pill-muted"}`}>
+                  {winner.variant === "signed" ? "Premium" : "Regular"}
+                </span>
+                <span className="dd-winner-name">{winner.displayName}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
     </div>
   );
 }
@@ -214,6 +275,20 @@ function Stat({ label, value }: { label: string; value: string }) {
       <div className="label">{label}</div>
       <div className="cm-stat-value">{value}</div>
     </div>
+  );
+}
+
+/** Sel grid per-kartu drop (B2): thumbnail artwork drop + nomor unit. */
+function UnitCell({ row, drop }: { row: ApiDropCardRow; drop: ApiDrop }) {
+  return (
+    <Link to={`/cards/${row.id}`} className="dd-cell" aria-label={`Unit ${row.unitNumber}`}>
+      <div className="dd-cell-art">
+        <CardThumb artworkUrl={drop.artworkUrl} series={drop.series} title={drop.title} />
+      </div>
+      <span className="dd-cell-num" aria-hidden="true">
+        #{row.unitNumber}
+      </span>
+    </Link>
   );
 }
 

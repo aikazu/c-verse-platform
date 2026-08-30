@@ -15,10 +15,11 @@ test.describe("Secondary market", () => {
     console.log(`Marketplace: ${count} item ditemukan`);
   });
 
-  test("browse menampilkan kartu secondary", async ({ page }) => {
+  test("browse menampilkan grid tile per-drop", async ({ page }) => {
     await loginAs(page, "demo@cverse.id");
     await page.goto("/browse");
-    await expect(page.locator("[class*=card]").or(page.locator("table")).or(page.locator("body"))).toBeVisible({ timeout: 10000 });
+    // B2: /browse = grid tile per-drop (grid per-kartu pindah ke dalam halaman drop).
+    await expect(page.locator("a[href*='/drops/']").first()).toBeVisible({ timeout: 10000 });
     await expect(page.locator("body")).not.toContainText("Error");
   });
 
@@ -26,15 +27,9 @@ test.describe("Secondary market", () => {
     await loginAs(page, "demo@cverse.id");
 
     // Seed menjamin target bid-able milik user LAIN: card-aespa-live-02 (AESL-002,
-    // status 'bound', owner rival@cverse.id — bukan demo). Cari via NFC short ID
-    // agar determinis (urutan default /browse memunculkan kartu milik demo dulu).
-    await page.goto("/browse");
-    const search = page.locator('input[aria-label="Cari C.Card"]');
-    await expect(search).toBeVisible({ timeout: 10000 });
-    await search.fill("AESL-002");
-    const cardLink = page.locator("article.browse-card a[href*='/cards/']").first();
-    await expect(cardLink).toBeVisible({ timeout: 10000 });
-    await cardLink.click();
+    // status 'bound', owner rival@cverse.id — bukan demo). B2: /browse kini
+    // per-drop, jadi kartu dibuka langsung via URL detail.
+    await page.goto("/cards/card-aespa-live-02");
     await expect(page).toHaveURL(/\/cards\/card-aespa-live-02/);
 
     // Form bid hanya render untuk non-owner (CardInfo.tsx: user && !isOwnerDerived).

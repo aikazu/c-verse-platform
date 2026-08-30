@@ -3,7 +3,6 @@ import type {
   ApiAcceptBidResponse,
   ApiBadgesResponse,
   ApiBidResponse,
-  ApiBrowseResponse,
   ApiBuyoutResponse,
   ApiCancelBidResponse,
   ApiCard3dResponse,
@@ -71,6 +70,28 @@ async function req<T>(path: string, opts: RequestInit = {}): Promise<T> {
   return data as T;
 }
 
+// ── Drop detail extensions (B2) ────────────────────────────────────────────
+// Winner row dari GET /api/drops/:id — hanya ada saat drop sudah diundi
+// (drawnAt / status sold_out|closed). `displayName` sudah dimasking
+// server-side untuk user privasi ("Anonim").
+export interface ApiDropWinner {
+  unitNumber: number;
+  variant: "signed" | "unsigned";
+  displayName: string;
+}
+
+// Baris kartu dari GET /api/drops/:id/cards — seluruh unit drop, signed dulu
+// lalu unitNumber asc (urutan server).
+export interface ApiDropCardRow {
+  id: string;
+  unitNumber: number;
+  variant: "signed" | "unsigned";
+  status: string;
+  isOwned: boolean;
+}
+
+export type ApiDropDetailWithWinners = ApiDropDetailResponse & { winners?: ApiDropWinner[] };
+
 export const api = {
   // auth (Supabase Auth dipakai di lib/auth.tsx; endpoint password & demo-login in-memory dihapus per docs/10)
   me: () => req<ApiUser>("/auth/me"),
@@ -84,7 +105,10 @@ export const api = {
     const qs = params ? `?${new URLSearchParams(params).toString()}` : "";
     return req<ApiDropsResponse>(`/drops${qs}`);
   },
-  drop: (id: string) => req<ApiDropDetailResponse>(`/drops/${id}`),
+  drop: (id: string) => req<ApiDropDetailWithWinners>(`/drops/${id}`),
+  // B2: seluruh unit sebuah drop (signed dulu, unitNumber asc — urutan server).
+  // Dipakai grid per-kartu di halaman drop.
+  dropCards: (dropId: string) => req<{ cards: ApiDropCardRow[] }>(`/drops/${dropId}/cards`),
   // P0-1 (audit 2026-08-24): raffle entry — Phase-1 Flow 1 docs/03_flows.
   // Backend: POST /api/drops/:id/entry { pool: "regular" | "premium" | "both" }
   // → RPC rpcDropEntry. Hold C-Coin (escrow) sampai draw; release saat kalah.
@@ -98,6 +122,12 @@ export const api = {
 
   // wallet
   wallet: () => req<ApiWalletResponse>("/wallet"),
+  // Creator support (A2): spend C-Coin — server returns the fresh balance.
+  supportCreator: (creatorId: string, amountCcoin: number) =>
+    req<{ transactionId: string; balanceCcoin: number }>("/wallet/support", {
+      method: "POST",
+      body: JSON.stringify({ creatorId, amountCcoin }),
+    }),
 
   // payments (Midtrans): topup returns payment instruction, payout creates weekly-batch request
   topup: (amountCcoin: number) => req<ApiTopupResponse>("/payments/topup", { method: "POST", body: JSON.stringify({ amountCcoin }) }),
@@ -161,12 +191,6 @@ export const api = {
     }),
   patchBuyout: (cardId: string, buyoutPriceCcoin: number | null) =>
     req<ApiPatchBuyoutResponse>(`/listings/cards/${cardId}/buyout`, { method: "PATCH", body: JSON.stringify({ buyoutPriceCcoin }) }),
-
-  // browse
-  browse: (params?: Record<string, string>) => {
-    const qs = params ? `?${new URLSearchParams(params).toString()}` : "";
-    return req<ApiBrowseResponse>(`/browse${qs}`);
-  },
 
   // bids (direct on card — F-02 FINAL: tidak ada listing indirection; bid
   // selalu lewat cardId). API menerima alias amountCCoin untuk back-compat

@@ -14,11 +14,16 @@ test.describe("Public browsing (unauthenticated)", () => {
     await expect(page.locator("[class*=drop]").or(page.locator("table")).first()).toBeVisible({ timeout: 10000 });
   });
 
-  test("halaman browse bisa diakses tanpa login", async ({ page }) => {
+  test("halaman browse menampilkan grid tile per-drop tanpa login", async ({ page }) => {
     await page.goto("/browse");
     // Body saja (locator .or(body) → strict violation: body + link nav sama-sama match)
     await expect(page.locator("body")).toBeVisible();
     await expect(page.locator("body")).not.toContainText("Error");
+    // Grid per-drop (B2): tile drop → klik → halaman drop.
+    const dropTile = page.locator("a[href*='/drops/']").first();
+    await dropTile.waitFor({ state: "visible", timeout: 10000 });
+    await dropTile.click();
+    await expect(page).toHaveURL(/\/drops\//);
   });
 
   test("drop detail menampilkan info tanpa login", async ({ page }) => {

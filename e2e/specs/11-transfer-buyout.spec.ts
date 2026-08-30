@@ -230,15 +230,10 @@ test.describe("Secondary transfer — accept-bid & buyout (F6/F7)", () => {
     const bidAmount = Math.min(BID_AMOUNT, Math.max(1, demoBalanceBefore - 2));
     const bidSellerCredit = bidAmount - Math.round(bidAmount * 0.075) * 2;
 
-    // ── demo: place bid via UI (pola 05-secondary: /browse → kartu → modal) ──
+    // ── demo: place bid via UI (B2: /browse per-drop — kartu dibuka langsung
+    // via URL detail) ──
     await loginWithRetry(page, "demo@cverse.id");
-    await page.goto("/browse");
-    const search = page.locator('input[aria-label="Cari C.Card"]');
-    await expect(search).toBeVisible({ timeout: 10000 });
-    await search.fill(BID_SHORT_ID);
-    const cardLink = page.locator("article.browse-card a[href*='/cards/']").first();
-    await expect(cardLink).toBeVisible({ timeout: 10000 });
-    await cardLink.click();
+    await page.goto(`/cards/${BID_CARD_ID}`);
     await expect(page).toHaveURL(`http://localhost:5173/cards/${BID_CARD_ID}`);
 
     const bidInput = page.locator('input[aria-label="Jumlah tawaran C-Coin"]');
@@ -368,13 +363,8 @@ test.describe("Secondary transfer — accept-bid & buyout (F6/F7)", () => {
     const marketLink = page.locator(`a.market-card[href*="${BUY_CARD_ID}"]`);
     await expect(marketLink).toBeVisible({ timeout: 10000 });
 
-    await page.goto("/browse");
-    const search = page.locator('input[aria-label="Cari C.Card"]');
-    await expect(search).toBeVisible({ timeout: 10000 });
-    await search.fill(BUY_SHORT_ID);
-    const cardLink = page.locator("article.browse-card a[href*='/cards/']").first();
-    await expect(cardLink).toBeVisible({ timeout: 10000 });
-    await cardLink.click();
+    // B2: /browse per-drop — kartu dibuka langsung via URL detail.
+    await page.goto(`/cards/${BUY_CARD_ID}`);
     await expect(page).toHaveURL(`http://localhost:5173/cards/${BUY_CARD_ID}`);
 
     const pricePanel = page.locator(".ci-price-panel");

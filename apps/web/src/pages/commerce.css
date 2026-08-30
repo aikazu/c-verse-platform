@@ -333,3 +333,90 @@
     min-width: 0;
   }
 }
+
+/* ── Drop detail — per-unit grid + winners (B2) ──────────────────────────── */
+.dd-units {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.dd-group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.dd-group-label {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+.dd-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  gap: 12px;
+}
+.dd-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  transition: transform 0.15s ease;
+}
+.dd-cell:hover {
+  transform: translateY(-2px);
+}
+.dd-cell-art {
+  aspect-ratio: 1 / 1;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--surface-2);
+}
+.dd-cell-num {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+.dd-winners {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.dd-section-heading {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text);
+}
+.dd-winner-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+.dd-winner-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 2px;
+  border-bottom: 1px dashed var(--border);
+}
+.dd-winner-row:last-child {
+  border-bottom: none;
+}
+.dd-winner-unit {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--gold);
+  min-width: 44px;
+  font-variant-numeric: tabular-nums;
+}
+.dd-winner-name {
+  font-size: 13px;
+  color: var(--text);
+}
