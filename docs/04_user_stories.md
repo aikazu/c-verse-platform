@@ -30,6 +30,9 @@ And saat FASE RAFFLE (24 jam pertama): jumlah entry live per
    jika belum login
 And saat FASE FCFS (setelah draw): tombol "Beli" aktif jika
    unit tersisa > 0
+And tampil grid semua kartu drop (Premium/Signed → Regular/Unsigned)
+And setelah drop selesai diundi: section Pemenang (unitNumber,
+   variant, displayName — anonim/suspended = "Anonim")
 ```
 
 ### US-PUB-003 — Halaman kartu (info) tanpa login
@@ -62,13 +65,13 @@ Then tampil kartu yang owner-nya memasang buyout price
 And bisa membeli langsung di harga buyout (login gate)
 ```
 
-### US-PUB-006 — Browse (cari kartu + bid langsung)
+### US-PUB-006 — Browse (discovery drop)
 ```
 Given visitor membuka /browse
-When mencari kartu/kreator
-Then tampil hasil pencarian kartu
-And user bisa mengajukan bid ke kartu WALAU owner tidak
-   memasang harga (login gate)
+When halaman dimuat
+Then tampil grid tile PER-DROP (bukan per kartu)
+And klik tile membuka detail drop (/drops/:id)
+And bid/buyout dilakukan di halaman kartu (login gate)
 ```
 
 ### US-PUB-007 — Leaderboard (multi-type)
@@ -127,6 +130,8 @@ And TIDAK menampilkan jumlah follower
 And list drop kreator (published/live/upcoming) ditampilkan
 And setiap drop menautkan ke halaman detail drop
 And drop yang belum publish tidak tampil
+And user login bisa kirim Dukungan C-Coin (min 1) via tombol Dukungan:
+   100% ke kreator (tanpa potongan platform), pengirim dapat XP 1:1
 ```
 
 ## B. User / Kolektor (login)
@@ -286,7 +291,8 @@ And user bisa mengubah/mencabut buyout price kapan saja
 
 ### US-USR-009 — Bid langsung di kartu (offer, C-Coin di-hold)
 ```
-Given user menemukan kartu di /browse (dengan atau tanpa buyout)
+Given user menemukan kartu (dari /browse → detail drop,
+   /marketplace, atau koleksi; dengan atau tanpa buyout)
 When mengajukan bid/offer
 Then nominal bid integer minimal 1 C-Coin (tanpa desimal)
 And C-Coin bidder di-hold (1 active bid per kartu = tertinggi)

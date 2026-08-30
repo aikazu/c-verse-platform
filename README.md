@@ -158,11 +158,11 @@ Belum diimplementasi: notifikasi in-app/push (F010, F013). Email transaksional A
 ├── apps/
 │   ├── api/                 # Hono Workers — /api/* + /health + /sitemap.xml
 │   │   ├── src/index.ts     # mount routes + CORS + security headers + rate limit
-│   │   ├── src/modules/     # 18 modul domain (routes.ts + index.ts): auth, drops,
-│   │   │                    # orders, wallet, nfc, marketplace (alias /api/listings),
-│   │   │                    # bids, browse, profile, publicProfile, shipments,
-│   │   │                    # gamification, creators, kyc, seo, payments, admin,
-│   │   │                    # notifications
+│   │   ├── src/modules/     # 17 modul domain (routes.ts + index.ts): auth, drops,
+│   │   │                    # orders, wallet (incl. /support), nfc, marketplace
+│   │   │                    # (alias /api/listings), bids, profile, publicProfile,
+│   │   │                    # shipments, gamification, creators, kyc, seo,
+│   │   │                    # payments, admin, notifications
 │   │   ├── src/lib/db.ts    # facade RPC uang & stok (single transaction)
 │   │   ├── src/lib/reads*   # selector domain: select + mapper snake_case→camelCase
 │   │   ├── src/lib/cmac.ts  # AES-CMAC RFC 4493 + SUN AN12196
@@ -197,9 +197,10 @@ Belum diimplementasi: notifikasi in-app/push (F010, F013). Email transaksional A
 | 4 | **NFC Tap → 3D** | SUN URL `c-verse.co/cards/:id/3d?uid&ctr&c=CMAC` → badge `Verified Card`; iOS background reading (tanpa Web NFC) |
 | 5 | **QR Fallback** | Scan dus → `/cards/:id` status `Registered` (tanpa CMAC) |
 | 6 | **Ownership** | `current_owner_id` + `ownership_history`; `location` ∈ `platform_stock/with_owner/platform_vault` |
-| 7 | **Secondary** | Marketplace (buyout `cards.buyout_price_ccoin`) + Browse (bid langsung, 1 active tertinggi, outbid/cancel release, owner accept only) |
+| 7 | **Secondary** | Marketplace (buyout `cards.buyout_price_ccoin`) + bid di halaman kartu (1 active tertinggi, outbid/cancel release, owner accept only); `/browse` = grid tile per-drop |
 | 8 | **Ship-from-vault** | Kartu di vault bisa dikirim kapan saja (`POST /api/orders/vault-shipout`, ongkir integer ≥1) |
 | 9 | **Gamifikasi** | `level=floor(total_xp/10)`, `spend 1 C = 1 XP` + `xp_reward` badge; **top-up tidak menambah XP**; leaderboard multi-type (`xp`/`cards`/`badges`/`creator`) via RPC `get_leaderboard` |
+| 10 | **Dukungan** | Fan C-Coin ke kreator — 100% ke kreator (RPC `send_support`, tanpa platform revenue); pengirim XP 1:1; tombol di `/c/:username` |
 
 ---
 
@@ -211,13 +212,13 @@ Belum diimplementasi: notifikasi in-app/push (F010, F013). Email transaksional A
 |-------|---------|-------|
 | `/` | Landing | hero + drop terbaru |
 | `/drops` | Katalog | grid + filter kreator |
-| `/drops/:id` | Detail drop | countdown + harga C-Coin |
+| `/drops/:id` | Detail drop | countdown + harga C-Coin + grid kartu + pemenang |
 | `/marketplace` | Marketplace | kartu dengan buyout |
-| `/browse` | Browse | cari + bid langsung (`?sort=unit_number`) |
+| `/browse` | Browse | grid tile per-drop → detail drop |
 | `/cards/:cardId` | Info kartu | sertifikat + ownership history |
 | `/cards/:cardId/3d` | 3D viewer | badge Verified (hanya via NFC tap) |
 | `/leaderboard` | Peringkat | F019, tab `Level`\|`Kolektor`\|`Lencana` + `?tab=` |
-| `/c/:username` | Kreator publik | handle + bio + link sosmed + list drop |
+| `/c/:username` | Kreator publik | handle + bio + link sosmed + list drop + tombol Dukungan |
 | `/u/:username` | Kolektor publik | hidden jika privacy anonymous |
 | `/login` · `/register` | Auth | Google OAuth + email OTP 6 digit + Turnstile |
 | `/verify` · `/verify/:shortId` | Alias legacy | → Browse / Info kartu |

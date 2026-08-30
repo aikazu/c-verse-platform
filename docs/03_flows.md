@@ -167,6 +167,11 @@ checkout -> debit WalletTransaction (immutable, append-only)
   oleh RPC wallet_credit/debit; invarian ≡ SUM transaksi).
 - Cap saldo (founder 2026-08-16): top-up non-KYC maks 500 C-Coin
   (ditolak 422 sebelum Snap dibuat); KYC approved = tanpa cap.
+- Dukungan kreator (A1 2026-08-31): `POST /api/wallet/support` →
+  RPC `send_support` — debit pengirim + kredit kreator atomik;
+  100% ke kreator TANPA platform_revenue; pengirim XP 1:1
+  (wallet_debit type 'support'), kreator tidak dapat XP; min 1
+  C-Coin, target wajib kreator aktif.
 - Rekonsiliasi harian: top-up webhook vs ledger vs float riil
   (ADM-05). Pendapatan platform = SUM(platform_revenue) ≡ saldo
   wallet treasury.
@@ -237,9 +242,10 @@ MARKETPLACE (buyout):
    -> buyer klik "Beli" -> bayar C-Coin langsung -> transfer
    -> buyout terambil -> notif ke owner
 
-BROWSE (bid langsung di kartu):
-   user cari kartu di /browse (search by kartu/kreator)
-   -> bid/offer ke owner WALAUPUN owner tidak pasang harga
+BROWSE (discovery drop; bid di halaman kartu):
+   /browse = grid tile per-drop -> klik ke detail drop
+   -> halaman kartu -> bid/offer ke owner WALAUPUN owner
+      tidak pasang harga
    -> C-Coin bidder di-hold (1 bid active per kartu = tertinggi)
    -> BID LEBIH TINGGI masuk -> bid lama status outbid,
       C-Coin bidder lama otomatis kembali ke saldo
@@ -254,7 +260,9 @@ active bertahan sampai accept (owner), cancel (bidder), atau
 outbid (bid lebih tinggi).
 
 History bid per kartu: tampil 90 hari terakhir; bid `accepted`
-(complete) permanen selamanya.
+(complete) permanen selamanya. Bidder/owner anonim atau suspended
+tampil sebagai "Anonim" (privacy masking; sama di marketplace
+sellerName dan winners drop).
 
 Settlement:
 ```
@@ -387,7 +395,7 @@ ADM-06: dispute masuk -> review bukti -> keputusan
       (syarat: akun kreator AKTIF via Flow 11 — rekening kreator
       aktif SEBELUM listing)
 [5] LISTING MARKETPLACE
-    - tampil di /marketplace + /browse; owner bisa set buyout price
+    - tampil di /marketplace; owner bisa set buyout price
       ATAU biarkan bid langsung (perilaku secondary normal)
     - TERIMPLEMENTASI (2026-08-21): kartu dari seed drop tampil
       dengan badge holografik "✦ Seed 1-of-1" di kartu Marketplace,

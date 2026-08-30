@@ -1,7 +1,7 @@
 # 00 — README: Development Strategy C.Verse MVP
 
 > Status: [VALIDATED]
-> Last updated: 2026-08-29 (email Cloudflare Email Service, analytics foundation creator_page_views, C-13 paritas place_bid, wiring NFC web, Supabase lokal = test bench standar)
+> Last updated: 2026-08-31 (Dukungan kreator — RPC `send_support`, enum `wallet_tx_type` +'support', XP pengirim 1:1; drop winners + grid kartu per-drop; `/browse` jadi grid tile per-drop; masking "Anonim" di marketplace/bids/winners; modul API browse dihapus)
 > Konteks: foundation code sudah ada di
 > `C:\Users\iqbal\Documents\C-Verse\Platform` (mulai 2026-08-12).
 > Folder ini = satu-satunya acuan eksekusi; dok ini = pintu masuk.

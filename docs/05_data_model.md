@@ -243,8 +243,10 @@ wallet_transactions
   user_id uuid FK users.id
   type enum('top_up','checkout','escrow_hold','escrow_release',
             'settlement','payout','royalty','refund','adjustment',
-            'platform_buy',    -- platform beli kartu di secondary (admin seed)
-            'platform_revenue') -- fee snapshot masuk wallet treasury
+            'platform_buy',     -- platform beli kartu di secondary (admin seed)
+            'platform_revenue', -- fee snapshot masuk wallet treasury
+            'vault_shipout',    -- fee ongkir kirim dari vault
+            'support')          -- dukungan ke kreator (100% kreator, XP pengirim 1:1)
   amount_ccoin int            -- signed (+/-)
   ref_type text nullable      -- 'order', 'bid', 'payout'
   ref_id uuid nullable
