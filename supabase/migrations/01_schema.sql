@@ -556,7 +556,13 @@ grant usage, select on all sequences in schema public to service_role;
 
 -- anon: read publik. creator_page_views is write-via-RPC-only
 -- (record_creator_page_view SECURITY DEFINER; RLS default-deny, no direct INSERT).
-grant select on public.users, public.creators, public.drops, public.cards, public.bids, public.ownership_history, public.badges to anon;
+-- F4 (pentest 2026-08-30): public.users ditutup untuk anon — email terekspos
+-- via policy `not is_anonymous` lama. revoke eksplisit WAJIB: default
+-- privileges Supabase memberi ALL ke anon pada tabel baru, jadi cukup tidak
+-- me-grant tidak menutup apa pun. Akses admin lewat grant authenticated +
+-- policy users_select (public.is_admin) di 03_rls.
+revoke all on public.users from anon;
+grant select on public.creators, public.drops, public.cards, public.bids, public.ownership_history, public.badges to anon;
 
 -- authenticated: read sesuai matriks RLS + write minimum (guard trigger).
 grant select on

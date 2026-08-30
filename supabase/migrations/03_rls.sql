@@ -57,10 +57,30 @@ language sql stable as $$
 $$;
 
 -- ══════════════════════════════════════════════════════════════════════════
+-- Helper is_admin (F4 pentest hardening 2026-08-30): true hanya jika caller
+-- auth.uid() punya role 'admin' di public.users. SECURITY DEFINER supaya
+-- select internal tidak merekursi lewat RLS users; auth.uid() null → false.
+-- Tanpa revoke: EXECUTE default (public) disengaja — policy users_select
+-- dievaluasi sebagai caller, anon/authenticated butuh EXECUTE ini.
+-- Didefinisikan di sini (bukan 04_rpc) karena users_select di bawah
+-- memanggilnya dan 03_rls di-apply lebih dulu — CREATE POLICY memvalidasi
+-- fungsi saat DDL.
+-- ══════════════════════════════════════════════════════════════════════════
+create or replace function public.is_admin() returns boolean
+language plpgsql security definer set search_path = public as $$
+declare v_uid uuid := auth.uid();
+begin
+  if v_uid is null then return false; end if;
+  return exists (select 1 from users where id = v_uid and role = 'admin');
+end $$;
+
+-- ══════════════════════════════════════════════════════════════════════════
 -- users
 -- ══════════════════════════════════════════════════════════════════════════
+-- F4 (pentest 2026-08-30): `not is_anonymous` mengekspos email semua user
+-- non-anon ke role mana pun — own row atau admin (is_admin) saja.
 create policy users_select on public.users for select
-  using (id = auth.uid() or not is_anonymous);
+  using (id = auth.uid() or public.is_admin());
 create policy users_update_own on public.users for update
   using (id = auth.uid()) with check (id = auth.uid());
 

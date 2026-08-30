@@ -1630,17 +1630,30 @@ revoke execute on function public.award_badge_if_eligible(uuid, text) from anon;
 revoke execute on function public.award_badge_if_eligible(uuid, text) from authenticated;
 grant execute on function public.award_badge_if_eligible(uuid, text) to service_role;
 
+-- F1 (pentest 2026-08-30): tanpa revoke eksplisit, default-privileges Supabase
+-- memberi EXECUTE ke anon/authenticated — JWT apa pun bisa mint XP + insert
+-- wallet_transactions palsu via PostgREST. Internal `perform` only.
 revoke execute on function public.record_spend_conversion(uuid, integer, text) from public;
+revoke execute on function public.record_spend_conversion(uuid, integer, text) from anon;
+revoke execute on function public.record_spend_conversion(uuid, integer, text) from authenticated;
 grant execute on function public.record_spend_conversion(uuid, integer, text) to service_role;
 
--- Cron — service_role only
+-- Cron — service_role only. P2a (pentest 2026-08-30): revoke eksplisit
+-- anon+authenticated — caller tunggal apps/api/src/lib/cron.ts via
+-- service-role client (bypass grants), jadi revoke ini aman.
 revoke execute on function public.draw_drop(text) from public;
+revoke execute on function public.draw_drop(text) from anon;
+revoke execute on function public.draw_drop(text) from authenticated;
 grant execute on function public.draw_drop(text) to service_role;
 
 revoke execute on function public.draw_pending_drops() from public;
+revoke execute on function public.draw_pending_drops() from anon;
+revoke execute on function public.draw_pending_drops() from authenticated;
 grant execute on function public.draw_pending_drops() to service_role;
 
 revoke execute on function public.activate_scheduled_drops() from public;
+revoke execute on function public.activate_scheduled_drops() from anon;
+revoke execute on function public.activate_scheduled_drops() from authenticated;
 grant execute on function public.activate_scheduled_drops() to service_role;
 
 revoke execute on function public.payout_batch_run(integer) from public;
@@ -1657,7 +1670,11 @@ revoke execute on function public.payout_refund(text) from anon;
 revoke execute on function public.payout_refund(text) from authenticated;
 grant execute on function public.payout_refund(text) to service_role;
 
+-- F2 (pentest 2026-08-30): anon bisa fabrikasi revenue row + kredit treasury —
+-- revoke eksplisit (pola payout_batch_run); internal `perform` only.
 revoke execute on function public.record_platform_revenue(text, text, text, integer, integer, integer, integer) from public;
+revoke execute on function public.record_platform_revenue(text, text, text, integer, integer, integer, integer) from anon;
+revoke execute on function public.record_platform_revenue(text, text, text, integer, integer, integer, integer) from authenticated;
 grant execute on function public.record_platform_revenue(text, text, text, integer, integer, integer, integer) to service_role;
 
 revoke execute on function public.release_seed_sale(text) from public;

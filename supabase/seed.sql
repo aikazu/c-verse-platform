@@ -225,141 +225,142 @@ on conflict (id) do nothing;
 -- 1 INTENTIONALLY-FAKE verify_status='verified' (admin release-gate demo) — lihat LOUD comment.
 -- ══════════════════════════════════════════════════════════════════════════
 
--- Helper: deterministic nfc_uid via md5(drop_id||unit) — independent of random().
--- (md5 mengembalikan hex; kita upper-case untuk konsistensi UI.)
+-- Helper: deterministic nfc_uid via left(upper(md5(drop_id||unit)), 14) —
+-- independent of random(). 14 hex = 7 byte: API NFC verify menerima tepat
+-- 7-byte UID (lib/cmac.ts, AN12196) — panjang lain ditolak bad_uid (P2b).
 
 -- ── drop-aespa-live: 15 unit (2 signed + 13 unsigned); i=1..6 sold (i<=6) ──
 insert into public.cards (id, drop_id, unit_number, variant, status, owner_id, nfc_uid, nfc_short_id,
   verify_status, location, buyout_price_ccoin, nfc_configured, qc_status, last_ctr) values
-  ('card-aespa-live-01','drop-aespa-live', 1,'unsigned','bound',         '00000000-0000-4000-8000-000000000001', upper(md5('aespa-live|01')),'AESL-001','registered','with_owner', null,true,'passed', 1),
-  ('card-aespa-live-02','drop-aespa-live', 2,'unsigned','bound',         '00000000-0000-4000-8000-000000000006', upper(md5('aespa-live|02')),'AESL-002','registered','with_owner', null,true,'passed', 1),
-  ('card-aespa-live-03','drop-aespa-live', 3,'unsigned','listed_buyout', '00000000-0000-4000-8000-000000000001', upper(md5('aespa-live|03')),'AESL-003','registered','with_owner', 45,   true,'passed', 1),
-  ('card-aespa-live-04','drop-aespa-live', 4,'unsigned','bound',         '00000000-0000-4000-8000-000000000001', upper(md5('aespa-live|04')),'AESL-004','registered','with_owner', null,true,'passed', 1),
-  ('card-aespa-live-05','drop-aespa-live', 5,'unsigned','bound',         '00000000-0000-4000-8000-000000000006', upper(md5('aespa-live|05')),'AESL-005','registered','with_owner', null,true,'passed', 1),
-  ('card-aespa-live-06','drop-aespa-live', 6,'unsigned','bound',         '00000000-0000-4000-8000-000000000001', upper(md5('aespa-live|06')),'AESL-006','registered','with_owner', null,true,'passed', 1),
-  ('card-aespa-live-07','drop-aespa-live', 7,'unsigned','inventory',      null,                                  upper(md5('aespa-live|07')),'AESL-007','unknown',   'platform_stock', null,true,'pending', 0),
-  ('card-aespa-live-08','drop-aespa-live', 8,'unsigned','inventory',      null,                                  upper(md5('aespa-live|08')),'AESL-008','unknown',   'platform_stock', null,true,'pending', 0),
-  ('card-aespa-live-09','drop-aespa-live', 9,'unsigned','inventory',      null,                                  upper(md5('aespa-live|09')),'AESL-009','unknown',   'platform_stock', null,true,'pending', 0),
-  ('card-aespa-live-10','drop-aespa-live',10,'unsigned','inventory',      null,                                  upper(md5('aespa-live|10')),'AESL-010','unknown',   'platform_stock', null,true,'pending', 0),
-  ('card-aespa-live-11','drop-aespa-live',11,'unsigned','inventory',      null,                                  upper(md5('aespa-live|11')),'AESL-011','unknown',   'platform_stock', null,true,'pending', 0),
-  ('card-aespa-live-12','drop-aespa-live',12,'unsigned','inventory',      null,                                  upper(md5('aespa-live|12')),'AESL-012','unknown',   'platform_stock', null,true,'pending', 0),
-  ('card-aespa-live-13','drop-aespa-live',13,'unsigned','inventory',      null,                                  upper(md5('aespa-live|13')),'AESL-013','unknown',   'platform_stock', null,true,'pending', 0),
-  ('card-aespa-live-14','drop-aespa-live',14,'signed',  'bound',         '00000000-0000-4000-8000-000000000003', upper(md5('aespa-live|14')),'AESL-014','registered','with_owner', null,true,'passed', 1),
-  ('card-aespa-live-15','drop-aespa-live',15,'signed',  'bound',         '00000000-0000-4000-8000-000000000003', upper(md5('aespa-live|15')),'AESL-015','registered','with_owner', null,true,'passed', 1)
+  ('card-aespa-live-01','drop-aespa-live', 1,'unsigned','bound',         '00000000-0000-4000-8000-000000000001', left(upper(md5('aespa-live|01')), 14),'AESL-001','registered','with_owner', null,true,'passed', 1),
+  ('card-aespa-live-02','drop-aespa-live', 2,'unsigned','bound',         '00000000-0000-4000-8000-000000000006', left(upper(md5('aespa-live|02')), 14),'AESL-002','registered','with_owner', null,true,'passed', 1),
+  ('card-aespa-live-03','drop-aespa-live', 3,'unsigned','listed_buyout', '00000000-0000-4000-8000-000000000001', left(upper(md5('aespa-live|03')), 14),'AESL-003','registered','with_owner', 45,   true,'passed', 1),
+  ('card-aespa-live-04','drop-aespa-live', 4,'unsigned','bound',         '00000000-0000-4000-8000-000000000001', left(upper(md5('aespa-live|04')), 14),'AESL-004','registered','with_owner', null,true,'passed', 1),
+  ('card-aespa-live-05','drop-aespa-live', 5,'unsigned','bound',         '00000000-0000-4000-8000-000000000006', left(upper(md5('aespa-live|05')), 14),'AESL-005','registered','with_owner', null,true,'passed', 1),
+  ('card-aespa-live-06','drop-aespa-live', 6,'unsigned','bound',         '00000000-0000-4000-8000-000000000001', left(upper(md5('aespa-live|06')), 14),'AESL-006','registered','with_owner', null,true,'passed', 1),
+  ('card-aespa-live-07','drop-aespa-live', 7,'unsigned','inventory',      null,                                  left(upper(md5('aespa-live|07')), 14),'AESL-007','unknown',   'platform_stock', null,true,'pending', 0),
+  ('card-aespa-live-08','drop-aespa-live', 8,'unsigned','inventory',      null,                                  left(upper(md5('aespa-live|08')), 14),'AESL-008','unknown',   'platform_stock', null,true,'pending', 0),
+  ('card-aespa-live-09','drop-aespa-live', 9,'unsigned','inventory',      null,                                  left(upper(md5('aespa-live|09')), 14),'AESL-009','unknown',   'platform_stock', null,true,'pending', 0),
+  ('card-aespa-live-10','drop-aespa-live',10,'unsigned','inventory',      null,                                  left(upper(md5('aespa-live|10')), 14),'AESL-010','unknown',   'platform_stock', null,true,'pending', 0),
+  ('card-aespa-live-11','drop-aespa-live',11,'unsigned','inventory',      null,                                  left(upper(md5('aespa-live|11')), 14),'AESL-011','unknown',   'platform_stock', null,true,'pending', 0),
+  ('card-aespa-live-12','drop-aespa-live',12,'unsigned','inventory',      null,                                  left(upper(md5('aespa-live|12')), 14),'AESL-012','unknown',   'platform_stock', null,true,'pending', 0),
+  ('card-aespa-live-13','drop-aespa-live',13,'unsigned','inventory',      null,                                  left(upper(md5('aespa-live|13')), 14),'AESL-013','unknown',   'platform_stock', null,true,'pending', 0),
+  ('card-aespa-live-14','drop-aespa-live',14,'signed',  'bound',         '00000000-0000-4000-8000-000000000003', left(upper(md5('aespa-live|14')), 14),'AESL-014','registered','with_owner', null,true,'passed', 1),
+  ('card-aespa-live-15','drop-aespa-live',15,'signed',  'bound',         '00000000-0000-4000-8000-000000000003', left(upper(md5('aespa-live|15')), 14),'AESL-015','registered','with_owner', null,true,'passed', 1)
 on conflict (id) do nothing;
 
 -- ── drop-genesis-live: 20 unit (2 signed + 18 unsigned); 12 sold ──
 insert into public.cards (id, drop_id, unit_number, variant, status, owner_id, nfc_uid, nfc_short_id,
   verify_status, location, buyout_price_ccoin, nfc_configured, qc_status, last_ctr) values
-  ('card-genesis-live-01','drop-genesis-live', 1,'unsigned','bound','00000000-0000-4000-8000-000000000001', upper(md5('genesis-live|01')),'GENL-001','registered','with_owner', null,true,'passed', 1),
-  ('card-genesis-live-02','drop-genesis-live', 2,'unsigned','sold', '00000000-0000-4000-8000-000000000001', upper(md5('genesis-live|02')),'GENL-002','registered','platform_vault', null,true,'passed', 1),
-  ('card-genesis-live-03','drop-genesis-live', 3,'unsigned','bound','00000000-0000-4000-8000-000000000006', upper(md5('genesis-live|03')),'GENL-003','registered','with_owner', null,true,'passed', 1),
-  ('card-genesis-live-04','drop-genesis-live', 4,'unsigned','bound','00000000-0000-4000-8000-000000000006', upper(md5('genesis-live|04')),'GENL-004','registered','with_owner', null,true,'passed', 1),
-  ('card-genesis-live-05','drop-genesis-live', 5,'unsigned','bound','00000000-0000-4000-8000-000000000001', upper(md5('genesis-live|05')),'GENL-005','registered','with_owner', null,true,'passed', 1),
-  ('card-genesis-live-06','drop-genesis-live', 6,'unsigned','bound','00000000-0000-4000-8000-000000000004', upper(md5('genesis-live|06')),'GENL-006','registered','with_owner', null,true,'passed', 1),
-  ('card-genesis-live-07','drop-genesis-live', 7,'unsigned','bound','00000000-0000-4000-8000-000000000004', upper(md5('genesis-live|07')),'GENL-007','registered','with_owner', null,true,'passed', 1),
-  ('card-genesis-live-08','drop-genesis-live', 8,'unsigned','bound','00000000-0000-4000-8000-000000000001', upper(md5('genesis-live|08')),'GENL-008','registered','with_owner', null,true,'passed', 1),
-  ('card-genesis-live-09','drop-genesis-live', 9,'unsigned','bound','00000000-0000-4000-8000-000000000001', upper(md5('genesis-live|09')),'GENL-009','registered','with_owner', null,true,'passed', 1),
-  ('card-genesis-live-10','drop-genesis-live',10,'unsigned','bound','00000000-0000-4000-8000-000000000006', upper(md5('genesis-live|10')),'GENL-010','registered','with_owner', null,true,'passed', 1),
-  ('card-genesis-live-11','drop-genesis-live',11,'unsigned','bound','00000000-0000-4000-8000-000000000006', upper(md5('genesis-live|11')),'GENL-011','registered','with_owner', null,true,'passed', 1),
-  ('card-genesis-live-12','drop-genesis-live',12,'unsigned','bound','00000000-0000-4000-8000-000000000004', upper(md5('genesis-live|12')),'GENL-012','registered','with_owner', null,true,'passed', 1),
-  ('card-genesis-live-13','drop-genesis-live',13,'unsigned','inventory', null,                               upper(md5('genesis-live|13')),'GENL-013','unknown',   'platform_stock', null,true,'pending', 0),
-  ('card-genesis-live-14','drop-genesis-live',14,'unsigned','inventory', null,                               upper(md5('genesis-live|14')),'GENL-014','unknown',   'platform_stock', null,true,'pending', 0),
-  ('card-genesis-live-15','drop-genesis-live',15,'unsigned','inventory', null,                               upper(md5('genesis-live|15')),'GENL-015','unknown',   'platform_stock', null,true,'pending', 0),
-  ('card-genesis-live-16','drop-genesis-live',16,'unsigned','inventory', null,                               upper(md5('genesis-live|16')),'GENL-016','unknown',   'platform_stock', null,true,'pending', 0),
-  ('card-genesis-live-17','drop-genesis-live',17,'unsigned','inventory', null,                               upper(md5('genesis-live|17')),'GENL-017','unknown',   'platform_stock', null,true,'pending', 0),
-  ('card-genesis-live-18','drop-genesis-live',18,'unsigned','inventory', null,                               upper(md5('genesis-live|18')),'GENL-018','unknown',   'platform_stock', null,true,'pending', 0),
-  ('card-genesis-live-19','drop-genesis-live',19,'signed',  'bound','00000000-0000-4000-8000-000000000004', upper(md5('genesis-live|19')),'GENL-019','registered','with_owner', null,true,'passed', 1),
-  ('card-genesis-live-20','drop-genesis-live',20,'signed',  'bound','00000000-0000-4000-8000-000000000004', upper(md5('genesis-live|20')),'GENL-020','registered','with_owner', null,true,'passed', 1)
+  ('card-genesis-live-01','drop-genesis-live', 1,'unsigned','bound','00000000-0000-4000-8000-000000000001', left(upper(md5('genesis-live|01')), 14),'GENL-001','registered','with_owner', null,true,'passed', 1),
+  ('card-genesis-live-02','drop-genesis-live', 2,'unsigned','sold', '00000000-0000-4000-8000-000000000001', left(upper(md5('genesis-live|02')), 14),'GENL-002','registered','platform_vault', null,true,'passed', 1),
+  ('card-genesis-live-03','drop-genesis-live', 3,'unsigned','bound','00000000-0000-4000-8000-000000000006', left(upper(md5('genesis-live|03')), 14),'GENL-003','registered','with_owner', null,true,'passed', 1),
+  ('card-genesis-live-04','drop-genesis-live', 4,'unsigned','bound','00000000-0000-4000-8000-000000000006', left(upper(md5('genesis-live|04')), 14),'GENL-004','registered','with_owner', null,true,'passed', 1),
+  ('card-genesis-live-05','drop-genesis-live', 5,'unsigned','bound','00000000-0000-4000-8000-000000000001', left(upper(md5('genesis-live|05')), 14),'GENL-005','registered','with_owner', null,true,'passed', 1),
+  ('card-genesis-live-06','drop-genesis-live', 6,'unsigned','bound','00000000-0000-4000-8000-000000000004', left(upper(md5('genesis-live|06')), 14),'GENL-006','registered','with_owner', null,true,'passed', 1),
+  ('card-genesis-live-07','drop-genesis-live', 7,'unsigned','bound','00000000-0000-4000-8000-000000000004', left(upper(md5('genesis-live|07')), 14),'GENL-007','registered','with_owner', null,true,'passed', 1),
+  ('card-genesis-live-08','drop-genesis-live', 8,'unsigned','bound','00000000-0000-4000-8000-000000000001', left(upper(md5('genesis-live|08')), 14),'GENL-008','registered','with_owner', null,true,'passed', 1),
+  ('card-genesis-live-09','drop-genesis-live', 9,'unsigned','bound','00000000-0000-4000-8000-000000000001', left(upper(md5('genesis-live|09')), 14),'GENL-009','registered','with_owner', null,true,'passed', 1),
+  ('card-genesis-live-10','drop-genesis-live',10,'unsigned','bound','00000000-0000-4000-8000-000000000006', left(upper(md5('genesis-live|10')), 14),'GENL-010','registered','with_owner', null,true,'passed', 1),
+  ('card-genesis-live-11','drop-genesis-live',11,'unsigned','bound','00000000-0000-4000-8000-000000000006', left(upper(md5('genesis-live|11')), 14),'GENL-011','registered','with_owner', null,true,'passed', 1),
+  ('card-genesis-live-12','drop-genesis-live',12,'unsigned','bound','00000000-0000-4000-8000-000000000004', left(upper(md5('genesis-live|12')), 14),'GENL-012','registered','with_owner', null,true,'passed', 1),
+  ('card-genesis-live-13','drop-genesis-live',13,'unsigned','inventory', null,                               left(upper(md5('genesis-live|13')), 14),'GENL-013','unknown',   'platform_stock', null,true,'pending', 0),
+  ('card-genesis-live-14','drop-genesis-live',14,'unsigned','inventory', null,                               left(upper(md5('genesis-live|14')), 14),'GENL-014','unknown',   'platform_stock', null,true,'pending', 0),
+  ('card-genesis-live-15','drop-genesis-live',15,'unsigned','inventory', null,                               left(upper(md5('genesis-live|15')), 14),'GENL-015','unknown',   'platform_stock', null,true,'pending', 0),
+  ('card-genesis-live-16','drop-genesis-live',16,'unsigned','inventory', null,                               left(upper(md5('genesis-live|16')), 14),'GENL-016','unknown',   'platform_stock', null,true,'pending', 0),
+  ('card-genesis-live-17','drop-genesis-live',17,'unsigned','inventory', null,                               left(upper(md5('genesis-live|17')), 14),'GENL-017','unknown',   'platform_stock', null,true,'pending', 0),
+  ('card-genesis-live-18','drop-genesis-live',18,'unsigned','inventory', null,                               left(upper(md5('genesis-live|18')), 14),'GENL-018','unknown',   'platform_stock', null,true,'pending', 0),
+  ('card-genesis-live-19','drop-genesis-live',19,'signed',  'bound','00000000-0000-4000-8000-000000000004', left(upper(md5('genesis-live|19')), 14),'GENL-019','registered','with_owner', null,true,'passed', 1),
+  ('card-genesis-live-20','drop-genesis-live',20,'signed',  'bound','00000000-0000-4000-8000-000000000004', left(upper(md5('genesis-live|20')), 14),'GENL-020','registered','with_owner', null,true,'passed', 1)
 on conflict (id) do nothing;
 
 -- ── drop-aespa-signed (sold_out): 10 unit (1 signed + 9 unsigned), sold_count=10 ──
 insert into public.cards (id, drop_id, unit_number, variant, status, owner_id, nfc_uid, nfc_short_id,
   verify_status, location, buyout_price_ccoin, nfc_configured, qc_status, last_ctr) values
-  ('card-aespa-signed-01','drop-aespa-signed', 1,'unsigned','bound','00000000-0000-4000-8000-000000000001', upper(md5('aespa-signed|01')),'AESS-001','registered','with_owner', null,true,'passed', 1),
-  ('card-aespa-signed-02','drop-aespa-signed', 2,'unsigned','bound','00000000-0000-4000-8000-000000000001', upper(md5('aespa-signed|02')),'AESS-002','registered','with_owner', null,true,'passed', 1),
-  ('card-aespa-signed-03','drop-aespa-signed', 3,'unsigned','bound','00000000-0000-4000-8000-000000000001', upper(md5('aespa-signed|03')),'AESS-003','registered','with_owner', null,true,'passed', 1),
-  ('card-aespa-signed-04','drop-aespa-signed', 4,'unsigned','sold', '00000000-0000-4000-8000-000000000001', upper(md5('aespa-signed|04')),'AESS-004','registered','platform_vault', null,true,'passed', 1),
-  ('card-aespa-signed-05','drop-aespa-signed', 5,'unsigned','bound','00000000-0000-4000-8000-000000000001', upper(md5('aespa-signed|05')),'AESS-005','registered','with_owner', null,true,'passed', 1),
-  ('card-aespa-signed-06','drop-aespa-signed', 6,'unsigned','bound','00000000-0000-4000-8000-000000000001', upper(md5('aespa-signed|06')),'AESS-006','registered','with_owner', null,true,'passed', 1),
-  ('card-aespa-signed-07','drop-aespa-signed', 7,'unsigned','bound','00000000-0000-4000-8000-000000000006', upper(md5('aespa-signed|07')),'AESS-007','registered','with_owner', null,true,'passed', 1),
-  ('card-aespa-signed-08','drop-aespa-signed', 8,'unsigned','bound','00000000-0000-4000-8000-000000000006', upper(md5('aespa-signed|08')),'AESS-008','registered','with_owner', null,true,'passed', 1),
-  ('card-aespa-signed-09','drop-aespa-signed', 9,'unsigned','bound','00000000-0000-4000-8000-000000000006', upper(md5('aespa-signed|09')),'AESS-009','registered','with_owner', null,true,'passed', 1),
-  ('card-aespa-signed-10','drop-aespa-signed',10,'signed',  'bound','00000000-0000-4000-8000-000000000003', upper(md5('aespa-signed|10')),'AESS-010','registered','with_owner', null,true,'passed', 1)
+  ('card-aespa-signed-01','drop-aespa-signed', 1,'unsigned','bound','00000000-0000-4000-8000-000000000001', left(upper(md5('aespa-signed|01')), 14),'AESS-001','registered','with_owner', null,true,'passed', 1),
+  ('card-aespa-signed-02','drop-aespa-signed', 2,'unsigned','bound','00000000-0000-4000-8000-000000000001', left(upper(md5('aespa-signed|02')), 14),'AESS-002','registered','with_owner', null,true,'passed', 1),
+  ('card-aespa-signed-03','drop-aespa-signed', 3,'unsigned','bound','00000000-0000-4000-8000-000000000001', left(upper(md5('aespa-signed|03')), 14),'AESS-003','registered','with_owner', null,true,'passed', 1),
+  ('card-aespa-signed-04','drop-aespa-signed', 4,'unsigned','sold', '00000000-0000-4000-8000-000000000001', left(upper(md5('aespa-signed|04')), 14),'AESS-004','registered','platform_vault', null,true,'passed', 1),
+  ('card-aespa-signed-05','drop-aespa-signed', 5,'unsigned','bound','00000000-0000-4000-8000-000000000001', left(upper(md5('aespa-signed|05')), 14),'AESS-005','registered','with_owner', null,true,'passed', 1),
+  ('card-aespa-signed-06','drop-aespa-signed', 6,'unsigned','bound','00000000-0000-4000-8000-000000000001', left(upper(md5('aespa-signed|06')), 14),'AESS-006','registered','with_owner', null,true,'passed', 1),
+  ('card-aespa-signed-07','drop-aespa-signed', 7,'unsigned','bound','00000000-0000-4000-8000-000000000006', left(upper(md5('aespa-signed|07')), 14),'AESS-007','registered','with_owner', null,true,'passed', 1),
+  ('card-aespa-signed-08','drop-aespa-signed', 8,'unsigned','bound','00000000-0000-4000-8000-000000000006', left(upper(md5('aespa-signed|08')), 14),'AESS-008','registered','with_owner', null,true,'passed', 1),
+  ('card-aespa-signed-09','drop-aespa-signed', 9,'unsigned','bound','00000000-0000-4000-8000-000000000006', left(upper(md5('aespa-signed|09')), 14),'AESS-009','registered','with_owner', null,true,'passed', 1),
+  ('card-aespa-signed-10','drop-aespa-signed',10,'signed',  'bound','00000000-0000-4000-8000-000000000003', left(upper(md5('aespa-signed|10')), 14),'AESS-010','registered','with_owner', null,true,'passed', 1)
 on conflict (id) do nothing;
 
 -- ── drop-nova-past (closed): 12 unit (2 signed + 10 unsigned), sold_count=8 ──
 insert into public.cards (id, drop_id, unit_number, variant, status, owner_id, nfc_uid, nfc_short_id,
   verify_status, location, buyout_price_ccoin, nfc_configured, qc_status, last_ctr) values
-  ('card-nova-past-01','drop-nova-past', 1,'unsigned','bound','00000000-0000-4000-8000-000000000005', upper(md5('nova-past|01')),'NVP-001','registered','with_owner', null,true,'passed', 1),
-  ('card-nova-past-02','drop-nova-past', 2,'unsigned','bound','00000000-0000-4000-8000-000000000005', upper(md5('nova-past|02')),'NVP-002','registered','with_owner', null,true,'passed', 1),
-  ('card-nova-past-03','drop-nova-past', 3,'unsigned','sold', '00000000-0000-4000-8000-000000000005', upper(md5('nova-past|03')),'NVP-003','registered','platform_vault', null,true,'passed', 1),
-  ('card-nova-past-04','drop-nova-past', 4,'unsigned','sold', '00000000-0000-4000-8000-000000000005', upper(md5('nova-past|04')),'NVP-004','registered','platform_vault', null,true,'passed', 1),
-  ('card-nova-past-05','drop-nova-past', 5,'unsigned','sold', '00000000-0000-4000-8000-000000000005', upper(md5('nova-past|05')),'NVP-005','registered','platform_vault', null,true,'passed', 1),
-  ('card-nova-past-06','drop-nova-past', 6,'unsigned','sold', '00000000-0000-4000-8000-000000000005', upper(md5('nova-past|06')),'NVP-006','registered','platform_vault', null,true,'passed', 1),
-  ('card-nova-past-07','drop-nova-past', 7,'unsigned','lost',  null,                                  upper(md5('nova-past|07')),'NVP-007','registered','with_owner', null,true,'passed', 1),
-  ('card-nova-past-08','drop-nova-past', 8,'unsigned','defect',null,                                  upper(md5('nova-past|08')),'NVP-008','registered','platform_stock', null,true,'failed', 1),
-  ('card-nova-past-09','drop-nova-past', 9,'unsigned','inventory', null,                              upper(md5('nova-past|09')),'NVP-009','unknown',   'platform_stock', null,true,'pending', 0),
-  ('card-nova-past-10','drop-nova-past',10,'unsigned','inventory', null,                              upper(md5('nova-past|10')),'NVP-010','unknown',   'platform_stock', null,true,'pending', 0),
-  ('card-nova-past-11','drop-nova-past',11,'signed',  'bound','00000000-0000-4000-8000-000000000005', upper(md5('nova-past|11')),'NVP-011','registered','with_owner', null,true,'passed', 1),
-  ('card-nova-past-12','drop-nova-past',12,'signed',  'bound','00000000-0000-4000-8000-000000000005', upper(md5('nova-past|12')),'NVP-012','registered','with_owner', null,true,'passed', 1)  -- signed card owned by Nova
+  ('card-nova-past-01','drop-nova-past', 1,'unsigned','bound','00000000-0000-4000-8000-000000000005', left(upper(md5('nova-past|01')), 14),'NVP-001','registered','with_owner', null,true,'passed', 1),
+  ('card-nova-past-02','drop-nova-past', 2,'unsigned','bound','00000000-0000-4000-8000-000000000005', left(upper(md5('nova-past|02')), 14),'NVP-002','registered','with_owner', null,true,'passed', 1),
+  ('card-nova-past-03','drop-nova-past', 3,'unsigned','sold', '00000000-0000-4000-8000-000000000005', left(upper(md5('nova-past|03')), 14),'NVP-003','registered','platform_vault', null,true,'passed', 1),
+  ('card-nova-past-04','drop-nova-past', 4,'unsigned','sold', '00000000-0000-4000-8000-000000000005', left(upper(md5('nova-past|04')), 14),'NVP-004','registered','platform_vault', null,true,'passed', 1),
+  ('card-nova-past-05','drop-nova-past', 5,'unsigned','sold', '00000000-0000-4000-8000-000000000005', left(upper(md5('nova-past|05')), 14),'NVP-005','registered','platform_vault', null,true,'passed', 1),
+  ('card-nova-past-06','drop-nova-past', 6,'unsigned','sold', '00000000-0000-4000-8000-000000000005', left(upper(md5('nova-past|06')), 14),'NVP-006','registered','platform_vault', null,true,'passed', 1),
+  ('card-nova-past-07','drop-nova-past', 7,'unsigned','lost',  null,                                  left(upper(md5('nova-past|07')), 14),'NVP-007','registered','with_owner', null,true,'passed', 1),
+  ('card-nova-past-08','drop-nova-past', 8,'unsigned','defect',null,                                  left(upper(md5('nova-past|08')), 14),'NVP-008','registered','platform_stock', null,true,'failed', 1),
+  ('card-nova-past-09','drop-nova-past', 9,'unsigned','inventory', null,                              left(upper(md5('nova-past|09')), 14),'NVP-009','unknown',   'platform_stock', null,true,'pending', 0),
+  ('card-nova-past-10','drop-nova-past',10,'unsigned','inventory', null,                              left(upper(md5('nova-past|10')), 14),'NVP-010','unknown',   'platform_stock', null,true,'pending', 0),
+  ('card-nova-past-11','drop-nova-past',11,'signed',  'bound','00000000-0000-4000-8000-000000000005', left(upper(md5('nova-past|11')), 14),'NVP-011','registered','with_owner', null,true,'passed', 1),
+  ('card-nova-past-12','drop-nova-past',12,'signed',  'bound','00000000-0000-4000-8000-000000000005', left(upper(md5('nova-past|12')), 14),'NVP-012','registered','with_owner', null,true,'passed', 1)  -- signed card owned by Nova
 on conflict (id) do nothing;
 
 -- ── drop-hype-cancel (cancelled): 14 unit (1 signed + 13 unsigned); inventory only ──
 insert into public.cards (id, drop_id, unit_number, variant, status, owner_id, nfc_uid, nfc_short_id,
   verify_status, location, buyout_price_ccoin, nfc_configured, qc_status, last_ctr) values
-  ('card-hype-cancel-01','drop-hype-cancel', 1,'unsigned','inventory', null,                               upper(md5('hype-cancel|01')),'HCX-001','unknown','platform_stock', null,true,'pending', 0),
-  ('card-hype-cancel-02','drop-hype-cancel', 2,'unsigned','inventory', null,                               upper(md5('hype-cancel|02')),'HCX-002','unknown','platform_stock', null,true,'pending', 0),
-  ('card-hype-cancel-03','drop-hype-cancel', 3,'unsigned','inventory', null,                               upper(md5('hype-cancel|03')),'HCX-003','unknown','platform_stock', null,true,'pending', 0),
-  ('card-hype-cancel-04','drop-hype-cancel', 4,'unsigned','inventory', null,                               upper(md5('hype-cancel|04')),'HCX-004','unknown','platform_stock', null,true,'pending', 0),
-  ('card-hype-cancel-05','drop-hype-cancel', 5,'unsigned','inventory', null,                               upper(md5('hype-cancel|05')),'HCX-005','unknown','platform_stock', null,true,'pending', 0),
-  ('card-hype-cancel-06','drop-hype-cancel', 6,'unsigned','inventory', null,                               upper(md5('hype-cancel|06')),'HCX-006','unknown','platform_stock', null,true,'pending', 0),
-  ('card-hype-cancel-07','drop-hype-cancel', 7,'unsigned','inventory', null,                               upper(md5('hype-cancel|07')),'HCX-007','unknown','platform_stock', null,true,'pending', 0),
-  ('card-hype-cancel-08','drop-hype-cancel', 8,'unsigned','inventory', null,                               upper(md5('hype-cancel|08')),'HCX-008','unknown','platform_stock', null,true,'pending', 0),
-  ('card-hype-cancel-09','drop-hype-cancel', 9,'unsigned','inventory', null,                               upper(md5('hype-cancel|09')),'HCX-009','unknown','platform_stock', null,true,'pending', 0),
-  ('card-hype-cancel-10','drop-hype-cancel',10,'unsigned','inventory', null,                               upper(md5('hype-cancel|10')),'HCX-010','unknown','platform_stock', null,true,'pending', 0),
-  ('card-hype-cancel-11','drop-hype-cancel',11,'unsigned','inventory', null,                               upper(md5('hype-cancel|11')),'HCX-011','unknown','platform_stock', null,true,'pending', 0),
-  ('card-hype-cancel-12','drop-hype-cancel',12,'unsigned','inventory', null,                               upper(md5('hype-cancel|12')),'HCX-012','unknown','platform_stock', null,true,'pending', 0),
-  ('card-hype-cancel-13','drop-hype-cancel',13,'unsigned','inventory', null,                               upper(md5('hype-cancel|13')),'HCX-013','unknown','platform_stock', null,true,'pending', 0),
-  ('card-hype-cancel-14','drop-hype-cancel',14,'signed',  'tampered', null,                               upper(md5('hype-cancel|14')),'HCX-014','tamper_detected','platform_stock', null,true,'failed', 5)
+  ('card-hype-cancel-01','drop-hype-cancel', 1,'unsigned','inventory', null,                               left(upper(md5('hype-cancel|01')), 14),'HCX-001','unknown','platform_stock', null,true,'pending', 0),
+  ('card-hype-cancel-02','drop-hype-cancel', 2,'unsigned','inventory', null,                               left(upper(md5('hype-cancel|02')), 14),'HCX-002','unknown','platform_stock', null,true,'pending', 0),
+  ('card-hype-cancel-03','drop-hype-cancel', 3,'unsigned','inventory', null,                               left(upper(md5('hype-cancel|03')), 14),'HCX-003','unknown','platform_stock', null,true,'pending', 0),
+  ('card-hype-cancel-04','drop-hype-cancel', 4,'unsigned','inventory', null,                               left(upper(md5('hype-cancel|04')), 14),'HCX-004','unknown','platform_stock', null,true,'pending', 0),
+  ('card-hype-cancel-05','drop-hype-cancel', 5,'unsigned','inventory', null,                               left(upper(md5('hype-cancel|05')), 14),'HCX-005','unknown','platform_stock', null,true,'pending', 0),
+  ('card-hype-cancel-06','drop-hype-cancel', 6,'unsigned','inventory', null,                               left(upper(md5('hype-cancel|06')), 14),'HCX-006','unknown','platform_stock', null,true,'pending', 0),
+  ('card-hype-cancel-07','drop-hype-cancel', 7,'unsigned','inventory', null,                               left(upper(md5('hype-cancel|07')), 14),'HCX-007','unknown','platform_stock', null,true,'pending', 0),
+  ('card-hype-cancel-08','drop-hype-cancel', 8,'unsigned','inventory', null,                               left(upper(md5('hype-cancel|08')), 14),'HCX-008','unknown','platform_stock', null,true,'pending', 0),
+  ('card-hype-cancel-09','drop-hype-cancel', 9,'unsigned','inventory', null,                               left(upper(md5('hype-cancel|09')), 14),'HCX-009','unknown','platform_stock', null,true,'pending', 0),
+  ('card-hype-cancel-10','drop-hype-cancel',10,'unsigned','inventory', null,                               left(upper(md5('hype-cancel|10')), 14),'HCX-010','unknown','platform_stock', null,true,'pending', 0),
+  ('card-hype-cancel-11','drop-hype-cancel',11,'unsigned','inventory', null,                               left(upper(md5('hype-cancel|11')), 14),'HCX-011','unknown','platform_stock', null,true,'pending', 0),
+  ('card-hype-cancel-12','drop-hype-cancel',12,'unsigned','inventory', null,                               left(upper(md5('hype-cancel|12')), 14),'HCX-012','unknown','platform_stock', null,true,'pending', 0),
+  ('card-hype-cancel-13','drop-hype-cancel',13,'unsigned','inventory', null,                               left(upper(md5('hype-cancel|13')), 14),'HCX-013','unknown','platform_stock', null,true,'pending', 0),
+  ('card-hype-cancel-14','drop-hype-cancel',14,'signed',  'tampered', null,                               left(upper(md5('hype-cancel|14')), 14),'HCX-014','tamper_detected','platform_stock', null,true,'failed', 5)
 on conflict (id) do nothing;
 
 -- ── drop-genesis-beta (scheduled): 18 unit (2 signed + 16 unsigned) inventory ──
 insert into public.cards (id, drop_id, unit_number, variant, status, owner_id, nfc_uid, nfc_short_id,
   verify_status, location, buyout_price_ccoin, nfc_configured, qc_status, last_ctr) values
-  ('card-genesis-beta-01','drop-genesis-beta', 1,'unsigned','inventory', null,                               upper(md5('genesis-beta|01')),'GNB-001','unknown','platform_stock', null,true,'pending', 0),
-  ('card-genesis-beta-02','drop-genesis-beta', 2,'unsigned','inventory', null,                               upper(md5('genesis-beta|02')),'GNB-002','unknown','platform_stock', null,true,'pending', 0),
-  ('card-genesis-beta-03','drop-genesis-beta', 3,'unsigned','inventory', null,                               upper(md5('genesis-beta|03')),'GNB-003','unknown','platform_stock', null,true,'pending', 0),
-  ('card-genesis-beta-04','drop-genesis-beta', 4,'unsigned','inventory', null,                               upper(md5('genesis-beta|04')),'GNB-004','unknown','platform_stock', null,true,'pending', 0),
-  ('card-genesis-beta-05','drop-genesis-beta', 5,'unsigned','inventory', null,                               upper(md5('genesis-beta|05')),'GNB-005','unknown','platform_stock', null,true,'pending', 0),
-  ('card-genesis-beta-06','drop-genesis-beta', 6,'unsigned','inventory', null,                               upper(md5('genesis-beta|06')),'GNB-006','unknown','platform_stock', null,true,'pending', 0),
-  ('card-genesis-beta-07','drop-genesis-beta', 7,'unsigned','inventory', null,                               upper(md5('genesis-beta|07')),'GNB-007','unknown','platform_stock', null,true,'pending', 0),
-  ('card-genesis-beta-08','drop-genesis-beta', 8,'unsigned','inventory', null,                               upper(md5('genesis-beta|08')),'GNB-008','unknown','platform_stock', null,true,'pending', 0),
-  ('card-genesis-beta-09','drop-genesis-beta', 9,'unsigned','inventory', null,                               upper(md5('genesis-beta|09')),'GNB-009','unknown','platform_stock', null,true,'pending', 0),
-  ('card-genesis-beta-10','drop-genesis-beta',10,'unsigned','inventory', null,                               upper(md5('genesis-beta|10')),'GNB-010','unknown','platform_stock', null,true,'pending', 0),
-  ('card-genesis-beta-11','drop-genesis-beta',11,'unsigned','inventory', null,                               upper(md5('genesis-beta|11')),'GNB-011','unknown','platform_stock', null,true,'pending', 0),
-  ('card-genesis-beta-12','drop-genesis-beta',12,'unsigned','inventory', null,                               upper(md5('genesis-beta|12')),'GNB-012','unknown','platform_stock', null,true,'pending', 0),
-  ('card-genesis-beta-13','drop-genesis-beta',13,'unsigned','inventory', null,                               upper(md5('genesis-beta|13')),'GNB-013','unknown','platform_stock', null,true,'pending', 0),
-  ('card-genesis-beta-14','drop-genesis-beta',14,'unsigned','inventory', null,                               upper(md5('genesis-beta|14')),'GNB-014','unknown','platform_stock', null,true,'pending', 0),
-  ('card-genesis-beta-15','drop-genesis-beta',15,'unsigned','inventory', null,                               upper(md5('genesis-beta|15')),'GNB-015','unknown','platform_stock', null,true,'pending', 0),
-  ('card-genesis-beta-16','drop-genesis-beta',16,'unsigned','inventory', null,                               upper(md5('genesis-beta|16')),'GNB-016','unknown','platform_stock', null,true,'pending', 0),
-  ('card-genesis-beta-17','drop-genesis-beta',17,'signed',  'inventory', null,                               upper(md5('genesis-beta|17')),'GNB-017','unknown','platform_stock', null,true,'pending', 0),
-  ('card-genesis-beta-18','drop-genesis-beta',18,'signed',  'inventory', null,                               upper(md5('genesis-beta|18')),'GNB-018','unknown','platform_stock', null,true,'pending', 0)
+  ('card-genesis-beta-01','drop-genesis-beta', 1,'unsigned','inventory', null,                               left(upper(md5('genesis-beta|01')), 14),'GNB-001','unknown','platform_stock', null,true,'pending', 0),
+  ('card-genesis-beta-02','drop-genesis-beta', 2,'unsigned','inventory', null,                               left(upper(md5('genesis-beta|02')), 14),'GNB-002','unknown','platform_stock', null,true,'pending', 0),
+  ('card-genesis-beta-03','drop-genesis-beta', 3,'unsigned','inventory', null,                               left(upper(md5('genesis-beta|03')), 14),'GNB-003','unknown','platform_stock', null,true,'pending', 0),
+  ('card-genesis-beta-04','drop-genesis-beta', 4,'unsigned','inventory', null,                               left(upper(md5('genesis-beta|04')), 14),'GNB-004','unknown','platform_stock', null,true,'pending', 0),
+  ('card-genesis-beta-05','drop-genesis-beta', 5,'unsigned','inventory', null,                               left(upper(md5('genesis-beta|05')), 14),'GNB-005','unknown','platform_stock', null,true,'pending', 0),
+  ('card-genesis-beta-06','drop-genesis-beta', 6,'unsigned','inventory', null,                               left(upper(md5('genesis-beta|06')), 14),'GNB-006','unknown','platform_stock', null,true,'pending', 0),
+  ('card-genesis-beta-07','drop-genesis-beta', 7,'unsigned','inventory', null,                               left(upper(md5('genesis-beta|07')), 14),'GNB-007','unknown','platform_stock', null,true,'pending', 0),
+  ('card-genesis-beta-08','drop-genesis-beta', 8,'unsigned','inventory', null,                               left(upper(md5('genesis-beta|08')), 14),'GNB-008','unknown','platform_stock', null,true,'pending', 0),
+  ('card-genesis-beta-09','drop-genesis-beta', 9,'unsigned','inventory', null,                               left(upper(md5('genesis-beta|09')), 14),'GNB-009','unknown','platform_stock', null,true,'pending', 0),
+  ('card-genesis-beta-10','drop-genesis-beta',10,'unsigned','inventory', null,                               left(upper(md5('genesis-beta|10')), 14),'GNB-010','unknown','platform_stock', null,true,'pending', 0),
+  ('card-genesis-beta-11','drop-genesis-beta',11,'unsigned','inventory', null,                               left(upper(md5('genesis-beta|11')), 14),'GNB-011','unknown','platform_stock', null,true,'pending', 0),
+  ('card-genesis-beta-12','drop-genesis-beta',12,'unsigned','inventory', null,                               left(upper(md5('genesis-beta|12')), 14),'GNB-012','unknown','platform_stock', null,true,'pending', 0),
+  ('card-genesis-beta-13','drop-genesis-beta',13,'unsigned','inventory', null,                               left(upper(md5('genesis-beta|13')), 14),'GNB-013','unknown','platform_stock', null,true,'pending', 0),
+  ('card-genesis-beta-14','drop-genesis-beta',14,'unsigned','inventory', null,                               left(upper(md5('genesis-beta|14')), 14),'GNB-014','unknown','platform_stock', null,true,'pending', 0),
+  ('card-genesis-beta-15','drop-genesis-beta',15,'unsigned','inventory', null,                               left(upper(md5('genesis-beta|15')), 14),'GNB-015','unknown','platform_stock', null,true,'pending', 0),
+  ('card-genesis-beta-16','drop-genesis-beta',16,'unsigned','inventory', null,                               left(upper(md5('genesis-beta|16')), 14),'GNB-016','unknown','platform_stock', null,true,'pending', 0),
+  ('card-genesis-beta-17','drop-genesis-beta',17,'signed',  'inventory', null,                               left(upper(md5('genesis-beta|17')), 14),'GNB-017','unknown','platform_stock', null,true,'pending', 0),
+  ('card-genesis-beta-18','drop-genesis-beta',18,'signed',  'inventory', null,                               left(upper(md5('genesis-beta|18')), 14),'GNB-018','unknown','platform_stock', null,true,'pending', 0)
 on conflict (id) do nothing;
 
 -- ── drop-nova-aurora (published): 10 unit (1 signed + 9 unsigned) inventory ──
 insert into public.cards (id, drop_id, unit_number, variant, status, owner_id, nfc_uid, nfc_short_id,
   verify_status, location, buyout_price_ccoin, nfc_configured, qc_status, last_ctr) values
-  ('card-nova-aurora-01','drop-nova-aurora', 1,'unsigned','inventory', null, upper(md5('nova-aurora|01')),'NVA-001','unknown','platform_stock', null,true,'pending', 0),
-  ('card-nova-aurora-02','drop-nova-aurora', 2,'unsigned','inventory', null, upper(md5('nova-aurora|02')),'NVA-002','unknown','platform_stock', null,true,'pending', 0),
-  ('card-nova-aurora-03','drop-nova-aurora', 3,'unsigned','inventory', null, upper(md5('nova-aurora|03')),'NVA-003','unknown','platform_stock', null,true,'pending', 0),
-  ('card-nova-aurora-04','drop-nova-aurora', 4,'unsigned','inventory', null, upper(md5('nova-aurora|04')),'NVA-004','unknown','platform_stock', null,true,'pending', 0),
-  ('card-nova-aurora-05','drop-nova-aurora', 5,'unsigned','inventory', null, upper(md5('nova-aurora|05')),'NVA-005','unknown','platform_stock', null,true,'pending', 0),
-  ('card-nova-aurora-06','drop-nova-aurora', 6,'unsigned','inventory', null, upper(md5('nova-aurora|06')),'NVA-006','unknown','platform_stock', null,true,'pending', 0),
-  ('card-nova-aurora-07','drop-nova-aurora', 7,'unsigned','inventory', null, upper(md5('nova-aurora|07')),'NVA-007','unknown','platform_stock', null,true,'pending', 0),
-  ('card-nova-aurora-08','drop-nova-aurora', 8,'unsigned','inventory', null, upper(md5('nova-aurora|08')),'NVA-008','unknown','platform_stock', null,true,'pending', 0),
-  ('card-nova-aurora-09','drop-nova-aurora', 9,'unsigned','inventory', null, upper(md5('nova-aurora|09')),'NVA-009','unknown','platform_stock', null,true,'pending', 0),
-  ('card-nova-aurora-10','drop-nova-aurora',10,'signed',  'inventory', null, upper(md5('nova-aurora|10')),'NVA-010','unknown','platform_stock', null,true,'pending', 0)
+  ('card-nova-aurora-01','drop-nova-aurora', 1,'unsigned','inventory', null, left(upper(md5('nova-aurora|01')), 14),'NVA-001','unknown','platform_stock', null,true,'pending', 0),
+  ('card-nova-aurora-02','drop-nova-aurora', 2,'unsigned','inventory', null, left(upper(md5('nova-aurora|02')), 14),'NVA-002','unknown','platform_stock', null,true,'pending', 0),
+  ('card-nova-aurora-03','drop-nova-aurora', 3,'unsigned','inventory', null, left(upper(md5('nova-aurora|03')), 14),'NVA-003','unknown','platform_stock', null,true,'pending', 0),
+  ('card-nova-aurora-04','drop-nova-aurora', 4,'unsigned','inventory', null, left(upper(md5('nova-aurora|04')), 14),'NVA-004','unknown','platform_stock', null,true,'pending', 0),
+  ('card-nova-aurora-05','drop-nova-aurora', 5,'unsigned','inventory', null, left(upper(md5('nova-aurora|05')), 14),'NVA-005','unknown','platform_stock', null,true,'pending', 0),
+  ('card-nova-aurora-06','drop-nova-aurora', 6,'unsigned','inventory', null, left(upper(md5('nova-aurora|06')), 14),'NVA-006','unknown','platform_stock', null,true,'pending', 0),
+  ('card-nova-aurora-07','drop-nova-aurora', 7,'unsigned','inventory', null, left(upper(md5('nova-aurora|07')), 14),'NVA-007','unknown','platform_stock', null,true,'pending', 0),
+  ('card-nova-aurora-08','drop-nova-aurora', 8,'unsigned','inventory', null, left(upper(md5('nova-aurora|08')), 14),'NVA-008','unknown','platform_stock', null,true,'pending', 0),
+  ('card-nova-aurora-09','drop-nova-aurora', 9,'unsigned','inventory', null, left(upper(md5('nova-aurora|09')), 14),'NVA-009','unknown','platform_stock', null,true,'pending', 0),
+  ('card-nova-aurora-10','drop-nova-aurora',10,'signed',  'inventory', null, left(upper(md5('nova-aurora|10')), 14),'NVA-010','unknown','platform_stock', null,true,'pending', 0)
 on conflict (id) do nothing;
 
 -- ── drop-aespa-2027 (draft): 20 unit inventory only ──
@@ -370,7 +371,7 @@ select
   'drop-aespa-2027', i,
   case when i <= 2 then 'signed'::card_variant else 'unsigned'::card_variant end,
   'inventory'::card_status, null,
-  upper(md5('aespa-2027|' || i::text)),
+  left(upper(md5('aespa-2027|' || i::text)), 14),
   'AS7-' || lpad(i::text, 3, '0'),
   'unknown'::verify_status, 'platform_stock'::card_location, null, true, 'pending'::text, 0
 from generate_series(1, 20) i
@@ -380,7 +381,7 @@ on conflict (id) do nothing;
 insert into public.cards (id, drop_id, unit_number, variant, status, owner_id, nfc_uid, nfc_short_id,
   verify_status, location, buyout_price_ccoin, nfc_configured, qc_status, last_ctr) values
   ('card-seed-karina-01','drop-seed-karina-01', 1,'signed','bid_pending',
-   '00000000-0000-4000-8000-000000000003', upper(md5('seed-karina-01')),'SEEDK-001',
+   '00000000-0000-4000-8000-000000000003', left(upper(md5('seed-karina-01')), 14),'SEEDK-001',
    'unknown','with_owner', null, true,'passed', 1)
 on conflict (id) do nothing;
 
@@ -395,7 +396,7 @@ on conflict (id) do nothing;
 insert into public.cards (id, drop_id, unit_number, variant, status, owner_id, nfc_uid, nfc_short_id,
   verify_status, location, buyout_price_ccoin, nfc_configured, qc_status, last_ctr) values
   ('card-seed-karina-02','drop-seed-karina-02', 1,'signed','bound',
-   '00000000-0000-4000-8000-000000000003', upper(md5('seed-karina-02')),'SEEDK-002',
+   '00000000-0000-4000-8000-000000000003', left(upper(md5('seed-karina-02')), 14),'SEEDK-002',
    'verified','platform_vault', null, true,'passed', 1)
 on conflict (id) do nothing;
 
