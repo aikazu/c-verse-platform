@@ -58,6 +58,7 @@ vi.mock("../../../lib/reads/drops.js", () => ({
 
 vi.mock("../../../lib/reads/users.js", () => ({
   getUserById: () => Promise.resolve(null),
+  listUsersByIds: () => Promise.resolve([]),
 }));
 
 vi.mock("../../../lib/reads/creators.js", () => ({

@@ -8,8 +8,9 @@ import { sanitizeDbError } from "../../lib/errors.js";
 import { getCreatorByUserId } from "../../lib/reads/creators.js";
 import { type DropFilter, getDropById, listCardsByDrop, listDrops } from "../../lib/reads/drops.js";
 import { logAuditDb } from "../../lib/reads/kyc.js";
-import { getUserById } from "../../lib/reads/users.js";
+import { getUserById, listUsersByIds } from "../../lib/reads/users.js";
 import { pageMeta, parsePageParams, slicePage } from "../../lib/reads.js";
+import type { Card, Drop } from "../../lib/store.js";
 import { randomHex } from "../../lib/store.js";
 import { getSupabase } from "../../lib/supabase.js";
 
@@ -17,6 +18,43 @@ const app = new Hono();
 
 // Status yang boleh dilihat publik (paritas RLS drops_select_public).
 const PUBLIC_DROP_STATUSES = ["live", "published", "sold_out", "closed", "scheduled"];
+
+interface DropWinner {
+  unitNumber: number;
+  variant: "signed" | "unsigned";
+  displayName: string;
+}
+
+// Privacy (A3): identitas anonim/flagged (suspended) tidak pernah tampil publik —
+// aturan masking yang sama dengan seller marketplace dan owner NFC.
+function publicDisplayName(user: { displayName: string; isAnonymous: boolean; flagReason: string | null } | null): string {
+  return user && !user.isAnonymous && user.flagReason == null ? user.displayName : "Anonim";
+}
+
+// Pemenang diekspos hanya setelah drop selesai (sudah draw / sold out / closed) —
+// raffle draw maupun FCFS checkout sama-sama mengisi owner kartu, jangan bocor
+// saat window raffle masih berjalan.
+function isWinnersRevealed(drop: Drop): boolean {
+  return drop.drawnAt != null || drop.status === "sold_out" || drop.status === "closed";
+}
+
+// Urutan tampil (docs 09 3.2 numbering economy): unit signed dulu, lalu
+// unit_number ascending.
+function sortByUnitDisplay<T extends { unitNumber: number; variant: string }>(rows: T[]): T[] {
+  return [...rows].sort((a, b) => (a.variant !== b.variant ? (a.variant === "signed" ? -1 : 1) : a.unitNumber - b.unitNumber));
+}
+
+// Pemenang drop = kartu ber-owner (bound). Nama owner sudah dimasking
+// server-side sehingga pemenang anonim/flagged tampil sebagai 'Anonim'.
+async function buildDropWinners(cards: Card[]): Promise<DropWinner[]> {
+  const owned = sortByUnitDisplay(cards.filter((ca) => ca.ownerId != null));
+  const ownerById = new Map((await listUsersByIds(owned.map((ca) => ca.ownerId as string))).map((u) => [u.id, u]));
+  return owned.map((ca) => ({
+    unitNumber: ca.unitNumber,
+    variant: ca.variant,
+    displayName: publicDisplayName(ca.ownerId ? (ownerById.get(ca.ownerId) ?? null) : null),
+  }));
+}
 
 app.get("/", async (c) => {
   const q = c.req.query();
@@ -86,6 +124,8 @@ app.get("/:id", async (c) => {
       .maybeSingle();
     if (entryRow) myEntry = { pool: String(entryRow.pool), holdCcoin: Number(entryRow.hold_ccoin), status: String(entryRow.status) };
   }
+  // Winners (B1): hanya dihitung (dan di-query) saat drop sudah selesai.
+  const winners = isWinnersRevealed(d) ? await buildDropWinners(cards) : undefined;
   return c.json({
     ...d,
     myEntry,
@@ -99,7 +139,26 @@ app.get("/:id", async (c) => {
     creatorHandle: creatorRec?.handle ?? creatorUser?.username ?? null,
     creatorUsername: creatorUser?.username ?? null,
     cardsPreview: cards.slice(0, 6),
+    ...(winners ? { winners } : {}),
     stats: { total: cards.length, sold: soldCards.length, available: cards.filter((ca) => ca.status === "inventory").length },
+  });
+});
+
+// Daftar semua kartu per drop (B1) untuk grid publik — tanpa identitas owner;
+// konsumen hanya perlu tahu unit mana yang sudah berpemilik (isOwned). Drop
+// non-publik (draft/cancelled) disembunyikan selaras dengan listing.
+app.get("/:id/cards", async (c) => {
+  const d = await getDropById(c.req.param("id"));
+  if (!d || !PUBLIC_DROP_STATUSES.includes(d.status)) return c.json({ error: "Drop tidak ditemukan" }, 404);
+  const cards = await listCardsByDrop(d.id);
+  return c.json({
+    cards: sortByUnitDisplay(cards).map((ca) => ({
+      id: ca.id,
+      unitNumber: ca.unitNumber,
+      variant: ca.variant,
+      status: ca.status,
+      isOwned: ca.ownerId != null,
+    })),
   });
 });
 
