@@ -303,6 +303,63 @@
 	padding: 4px 0 2px;
 }
 
+/* Support creator — ghost action on the operator card; amount modal mirrors
+   the wallet payout modal recipe (blurred canvas overlay + card surface). */
+.cp-support-btn {
+	flex: 0 0 auto;
+	align-self: center;
+}
+
+.cp-support-overlay {
+	position: fixed;
+	inset: 0;
+	z-index: 1000;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 16px;
+	overscroll-behavior: contain;
+}
+
+.cp-support-overlay::before {
+	content: "";
+	position: absolute;
+	inset: 0;
+	background: var(--canvas);
+	opacity: 0.85;
+	-webkit-backdrop-filter: blur(6px);
+	backdrop-filter: blur(6px);
+}
+
+.cp-support-overlay > .card {
+	position: relative;
+	z-index: 1;
+}
+
+.cp-support-modal {
+	max-width: 380px;
+	width: 100%;
+	display: flex;
+	flex-direction: column;
+	gap: 14px;
+}
+
+.cp-support-title {
+	font-family: var(--font-display);
+	font-size: 16px;
+	font-weight: 600;
+	color: var(--gold);
+}
+
+.cp-support-actions {
+	display: flex;
+	gap: 10px;
+}
+
+.cp-support-actions > button {
+	flex: 1 1 0;
+}
+
 @media (max-width: 720px) {
 	.cp-operator-row {
 		flex-direction: row;

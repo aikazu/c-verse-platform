@@ -1,19 +1,24 @@
 import type { LeaderboardEntry, LevelTier } from "@c-verse/shared";
 import { LEVEL_TIERS } from "@c-verse/shared";
 import { useQuery } from "@tanstack/react-query";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
+import { useConfirm } from "../components/ConfirmProvider";
 import { StatusBadge } from "../components/StatusBadge";
 import { trackCreatorPageView } from "../lib/analytics";
 import { ApiError, api } from "../lib/api";
 import type { ApiCreatorPublicResponse, ApiDrop, ApiLeaderboardResponse } from "../lib/api-types";
+import { useAuth } from "../lib/auth";
 import { ErrorState, LoadingState } from "../lib/QueryStates";
+import { useToast } from "../lib/toast";
 import "./creator.css";
 
 // Operator-channel for sibling-lane collision check: CH:06 / KREATOR
 // (Drops CH:01, Marketplace CH:02, Browse CH:03, Leaderboard CH:04, Profile CH:05).
 const CHANNEL = "CH:06 / KREATOR";
 const CHANNEL_EXTRA = "CREATOR LOG";
+
+const errorMessage = (e: unknown): string => (e instanceof Error ? e.message : String(e));
 
 // Tier validator over the 10-value Galactic Rank Ladder (single source: shared).
 // Unrecognised server strings fall back to `orbit` (lowest band).
@@ -36,6 +41,12 @@ function thumbSigil(title: string, series: string): string {
 
 export default function CreatorPage() {
   const { username } = useParams();
+  const { user } = useAuth();
+  const { push } = useToast();
+  const confirm = useConfirm();
+  const [supportOpen, setSupportOpen] = useState(false);
+  const [supportAmount, setSupportAmount] = useState("");
+  const [busySupport, setBusySupport] = useState(false);
   const {
     data,
     isLoading,
@@ -184,6 +195,34 @@ export default function CreatorPage() {
   // doc 02 PG-CRT-PUB-01 hanya handle + drop list (tanpa follower count, tanpa bio / links
   // — API tidak mengembalikan field tersebut saat ini).
   const handle = creator.handle ?? creator.username ?? null;
+
+  // creator.id is the owner userId (creators.ts:115/129) — support is hidden on the
+  // creator's own page and for anonymous visitors (same gating as CardInfo buyout).
+  const canSupport = !!user && creator.id !== user.id;
+
+  async function onSupport() {
+    const amt = Number(supportAmount);
+    if (!Number.isInteger(amt) || amt < 1) {
+      push("Minimal 1 C-Coin", "info");
+      return;
+    }
+    // Spend action — mandatory in-app confirm (founder 2026-08-29).
+    if (!(await confirm({ title: `Kirim dukungan ${amt} C?`, confirmLabel: "Kirim" }))) return;
+    setBusySupport(true);
+    try {
+      await api.supportCreator(creator.id, amt);
+      push(`Dukungan ${amt} C terkirim`, "success");
+      setSupportOpen(false);
+      setSupportAmount("");
+    } catch (e) {
+      // Server business errors (INSUFFICIENT dll) already arrive as user-facing
+      // Indonesian messages — surface them as-is.
+      push(errorMessage(e), "error");
+    } finally {
+      setBusySupport(false);
+    }
+  }
+
   const board: LeaderboardEntry[] = boardData?.leaderboard ?? [];
   const sigil = getSigil(creator.displayName, handle);
   const handleLine = handle ? `@${handle}` : `@${username ?? ""}`;
@@ -257,6 +296,11 @@ export default function CreatorPage() {
             <h2 className="h2 cp-name">{creator.displayName}</h2>
             <div className="mono cp-handle">{handleLine}</div>
           </div>
+          {canSupport && (
+            <button className="btn-ghost cp-support-btn" onClick={() => setSupportOpen(true)}>
+              Dukungan
+            </button>
+          )}
         </div>
         <div className="cp-stats" role="list" aria-label="Statistik kreator">
           <div className="cp-stat" role="listitem">
@@ -378,6 +422,40 @@ export default function CreatorPage() {
           </div>
         )}
       </section>
+
+      {supportOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="cp-support-title"
+          className="cp-support-overlay"
+          onClick={() => !busySupport && setSupportOpen(false)}
+        >
+          <div className="card card-pad cp-support-modal" onClick={(e) => e.stopPropagation()}>
+            <div id="cp-support-title" className="cp-support-title">
+              Dukungan untuk {creator.displayName}
+            </div>
+            <input
+              className="input"
+              type="number"
+              min={1}
+              aria-label="Jumlah dukungan C-Coin"
+              placeholder="Jumlah C"
+              value={supportAmount}
+              onChange={(e) => setSupportAmount(e.target.value)}
+              disabled={busySupport}
+            />
+            <div className="cp-support-actions">
+              <button className="btn-ghost" onClick={() => setSupportOpen(false)} disabled={busySupport}>
+                Batal
+              </button>
+              <button className="btn-gold" onClick={onSupport} disabled={busySupport || supportAmount === ""}>
+                {busySupport ? "Memproses…" : "Kirim"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
