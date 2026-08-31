@@ -6,8 +6,11 @@ import {
   calcSignedPrice,
   calcUnsignedCount,
   cardLocationLabel,
+  cardVariantLabel,
   ccoinToIdr,
+  dropEntryStatusLabel,
   dropStatusLabel,
+  escrowStatusLabel,
   idrToCCoin,
   isCcoinInteger,
   kycStatusLabel,
@@ -17,6 +20,8 @@ import {
   leaderboardTypeSchema,
   MAX_ACTIVE_BIDS_PER_USER,
   orderStatusLabel,
+  shipmentToDestLabel,
+  shipmentTypeLabel,
   splitSecondaryFeeCcoin,
   walletTxTypeLabel,
   xpForNextLevel,
@@ -179,9 +184,36 @@ describe("status label maps (snake_case/English enum → Indonesian UI copy)", (
     expect(walletTxTypeLabel("payout")).toBe("Penarikan");
   });
 
+  it("maps escrow status to Indonesian labels", () => {
+    expect(escrowStatusLabel("held")).toBe("Ditahan");
+    expect(escrowStatusLabel("released")).toBe("Dilepas");
+  });
+
+  it("maps drop entry status to Indonesian labels (Menang / Dana kembali)", () => {
+    expect(dropEntryStatusLabel("held")).toBe("ditahan");
+    expect(dropEntryStatusLabel("won_premium")).toBe("Menang");
+    expect(dropEntryStatusLabel("won_regular")).toBe("Menang");
+    expect(dropEntryStatusLabel("lost")).toBe("Dana kembali");
+    expect(dropEntryStatusLabel("refunded")).toBe("Dana kembali");
+  });
+
+  it("maps shipment type and destination to Indonesian labels", () => {
+    expect(shipmentTypeLabel("vault_shipout")).toBe("Kirim dari vault");
+    expect(shipmentTypeLabel("secondary_seller_to_vault")).toBe("Kirim ke vault (verifikasi)");
+    expect(shipmentTypeLabel("primary_shipping")).toBe("Kirim ke alamat");
+    expect(shipmentToDestLabel("buyer_address")).toBe("alamat pembeli");
+    expect(shipmentToDestLabel("platform_vault")).toBe("vault");
+  });
+
+  it("maps card variant to human labels (no raw signed/unsigned jargon)", () => {
+    expect(cardVariantLabel("signed")).toBe("Premium (Signed)");
+    expect(cardVariantLabel("unsigned")).toBe("Reguler");
+  });
+
   it("falls back to the raw value for unknown codes (never crashes)", () => {
     expect(dropStatusLabel("mystery")).toBe("mystery");
     expect(orderStatusLabel("")).toBe("");
+    expect(cardVariantLabel("mystery")).toBe("mystery");
   });
 });
 

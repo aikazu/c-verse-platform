@@ -562,3 +562,55 @@ const WALLET_TX_TYPE_LABELS: Record<string, string> = {
 export function walletTxTypeLabel(type: string): string {
   return labelFrom(WALLET_TX_TYPE_LABELS, type);
 }
+
+const ESCROW_STATUS_LABELS: Record<string, string> = {
+  held: "Ditahan",
+  released: "Dilepas",
+};
+export function escrowStatusLabel(status: string): string {
+  return labelFrom(ESCROW_STATUS_LABELS, status);
+}
+
+// Status entry raffle (drop_entries.status): held -> won_* saat draw; kalah
+// dilepas via cron (lost -> refunded). Label lowercase "ditahan" sengaja —
+// mengikuti konteks "N C ditahan" di pill DropDetail.
+const DROP_ENTRY_STATUS_LABELS: Record<string, string> = {
+  held: "ditahan",
+  won_premium: "Menang",
+  won_regular: "Menang",
+  lost: "Dana kembali",
+  refunded: "Dana kembali",
+};
+export function dropEntryStatusLabel(status: string): string {
+  return labelFrom(DROP_ENTRY_STATUS_LABELS, status);
+}
+
+const SHIPMENT_TYPE_LABELS: Record<string, string> = {
+  primary_shipping: "Kirim ke alamat",
+  primary_vault: "Simpan di vault",
+  secondary_buyout: "Buyout — antar ke vault",
+  secondary_bid: "Bid diterima — antar ke vault",
+  vault_shipout: "Kirim dari vault",
+  secondary_seller_to_vault: "Kirim ke vault (verifikasi)",
+};
+export function shipmentTypeLabel(type: string): string {
+  return labelFrom(SHIPMENT_TYPE_LABELS, type);
+}
+
+const SHIPMENT_TO_DEST_LABELS: Record<string, string> = {
+  buyer_address: "alamat pembeli",
+  platform_vault: "vault",
+};
+export function shipmentToDestLabel(dest: string): string {
+  return labelFrom(SHIPMENT_TO_DEST_LABELS, dest);
+}
+
+// Varian C.Card: signed = Premium (Signed), unsigned = Reguler — label yang
+// sama dipakai grup unit di halaman drop agar konsisten antar halaman.
+const CARD_VARIANT_LABELS: Record<string, string> = {
+  signed: "Premium (Signed)",
+  unsigned: "Reguler",
+};
+export function cardVariantLabel(variant: string): string {
+  return labelFrom(CARD_VARIANT_LABELS, variant);
+}
