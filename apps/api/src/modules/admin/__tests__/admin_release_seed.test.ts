@@ -7,6 +7,7 @@ vi.hoisted(() => {
 const control = vi.hoisted(() => ({
   cardExists: true as boolean,
   releaseError: null as { code: string; message: string } | null,
+  releaseReject: null as Error | null,
   auditCalls: [] as Record<string, unknown>[],
 }));
 
@@ -82,6 +83,7 @@ vi.mock("../../../lib/db.js", async (importOriginal) => {
     ...mod,
     RpcError: mod.RpcError,
     rpcReleaseSeedSale: vi.fn(async () => {
+      if (control.releaseReject) throw control.releaseReject;
       if (control.releaseError) throw new mod.RpcError(control.releaseError.code, control.releaseError.message);
     }),
   };
@@ -100,6 +102,7 @@ describe("POST /api/admin/cards/:id/release-seed-sale", () => {
   beforeEach(() => {
     control.cardExists = true;
     control.releaseError = null;
+    control.releaseReject = null;
     control.auditCalls = [];
   });
 
@@ -166,5 +169,16 @@ describe("POST /api/admin/cards/:id/release-seed-sale", () => {
     const body = (await res.json()) as { error: string };
     expect(body.error).toContain("service_role");
     expect(control.auditCalls.length).toBe(0);
+  });
+
+  // Lane E (audit 2026-08-31): non-RpcError catch-all used to echo raw
+  // err.message/String(err) — must go through sanitizeDbError.
+  it("non-RpcError DB failure -> 400 sanitized (raw text tidak bocor)", async () => {
+    control.releaseReject = new Error("could not serialize access due to concurrent update");
+    const res = await releaseSeedSale();
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as { error: string };
+    expect(body.error).toBe("Operasi gagal");
+    expect(body.error).not.toContain("serialize");
   });
 });

@@ -227,7 +227,8 @@ app.post(
 
     // 2) Role + display name (trigger default role='user').
     const { error: userErr } = await db.from("users").update({ role: "creator", display_name: displayName }).eq("id", uidNew);
-    if (userErr) return c.json({ error: userErr.message }, 400);
+    // Lane E (audit 2026-08-31): raw Postgres text tidak pernah di-echo ke klien.
+    if (userErr) return c.json({ error: sanitizeDbError(userErr) }, 400);
 
     // 3) Row creators (handle unique). Handle bentrok -> rollback best-effort:
     // hapus auth user agar tidak ada akun yatim, lalu 409.
@@ -255,7 +256,7 @@ app.post(
       } catch (rollbackErr) {
         console.error("[admin] rollback deleteUser gagal:", rollbackErr instanceof Error ? rollbackErr.message : String(rollbackErr));
       }
-      return c.json({ error: creatorErr.message }, 400);
+      return c.json({ error: sanitizeDbError(creatorErr) }, 400);
     }
 
     // 4) Email akses (flag EMAIL_ENABLED default OFF di dev -> { sent:false, reason:'disabled' }).
@@ -369,7 +370,8 @@ app.post("/cards/:id/release-seed-sale", async (c) => {
       }
       return c.json({ error: err.message }, 400);
     }
-    return c.json({ error: err instanceof Error ? err.message : String(err) }, 400);
+    // Lane E (audit 2026-08-31): non-RpcError catch-all tidak meng-echo raw text.
+    return c.json({ error: sanitizeDbError(err instanceof Error ? err : { message: String(err) }) }, 400);
   }
   await logAuditDb(
     admin.id,
@@ -425,7 +427,8 @@ app.post("/cards/:id/cancel-seed-sale", async (c) => {
       }
       return c.json({ error: err.message }, 400);
     }
-    return c.json({ error: err instanceof Error ? err.message : String(err) }, 400);
+    // Lane E (audit 2026-08-31): non-RpcError catch-all tidak meng-echo raw text.
+    return c.json({ error: sanitizeDbError(err instanceof Error ? err : { message: String(err) }) }, 400);
   }
   await logAuditDb(
     admin.id,

@@ -7,6 +7,7 @@ vi.hoisted(() => {
 const control = vi.hoisted(() => ({
   createUserError: null as { message: string } | null,
   creatorInsertError: null as { message: string } | null,
+  userUpdateError: null as { message: string } | null,
   existingEmail: null as string | null,
   createdUserId: "new-uid",
   deletedUsers: [] as string[],
@@ -86,7 +87,7 @@ vi.mock("../../../lib/supabase.js", () => {
           return builder;
         },
         update: () => ({
-          eq: () => empty(),
+          eq: () => (control.userUpdateError ? Promise.resolve({ data: null, error: control.userUpdateError }) : empty()),
         }),
       };
     }
@@ -140,6 +141,7 @@ describe("POST /api/admin/users/provision", () => {
   beforeEach(() => {
     control.createUserError = null;
     control.creatorInsertError = null;
+    control.userUpdateError = null;
     control.existingEmail = null;
     control.deletedUsers = [];
   });
@@ -190,5 +192,25 @@ describe("POST /api/admin/users/provision", () => {
     const body = (await res.json()) as { error: string };
     expect(body.error).toBe("Handle sudah dipakai");
     expect(control.deletedUsers).toContain("new-uid");
+  });
+
+  // Lane E (audit 2026-08-31): step-2 users update / step-3 creators insert
+  // non-duplicate used to echo raw err.message — must go through sanitizeDbError.
+  it("users update error -> 400 sanitized (raw schema detail tidak bocor)", async () => {
+    control.userUpdateError = { message: 'column "role_x" of relation "users" does not exist' };
+    const res = await provision(VALID);
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as { error: string };
+    expect(body.error).toBe("Operasi gagal");
+    expect(body.error).not.toContain("role_x");
+  });
+
+  it("creator insert error non-duplicate -> 400 sanitized (raw text tidak bocor)", async () => {
+    control.creatorInsertError = { message: 'null value in column "user_id" of relation "creators" violates not-null constraint' };
+    const res = await provision(VALID);
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as { error: string };
+    expect(body.error).toBe("Required field missing");
+    expect(body.error).not.toContain("user_id");
   });
 });

@@ -8,6 +8,7 @@ const control = vi.hoisted(() => ({
   cardExists: true as boolean,
   cardStatus: "bid_pending" as string,
   cancelError: null as { code: string; message: string } | null,
+  cancelReject: null as Error | null,
   cancelResult: {
     cardId: "card-seed-1",
     refundedCcoin: 50,
@@ -96,6 +97,7 @@ vi.mock("../../../lib/db.js", async (importOriginal) => {
     ...mod,
     RpcError: mod.RpcError,
     rpcCancelSeedSale: vi.fn(async () => {
+      if (control.cancelReject) throw control.cancelReject;
       if (control.cancelError) throw new mod.RpcError(control.cancelError.code, control.cancelError.message);
       return control.cancelResult;
     }),
@@ -117,6 +119,7 @@ describe("POST /api/admin/cards/:id/cancel-seed-sale", () => {
     control.cardExists = true;
     control.cardStatus = "bid_pending";
     control.cancelError = null;
+    control.cancelReject = null;
     control.cancelResult = {
       cardId: "card-seed-1",
       refundedCcoin: 50,
@@ -204,5 +207,16 @@ describe("POST /api/admin/cards/:id/cancel-seed-sale", () => {
     const res = await cancelSeedSale();
     expect(res.status).toBe(401);
     expect(control.auditCalls.length).toBe(0);
+  });
+
+  // Lane E (audit 2026-08-31): non-RpcError catch-all used to echo raw
+  // err.message/String(err) — must go through sanitizeDbError.
+  it("non-RpcError DB failure -> 400 sanitized (raw text tidak bocor)", async () => {
+    control.cancelReject = new Error("could not serialize access due to concurrent update");
+    const res = await cancelSeedSale();
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as { error: string };
+    expect(body.error).toBe("Operasi gagal");
+    expect(body.error).not.toContain("serialize");
   });
 });
