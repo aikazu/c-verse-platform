@@ -86,6 +86,11 @@ app.post("/:id/approve", async (c) => {
   return c.json({ kyc: rec });
 });
 
+// Audit batch 3 (lane I): reject menerima `reason` opsional (validated string,
+// kosong tetap diterima demi backward-compat dengan caller lama yang mengirim
+// body kosong) dan menuliskannya ke audit payload — dulu payload hanya
+// { status: "rejected" } sehingga alasan penolakan tidak tercatat di audit log.
+// Body DIPARSA MANUAL (bukan zValidator): request tanpa body harus tetap lolos.
 app.post("/:id/reject", async (c) => {
   const authRes = await requireAdmin(c);
   if ("error" in authRes) {
@@ -93,6 +98,11 @@ app.post("/:id/reject", async (c) => {
     return c.json(e.body, e.status);
   }
   const user = authRes.user;
+  const rejectSchema = z.object({ reason: z.string().max(1000).optional() });
+  const rawBody: unknown = await c.req.json().catch(() => ({}));
+  const parsed = rejectSchema.safeParse(rawBody);
+  if (!parsed.success) return c.json({ error: "Alasan penolakan tidak valid (maks. 1000 karakter)" }, 400);
+  const reason = parsed.data.reason?.trim() ? parsed.data.reason : null;
   const rec = await setKycStatus(c.req.param("id"), "rejected");
   if (!rec) return c.json({ error: "Not found" }, 404);
   await logAuditDb(
@@ -100,7 +110,7 @@ app.post("/:id/reject", async (c) => {
     "update",
     "kyc_records",
     c.req.param("id"),
-    { status: "rejected" },
+    { status: "rejected", reason },
     clientIp(c),
     await tokenFingerprint(c.req.header("authorization")),
   );
