@@ -40,9 +40,14 @@ test.describe("Secondary market", () => {
     // crash sebelum cleanup) dibatalkan dulu — cancel_bid melepas escrow hold.
     // Toast difilter per-teks: toast sukses sebelumnya hidup 4 detik (TTL) sehingga
     // locator .toast-success polos bisa resolve >1 elemen (strict mode violation).
+    // Cancel bid wajib lewat modal konfirmasi (D8, founder 2026-08-31) —
+    // klik "Batalkan bid" buka dialog, lalu konfirmasi di dalam dialog.
     const cancelBtn = page.locator("button:has-text('Batalkan bid')");
     if (await cancelBtn.isVisible()) {
       await cancelBtn.click();
+      const cancelConfirm = page.locator(".cfm-card");
+      await expect(cancelConfirm).toContainText("Batalkan bid");
+      await cancelConfirm.locator("button:has-text('Batalkan bid')").click();
       await expect(page.locator(".toast-success").filter({ hasText: "Bid dibatalkan" })).toBeVisible();
       await expect(cancelBtn).toBeHidden();
     }
@@ -61,8 +66,12 @@ test.describe("Secondary market", () => {
     await expect(bidPanel).toContainText("5 C");
 
     // Cleanup: batalkan bid agar state seed kembali bersih (saldo demo ter-refund,
-    // slot bid aktif demo tidak naik) — sekaligus menguji cancel_bid RPC.
+    // slot bid aktif demo tidak naik) — sekaligus menguji cancel_bid RPC via
+    // modal konfirmasi (D8).
     await page.locator("button:has-text('Batalkan bid')").click();
+    const cancelConfirm = page.locator(".cfm-card");
+    await expect(cancelConfirm).toContainText("Batalkan bid");
+    await cancelConfirm.locator("button:has-text('Batalkan bid')").click();
     await expect(page.locator(".toast-success").filter({ hasText: "Bid dibatalkan" })).toBeVisible();
     await expect(page.locator(".ci-bid-panel")).toBeHidden();
   });

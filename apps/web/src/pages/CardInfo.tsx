@@ -139,6 +139,15 @@ export default function CardInfo() {
 
   async function onCancelBid() {
     if (!myActiveBid) return;
+    // Konfirmasi sebelum penahanan C-Coin dilepas (founder 2026-08-31: cancel bid
+    // wajib confirm — aksi destruktif & irreversible, aturan D8).
+    const ok = await confirm({
+      title: `Batalkan bid ${myActiveBid.amountCCoin} C?`,
+      message: "C-Coin yang ditahan akan dikembalikan ke saldomu. Tindakan ini tidak bisa dibatalkan.",
+      confirmLabel: "Batalkan bid",
+      danger: true,
+    });
+    if (!ok) return;
     setBusy(true);
     try {
       await api.cancelBid(myActiveBid.id);
