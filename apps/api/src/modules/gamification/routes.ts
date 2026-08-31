@@ -31,11 +31,11 @@ app.get("/leaderboard", zValidator("query", leaderboardQuerySchema), async (c) =
     }
   }
   const rows = await listLeaderboard(type, creatorId ?? null, limit);
-  const board: LeaderboardEntry[] = rows.map((r) => {
+  // Lane P2: payload publik tanpa userId (UUID stabil tidak keluar dari server).
+  const board: Omit<LeaderboardEntry, "userId">[] = rows.map((r) => {
     const { level, tier } = calcLevel(r.totalXp);
     return {
       rank: r.rank,
-      userId: r.userId,
       displayName: r.displayName,
       username: r.username,
       avatarUrl: r.avatarUrl,

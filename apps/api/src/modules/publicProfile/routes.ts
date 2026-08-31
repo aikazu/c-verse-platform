@@ -7,6 +7,7 @@ import { userDb } from "../../lib/db.js";
 import { sanitizeDbError } from "../../lib/errors.js";
 import { listCards, listDrops } from "../../lib/reads/drops.js";
 import { getUserByUsernameOrId, getUserRank, listUserBadges } from "../../lib/reads/profiles.js";
+import { publicDisplayName } from "../../lib/reads.js";
 import type { Drop } from "../../lib/store.js";
 
 const app = new Hono();
@@ -139,8 +140,12 @@ app.get("/u/:username", async (c) => {
   if (!user) return c.json({ error: "User tidak ditemukan" }, 404);
   if (user.flagReason) return c.json({ error: "User tidak ditemukan" }, 404); // suspended: profil disembunyikan
   if (user.isAnonymous) {
+    // Lane P2: hidden payload tidak membawa id (UUID stabil memungkinkan
+    // korelasi deanonymisasi) dan displayName lewat masking tunggal
+    // publicDisplayName → "Anonim". username dipertahankan untuk handle-only
+    // render web (fallback URL param bisa berupa UUID saat diakses via id).
     return c.json({
-      user: { id: user.id, displayName: user.displayName, username: user.username ?? null, isAnonymous: true },
+      user: { displayName: publicDisplayName(user), username: user.username ?? null, isAnonymous: true },
       hidden: true,
     });
   }

@@ -6,7 +6,7 @@ import { requireUser } from "../../lib/auth.js";
 import { RpcError, rpcAcceptBid, rpcCancelBid, rpcPlaceBid, userDb } from "../../lib/db.js";
 import { listBidsByCard } from "../../lib/reads/bids.js";
 import { listUsersByIds } from "../../lib/reads/users.js";
-import { toPublicBid } from "../../lib/reads.js";
+import { isPubliclyMasked, toPublicBid } from "../../lib/reads.js";
 import type { Bid } from "../../lib/store.js";
 
 const app = new Hono();
@@ -21,7 +21,9 @@ async function maskBidderNames(bids: Bid[]): Promise<Bid[]> {
   const bidderById = new Map((await listUsersByIds(bidderIds)).map((u) => [u.id, u]));
   return bids.map((b) => {
     const bidder = bidderById.get(b.bidderId);
-    const isMasked = !bidder || bidder.isAnonymous || bidder.flagReason != null;
+    // Lane P2: satu predikat masking tunggal (lib/reads.ts) — semantics identik
+    // dengan predikat lokal sebelumnya, mencegah divergensi di masa depan.
+    const isMasked = isPubliclyMasked(bidder ?? null);
     return isMasked ? { ...b, bidderName: "Anonim" } : b;
   });
 }

@@ -19,7 +19,6 @@ interface LeaderboardRpcRow {
 
 export interface LeaderboardRow {
   rank: number;
-  userId: string;
   displayName: string;
   username: string | null;
   avatarUrl: string | null;
@@ -39,9 +38,10 @@ export async function listLeaderboard(type: LeaderboardType, creatorId: string |
     p_limit: limit,
   });
   if (error) throw new Error(error.message);
+  // Lane P2: userId (UUID stabil) tidak pernah keluar dari payload publik —
+  // korelasi lintas-listing bisa deanonymisasi meski nama sudah tampil.
   return ((data as LeaderboardRpcRow[] | null) ?? []).map((r) => ({
     rank: Number(r.rank ?? 0),
-    userId: String(r.user_id ?? ""),
     displayName: String(r.display_name ?? ""),
     username: (r.username as string | null) ?? null,
     avatarUrl: (r.avatar_url as string | null) ?? null,

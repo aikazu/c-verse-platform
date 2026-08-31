@@ -138,7 +138,6 @@ vi.mock("../modules/gamification/reads.js", async (importOriginal) => {
       });
       return ((data as Array<Record<string, unknown>>) ?? []).map((r) => ({
         rank: Number(r.rank ?? 0),
-        userId: String(r.user_id ?? ""),
         displayName: String(r.display_name ?? ""),
         username: (r.username as string | null) ?? null,
         avatarUrl: (r.avatar_url as string | null) ?? null,
@@ -249,9 +248,10 @@ describe("GET /api/gamification/leaderboard — multi-type RPC contract", () => 
       args: { p_type: "xp", p_creator_id: null, p_limit: 20 },
     });
     const body = (await res.json()) as {
-      leaderboard: Array<{ rank: number; userId: string }>;
+      leaderboard: Array<{ rank: number; userId?: string }>;
     };
-    expect(body.leaderboard[0]?.userId).toBe(U1);
+    // Lane P2: UUID tidak pernah keluar dari payload publik leaderboard.
+    expect(body.leaderboard[0]?.userId).toBeUndefined();
     expect(body.leaderboard[0]?.rank).toBe(1);
   });
 
@@ -322,7 +322,7 @@ describe("GET /api/gamification/leaderboard — multi-type RPC contract", () => 
     const body = (await res.json()) as {
       leaderboard: Array<{
         rank: number;
-        userId: string;
+        userId?: string;
         level: number;
         tier: string;
         totalXp: number;
@@ -333,7 +333,6 @@ describe("GET /api/gamification/leaderboard — multi-type RPC contract", () => 
     };
     expect(body.leaderboard[0]).toMatchObject({
       rank: 1,
-      userId: U1,
       level: 21,
       tier: "komet",
       totalXp: 200,
@@ -342,11 +341,39 @@ describe("GET /api/gamification/leaderboard — multi-type RPC contract", () => 
     });
     expect(body.leaderboard[1]).toMatchObject({
       rank: 2,
-      userId: U2,
       level: 1,
       tier: "orbit",
       username: null,
     });
+  });
+
+  // Lane P2: userId (UUID stabil) dihapus dari payload publik semua board —
+  // korelasi lintas-listing bisa deanonymisasi meski nama sudah tampil.
+  it("entries di semua board tidak mengekspos userId", async () => {
+    control.leaderboardRows = [
+      {
+        rank: 1,
+        user_id: U1,
+        display_name: "Alpha",
+        username: null,
+        avatar_url: null,
+        total_xp: 10,
+        score: 3,
+        reached_at: "2026-01-01T00:00:00Z",
+      },
+    ];
+    control.leaderboardCreator = { id: CREATOR_ID, role: "creator", flagReason: null };
+    for (const type of ["xp", "cards", "badges", "creator"] as const) {
+      const query = type === "creator" ? `?type=${type}&creatorId=${CREATOR_ID}` : `?type=${type}`;
+      const res = await app.request(`/api/gamification/leaderboard${query}`);
+      expect(res.status, `board ${type}`).toBe(200);
+      const body = (await res.json()) as { leaderboard: Array<Record<string, unknown>> };
+      expect(body.leaderboard.length, `board ${type}`).toBeGreaterThan(0);
+      expect(
+        body.leaderboard.every((e) => !("userId" in e)),
+        `board ${type}`,
+      ).toBe(true);
+    }
   });
 
   it("Cache-Control header differs by type: xp=60 vs cards=30", async () => {
@@ -395,8 +422,8 @@ describe("GET /api/gamification/leaderboard — multi-type RPC contract", () => 
     const fromCalls = fakeSupabaseFrom.mock.calls.filter((c) => c[0] === "users");
     expect(fromCalls).toHaveLength(0);
     expect(control.leaderboardRpcCalls[0]?.fn).toBe("get_leaderboard");
-    const body = (await res.json()) as { leaderboard: Array<{ userId: string }> };
-    expect(body.leaderboard[0]?.userId).toBe(U1);
+    const body = (await res.json()) as { leaderboard: Array<{ userId?: string }> };
+    expect(body.leaderboard[0]?.userId).toBeUndefined();
   });
 });
 
