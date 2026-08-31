@@ -6,7 +6,7 @@ import { listBids } from "../../lib/reads/bids.js";
 import { getCardByIdOrNfc, getDropById } from "../../lib/reads/drops.js";
 import { logAuditDb } from "../../lib/reads/kyc.js";
 import { getUserById, listUsersByIds } from "../../lib/reads/users.js";
-import type { Card } from "../../lib/store.js";
+import type { Bid, Card } from "../../lib/store.js";
 import { getSupabase } from "../../lib/supabase.js";
 import { getCardByNfcShortId, getCardByNfcUid, listOwnershipByCard } from "./reads.js";
 
@@ -100,6 +100,23 @@ interface TapInput {
   ctrHex: string;
   cmacHex: string;
   tamperFlag?: boolean;
+}
+
+/**
+ * Privacy: bidder_name is a denormalized column on bids, so masking happens at the
+ * read boundary — anonymous or suspended (flagged) bidders display as "Anonim"
+ * (same rule as ownershipHistory.ownerName above). Bidders missing from the users
+ * table are masked defensively.
+ */
+async function maskBidderNames(bids: Bid[]): Promise<Bid[]> {
+  if (bids.length === 0) return bids;
+  const bidderIds = [...new Set(bids.map((b) => b.bidderId))];
+  const bidderById = new Map((await listUsersByIds(bidderIds)).map((u) => [u.id, u] as const));
+  return bids.map((b) => {
+    const bidder = bidderById.get(b.bidderId);
+    const isMasked = !bidder || bidder.isAnonymous || bidder.flagReason != null;
+    return isMasked ? { ...b, bidderName: "Anonim" } : b;
+  });
 }
 
 interface TapOutcome {
@@ -202,6 +219,7 @@ app.get("/cards/:cardId", async (c) => {
   // Privacy: owner yang sekarang is_anonymous atau suspended HARUS disamarkan jadi "Anonim" — biar
   // orang tidak bisa melacak displayName historis user yang sudah memilih jadi anon.
   const ownerNames = new Map(users.map((u) => [u.id, u.isAnonymous || u.flagReason ? "Anonim" : u.displayName] as const));
+  const maskedBids = await maskBidderNames(bids);
   return c.json({
     card: {
       id: card.id,
@@ -233,8 +251,8 @@ app.get("/cards/:cardId", async (c) => {
     owner: owner
       ? { id: owner.id, displayName: owner.displayName, username: owner.username ?? null, isAnonymous: owner.isAnonymous ?? false }
       : null,
-    activeBid: bids[0] ?? null,
-    bids,
+    activeBid: maskedBids[0] ?? null,
+    bids: maskedBids,
     ownershipHistory: history.map((h) => ({ ...h, ownerName: ownerNames.get(h.ownerId) ?? "—" })),
   });
 });
