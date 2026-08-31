@@ -5,9 +5,14 @@ on:
   push:
     branches: [main]
 
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   quality:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -24,19 +29,10 @@ jobs:
       - run: pnpm run test
       - run: pnpm run build
 
-  supabase-lint:
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: supabase/setup-cli@v1
-        with:
-          version: latest
-      - run: supabase db lint
-
   e2e:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -52,6 +48,12 @@ jobs:
         run: |
           npx supabase start
           npx supabase db reset
+      # Audit 2026-08-31: lint skema dijalankan di lokal stack yang sama
+      # dengan e2e (job supabase-lint lama tidak punya target DB — tanpa
+      # `supabase start`/`--db-url`, jadi tidak pernah bisa pass).
+      # `db lint` tanpa flag menargetkan database lokal.
+      - name: Lint database schema
+        run: npx supabase db lint
       # Audit 2026-08-25 GAP 5: tulis API .dev.vars dari supabase status
       # aktual (lokal) — placeholder dari .env.example tidak berisi
       # SUPABASE_SERVICE_ROLE_KEY, sehingga e2e yang butuh RLS bypass
@@ -62,6 +64,11 @@ jobs:
       - name: Build apps/api/.dev.vars from supabase status
         run: ./scripts/ci-api-env.sh apps/api/.dev.vars
       - name: Start API & Web
+        env:
+          # Server di-start oleh `pnpm dev` (bukan webServer Playwright), jadi
+          # supresi buildWebServerEnv() tidak berlaku — paksa Turnstile off
+          # di sini juga (mode false-fail yang dikenal: Turnstile aktif saat e2e).
+          VITE_TURNSTILE_SITE_KEY: ""
         run: |
           pnpm dev &
           npx wait-on http://localhost:8787/health http://localhost:5173 --timeout 120000
