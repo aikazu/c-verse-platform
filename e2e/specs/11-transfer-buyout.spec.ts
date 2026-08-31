@@ -242,6 +242,8 @@ test.describe("Secondary transfer — accept-bid & buyout (F6/F7)", () => {
     await page.locator("button:has-text('Tawar')").first().click();
     const bidConfirm = page.locator(".cfm-card");
     await expect(bidConfirm).toContainText(`Tawar ${bidAmount} C?`);
+    // Checklist wajib (owner 2026-09-01): confirm mati sampai checkbox dicentang.
+    await bidConfirm.getByRole("checkbox").check();
     await bidConfirm.locator("button:has-text('Tawar')").click();
     await expect(page.locator(".toast-success").filter({ hasText: `Penawaran ${bidAmount} C terkirim` })).toBeVisible();
     await expect(page.locator(".ci-bid-panel")).toContainText(`${bidAmount} C`);
