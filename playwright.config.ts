@@ -15,7 +15,10 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
   workers: 1, // sequential karena shared Supabase state
-  reporter: process.env.CI ? [["github"]] : [["html", { outputFolder: "e2e/playwright-report", open: "never" }]],
+  // CI: github annotations + html report (folder artifact upload "playwright-report").
+  reporter: process.env.CI
+    ? [["github"], ["html", { open: "never", outputFolder: "e2e/playwright-report" }]]
+    : [["html", { outputFolder: "e2e/playwright-report", open: "never" }]],
   use: {
     baseURL: "http://localhost:5173",
     trace: process.env.CI ? "on-first-retry" : "on",
