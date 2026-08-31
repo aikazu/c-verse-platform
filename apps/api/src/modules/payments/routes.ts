@@ -289,8 +289,32 @@ app.post("/midtrans/payout-webhook", async (c) => {
     return c.json({ ok: true, ignored: true, status: currentStatus });
   }
 
-  const { error } = await supabase.from("payouts").update({ status: next }).eq("id", payoutId).eq("status", currentStatus);
+  // Guarded update: `.eq(status, currentStatus)` bisa memukul 0 baris kalau
+  // status berubah di antara fetch dan update (race dengan admin refund /
+  // payout_batch_run). Audit 2026-08-31: 0 baris = JANGAN laporkan sukses.
+  const { data: updated, error } = await supabase
+    .from("payouts")
+    .update({ status: next })
+    .eq("id", payoutId)
+    .eq("status", currentStatus)
+    .select("id");
   if (error) return c.json({ error: sanitizeDbError(error) }, 500);
+  const affectedRows = Array.isArray(updated) ? updated.length : 0;
+  if (affectedRows === 0) {
+    console.error(`[payments] payout webhook stale transition (0 rows): ${payoutId} ${currentStatus} -> ${next}`);
+    return c.json({ ok: false, error: "Status payout sudah berubah — transisi dilewati" }, 409);
+  }
+  // Audit trail (action 'update' — enum audit_action belum punya slot khusus;
+  // semantik webhook dibawa di payload, pola sama dengan pemanggil "system" lain).
+  await logAuditDb(
+    "system",
+    "update",
+    "payouts",
+    payoutId,
+    { action: "payout_webhook", statusBefore: currentStatus, statusAfter: next },
+    null,
+    null,
+  );
   return c.json({ ok: true, payoutId, status: next });
 });
 

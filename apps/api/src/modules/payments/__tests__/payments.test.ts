@@ -23,6 +23,10 @@ const control = vi.hoisted(() => ({
   > | null,
   payoutFetchErr: null as { message: string } | null,
   payoutUpdates: [] as Array<{ table: string; payload: Record<string, unknown> }>,
+  // Lane E (audit 2026-08-31): guarded update bisa 0 baris (race) — route wajib
+  // memeriksa affected rows dan menulis audit payout_webhook.
+  payoutUpdateResult: { data: [{ id: "payout-12345678" }], error: null } as { data: unknown; error: { message: string } | null },
+  logAuditCalls: [] as Array<unknown[]>,
 }));
 
 vi.mock("../../../lib/payments/index.js", () => ({
@@ -71,12 +75,12 @@ vi.mock("../../../lib/supabase.js", () => ({
         }),
         update: (payload: Record<string, unknown>) => {
           control.payoutUpdates.push({ table, payload });
-          // Chain fixed-depth, meniru route: .eq("id", ...).eq("status", ...).
-          return {
-            eq: () => ({
-              eq: () => Promise.resolve({ data: null, error: null }),
-            }),
-          };
+          // Route chain: .update().eq("id").eq("status").select("id") — result
+          // dikontrol via control.payoutUpdateResult (affected rows).
+          const terminal = () => Promise.resolve(control.payoutUpdateResult);
+          const level3 = { select: terminal };
+          const level2 = { eq: () => level3, select: terminal };
+          return { eq: () => level2, select: terminal };
         },
       }),
     };
@@ -84,7 +88,10 @@ vi.mock("../../../lib/supabase.js", () => ({
 }));
 
 vi.mock("../../../lib/reads/kyc.js", () => ({
-  logAuditDb: () => Promise.resolve(),
+  logAuditDb: (...args: unknown[]) => {
+    control.logAuditCalls.push(args);
+    return Promise.resolve();
+  },
   getKycByUser: () => Promise.resolve(null),
 }));
 
@@ -233,6 +240,8 @@ describe("payout webhook state guard (audit 2026-08-29)", () => {
     control.payoutRow = { status: "pending" };
     control.payoutFetchErr = null;
     control.payoutUpdates = [];
+    control.payoutUpdateResult = { data: [{ id: PAYOUT_ID }], error: null };
+    control.logAuditCalls = [];
   });
   afterEach(() => {
     vi.clearAllMocks();
@@ -243,6 +252,49 @@ describe("payout webhook state guard (audit 2026-08-29)", () => {
     expect(res.status).toBe(200);
     expect(control.payoutUpdates).toHaveLength(1);
     expect(control.payoutUpdates[0].payload).toMatchObject({ status: "disbursed" });
+  });
+
+  // Lane E (audit 2026-08-31): guarded update bisa memukul 0 baris saat status
+  // berubah di antara fetch dan update (race dengan admin refund / batch).
+  // Webhook TIDAK boleh melaporkan sukses — dan audit tidak ditulis.
+  it("stale transition (0 rows affected) -> 409 ok:false, no audit", async () => {
+    control.payoutUpdateResult = { data: [], error: null };
+    const res = await payoutWebhook({ payout_id: PAYOUT_ID, status: "paid" });
+    expect(res.status).toBe(409);
+    const body = (await res.json()) as { ok?: boolean };
+    expect(body.ok).toBe(false);
+    expect(control.logAuditCalls).toHaveLength(0);
+  });
+
+  it("update DB error -> 500 sanitized, no audit", async () => {
+    control.payoutUpdateResult = { data: null, error: { message: "could not serialize access due to concurrent update" } };
+    const res = await payoutWebhook({ payout_id: PAYOUT_ID, status: "paid" });
+    expect(res.status).toBe(500);
+    const body = (await res.json()) as { error?: string };
+    expect(body.error).toBe("Operasi gagal");
+    expect(control.logAuditCalls).toHaveLength(0);
+  });
+
+  it("successful transition writes system audit with before/after status", async () => {
+    control.payoutRow = { status: "processing" };
+    const res = await payoutWebhook({ payout_id: PAYOUT_ID, status: "paid" });
+    expect(res.status).toBe(200);
+    expect(control.logAuditCalls).toHaveLength(1);
+    const [actor, _action, table, targetId, payload, ip, sessionId] = control.logAuditCalls[0] as [
+      string,
+      string,
+      string,
+      string,
+      Record<string, unknown>,
+      string | null,
+      string | null,
+    ];
+    expect(actor).toBe("system");
+    expect(table).toBe("payouts");
+    expect(targetId).toBe(PAYOUT_ID);
+    expect(payload).toMatchObject({ action: "payout_webhook", statusBefore: "processing", statusAfter: "disbursed" });
+    expect(ip).toBeNull();
+    expect(sessionId).toBeNull();
   });
 
   it("finalizes processing -> failed on failed", async () => {
