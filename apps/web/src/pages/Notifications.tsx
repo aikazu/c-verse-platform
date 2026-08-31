@@ -102,29 +102,41 @@ function NotificationsInner() {
           {list.map((n) => {
             const unread = n.readAt == null;
             const link = deepLinkFor(n.templateKey, n.payload);
-            const Inner = (
+            const label = labelFor(n.templateKey, n.payload);
+            // DOM benar: tombol mark-read tidak boleh nest di dalam <a> —
+            // HTML invalid dan kliknya ikut navigasi. Kartu jadi container
+            // polos; cover link stretch menutupi seluruh item (pola
+            // "stretched link") sementara tombol jadi sibling ber-z-index
+            // di atasnya, jadi klik tombol = mark read saja.
+            return (
               <div key={n.id} className={`card card-pad od-item${unread ? " is-unread" : ""}`}>
                 <div className="od-item-head">
-                  <div className="od-item-title">{labelFor(n.templateKey, n.payload)}</div>
+                  <div className="od-item-title">{label}</div>
                   <div className="od-item-time">
                     {new Date(n.createdAt).toLocaleString("id-ID", { dateStyle: "short", timeStyle: "short" })}
                   </div>
                 </div>
                 {unread && (
                   <div className="od-item-actions">
-                    <button type="button" className="od-mark-read" onClick={() => markOne.mutate(n.id)}>
+                    <button
+                      type="button"
+                      className="od-mark-read"
+                      style={{ position: "relative", zIndex: 1 }}
+                      onClick={() => markOne.mutate(n.id)}
+                    >
                       Tandai dibaca
                     </button>
                   </div>
                 )}
+                {link && (
+                  <Link
+                    to={link}
+                    className="od-item-cover"
+                    style={{ position: "absolute", inset: 0, borderRadius: "inherit" }}
+                    aria-label={label}
+                  />
+                )}
               </div>
-            );
-            return link ? (
-              <Link key={`link-${n.id}`} to={link} className="od-item-link">
-                {Inner}
-              </Link>
-            ) : (
-              Inner
             );
           })}
         </div>
