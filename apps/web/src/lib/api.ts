@@ -302,9 +302,7 @@ export const api = {
   markAllRead: () => req<{ ok: boolean }>("/notifications/read-all", { method: "PATCH" }),
 };
 
-export function ccoinToIdr(c: number, rate = 10000) {
-  return c * rate;
-}
-export function formatIdr(n: number) {
-  return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(n);
-}
+// Money display helpers — re-export dari @c-verse/shared (single source).
+// Rate tidak lagi di-hardcode di sini; panggilan lama tetap kompatibel karena
+// nama eksportnya sama (audit Lane G 2026-08-31).
+export { ccoinToIdr, formatIdr } from "@c-verse/shared";
