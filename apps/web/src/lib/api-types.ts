@@ -149,20 +149,28 @@ export interface ApiCheckoutResponse {
 }
 
 // ── NFC / Cards ────────────────────────────────────────────────────────────
-// GET /api/nfc/cards/:cardId (apps/api/src/modules/nfc/routes.ts:188) — info lengkap:
-//   card ringkas + drop ringkas + owner + bids aktif + ownership history.
-// Owner ditampilkan anonim jika user.isAnonymous || user.flagReason (route:204).
+// Proyeksi kartu publik (batch-1 privacy, apps/api/src/modules/nfc/routes.ts):
+// server membuang ownerId (UUID — deanonymisasi via korelasi), nfcUid (input
+// diversifikasi kunci CMAC), dan dropId dari payload kartu; personalisasi
+// viewer lewat flag isOwner/isMine, bukan id.
+export type ApiPublicCard = Omit<Card, "dropId" | "ownerId" | "nfcUid">;
+
+// GET /api/nfc/cards/:cardId — info lengkap: card publik + drop ringkas +
+// owner + bids aktif + ownership history. Owner anonim/flagged dimasking
+// server jadi "Anonim" (publicOwner di nfc/routes.ts) — tanpa id.
 export interface ApiCardOwnerRef {
-  id: string;
   displayName: string;
-  username?: string | null;
-  isAnonymous?: boolean;
+  username: string | null;
+  isOwner?: boolean;
 }
+
+// Bid publik (toPublicBid di apps/api/src/lib/reads.ts): bidderId dibuang,
+// isMine hanya ada saat ada viewer.
+export type ApiPublicBid = Omit<Bid, "bidderId"> & { isMine?: boolean };
 
 export interface ApiCardOwnershipRow {
   id: string;
   cardId: string;
-  ownerId: string;
   acquiredVia: string;
   orderId: string | null;
   bidId: string | null;
@@ -171,22 +179,33 @@ export interface ApiCardOwnershipRow {
 }
 
 export interface ApiCardDetailResponse {
-  card: Card;
+  card: ApiPublicCard;
   drop: ApiDrop | null;
   creator: { id: string; displayName: string; username?: string | null } | null;
   owner: ApiCardOwnerRef | null;
-  activeBid: Bid | null;
-  bids: Bid[];
+  activeBid: ApiPublicBid | null;
+  bids: ApiPublicBid[];
   ownershipHistory: ApiCardOwnershipRow[];
 }
 
 // GET /api/nfc/cards/:cardId/3d — data untuk viewer 3D + VerifiedBadge.
+// Card di sini lebih ramping dari endpoint detail (tanpa status/location/
+// buyoutPriceCcoin) + totalUnits; owner = {name, link} tanpa id.
+export interface ApiCard3dCard {
+  id: string;
+  unitNumber: number;
+  totalUnits?: number | null;
+  variant: Card["variant"];
+  nfcShortId: string;
+  verifyStatus: Card["verifyStatus"];
+}
+
 export interface ApiCard3dResponse {
-  card: Card & { totalUnits?: number | null };
+  card: ApiCard3dCard;
   drop: ApiDrop | null;
   seriesLink: string | null;
   creator: { id: string; name: string; link: string } | null;
-  owner: { id: string; name: string; link: string } | null;
+  owner: { name: string; link: string } | null;
   releaseDate: string | null;
   verifiedBadge: string | null;
   hint: string | null;

@@ -3,10 +3,26 @@ import type React from "react";
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { api, setApiToken } from "./api";
 import type { ApiUser } from "./api-types";
+import { shouldClearCache } from "./auth-cache";
 import { isSupabaseEnabled, supabase } from "./supabase";
 
 // Auth (docs/10): Supabase Auth — Google OAuth + email OTP 6 digit + captcha Turnstile.
 // DB wajib — demo-login in-memory dihapus bersama fallback store di API.
+
+// Tracker viewer terakhir (module-level: id user sesi yang baru saja terlihat).
+// `undefined` = belum ada observasi (initial load) — observasi pertama hanya
+// mengisi, sehingga refresh halaman dengan sesi lama tidak meng-clear cache.
+let lastViewerUserId: string | null | undefined;
+
+/**
+ * Catat id user sesi terbaru; clear React Query cache hanya saat viewer BERGANTI
+ * (payload owner.isOwner / activeBid.isMine adalah viewer-scoped — jangan dilayani
+ * ke user lain). Token refresh user yang sama tidak meng-clear (menjaga UX).
+ */
+function trackViewerUserId(queryClient: ReturnType<typeof useQueryClient>, nextUserId: string | null): void {
+  if (shouldClearCache(lastViewerUserId, nextUserId)) queryClient.clear();
+  lastViewerUserId = nextUserId;
+}
 
 /** Map GoTrue/DB error mentah ke pesan ramah (duplicate canonical email → login di akun lama). */
 export function friendlyAuthError(error: unknown): string {
@@ -81,12 +97,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     sb.auth
       .getSession()
       .then(async ({ data }) => {
+        trackViewerUserId(queryClient, data.session?.user.id ?? null);
         const t = data.session?.access_token ?? null;
         setToken(t);
         await loadProfile(setUser, t);
       })
       .finally(() => setLoading(false));
     const { data: sub } = sb.auth.onAuthStateChange(async (_event, session) => {
+      trackViewerUserId(queryClient, session?.user.id ?? null);
       const t = session?.access_token ?? null;
       setToken(t);
       await loadProfile(setUser, t);
@@ -118,21 +136,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   async function verifyOtp(email: string, code: string) {
     if (!supabase) throw new Error("Supabase belum terkonfigurasi");
-    const { error } = await supabase.auth.verifyOtp({ email, token: code, type: "email" });
+    const { data, error } = await supabase.auth.verifyOtp({ email, token: code, type: "email" });
     if (error) throw new Error(friendlyAuthError(error));
+    trackViewerUserId(queryClient, data.session?.user.id ?? null);
   }
 
   // Demo lokal (masa demo): tukar token_hash dari POST /api/auth/demo-login menjadi sesi.
   async function verifyMagicLink(tokenHash: string) {
     if (!supabase) throw new Error("Supabase belum terkonfigurasi");
-    const { error } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type: "magiclink" });
+    const { data, error } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type: "magiclink" });
     if (error) throw new Error(friendlyAuthError(error));
+    trackViewerUserId(queryClient, data.session?.user.id ?? null);
   }
 
   async function logout() {
     if (supabase) {
       await supabase.auth.signOut().catch(() => {});
     }
+    trackViewerUserId(queryClient, null); // reset tracker — viewer sudah pergi
     setApiToken(null);
     setToken(null);
     setUser(null);

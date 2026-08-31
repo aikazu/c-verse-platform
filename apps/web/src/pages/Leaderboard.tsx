@@ -33,6 +33,13 @@ function medalLabel(rank: number): string {
   return `Peringkat ${rank}`;
 }
 
+// Lane P2: payload leaderboard tidak lagi membawa userId (UUID tidak keluar dari
+// server) — key papan memakai rank (unik per board) dan link profil hanya saat
+// username tersedia (fallback UUID dihapus, bukan diganti).
+function profileTarget(e: LeaderboardEntry): string | null {
+  return e.username ? `/u/${e.username}` : null;
+}
+
 // Tab labels are UI-only; keep the URL query as the canonical machine value
 // so deep-links round-trip and React Query keys are deterministic.
 const TABS: ReadonlyArray<{ value: LeaderboardType; label: string }> = [
@@ -170,7 +177,7 @@ export default function Leaderboard() {
           <div className="ticker-track">
             <div className="ticker-scroll">
               {board.slice(0, 10).map((e, i) => (
-                <span key={`a-${e.userId}`} className="ticker-item">
+                <span key={`a-${e.rank}`} className="ticker-item">
                   <span className="tk-key">#{String(i + 1).padStart(2, "0")}</span>
                   <span className="tk-val ticker-name">{e.displayName}</span>
                   <span className="tk-key">{scoreLabel}</span>
@@ -200,7 +207,7 @@ export default function Leaderboard() {
               </span>
               {/* duplicate for seamless marquee loop */}
               {board.slice(0, 10).map((e, i) => (
-                <span key={`b-${e.userId}`} className="ticker-item">
+                <span key={`b-${e.rank}`} className="ticker-item">
                   <span className="tk-key">#{String(i + 1).padStart(2, "0")}</span>
                   <span className="tk-val ticker-name">{e.displayName}</span>
                   <span className="tk-key">{scoreLabel}</span>
@@ -234,14 +241,11 @@ export default function Leaderboard() {
             <section className="podium" aria-label="Podium top 3 kolektor">
               {topThree.map((e) => {
                 const tier = tierOf(e.tier);
-                return (
-                  <Link
-                    key={e.userId}
-                    to={`/u/${e.username ?? e.userId}`}
-                    data-rank={e.rank}
-                    className={`podium-spot ${podiumClassByRank[e.rank] ?? ""} ${showTierChip ? tierClass(tier) : ""}`}
-                    aria-label={`Peringkat ${e.rank}: ${e.displayName}`}
-                  >
+                const target = profileTarget(e);
+                const className = `podium-spot ${podiumClassByRank[e.rank] ?? ""} ${showTierChip ? tierClass(tier) : ""}`;
+                const label = `Peringkat ${e.rank}: ${e.displayName}`;
+                const inner = (
+                  <>
                     <div className="podium-rank" aria-hidden="true">
                       {e.rank === 1 ? "01" : e.rank === 2 ? "02" : "03"}
                     </div>
@@ -262,7 +266,16 @@ export default function Leaderboard() {
                         <div className="podium-stat-key">{scoreLabel}</div>
                       </div>
                     </div>
+                  </>
+                );
+                return target ? (
+                  <Link key={e.rank} to={target} data-rank={e.rank} className={className} aria-label={label}>
+                    {inner}
                   </Link>
+                ) : (
+                  <div key={e.rank} data-rank={e.rank} className={className} aria-label={label}>
+                    {inner}
+                  </div>
                 );
               })}
             </section>
@@ -272,13 +285,11 @@ export default function Leaderboard() {
             <section className="lb-list" aria-label="Daftar peringkat kolektor">
               {rest.map((e) => {
                 const tier = tierOf(e.tier);
-                return (
-                  <Link
-                    key={e.userId}
-                    to={`/u/${e.username ?? e.userId}`}
-                    className={`lb-row ${showTierChip ? tierClass(tier) : ""}`}
-                    aria-label={`Peringkat ${e.rank}: ${e.displayName}`}
-                  >
+                const target = profileTarget(e);
+                const className = `lb-row ${showTierChip ? tierClass(tier) : ""}`;
+                const label = `Peringkat ${e.rank}: ${e.displayName}`;
+                const inner = (
+                  <>
                     <span className="lb-rank">{String(e.rank).padStart(2, "0")}</span>
                     <span className="lb-player">
                       <span className="lb-avatar" aria-hidden="true">
@@ -298,7 +309,16 @@ export default function Leaderboard() {
                       {e.score.toLocaleString("id-ID")}
                       <span className="lb-cards-label">{scoreLabel}</span>
                     </span>
+                  </>
+                );
+                return target ? (
+                  <Link key={e.rank} to={target} className={className} aria-label={label}>
+                    {inner}
                   </Link>
+                ) : (
+                  <div key={e.rank} className={className} aria-label={label}>
+                    {inner}
+                  </div>
                 );
               })}
             </section>

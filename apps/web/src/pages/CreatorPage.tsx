@@ -389,13 +389,11 @@ export default function CreatorPage() {
           <div className="lb-list cp-board" aria-label="Daftar kolektor kreator">
             {board.map((e) => {
               const tier = tierOf(e.tier);
-              return (
-                <Link
-                  key={e.userId}
-                  to={`/u/${e.username ?? e.userId}`}
-                  className={`lb-row tier-${tier}`}
-                  aria-label={`Peringkat ${e.rank}: ${e.displayName}`}
-                >
+              // Lane P2: payload tanpa userId — link profil hanya via username.
+              const className = `lb-row tier-${tier}`;
+              const label = `Peringkat ${e.rank}: ${e.displayName}`;
+              const inner = (
+                <>
                   <span className="lb-rank">{String(e.rank).padStart(2, "0")}</span>
                   <span className="lb-player">
                     <span className="lb-avatar" aria-hidden="true">
@@ -417,7 +415,16 @@ export default function CreatorPage() {
                     {e.score.toLocaleString("id-ID")}
                     <span className="lb-cards-label">C.Card</span>
                   </span>
+                </>
+              );
+              return e.username ? (
+                <Link key={e.rank} to={`/u/${e.username}`} className={className} aria-label={label}>
+                  {inner}
                 </Link>
+              ) : (
+                <div key={e.rank} className={className} aria-label={label}>
+                  {inner}
+                </div>
               );
             })}
           </div>
