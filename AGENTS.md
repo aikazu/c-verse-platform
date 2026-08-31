@@ -21,12 +21,10 @@ Architecture: **fat database, thin API**. All money/stock mutations run inside P
   - Prod secrets: `wrangler secret put` (+ `CF_ACCOUNT_ID`, `CF_API_TOKEN`) — never in the repo.
 - API fails fast without `SUPABASE_URL` — the DB is mandatory, no in-memory fallback.
 
-## Supabase (cloud project `c-verse` canonical; local stack = standard test bench)
+## Supabase (local stack = standard test bench)
 
-- Cloud stays canonical data. Cloud queries: `npx supabase db query --linked "SQL"` (multi-statement OK), linter `db advisors --linked`. (No `db execute` subcommand; no `psql` in PATH.)
 - `supabase/migrations/`: 5 consolidated files, every object written ONCE in final form (no `create or replace` chains): `01_schema` (DDL/enums/tables), `02_auth` (auth mirror + canonical email), `03_rls` (policies + guard triggers), `04_rpc` (all SECURITY DEFINER RPCs + grants), `05_indexes` (performance). Never edit an applied migration; `db push` never re-applies edits to applied files — changes land via a reset.
-- LOCAL stack is the standard test bench: `npx supabase start` (needs Docker), then `npx supabase db reset` (local) applies migrations + seed.sql. Integration tests in `supabase/tests/` run against the local DB (`postgresql://postgres:postgres@127.0.0.1:54322/postgres`) via `node <test>.mjs <url>` or plain `db query` (no `--linked`); a local `db reset` clears fixtures. Local auth emails are magic links (not OTP codes), visible in Mailpit :54324. Local reset is routine — no confirmation needed.
-- Cloud (`--linked`) reset stays owner-run destructive: it WIPES ALL cloud data — STOP and ask the owner first, then `"y" | npx supabase db reset --linked` (the pipe is mandatory; non-interactive shells die with `context canceled` on the `[y/N]` prompt). See Pitfalls.
+- LOCAL stack is the standard test bench: `npx supabase start` (needs Docker), then `npx supabase db reset` (local) applies migrations + seed.sql. Integration tests in `supabase/tests/` run against the local DB (`postgresql://postgres:postgres@127.0.0.1:54322/postgres`) via `node <test>.mjs <url>` or plain `db query`; a local `db reset` clears fixtures. Local auth emails are magic links (not OTP codes), visible in Mailpit :54324. Local reset is routine — no confirmation needed.
 
 ## Quality gates
 
@@ -70,9 +68,9 @@ Architecture: **fat database, thin API**. All money/stock mutations run inside P
 
 ## Pitfalls
 
-- Destructive ops (`db reset --linked`, drop database, force-push): STOP and ask the owner first; then execute non-interactively with the `"y"` pipe (see Supabase).
+- Destructive ops (drop database, force-push): STOP and ask the owner first.
 - Windows shell is git-bash (POSIX, not PowerShell) — convert paths with `cygpath -w`.
-- Ports 8787/5173/3000 must be free; `scripts-dev.mjs` kills children on SIGINT/SIGTERM.
+- Dev servers: start what you need without asking — probe first; reuse an already-running healthy service (never collide); restart is fine when needed (stale cache). No duplicate/zombie processes: stop what you started when done; Windows orphan gotcha — TaskStop doesn't kill children (check `netstat -ano`, kill orphan node PIDs). `scripts-dev.mjs` kills children on SIGINT/SIGTERM.
 - `.env*`, `.dev.vars`, `.wrangler/`, `supabase/.temp` are gitignored — never commit secrets; public bundles get only anon keys.
 - Do not reintroduce: password login, auction timers/anti-sniping (C-07, post-MVP), in-memory stores, decimal C-Coin.
 - AGENTS.md/README: stay concise — facts once, no repeating infra disclaimers.
