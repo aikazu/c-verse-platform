@@ -782,8 +782,10 @@ begin
   end if;
 
   -- ── SETTLE LANGSUNG (seed vaulted / non-seed) ──────────────────────────
-  v_platform_ccoin := round(v_bid.amount_ccoin * 0.075);
-  v_royalty_ccoin := round(v_bid.amount_ccoin * 0.075);
+  -- Lane D (2026-08-31): platform/royalty CEIL — round-to-nearest lama
+  -- menguapkan pendapatan di harga kecil (price 6 -> 0/0/6). Seller remainder.
+  v_platform_ccoin := ceil(v_bid.amount_ccoin * 0.075);
+  v_royalty_ccoin := ceil(v_bid.amount_ccoin * 0.075);
   v_seller_ccoin := v_bid.amount_ccoin - v_platform_ccoin - v_royalty_ccoin;
 
   perform public.wallet_credit(v_user, v_seller_ccoin, 'settlement', 'bid', v_bid.id, 'settle-' || v_bid.id);
@@ -961,8 +963,9 @@ begin
   end if;
 
   -- ── SETTLE LANGSUNG (seed vaulted / non-seed) ──────────────────────────
-  v_platform_ccoin := round(v_price * 0.075);
-  v_royalty_ccoin := round(v_price * 0.075);
+  -- Lane D (2026-08-31): split CEIL (lihat accept_bid) — seller remainder.
+  v_platform_ccoin := ceil(v_price * 0.075);
+  v_royalty_ccoin := ceil(v_price * 0.075);
   v_seller_ccoin := v_price - v_platform_ccoin - v_royalty_ccoin;
 
   -- Ref revenue = id tx debit (unik per transaksi; kartu bisa terjual berulang)
@@ -998,8 +1001,10 @@ end $$;
 -- send_support (A1 2026-08-31): fan dukungan C-Coin ke kreator — TANPA
 -- potongan platform (100% ke kreator, tidak menulis platform_revenue).
 -- Pengirim dapat XP 1:1 via wallet_debit type 'support' (aturan spend);
--- kredit kreator TIDAK memberi XP. Target wajib kreator aktif (role
--- 'creator', flag_reason null). Single transaction.
+-- kredit kreator TIDAK memberi XP. Target wajib kreator aktif: role 'creator',
+-- flag_reason null, DAN creators.status='active' (Lane D 2026-08-31 —
+-- users.role='creator' saja tidak cukup; kreator non-aktif ditolak
+-- CREATOR_NOT_ACTIVE). Single transaction.
 --
 -- Idempotency: wallet_debit/wallet_credit memindai wallet_transactions GLOBAL
 -- by metadata->>'idempotency_key', jadi debit & kredit WAJIB pakai dua key
@@ -1020,6 +1025,11 @@ begin
   if p_creator = v_user then raise exception 'SELF_SUPPORT'; end if;
   if not exists (select 1 from users where id = p_creator and role = 'creator' and flag_reason is null) then
     raise exception 'CREATOR_NOT_FOUND';
+  end if;
+  -- Lane D (2026-08-31): creators.status wajib 'active' — baris users bisa
+  -- lolos (role creator, flag null) sementara page kreator sudah di-suspend.
+  if not exists (select 1 from creators where user_id = p_creator and status = 'active') then
+    raise exception 'CREATOR_NOT_ACTIVE';
   end if;
 
   v_debit_tx := public.wallet_debit(v_user, p_amount, 'support', 'user', p_creator::text,
@@ -1199,8 +1209,9 @@ begin
     v_buyer := v_bid.bidder_id;
     v_dest := coalesce(v_bid.destination, 'buyer_address'::public.shipment_to_dest);
 
-    v_platform_ccoin := round(v_price * 0.075);
-    v_royalty_ccoin := round(v_price * 0.075);
+    -- Lane D (2026-08-31): split CEIL (lihat accept_bid) — seller remainder.
+    v_platform_ccoin := ceil(v_price * 0.075);
+    v_royalty_ccoin := ceil(v_price * 0.075);
     v_seller_ccoin := v_price - v_platform_ccoin - v_royalty_ccoin;
 
     perform public.wallet_credit(v_seller, v_seller_ccoin, 'settlement', 'bid', v_bid.id, 'settle-' || v_bid.id);
@@ -1249,8 +1260,9 @@ begin
   v_buyer := v_order.user_id;
   v_dest := (case when v_order.delivery_option = 'vault' then 'platform_vault'::public.shipment_to_dest else 'buyer_address'::public.shipment_to_dest end);
 
-  v_platform_ccoin := round(v_price * 0.075);
-  v_royalty_ccoin := round(v_price * 0.075);
+  -- Lane D (2026-08-31): split CEIL (lihat accept_bid) — seller remainder.
+  v_platform_ccoin := ceil(v_price * 0.075);
+  v_royalty_ccoin := ceil(v_price * 0.075);
   v_seller_ccoin := v_price - v_platform_ccoin - v_royalty_ccoin;
 
   perform public.wallet_credit(v_seller, v_seller_ccoin, 'settlement', 'order', v_order.id, 'settle-' || v_order.id);
@@ -1642,29 +1654,41 @@ revoke execute on function public.wallet_credit(uuid, integer, text, text, text,
 revoke execute on function public.wallet_credit(uuid, integer, text, text, text, text) from authenticated;
 grant execute on function public.wallet_credit(uuid, integer, text, text, text, text) to service_role;
 
--- Checkout / bid / marketplace — user-facing
+-- Checkout / bid / marketplace — user-facing.
+-- Lane D (2026-08-31): revoke EKSPLISIT anon pada SEMUA RPC user-facing
+-- (pola send_support): default-privileges Supabase memberi EXECUTE ke anon
+-- saat CREATE FUNCTION, dan `revoke from public` saja tidak menghapusnya —
+-- tanpa ini anon key bisa mengeksekusi RPC (bukti: pentest t10..t18).
 revoke execute on function public.checkout(text, text) from public;
+revoke execute on function public.checkout(text, text) from anon;
 grant execute on function public.checkout(text, text) to authenticated;
 
 revoke execute on function public.vault_shipout(text, text) from public;
+revoke execute on function public.vault_shipout(text, text) from anon;
 grant execute on function public.vault_shipout(text, text) to authenticated;
 
 revoke execute on function public.drop_entry(text, text) from public;
+revoke execute on function public.drop_entry(text, text) from anon;
 grant execute on function public.drop_entry(text, text) to authenticated;
 
 revoke execute on function public.place_bid(text, integer) from public;
+revoke execute on function public.place_bid(text, integer) from anon;
 grant execute on function public.place_bid(text, integer) to authenticated;
 
 revoke execute on function public.cancel_bid(text) from public;
+revoke execute on function public.cancel_bid(text) from anon;
 grant execute on function public.cancel_bid(text) to authenticated;
 
 revoke execute on function public.accept_bid(text, public.shipment_to_dest, text) from public;
+revoke execute on function public.accept_bid(text, public.shipment_to_dest, text) from anon;
 grant execute on function public.accept_bid(text, public.shipment_to_dest, text) to authenticated;
 
 revoke execute on function public.set_buyout(text, integer) from public;
+revoke execute on function public.set_buyout(text, integer) from anon;
 grant execute on function public.set_buyout(text, integer) to authenticated;
 
 revoke execute on function public.buyout_card(text, public.shipment_to_dest, text) from public;
+revoke execute on function public.buyout_card(text, public.shipment_to_dest, text) from anon;
 grant execute on function public.buyout_card(text, public.shipment_to_dest, text) to authenticated;
 
 -- send_support (A1 2026-08-31) — user-facing. Pentest lesson: revoke eksplisit
@@ -1713,6 +1737,7 @@ grant execute on function public.payout_batch_run(integer) to service_role;
 
 -- Payout + seed admin — service_role only + revoke from public/anon/authenticated
 revoke execute on function public.payout_request(integer) from public;
+revoke execute on function public.payout_request(integer) from anon;
 grant execute on function public.payout_request(integer) to authenticated;
 
 revoke execute on function public.payout_refund(text) from public;
@@ -1765,16 +1790,12 @@ grant execute on function public.get_leaderboard(text, uuid, integer) to service
 -- ══════════════════════════════════════════════════════════════════════════
 
 -- ══════════════════════════════════════════════════════════════════════════
--- Helper: lookup drop via card_id
+-- fn_drop_id_for_card DIHAPUS (Lane D 2026-08-31): dead code dengan EXECUTE
+-- public default — SECURITY DEFINER yang mem-bypass RLS cards untuk memetakan
+-- card_id -> drop_id. Tidak ada pemakai (0 referensi di apps/tests); mapping
+-- setara bisa dilakukan service-role / via join di RPC yang berhak.
 -- ══════════════════════════════════════════════════════════════════════════
-create or replace function public.fn_drop_id_for_card(p_card_id text) returns text
-  language sql
-  stable
-  security definer
-  set search_path = public
-as $$
-  select drop_id from public.cards where id = p_card_id limit 1;
-$$;
+drop function if exists public.fn_drop_id_for_card(text);
 
 -- ══════════════════════════════════════════════════════════════════════════
 -- 1. bids: outbid (saat ada bid baru yang lebih tinggi), accepted (saat owner
@@ -2106,3 +2127,47 @@ revoke execute on function public.get_creator_page_stats(integer) from public;
 revoke execute on function public.get_creator_page_stats(integer) from anon;
 grant execute on function public.get_creator_page_stats(integer) to authenticated;
 grant execute on function public.get_creator_page_stats(integer) to service_role;
+
+-- ══════════════════════════════════════════════════════════════════════════
+-- get_investor_stats (Lane D 2026-08-31): agregat Investor Data Pack (ADM-10)
+-- untuk admin SPA — menggantikan aproksimasi client-side Investor.tsx yang
+-- undercount (wallet_transactions/users di-limit 1000 di sisi klien).
+--   users             = total akun terdaftar (count users)
+--   gmvCcoin          = GMV: checkout + platform_buy + escrow_hold ref 'card'
+--   secondaryVolCcoin = volume secondary: payout + royalty (abs)
+--   txCount           = total baris wallet_transactions
+-- SECURITY DEFINER + guard is_admin() di body: caller non-admin selalu
+-- PERMISSION_DENIED (data internal founder, bukan untuk role lain).
+-- ══════════════════════════════════════════════════════════════════════════
+create or replace function public.get_investor_stats() returns jsonb
+language plpgsql
+security definer
+set search_path = public
+stable
+as $$
+begin
+  if not public.is_admin() then
+    raise exception 'PERMISSION_DENIED';
+  end if;
+
+  return jsonb_build_object(
+    'users', (select count(*)::bigint from public.users),
+    'gmvCcoin', (
+      select coalesce(sum(abs(t.amount_ccoin)), 0)::bigint
+      from public.wallet_transactions t
+      where t.type in ('checkout', 'platform_buy')
+         or (t.type = 'escrow_hold' and t.ref_type = 'card')
+    ),
+    'secondaryVolCcoin', (
+      select coalesce(sum(abs(t.amount_ccoin)), 0)::bigint
+      from public.wallet_transactions t
+      where t.type in ('payout', 'royalty')
+    ),
+    'txCount', (select count(*)::bigint from public.wallet_transactions)
+  );
+end $$;
+
+revoke execute on function public.get_investor_stats() from public;
+revoke execute on function public.get_investor_stats() from anon;
+grant execute on function public.get_investor_stats() to authenticated;
+grant execute on function public.get_investor_stats() to service_role;

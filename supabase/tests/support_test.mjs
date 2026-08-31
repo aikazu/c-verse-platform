@@ -9,6 +9,8 @@
 //   S4: kreator tidak ada (uuid acak)             -> CREATOR_NOT_FOUND
 //   S5: target role 'user' (bukan kreator)        -> CREATOR_NOT_FOUND
 //   S6: kreator suspended (flag_reason terisi)    -> CREATOR_NOT_FOUND
+//   S7: users row lolos tapi creators.status='suspended' -> CREATOR_NOT_ACTIVE
+//       (Lane D 2026-08-31: send_support wajib creators.status='active')
 import pgModule from "../../apps/api/node_modules/pg/lib/index.js";
 
 const { Client } = pgModule;
@@ -35,16 +37,27 @@ const sender = { id: "c1000000-0000-4000-8000-000000000001", email: `support-sen
 const creator = { id: "c1000000-0000-4000-8000-000000000002", email: `support-creator-${stamp}@race.test` };
 const suspendedCreator = { id: "c1000000-0000-4000-8000-000000000003", email: `support-susp-${stamp}@race.test` };
 const plainUser = { id: "c1000000-0000-4000-8000-000000000004", email: `support-plain-${stamp}@race.test` };
-const allUsers = [sender, creator, suspendedCreator, plainUser].map((u) => u.id);
+const inactiveCreator = { id: "c1000000-0000-4000-8000-000000000005", email: `support-inact-${stamp}@race.test` };
+const allUsers = [sender, creator, suspendedCreator, plainUser, inactiveCreator].map((u) => u.id);
 const AMOUNT = 50;
 
 await admin.query("begin");
-for (const u of [sender, creator, suspendedCreator, plainUser]) {
+for (const u of [sender, creator, suspendedCreator, plainUser, inactiveCreator]) {
   await admin.query("insert into public.users (id, email, display_name) values ($1, $2, $3)", [u.id, u.email, "Support"]);
   await admin.query("insert into public.wallets (user_id, balance_ccoin) values ($1, $2)", [u.id, u.id === sender.id ? 1000 : 0]);
 }
-await admin.query("update public.users set role = 'creator' where id = any($1)", [[creator.id, suspendedCreator.id]]);
+await admin.query("update public.users set role = 'creator' where id = any($1)", [[creator.id, suspendedCreator.id, inactiveCreator.id]]);
 await admin.query("update public.users set flag_reason = 'suspended-test' where id = $1", [suspendedCreator.id]);
+// creators row WAJIB: S1 happy path butuh kreator AKTIF (creators.status='active');
+// S7 = users row bersih tapi creators.status='suspended' -> CREATOR_NOT_ACTIVE.
+await admin.query("insert into public.creators (id, user_id, handle, status) values ($1, $2, $3, 'active'), ($4, $5, $6, 'suspended')", [
+  `support-cr-${stamp}`,
+  creator.id,
+  `active-${stamp}`,
+  `support-cr-susp-${stamp}`,
+  inactiveCreator.id,
+  `inactive-${stamp}`,
+]);
 await admin.query("commit");
 
 async function asUser(userId, fn) {
@@ -177,12 +190,26 @@ async function walletOf(userId) {
   report("S6", code === "CREATOR_NOT_FOUND", code);
 }
 
+// ── S7: users row lolos (role creator, flag null) tapi creators.status =
+//      'suspended' -> CREATOR_NOT_ACTIVE (Lane D 2026-08-31) ──────────────────
+{
+  const err = await asUser(sender.id, (c) =>
+    c.query("select public.send_support($1, 10)", [inactiveCreator.id]).then(
+      () => null,
+      (e) => e,
+    ),
+  );
+  const code = err ? errCode(err) : "no-error";
+  report("S7", code === "CREATOR_NOT_ACTIVE", code);
+}
+
 // ── Cleanup ─────────────────────────────────────────────────────────────────
 await admin.query("set role postgres");
 await admin.query("begin");
 await admin.query("alter table public.wallet_transactions disable trigger trg_wtx_immutable");
 await admin.query("delete from public.wallet_transactions where user_id = any($1)", [allUsers]);
 await admin.query("alter table public.wallet_transactions enable trigger trg_wtx_immutable");
+await admin.query("delete from public.creators where user_id = any($1)", [allUsers]);
 await admin.query("delete from public.wallets where user_id = any($1)", [allUsers]);
 await admin.query("delete from public.users where id = any($1)", [allUsers]);
 await admin.query("commit");

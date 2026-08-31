@@ -393,12 +393,13 @@ await admin.query("commit");
   const b1After3 = await balance(U.b1);
   const b2After3 = await balance(U.b2);
   const owner = await admin.query("select owner_id from public.cards where id = 'cov-card-m7'");
-  // sale ke-2 (harga 25): b1 harus terima 25 - 2*round(1.875)=21
-  // sale ke-3 (harga 30): b1 harus debet 30, b2 terima 30 - 2*round(2.25)=26
+  // sale ke-2 (harga 25): b1 harus terima 25 - 2*ceil(1.875)=21
+  // sale ke-3 (harga 30): b1 harus debet 30, b2 terima 30 - 2*ceil(2.25)=24
+  // (Lane D 2026-08-31: split secondary CEIL — round lama 26 menguapkan fee)
   report(
     "M5",
-    b1After2 - b1Before2 === 21 && b1Before3 - b1After3 === 30 && b2After3 - b2Before3 === 26 && owner.rows[0].owner_id === U.b1,
-    `sale2_seller+=${b1After2 - b1Before2} (harus 21) sale3_buyer_debit=${b1Before3 - b1After3} (harus 30) sale3_seller+=${b2After3 - b2Before3} (harus 26)`,
+    b1After2 - b1Before2 === 21 && b1Before3 - b1After3 === 30 && b2After3 - b2Before3 === 24 && owner.rows[0].owner_id === U.b1,
+    `sale2_seller+=${b1After2 - b1Before2} (harus 21) sale3_buyer_debit=${b1Before3 - b1After3} (harus 30) sale3_seller+=${b2After3 - b2Before3} (harus 24)`,
   );
   await s.end();
   await b1.end();

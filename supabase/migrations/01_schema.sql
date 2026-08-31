@@ -563,10 +563,18 @@ grant usage, select on all sequences in schema public to service_role;
 -- privileges Supabase memberi ALL ke anon pada tabel baru, jadi cukup tidak
 -- me-grant tidak menutup apa pun. Akses admin lewat grant authenticated +
 -- policy users_select (public.is_admin) di 03_rls.
+-- Lane D (2026-08-31): bids (bidder_name raw) + creators (bank_account/notes)
+-- ditutup untuk anon — read publik hanya via API service-role / RPC
+-- (buktinya: anon key bisa POSTGREST-read bank_account kreator sebelum revoke).
 revoke all on public.users from anon;
-grant select on public.creators, public.drops, public.cards, public.bids, public.ownership_history, public.badges to anon;
+revoke select on public.bids from anon;
+revoke select on public.creators from anon;
+grant select on public.drops, public.cards, public.ownership_history, public.badges to anon;
 
 -- authenticated: read sesuai matriks RLS + write minimum (guard trigger).
+-- creators TETAP di-grant ke authenticated (Lane D 2026-08-31): admin SPA
+-- (Creators.tsx/Dashboard.tsx) membaca creators langsung via supabase-js —
+-- revoke authenticated menunggu read tersebut pindah ke API.
 grant select on
   public.users, public.creators, public.drops, public.cards, public.orders,
   public.wallets, public.wallet_transactions, public.bids, public.shipments,

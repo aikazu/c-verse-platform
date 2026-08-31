@@ -132,7 +132,7 @@ await mkUser(U.creator, "Seed Creator", 0);
 await mkUser(U.buyer, "Seed Buyer", 5000);
 await mkUser(U.normalSeller, "Normal Seller", 0);
 
-const BID_AMOUNT = 150; // split: round(7,5%)=11 platform + 11 royalti + 128 seller
+const BID_AMOUNT = 150; // split: ceil(7,5%)=12 platform + 12 royalti + 126 seller (Lane D ceil)
 
 // ── T-SEED-1: accept seed not-vaulted -> PHASE-1 LOCK (bukan tolak) ───────
 // ── T-SEED-1b: place_bid/set_buyout saat bid_pending -> SALE_IN_PROGRESS ──
@@ -247,7 +247,7 @@ const BID_AMOUNT = 150; // split: round(7,5%)=11 platform + 11 royalti + 128 sel
 
   // (d) release -> settle SUKSES
   await admin.query("select public.release_seed_sale($1)", [card]);
-  const creatorBal = await walletBalance(U.creator); // 128 seller + 11 royalti sama akun
+  const creatorBal = await walletBalance(U.creator); // 126 seller + 12 royalti sama akun
   const rev = await admin.query(
     "select platform_ccoin, royalty_ccoin, seller_ccoin from public.platform_revenue where ref_type = 'bid' and ref_id = (select id from public.bids where card_id = $1 and status = 'accepted' order by accepted_at desc limit 1)",
     [card],
@@ -274,10 +274,10 @@ const BID_AMOUNT = 150; // split: round(7,5%)=11 platform + 11 royalti + 128 sel
     userReleaseDenied &&
     preVaultBlocked &&
     creatorSettled === 0 && // seller BELUM dibayar sebelum release
-    creatorBal - creatorBalBase === 139 && // 128 seller (85%) + 11 royalti kreator (7,5%) — kreator-owner efektif 92,5%
-    Number(rev.rows[0]?.platform_ccoin) === 11 &&
-    Number(rev.rows[0]?.royalty_ccoin) === 11 &&
-    Number(rev.rows[0]?.seller_ccoin) === 128 &&
+    creatorBal - creatorBalBase === 138 && // 126 seller (85%) + 12 royalti kreator (7,5% ceil) — kreator-owner efektif 92,5%
+    Number(rev.rows[0]?.platform_ccoin) === 12 &&
+    Number(rev.rows[0]?.royalty_ccoin) === 12 &&
+    Number(rev.rows[0]?.seller_ccoin) === 126 &&
     ship.rows[0]?.type === "secondary_bid" &&
     ship.rows[0]?.from_location === "platform" && // kartu release dari vault
     ship.rows[0]?.status === "requested" &&

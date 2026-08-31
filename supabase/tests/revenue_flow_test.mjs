@@ -16,6 +16,8 @@
 //   T9 activate_scheduled_drops: scheduled lewat start -> live; live lewat end -> closed
 //   T10 checkout pool='premium': harga = price_signed_ccoin (kolom; +20 flat
 //      dihitung app-level via calcSignedPrice), split 70/30 atas harga signed
+//   T11 accept_bid harga kecil — split CEIL (Lane D 2026-08-31): price 6 ->
+//      platform 1 + royalty 1 + seller 4 (round lama 0/0/6 = revenue evaporation)
 import pgModule from "../../apps/api/node_modules/pg/lib/index.js";
 
 const { Client } = pgModule;
@@ -520,6 +522,35 @@ try {
       ok,
       `order=${order.rows[0]?.s}/${order.rows[0]?.e}/${order.rows[0]?.d} total=${order.rows[0]?.total_ccoin} variant=${card.rows[0]?.v} loc=${card.rows[0]?.l} rev=${JSON.stringify(rev.rows[0] ?? {})} creatorΔ=${creatorDelta} buyer=${buyerBal} treasuryΔ=${treasuryDelta}`,
     );
+  }
+
+  // ══ T11: accept_bid price 6 — split ceil 1/1/4 (bukan 0/0/6) ══════════════
+  {
+    const seller = uuid(11);
+    const bidder = uuid(111);
+    const drop = `flow-t11-${stamp}`;
+    await mkUser(seller, "T11 Seller", 0);
+    await mkUser(bidder, "T11 Bidder", 100);
+    await mkDrop(drop, { units: 1, signed: 0, priceU: 6, raffleEnd: "now() - interval '25 hours'", drawn: "now() - interval '24 hours'" });
+    const card = (await admin.query("select id from public.cards where drop_id = $1", [drop])).rows[0].id;
+    await admin.query("update public.cards set owner_id = $2, status = 'sold' where id = $1", [card, seller]);
+    const cb = await asUser(bidder);
+    await cb.query("select public.place_bid($1, 6)", [card]);
+    await cb.end();
+    const cs = await asUser(seller);
+    await cs.query("select public.accept_bid($1)", [card]);
+    await cs.end();
+    const rev = await admin.query(
+      "select platform_ccoin, royalty_ccoin, seller_ccoin from public.platform_revenue where ref_type = 'bid' and ref_id in (select id from public.bids where card_id = $1)",
+      [card],
+    );
+    const sellerBal = await walletBalance(seller);
+    const ok =
+      Number(rev.rows[0]?.platform_ccoin) === 1 &&
+      Number(rev.rows[0]?.royalty_ccoin) === 1 &&
+      Number(rev.rows[0]?.seller_ccoin) === 4 &&
+      sellerBal === 4;
+    report("T11 accept_bid ceil split 1/1/4 @ price 6", ok, `rev=${JSON.stringify(rev.rows[0] ?? {})} seller=${sellerBal} (ekspektasi 4)`);
   }
 } finally {
   await admin.end();

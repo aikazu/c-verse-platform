@@ -32,7 +32,8 @@ describe("idrToCCoin (ceil, integer)", () => {
     expect(idrToCCoin(25_000)).toBe(3);
   });
 
-  it("guards invalid input (negative / non-finite -> NaN)", () => {
+  it("guards invalid input (zero / negative / non-finite -> NaN)", () => {
+    expect(idrToCCoin(0)).toBeNaN(); // Lane D 2026-08-31: nominal 0 tidak valid
     expect(idrToCCoin(-5_000)).toBeNaN();
     expect(idrToCCoin(Number.NaN)).toBeNaN();
     expect(idrToCCoin(Number.POSITIVE_INFINITY)).toBeNaN();
@@ -140,6 +141,16 @@ describe("splitSecondaryFeeCcoin (7,5 / 7,5 / 85)", () => {
     expect(split.platformCcoin).toBe(8);
     expect(split.royaltyCcoin).toBe(8);
     expect(split.sellerCcoin).toBe(84);
+  });
+
+  it("ceil guard: small prices never evaporate platform/royalty revenue", () => {
+    // Lane D 2026-08-31: platform/royalty di-CEIL — round lama membuat price 6
+    // terbelah 0/0/6 (pendapatan platform menguap, melanggar aturan
+    // "platform revenue must never evaporate"). Seller = remainder.
+    expect(splitSecondaryFeeCcoin(6)).toEqual({ platformCcoin: 1, royaltyCcoin: 1, sellerCcoin: 4 });
+    // 100 tetap 8/8/84 (ceil(7,5) = 8 = round lama) — tidak ada perubahan di harga besar.
+    expect(splitSecondaryFeeCcoin(100)).toEqual({ platformCcoin: 8, royaltyCcoin: 8, sellerCcoin: 84 });
+    expect(splitSecondaryFeeCcoin(60)).toEqual({ platformCcoin: 5, royaltyCcoin: 5, sellerCcoin: 50 });
   });
 });
 

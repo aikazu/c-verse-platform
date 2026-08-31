@@ -95,17 +95,25 @@ describe("SQL fee drift guard — shared constants vs migration literals", () =>
       expect(content, `${file} harus memuat SECONDARY_SELLER_PCT = ${sellerStr}`).toContain(sellerStr);
     }
 
-    // Settlement eksplisit round(* 0.075) — cek per file secondary settle agar
+    // Settlement eksplisit ceil(* 0.075) — cek per file secondary settle agar
     // masing-masing independently sinkron. Setelah konsolidasi: minimal 1 settler
-    // pattern (semua secondary settle sekarang di 04_rpc.sql).
+    // pattern (semua secondary settle sekarang di 04_rpc.sql). Audit 2026-08-31:
+    // round() bisa menghasilkan fee 0 di harga kecil (revenue evaporation) —
+    // invarian wajib ceil untuk platform+royalty, seller = remainder.
     const roundedSecondary = settlerFiles.filter((m) => contentIncludesRounded(m.content, platformStr));
-    expect(roundedSecondary.length, `setidaknya 1 settler harus pakai round(* ${platformStr})`).toBeGreaterThanOrEqual(1);
+    expect(roundedSecondary.length, `setidaknya 1 settler harus pakai ceil(* ${platformStr})`).toBeGreaterThanOrEqual(1);
 
-    // Redundant royalty literal muncul dalam settler (round atau jsonb).
+    // Redundant royalty literal muncul dalam settler (ceil atau jsonb).
     expect(
       settlerFiles.some((m) => contentIncludesRounded(m.content, royaltyStr)),
-      `royalty literal ${royaltyStr} harus muncul sebagai round(* ...) di setidaknya 1 settler`,
+      `royalty literal ${royaltyStr} harus muncul sebagai ceil(* ...) di setidaknya 1 settler`,
     ).toBe(true);
+
+    // round(* 0.075) tidak boleh lagi ada di settler — regression guard ceil.
+    expect(
+      settlerFiles.some((m) => contentIncludesRoundFn(m.content, platformStr)),
+      `settler tidak boleh memakai round(* ${platformStr}) — wajib ceil`,
+    ).toBe(false);
   });
 
   it("MAX_BUYOUT guard muncul di semua file yang aktifkan buyout listing", () => {
@@ -157,9 +165,15 @@ describe("SQL fee drift guard — shared constants vs migration literals", () =>
 });
 
 function contentIncludesRounded(content: string, literal: string): boolean {
-  // Cari "round(...)" dengan ekspresi yang memuat literal (e.g. "round(v_price * 0.075)").
-  // Loose match: round( ... <literal> ). Toleransi whitespace.
-  const re = new RegExp(`round\\s*\\([^)]*${escapeRegex(literal)}[^)]*\\)`, "i");
+  // Cari "ceil(...)" dengan ekspresi yang memuat literal (e.g. "ceil(v_price * 0.075)").
+  // Nama historis; invarian kini ceil (audit 2026-08-31 — round bisa fee 0).
+  // Loose match: ceil( ... <literal> ). Toleransi whitespace.
+  const re = new RegExp(`ceil\\s*\\([^)]*${escapeRegex(literal)}[^)]*\\)`, "i");
+  return re.test(content);
+}
+
+function contentIncludesRoundFn(content: string, literal: string): boolean {
+  const re = new RegExp(`round\\s*\\([^)]*\\*\\s*${escapeRegex(literal)}`, "i");
   return re.test(content);
 }
 

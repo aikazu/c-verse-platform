@@ -15,7 +15,7 @@ export const AOV_SIGNED_CCOIN = AOV_SIGNED_IDR / C_COIN_RATE_IDR; // 50
 
 // integer >= 1, no decimals — all C-Coin nominals ceil from IDR
 export function idrToCCoin(idr: number): number {
-  if (!Number.isFinite(idr) || idr < 0) return Number.NaN; // guard: invalid nominal
+  if (!Number.isFinite(idr) || idr <= 0) return Number.NaN; // guard: nominal wajib > 0 (Lane D 2026-08-31: 0 ditolak)
   return Math.ceil(idr / C_COIN_RATE_IDR);
 }
 export function ccoinToIdr(ccoin: number): number {
@@ -43,12 +43,16 @@ export const REVENUE_SHARE_CREATOR_PRODUCED = { platform: 0.3, creator: 0.7 } as
 
 /**
  * Secondary sale fee split (15% total: 7.5 platform + 7.5 royalty + 85 seller).
- * Integer C-Coin: platform/royalty rounded to nearest, seller takes the remainder
- * so the three parts always sum exactly to the sale price.
+ * Integer C-Coin: platform/royalty CEILED (Lane D 2026-08-31 — round-to-nearest
+ * lama membuat harga kecil terbelah 0/0/price: pendapatan platform menguap,
+ * melanggar aturan "platform revenue must never evaporate"). Seller takes the
+ * remainder so the three parts always sum exactly to the sale price.
+ * Catatan: price <= 2 menghasilkan seller <= 0 — RPC settlement akan menolak
+ * via guard INVALID_AMOUNT wallet_credit (harga jual sekunder realistis >> 2).
  */
 export function splitSecondaryFeeCcoin(priceCcoin: number): { platformCcoin: number; royaltyCcoin: number; sellerCcoin: number } {
-  const platformCcoin = Math.round(priceCcoin * SECONDARY_PLATFORM_PCT);
-  const royaltyCcoin = Math.round(priceCcoin * SECONDARY_ROYALTY_PCT);
+  const platformCcoin = Math.ceil(priceCcoin * SECONDARY_PLATFORM_PCT);
+  const royaltyCcoin = Math.ceil(priceCcoin * SECONDARY_ROYALTY_PCT);
   return { platformCcoin, royaltyCcoin, sellerCcoin: priceCcoin - platformCcoin - royaltyCcoin };
 }
 
