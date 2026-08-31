@@ -1,7 +1,9 @@
 # 08 — Deployment Runbook (Step-by-Step)
 
 > Status: [VALIDATED]
-> Last updated: 2026-08-20 (konvensi angka opex Y1 → Rp 38 jt, burn ~1 jt/bln)
+> Last updated: 2026-08-31 (deploy.yml TIDAK ada — deploy manual;
+> email = Cloudflare Email Service)
+> Previous: 2026-08-20 (konvensi angka opex Y1 → Rp 38 jt, burn ~1 jt/bln)
 > Previous: 2026-08-18 (sinkronisasi dengan codebase: pnpm workspace
 > tanpa Turborepo, migrasi via Supabase CLI, 2 cron trigger)
 > Menjawab open items O-5 (CI/CD pipeline) & O-7 (domain/SSL)
@@ -43,7 +45,7 @@ Akun & kredensial yang harus sudah ada:
 | 1 | Cloudflare (zone domain) | Pages, Workers, R2, Queues, Cron, Access, DNS |
 | 2 | GitHub (repo) | CI/CD Actions |
 | 3 | Supabase | Postgres, Auth, Realtime, Storage |
-| 4 | SumoPod SMTP | Email OTP Supabase Auth (smtp.sumopod.com:465 SSL — diisi di Supabase Dashboard, bukan env API) |
+| 4 | Cloudflare Email Service | Email transaksional API (akses kreator + digest cron) — binding `send_email`; sender OTP Supabase Auth dikonfigurasi di Supabase Dashboard, bukan env API |
 | 5 | Midtrans/Xendit (sandbox dulu) | Top-up & disbursement (top-up bisa live setelah T&C final + cap saldo) |
 | 6 | Firebase (FCM) | Push notification — **post-MVP, belum diimplementasi** |
 
@@ -56,9 +58,10 @@ Kredensial yang disimpan rahasia (tidak pernah di repo):
 `NFC_MASTER_KEY` (generate: `openssl rand -hex 16` — AES-128,
 32 karakter hex; nilai dev `.dev.vars` dan produksi harus konsisten
 per environment karena dipakai diversifikasi AppKey per-UID).
-Kredensial SMTP (`SMTP_HOST`/`PORT`/`USER`/`PASS`)
+Kredensial email provider OTP Supabase Auth
 dan captcha secret Turnstile diisi di **Supabase Dashboard** — API
-tidak membacanya. Public vars boleh di bundle dengan konvensi
+tidak membacanya (env email API hanya `EMAIL_ENABLED`/`EMAIL_FROM`/
+`ADMIN_ALERT_EMAIL` — Cloudflare Email Service). Public vars boleh di bundle dengan konvensi
 **Vite `VITE_*`** (anon keys).
 
 ## 3. Setup Cloudflare (sekali, Sprint 0)
@@ -183,9 +186,15 @@ curl -I https://c-verse.id                       # 301 -> c-verse.co
 # buka https://c-verse.co/cards/:shortId/3d      # halaman kartu
 ```
 
-## 7. CI/CD — GitHub Actions (otomatis mulai deploy ini)
+## 7. CI/CD — GitHub Actions
 
-File: `.github/workflows/deploy.yml`
+> **STATUS (2026-08-31)**: `.github/workflows/deploy.yml` **TIDAK ADA** —
+> tidak ada deploy otomatis dari CI. CI aktif hanya `.github/workflows/ci.yml`
+> (gates, PR + main — lihat `15_quality_gates.md` §2). Deploy dilakukan
+> MANUAL: API = `pnpm --filter @c-verse/api deploy` (= `wrangler deploy`);
+> Web = build + deploy Pages dari dashboard/CLI; admin = build statik +
+> serve di belakang tunnel. Blok di bawah = desain otomasi yang BELUM
+> diimplementasi (jangan dianggap realita).
 
 ```yaml
 name: Deploy
@@ -283,8 +292,8 @@ Secrets CI yang wajib diset (GitHub Settings → Secrets):
 - 01_tech_stack (full-edge, CI/CD O5: GitHub Actions → wrangler
   deploy, domain O7).
 - 20_tech_stack_decision (keputusan full-edge 2026-08-05/2026-08-11:
-  monorepo, free tier cukup Y1, C-Coin medium tunggal + email
-  SumoPod abstraction).
+  monorepo, free tier cukup Y1, C-Coin medium tunggal; email
+  transaksional kini Cloudflare Email Service).
 - `05_data_model.md` (RLS → step 4.5).
 - Konvensi angka: A024 build time **6-8 bulan** (`01_scope.md`
   §5); opex Y1 **Rp 38 jt/thn (~3,2 jt/bulan)** per financial

@@ -1,7 +1,10 @@
 # 05 — Data Model (Skema Logis)
 
 > Status: [VALIDATED]
-> Last updated: 2026-08-20 (creators.user_id diisi via admin-provisioning RPC; role 'creator' di-set admin — keputusan 2026-08-20)
+> Last updated: 2026-08-31 (skema cards/bids/badges diselaraskan ke
+> `01_schema.sql`: `variant`, `nfc_uid`/`nfc_short_id`, `owner_id`,
+> PK text, tabel `badges`, user_badges PK komposit; catatan kolom legacy)
+> Previous: 2026-08-20 (creators.user_id diisi via admin-provisioning RPC; role 'creator' di-set admin — keputusan 2026-08-20)
 > Skema LOGIS (tabel + relasi + enum), bukan DDL final.
 > Database: Supabase Postgres (region SG). Query: Supabase client langsung (tanpa ORM).
 > Nama kolom: `snake_case`. PK: `uuid` (default `gen_random_uuid()`).
@@ -64,7 +67,7 @@ creators
 > `supabase.auth.admin.createUser({ email, email_confirm: true,
 > user_metadata: { role: 'creator' } })` — TANPA password; set
 > `profiles.role='creator'`; update `creators.user_id` = auth uid;
-> kirim email akses via SumoPod SMTP). Field ini
+> kirim email akses via Cloudflare Email Service). Field ini
 > dulu nullable tanpa flow pengisian (gap G1/G2) — sekarang selalu
 > terisi saat akun kreator dibuat; kreator login OTP/OAuth passwordless.
 > **TERIMPLEMENTASI (2026-08-21)**: `creators.user_id` + row `users`
@@ -134,14 +137,17 @@ drop_entries
 ### cards (unit fisik)
 ```
 cards
-  id uuid PK                  -- UUID kartu (public identifier)
+  id text PK                  -- PK text (bukan uuid), prefix id kartu
   drop_id uuid FK drops.id
-  unit_number int             -- #X dari total
-  is_signed bool default false
-  tag_uid text UNIQUE         -- 7-byte UID dari NFC chip
-  short_id text UNIQUE        -- untuk URL /cards/:shortId
-  current_owner_id uuid FK users.id nullable -- null = belum di-bind (inventory)
+  unit_number int             -- #X dari total; UNIQUE (drop_id, unit_number)
+  variant enum('unsigned','signed') not null  -- pool kartu (BUKAN bool is_signed)
+  status enum('inventory','bound','listed_buyout','bid_pending','sold','tampered','defect','lost')
+  owner_id uuid FK users.id nullable -- null = belum di-bind (inventory)
   owner_since timestamptz default now() NOT NULL -- tie-break leaderboard 'cards' (only updates saat owner BERUBAH via trigger guard)
+  nfc_uid text NOT NULL UNIQUE   -- UID chip NFC (mantul nama lama tag_uid)
+  nfc_short_id text NOT NULL UNIQUE -- untuk URL /cards/:shortId
+  verify_status enum('verified','tamper_detected','registered','unknown') not null default 'unknown'
+  last_ctr int not null default 0 -- anti-replay NFC (docs/12)
   location enum('platform_stock','with_owner','platform_vault')
      -- lokasi FISIK kartu, terpisah dari ownership:
      --   platform_stock: belum terjual (stok platform)
@@ -150,10 +156,10 @@ cards
 --     Manajemen fisik Y1: manual (bin/label per kartu di rak).
 		  --     Ship-out request: admin cari kartu via short_id -> packing -> 3PL.
 		  --     Tidak ada warehouse management system — semua manual Y1.
-	  status enum('inventory','bound','listed_buyout','bid_pending','sold','tampered','defect','lost')
   buyout_price_ccoin int nullable -- dipasang owner -> muncul di Marketplace
   nfc_configured bool default false
-qc_status enum('pending','passed','failed')
+qc_status text not null default 'pending'
+     -- text + CHECK in ('pending','passed','failed') — BUKAN tipe enum
 	  -- QC checklist: (1) dus: fisik, cetak, lipatan; (2) acrylic: retak, gores, magnet;
 	  -- (3) kartu: cetak, holo, NFC tap. Defect rate > 2% = investigasi batch.
 	created_at, updated_at
@@ -235,6 +241,8 @@ orders
 wallets
   user_id uuid PK FK users.id
   balance_ccoin int           -- cache; audit via SUM(transactions)
+  total_topup_ccoin int default 0  -- akumulasi top-up (gate cap non-KYC + KYC threshold)
+  total_spent_ccoin int default 0  -- akumulasi spend (basis XP)
   hold_payout_until timestamptz nullable  -- hold payout jika akun di-flag fraud
   updated_at
 
@@ -287,12 +295,20 @@ platform_revenue                                   [BARU 2026-08-16]
 > gateway tapi tidak ada di ledger -> alert admin untuk manual
 > reconcile.
 
+> **Catatan kolom legacy/penyimpangan nama** (skema riil `01_schema.sql`
+> vs skema logis lama): `users.xp` (duplikat lama dari `total_xp` —
+> tetap ada, jangan dipakai untuk hitung level), `wallets.total_topup_ccoin`
+> / `total_spent_ccoin` (akumulasi, di-maintain RPC), `bids.bidder_name`
+> (denormalisasi display name utk masking publik), `cards.qc_status` =
+> `text` + CHECK (bukan tipe enum).
+
 ### bids (offer ke owner — bisa di kartu manapun)
 ```
 bids
-  id uuid PK
+  id text PK                  -- PK text (bukan uuid)
   card_id uuid FK cards.id
   bidder_id uuid FK users.id
+  bidder_name text not null   -- denormalisasi nama tampilan bidder (masking "Anonim" di baca API)
   amount_ccoin int
   status enum('active','outbid','cancelled','accepted')
   created_at, outbid_at, cancelled_at, accepted_at timestamptz nullable
@@ -402,10 +418,11 @@ disputes
   created_at, updated_at
 ```
 
-### badge_definitions (admin-configurable)
+### badges (admin-configurable; mantul nama badge_definitions)
 ```
-badge_definitions
-  id uuid PK
+badges
+  id text PK                  -- PK text (bukan uuid)
+  code text UNIQUE            -- key evaluasi trigger badge
   name text                     -- contoh: "Collector Starter"
   description text              -- "Berhasil beli 1 kartu"
   criteria jsonb                -- Kriteria yang dievaluasi:
@@ -415,19 +432,21 @@ badge_definitions
      {type: 'creator_cards', min: 10}                   -- ≥10 kartu dari SATU kreator (seed: kreator mana pun)
      {type: 'creator_cards', creator_id: 'uuid', min: 3}  -- koleksi kreator tertentu (spec form, opsional)
      {type: 'xp_total', min: 100}          -- total XP
+  icon text not null
   icon_url text
+  xp int default 0              -- alias legacy kolom xp_reward
   xp_reward int default 0
   is_active bool default true
   created_by uuid FK users.id (admin)
   created_at, updated_at
 
 user_badges
-  id uuid PK
+  PK komposit (user_id, badge_id)   -- BUKAN id uuid tersendiri
   user_id uuid FK users.id
-  badge_id uuid FK badge_definitions.id
-  awarded_at timestamptz
+  badge_id text FK badges.id
+  earned_at timestamptz default now()
+  awarded_at timestamptz default now()
   xp_reward_snapshot int      -- snapshot xp_reward saat diraih
-  UNIQUE (user_id, badge_id)
 ```
 > **Rule**: Badge sekali diraih, tetap di profil selamanya — tidak
 > dicabut meskipun criteria tidak lagi terpenuhi (misal sudah
@@ -504,7 +523,7 @@ wallets 1─N wallet_transactions
 users 1─N orders (buyer)
 users 1─N payouts
 orders 1─1 disputes (optional)
-badge_definitions 1─N user_badges
+badge_definitions (tabel `badges`) 1─N user_badges
 profiles 1─N user_badges
 ```
 
@@ -542,7 +561,7 @@ profiles 1─N user_badges
 | bids | READ publik (90 hari, complete selamanya); WRITE bidder (place/cancel); accept hanya OWNER kartu | |
 | cards.buyout_price_ccoin | WRITE hanya OWNER kartu | |
 | profiles (users; koleksi/level/badge) | READ publik via API service-role HANYA jika is_anonymous=false; akses tabel langsung: anon ditolak (`revoke all on users from anon`), authenticated = own row, admin = semua (`public.is_admin()`) | hardening 2026-08-30 |
-| badge_definitions | READ publik; WRITE admin | |
+| badges (definitions) | READ publik; WRITE admin | |
 | user_badges | READ publik (via profil); WRITE system | |
 | creators, kyc, payout, disputes | NO public access | admin (service-role) only + creator read own |
 

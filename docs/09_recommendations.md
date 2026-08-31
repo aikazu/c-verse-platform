@@ -1,7 +1,8 @@
 # 09 — Rekomendasi Development
 
 > Status: [VALIDATED]
-> Last updated: 2026-08-14
+> Last updated: 2026-08-31 (§2.5: pool SIGNED dipilih EKSPLISIT —
+> raffle hybrid C-15, bukan alokasi random)
 > Dok ini berisi rekomendasi teknis & operasional — termasuk
 > **build-time implications**: hal-hal yang harus diantisipasi
 > sejak Sprint 0 meskipun fiturnya belum dibangun.
@@ -65,13 +66,19 @@
 - **Permanence**: sekali award, tetap di profil selamanya.
 - **Admin panel**: CRUD definisi badge (ADM-07). Icon upload ke R2.
 
-### 2.5 Signed Card (1:10)
-- **Alokasi random saat checkout**: sistem memilih signed/unsigned
-  dari pool yang tersisa. Buyer tidak bisa memilih.
-- **Race**: signed punya pool terpisah (`signed_units`). Begitu
-  signed habis, sisa unsigned tetap bisa dibeli.
-- **Harga berbeda**: signed = 50 C-Coin (Rp 500.000), unsigned = 30 C-Coin (Rp 300.000).
-  Potong saldo sesuai jenis yang dialokasikan.
+### 2.5 Signed Card — pool EKSPLISIT (C-15 raffle hybrid)
+- **Alokasi BUKAN random**: buyer memilih pool secara EKSPLISIT —
+  reguler (unsigned), premium (signed), atau keduanya — saat entry
+  raffle (24 jam pertama) maupun checkout FCFS sisa unit. Tidak ada
+  surprise 1:10.
+- **Signed = pool premium**: `signed_units = ceil(total_units / 10)`
+  di pool PREMIUM; sisanya pool reguler. Draw: premium diundi dulu,
+  kalah → masuk pool reguler.
+- **Harga per pool**: reguler = `drops.price_ccoin` (mis. 30),
+  premium = `drops.price_signed_ccoin` = unsigned + 20 FLAT (mis. 50).
+  Hold/debit selalu sesuai pool yang dipilih; selisih hold winner
+  reguler di-release otomatis. Detail: `03_flows.md` Flow 1,
+  `07_constraints.md` C-15.
 
 ### 2.6 Anti-Fraud Y1
 | Mekanisme | Detail |

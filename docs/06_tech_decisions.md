@@ -1,7 +1,9 @@
 # 06 — Tech Decisions (Keputusan Arsitektur)
 
 > Status: [VALIDATED]
-> Last updated: 2026-08-18 (sinkronisasi dengan codebase — hapus Turborepo/Drizzle, catat service-role shortcut)
+> Last updated: 2026-08-31 (email = Cloudflare Email Service binding
+> `send_email` — SumoPod SMTP dihapus)
+> Previous: 2026-08-18 (sinkronisasi dengan codebase — hapus Turborepo/Drizzle, catat service-role shortcut)
 > Konsolidasi final dari full-edge decision. Dok ini SELF-CONTAINED
 > — tidak perlu baca dok sumber lain untuk memahami arsitektur MVP.
 
@@ -17,7 +19,7 @@ repo-root (pnpm workspace)
 Infra pendukung:
   Supabase (Postgres + Auth + Realtime + Supavisor)
   Cloudflare R2 (artwork, 3D, KYC private) + Queues (email, payout) + Cron Triggers (raffle draw, payout batch — settlement pembelian langsung di RPC, founder 2026-08-28; badge murni event-driven tanpa cron, lihat `05_data_model.md`)
-  SumoPod SMTP (email), FCM (push), Midtrans/Xendit (top-up + disbursement)
+  Cloudflare Email Service (binding `send_email` — email transaksional API), FCM (push, post-MVP), Midtrans (top-up + disbursement)
   Domain FINAL: c-verse.co (primary), c-verse.id → 301 redirect
   NDEF URL final: https://c-verse.co/cards/{shortId}/3d (LOCK sebelum provisioning)
 ```
@@ -50,7 +52,7 @@ Admin flow (terpisah):
 | Realtime | Supabase Realtime broadcast (< 50 concurrent bidder) |
 | Payment | Midtrans (primary) + Xendit (backup) — HANYA top-up & disbursement |
 | Shipping | Biteship / RajaOngkir |
-| Email | Abstraction layer (default **SumoPod SMTP** — smtp.sumopod.com:465 SSL; vendor-agnostic) |
+| Email | Cloudflare Email Service — binding `send_email` (`EMAIL`), gate `EMAIL_ENABLED`/`EMAIL_FROM`/`ADMIN_ALERT_EMAIL`; SMTP/nodemailer dihapus |
 | Push | Firebase Cloud Messaging (FCM) |
 | Analytics | PostHog (product) + Plausible (web) |
 | Monitoring | Sentry + BetterStack |

@@ -3,7 +3,9 @@
 > Status: [VALIDATED — partial: open items payout (SLA, disbursement,
 > cap Rp 5-10 jt) & validasi C-03 iPhone masih [DRAFT] — lihat
 > `07_constraints.md`]
-> Last updated: 2026-08-23 (admin abort path PHASE-1 stuck seed sale —
+> Last updated: 2026-08-31 (fee ship-out = konstanta server
+> `SHIPMENT_FEE_CCOIN` — bukan input user)
+> Previous: 2026-08-23 (admin abort path PHASE-1 stuck seed sale —
 > RPC cancel_seed_sale di `04_rpc.sql`, sebelumnya
 > `20260823050000_seed_sale_abort.sql`; refund penuh ke buyer tanpa
 > fees/XP karena XP granted TEPAT di PHASE-2 release)
@@ -283,7 +285,9 @@ Owner yang kartunya ber-location 'platform_vault' (beli primary
 simpan di inventory ATAU secondary kirim ke platform) bisa
 request KIRIM ke alamatnya kapan saja:
    -> PG-USR-07 (kelola kartu) -> pilih kartu + "Kirim dari
-      vault" -> isi alamat -> bayar ongkir C-Coin (integer >= 1)
+      vault" -> isi alamat -> bayar fee tetap (server-side
+      `SHIPMENT_FEE_CCOIN` di `packages/shared` — bukan input user;
+      fee → treasury + `platform_revenue` ref_type 'shipment')
    -> rows `shipments` type='vault_shipout' -> packing -> 3PL
    -> tracking -> delivered -> kartu jadi 'with_owner'
 ```

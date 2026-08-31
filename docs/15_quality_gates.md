@@ -1,7 +1,9 @@
 # 15 — Quality Gates: Testing, Lint, CI, DoD
 
 > Status: [DRAFT — SPEC SIAP EKSEKUSI]
-> Created: 2026-08-15
+> Created: 2026-08-15; updated: 2026-08-31 (CI: + lint:boundaries,
+> supabase db lint PR-only, e2e Playwright PR-only; deploy.yml tidak
+> ada; vitest.config.ts projects; split fee ceil)
 > Basis audit: folder Platform memiliki **0 file test**, `pnpm lint`
 > = no-op, `.github/workflows` di-disabled. DoD `01_scope.md`
 > mensyaratkan coverage >70% — tidak ada mekanisme mengukurnya.
@@ -22,14 +24,16 @@
 
 ```
 root:
-  vitest.workspace.ts        # packages/shared, apps/api
+  vitest.config.ts           # projects: packages/shared, apps/api, apps/admin
+                             # (config vitest per workspace juga ada di masing-masing folder)
   biome.json                 # lint rules recommended + format
 apps/api:    vitest config (environment: edge-runtime optional —
              fallback node untuk unit lib; integration pakai koneksi
              supabase lokal)
 packages/shared: vitest config murni
-.github/workflows/ci.yml     # re-enable: PR + main
-.github/workflows/deploy.yml # sesuai 08_deployment.md
+.github/workflows/ci.yml     # aktif: PR + main
+# TIDAK ada .github/workflows/deploy.yml — deploy manual
+# (lihat 08_deployment.md §7)
 package.json scripts:
   "test": "vitest run"
   "test:watch": "vitest"
@@ -37,8 +41,11 @@ package.json scripts:
   "format": "biome format --write ."
 ```
 
-CI job (PR): `pnpm install -> typecheck -> lint (0 warning) ->
-test -> build`. Deploy job hanya `main` (lihat `08_deployment.md`).
+CI job `quality` (PR + main): `pnpm install -> typecheck -> lint
+(0 warning) -> lint:boundaries (module boundaries api) -> test ->
+build`. Job `e2e` **PR saja**: `supabase db lint` + Playwright
+(webServer auto-start API/web/admin — butuh stack Supabase lokal).
+Deploy TIDAK otomatis — manual (`08_deployment.md` §7).
 
 ## 3. Matriks Test Wajib
 
@@ -50,7 +57,7 @@ test -> build`. Deploy job hanya `main` (lihat `08_deployment.md`).
 | `calcSignedCount` | 15 → 2 (ceil(15/10)), 10 → 1, 100 → 10 |
 | `calcLevel` | xp 0 → level 1; 9 → 1; 10 → 2; 999 → 100 (clamp) |
 | `isCcoinInteger` | 1.5 → false; 0 → false; 1 → true |
-| fee split | 100 C sale → 7,5 / 7,5 / 85 (integer rounding!) |
+| fee split (`splitSecondaryFeeCcoin`) | platform & royalti **CEIL** (fee tak pernah 0 — ceil, bukan round), seller = sisa: 100 C → 8 / 8 / 84; total selalu = harga jual |
 | label status | `dropStatusLabel`/`orderStatusLabel`/`cardLocationLabel`/`kycStatusLabel`/`walletTxTypeLabel` → label Indonesia benar; kode tak dikenal → fallback nilai mentah (tanpa crash) |
 
 ### 3,2 Unit — `apps/api/src/lib`

@@ -1,7 +1,9 @@
 # 07 — Constraints, Gates & Open Items
 
 > Status: [VALIDATED] (C-01/C-02 resolved 2026-08-13)
-> Last updated: 2026-08-23 (C-17 → admin abort path PHASE-1 stuck seed
+> Last updated: 2026-08-31 (C-10: fee ship-out = konstanta server
+> `SHIPMENT_FEE_CCOIN`; email = Cloudflare Email Service)
+> Previous: 2026-08-23 (C-17 → admin abort path PHASE-1 stuck seed
 > sale: RPC `cancel_seed_sale` di `04_rpc.sql` (sebelumnya
 > `20260823050000_seed_sale_abort.sql`), service_role only,
 > refund penuh buyer tanpa fees/XP)
@@ -156,8 +158,9 @@
   2026-08-28: purchase → vault only) — kartu ter-bind virtual,
   fisik dipegang platform, tanpa alamat/ongkir/tracking di titik
   beli. Ship-from-vault: owner minta kirim kapan saja via Kelola
-  Kartu (`vault_shipout`, bayar ongkir saat itu; fee → treasury +
-  `platform_revenue`).
+  Kartu (`vault_shipout`, bayar fee tetap saat itu — bukan input
+  user; konstanta server `SHIPMENT_FEE_CCOIN` di `packages/shared`,
+  fee → treasury + `platform_revenue` ref_type 'shipment').
 - **Secondary**: kartu selalu masuk/tetap di vault, ownership
   pindah di ledger — TANPA `buyer_address`; buyer minta ship-out
   kapan saja (ongkir C-Coin + tracking di titik ship-out).
@@ -208,7 +211,7 @@
   `10_auth_migration.md` & keputusan akun kreator admin-provisioned
   (FINAL 2026-08-20: admin create auth user passwordless via Supabase
   Auth admin API, set `profiles.role = 'creator'`, isi
-  `creators.user_id`, kirim akses via SumoPod SMTP)),
+  `creators.user_id`, kirim akses via Cloudflare Email Service)),
   sehingga larangan ini bisa di-enforce per akun (RULE/RLS + audit),
   tidak lagi bergantung flag manual. Berlaku juga untuk seed card:
   kreator pemilik seed card dilarang membeli kembali kartu seed

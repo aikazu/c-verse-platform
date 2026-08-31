@@ -1,7 +1,8 @@
 # 10 — Auth Migration: Supabase Auth + Turnstile
 
 > Status: [IMPLEMENTED 2026-08-16]
-> Created: 2026-08-15; updated: 2026-08-20
+> Created: 2026-08-15; updated: 2026-08-31 (email provisioning =
+> Cloudflare Email Service — SumoPod SMTP dihapus)
 > Basis audit awal: `apps/api/src/modules/auth/routes.ts` (password plaintext, token
 > in-memory). Migration selesai: route auth.ts sudah clean (hanya `/me`),
 > JWT verify via `jose` + JWKS, tidak ada password/in-memory session.
@@ -37,7 +38,8 @@ Auth saat ini custom in-memory — tidak bisa dibawa ke produksi:
   TIDAK self-register. Admin app (service-role) create auth user
   (tanpa password, `email_confirm: true`) → set
   `profiles.role = 'creator'` → isi `creators.user_id` → kirim email
-  akses via SumoPod SMTP. Ini menutup gap G1/G2 (`creators.user_id`
+  akses via Cloudflare Email Service (binding `send_email`, gate
+  `EMAIL_ENABLED` — lihat §3.6.1). Ini menutup gap G1/G2 (`creators.user_id`
   nullable tanpa flow pengisian).
 
 ## 3. Langkah Eksekusi
@@ -48,8 +50,10 @@ Auth saat ini custom in-memory — tidak bisa dibawa ke produksi:
 2. Auth → Email: enable **email provider**, OTP expiry 1 jam, magic link OFF.
 3. Auth → Captcha: pilih **Turnstile**, isi site key + secret key
    (Cloudflare Dashboard → Turnstile → widget `cverse-login`).
-4. Email SMTP: arahkan ke **SumoPod SMTP** (`smtp.sumopod.com:465`, SSL,
-   username/password dari env) supaya OTP bukan dari sender default Supabase.
+4. Email: sender OTP Supabase Auth dikonfigurasi di **Supabase
+   Dashboard** (dipakai GoTrue, bukan env API). Email transaksional
+   API (akses kreator + digest failure cron) = **Cloudflare Email
+   Service** — binding `send_email`, lihat §3.6.1.
 
 ### 3,2 Web (`apps/web`)
 1. Install `@supabase/supabase-js`. `VITE_SUPABASE_URL` + `VITE_SUPABASE_ANON_KEY`
@@ -117,8 +121,8 @@ Auth saat ini custom in-memory — tidak bisa dibawa ke produksi:
      (tidak ada akun yatim).
   5. Kirim email akses via modul email ber-flag: `EMAIL_ENABLED` default
      **OFF di dev** (kirim dilewati, respons `emailSent:false`); saat
-     `true`, kirim via SumoPod SMTP (configurable `SMTP_HOST`/`SMTP_PORT`/
-     `SMTP_USER`/`SMTP_PASS`).
+     `true`, kirim via Cloudflare Email Service — binding `send_email`
+     (`env.EMAIL`) + `EMAIL_FROM` (lihat §3.6.1).
   6. Audit log `admin_audit_log` (action `create`, payload berisi
      `provision:true` + handle + status email).
   Admin app menampilkan form "Buat akun kreator" yang memanggil endpoint

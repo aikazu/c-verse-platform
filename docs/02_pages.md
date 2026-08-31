@@ -1,7 +1,10 @@
 # 02 — Peta Halaman MVP
 
 > Status: [VALIDATED]
-> Last updated: 2026-08-27 (PG-LB-01 multi-type leaderboard: tab
+> Last updated: 2026-08-31 (sitemap admin: + /kyc approve/reject,
+> NFC seed ops vault-in/release, /investor via RPC
+> `get_investor_stats`; /register route web)
+> Previous: 2026-08-27 (PG-LB-01 multi-type leaderboard: tab
 > Level | Kolektor | Lencana + Papan Kolektor per-kreator di `/c/:username`)
 > Previous: 2026-08-21 (badge holografik "✦ Seed 1-of-1"
 > di kartu Marketplace, Browse, halaman kartu (info) & 3D
@@ -54,7 +57,7 @@ warna): lihat `06_tech_decisions.md` D7–D8.
 | PG-LB-01 | `/leaderboard` | Leaderboard | Peringkat kolektor (F019). Tab `Level` (default, `xp`) \| `Kolektor` (`cards`) \| `Lencana` (`badges`) — `?tab=` sinkron dengan URL. User suspended (`flag_reason`) dan anonymous (`is_anonymous`) difilter **di dalam RPC** `get_leaderboard(p_type, p_creator_id, p_limit)` (`04_rpc.sql`) sebelum ORDER + LIMIT agar rank survivor tetap benar; tie-break deterministik `score DESC, reached_at ASC, username ASC NULLS LAST, user_id ASC`. Chip tier berwarna hanya di papan Level (UX jujur). Public tanpa auth. Cache 60s untuk `xp`, 30s untuk board lain |
 | PG-CRT-PUB-01 | `/c/:username` | Halaman kreator (publik) | **Handle, bio, link media sosial** + **list drop** (published/live/upcoming, klik ke detail drop) + **tombol Dukungan** (login user kirim C-Coin min 1 → 100% ke kreator, tanpa potongan platform; pengirim XP 1:1 — `POST /api/wallet/support`) + **Papan Kolektor** (top 10 kolektor kreator tersebut — `type=creator`, `creatorId=<uuid>`). TANPA jumlah follower. Creator suspended disembunyikan dari listing publik; creator anonymous juga disembunyikan (konsisten dgn privacy rule). Papan Kolektor TIDAK punya link ke papan global |
 | PG-PROF-01 | `/u/:username` | Profil kolektor (publik) | Koleksi, level, badge, ranking leaderboard — **kecuali user mengaktifkan privacy anonymous ATAU di-suspend (`flag_reason`)** |
-| PG-AUTH-01 | `/login` | Login/Register | Google OAuth + email OTP (**email OTP wajib captcha anti-spam** — Cloudflare Turnstile) |
+| PG-AUTH-01 | `/login` · `/register` | Login/Register | Google OAuth + email OTP (**email OTP wajib captcha anti-spam** — Cloudflare Turnstile) |
 
 ## 4. Halaman Verifikasi TIDAK ADA (di-merge)
 
@@ -106,12 +109,13 @@ warna): lihat `06_tech_decisions.md` D7–D8.
 | PG-ADM-02 | `/creators` | Kelola kreator | ADM-01 | CRUD data kreator (hasil rekrutan off-platform), status akun, payment info |
 | PG-ADM-03 | `/drops` | Kelola drop | ADM-02 | Buat drop (artwork final, harga, unit, waktu), schedule, publish, tutup |
 | PG-ADM-04 | `/orders` | Kelola order | ADM-03 | Semua order, update status, no resi, return |
-| PG-ADM-05 | `/nfc` | NFC provisioning & QC | ADM-04 | Batch tag, assign UUID↔UID, config NDEF/SDM, QC report |
+| PG-ADM-05 | `/nfc` | NFC provisioning & QC | ADM-04 | Batch tag, assign UUID↔UID, config NDEF/SDM, QC report + **seed sale ops** (kartu seed `bid_pending`): tombol **Vault-in** (`PATCH /api/admin/cards/:id/vault-in`), **Release** (`POST /api/admin/cards/:id/release-seed-sale`), **Batalkan sale** (`POST /api/admin/cards/:id/cancel-seed-sale`) — semua dengan modal konfirmasi D8 |
 | PG-ADM-06 | `/payouts` | Payout & rekonsiliasi | ADM-05 | Escrow, trigger payout batch, rekonsiliasi harian |
 | PG-ADM-07 | `/disputes` | Dispute | ADM-06 | List dispute, mediasi, keputusan |
 | PG-ADM-08 | `/badges` | Kelola badge | ADM-07 | **Definisi badge: kriteria + logo/ikon + XP reward** (admin-configurable, contoh: koleksi N C.Card, punya C.Card kreator A/B) |
 | PG-ADM-09 | `/audit` | Audit log admin | ADM-08 | Lihat semua aksi admin (**append-only**): siapa, aksi, target, payload ringkas, IP/session, waktu — filter |
-| PG-ADM-10 | `/investor` | Investor Data Pack | — | Ringkasan metrik kunci: GMV, user growth, drop performance, creator earnings, secondary volume — untuk founder tarik data cepat saat meeting. Tabel + chart sederhana. **BUKAN untuk publik** |
+| PG-ADM-11 | `/kyc` | Kelola KYC | F014 | Review submission (KTP/selfie), **approve / reject (+ alasan penolakan tercatat di audit log)** |
+| PG-ADM-10 | `/investor` | Investor Data Pack | — | Ringkasan metrik kunci: GMV, user growth, drop performance, creator earnings, secondary volume — via RPC `get_investor_stats` (`04_rpc.sql`). Tabel + chart sederhana. **BUKAN untuk publik** |
 
 > **2FA admin (ADM-09)**: bukan halaman terpisah — flow
 > enrollment + challenge TOTP melekat di login admin (Supabase

@@ -1,7 +1,9 @@
 # 11 — RLS Policy Matrix (ganti `allow all using(true)`)
 
 > Status: [IMPLEMENTED 2026-08-16]
-> Created: 2026-08-15; updated: 2026-08-30
+> Created: 2026-08-15; updated: 2026-08-31 (creator_page_views:
+> insert langsung dihapus — tulis hanya via RPC
+> `record_creator_page_view`, SELECT owner-only)
 > Basis audit awal: semua policy `for all using (true) with check (true)`.
 > Migration `03_rls.sql` (sebelumnya `20260817020000_rls_policies.sql`,
 > dilebur saat konsolidasi 2026-08-24) sudah mengimplementasikan
@@ -47,12 +49,18 @@ Helper: `create policy ... for select using (...)`, dst.
 | `notifications` | - | `user_id = auth.uid()` | service | own (read flag) | tidak | |
 | `nfc_batches` | - | - | service | service | service | service only |
 | `qc_defects` | - | - | service | service | service | service only |
-| `creator_page_views` | - | - | service/anon insert** | - | - | **lihat catatan |
+| `creator_page_views` | - | owner only (creator halaman sendiri) | RPC only** | - | - | **lihat catatan |
 | `admin_audit_log` | - | - | service | **TIDAK ADA** | **TIDAK ADA** | append-only, tidak ada update/delete |
 
-`creator_page_views` insert dari web anonim (log kunjungan): policy INSERT
-`with check (true)` TANPA select policy — data tidak bisa dibaca anon;
-pembacaan lewat API service-role (agregat ke kreator).
+`creator_page_views`: INSERT langsung DITOLAK untuk semua role non-service —
+tulis HANYA via SECURITY DEFINER RPC `record_creator_page_view` (`04_rpc.sql`,
+di-grant ke anon+authenticated; berjalan sebagai table owner sehingga tidak
+terkena RLS; guard suspended/unknown/no-creator). Policy INSERT terbuka
+`with check (true)` dihapus (audit 2026-08-29 — anon bisa inject baris
+creator_id apa pun melewati guard RPC). SELECT owner-only: policy
+`creator_page_views_select_own` (`03_rls.sql`) — kreator hanya boleh baca
+page view halamannya sendiri; agregat untuk dashboard via RPC
+`get_creator_page_stats` (owner-fenced).
 
 ### Policy khusus `cards`
 - SELECT publik: kartu yang sudah sold/bind (`status <> 'inventory'`)
@@ -98,7 +106,7 @@ SQL test per kombinasi (jalankan sebagai `anon`, `authenticated` dgn
 | T5 | user A `update wallet_transactions set amount_ccoin=999` | exception |
 | T6 | user A `update cards set buyout_price_ccoin=50` milik B | 0 row affected |
 | T7 | user A `update cards set status='sold'` milik A | exception (guard kolom) |
-| T8 | anon `insert into creator_page_views` | OK (insert-only) |
+| T8 | anon `insert into creator_page_views` | DITOLAK (0 row) — tulis hanya via RPC `record_creator_page_view` → OK |
 | T9 | anon `select * from creator_page_views` | 0 rows |
 | T10 | service-role insert user_badges | OK |
 
@@ -115,8 +123,9 @@ SQL test per kombinasi (jalankan sebagai `anon`, `authenticated` dgn
 - [ ] 10 test T1-T10 pass (simpan sebagai `supabase/tests/rls_test.sql`).
 - [ ] Web demo flow (browse → login → top-up sandbox → checkout) tetap jalan
       pasca policy (tidak ada regression read publik).
-- [ ] `grep -r "using (true)" supabase/migrations/` hanya menyisakan
-      `creator_page_views` INSERT (bukan select).
+- [ ] `grep -r "using (true)" supabase/migrations/` → nol hasil
+      (policy INSERT terbuka `creator_page_views` sudah dihapus —
+      tulis via RPC `record_creator_page_view`).
 
 ## 7. Sumber
 

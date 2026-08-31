@@ -1,7 +1,9 @@
 # 16 — Foundation Cleanup (quick fixes hasil audit 2026-08-15)
 
 > Status: [SEBAGIAN TEREEKSEKUSI — F-05/F-09/F-10 RESOLVED di kode; F-03 DEFERRED; F-06 RESOLVED-INVALID — lihat catatan per item]
-> Created: 2026-08-15
+> Created: 2026-08-15; updated: 2026-08-31 (F-09 env email =
+> EMAIL_ENABLED/EMAIL_FROM/ADMIN_ALERT_EMAIL — SMTP dihapus;
+> F-01 UI checkout tanpa opsi kirim)
 > Daftar perbaikan kecil hasil audit `C:\Users\iqbal\Documents\C-Verse\Platform`
 > yang tidak masuk spec besar 10-14. Eksekusi sekali jalan (1-2 hari),
 > boleh paralel dengan spec mana pun — tidak bertabrakan.
@@ -20,8 +22,9 @@
   definisi tabel di `01_schema.sql` (sebelumnya phase 1 `foundation`,
   timestamp `20260817000000` — dilebur saat konsolidasi 2026-08-24),
   bukan migration terpisah.
-- UI `/drops/:id/checkout`: opsi terpilih default = "Simpan di vault
-  (gratis)"; kirim fisik = pilihan kedua.
+- UI `/drops/:id/checkout`: settle langsung ke vault — tanpa opsi
+  kirim fisik (update 2026-08-28: purchase → vault only; bukan
+  sekadar non-default).
 
 ### F-02 Hapus jalur legacy auction/listing (pelanggaran C-07 FINAL)
 - Hapus dari `packages/shared`: `listingStatusSchema` (berisi
@@ -88,8 +91,9 @@
   yang dibaca kode:
   - `SUPABASE_URL` / `SUPABASE_ANON_KEY` / `SUPABASE_SERVICE_ROLE_KEY`
     (WAJIB; service-role hanya server/admin).
-  - `EMAIL_ENABLED` + `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` /
-    `SMTP_PASS` (Node-runtime only — lihat catatan prod di T5).
+  - `EMAIL_ENABLED` + `EMAIL_FROM` / `ADMIN_ALERT_EMAIL`
+    (Cloudflare Email Service, binding `send_email` — SMTP/nodemailer
+    dihapus 2026-08-29; lihat `10_auth_migration.md` §3.6.1).
   - `NFC_MASTER_KEY` (16 byte hex / 32 char; key diversification per-UID N5).
   - `MIDTRANS_SERVER_KEY` + `MIDTRANS_IS_PRODUCTION` (sandbox dulu).
   - `PAYOUT_WEBHOOK_SIGNING_KEY` (docs/14 §3.2).

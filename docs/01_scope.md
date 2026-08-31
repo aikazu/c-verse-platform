@@ -1,7 +1,9 @@
 # 01 — Scope MVP C.Card
 
 > Status: [VALIDATED]
-> Last updated: 2026-08-20 (F002 + ADM-01 provisioning akun kreator, fitur Creator Seed C.Card — keputusan 2026-08-20)
+> Last updated: 2026-08-31 (email transaksional = Cloudflare Email
+> Service — SumoPod SMTP dihapus)
+> Previous: 2026-08-20 (F002 + ADM-01 provisioning akun kreator, fitur Creator Seed C.Card — keputusan 2026-08-20)
 
 ## 1. Definisi MVP
 
@@ -97,7 +99,7 @@ loyalty (semua post-MVP).
 
 | ID | Fitur | Deskripsi |
 |----|-------|-----------|
-| ADM-01 | Kelola kreator | CRUD data kreator hasil rekrutan off-platform (bukan approval). Set status akun, payment info, threshold terpenuhi. **2026-08-20: + "Buat akun kreator"** — provision akun login passwordless (Supabase Auth admin API create user TANPA password + `email_confirm=true`, `user_metadata.role='creator'`, set `profiles.role='creator'`, isi `creators.user_id`, kirim akses login via SumoPod SMTP). **2026-08-21: TERIMPLEMENTASI** via endpoint `POST /api/admin/users/provision` (gate admin aal2, service-role, ter-audit) + form di admin app; akses login email ber-flag `EMAIL_ENABLED` (default OFF di dev) |
+| ADM-01 | Kelola kreator | CRUD data kreator hasil rekrutan off-platform (bukan approval). Set status akun, payment info, threshold terpenuhi. **2026-08-20: + "Buat akun kreator"** — provision akun login passwordless (Supabase Auth admin API create user TANPA password + `email_confirm=true`, `user_metadata.role='creator'`, set `profiles.role='creator'`, isi `creators.user_id`, kirim akses login via Cloudflare Email Service — binding `send_email`, gate `EMAIL_ENABLED`). **2026-08-21: TERIMPLEMENTASI** via endpoint `POST /api/admin/users/provision` (gate admin aal2, service-role, ter-audit) + form di admin app; akses login email ber-flag `EMAIL_ENABLED` (default OFF di dev) |
 | ADM-02 | Kelola drop | Buat drop (artwork final yang sudah di-approve off-platform, harga, unit, waktu), schedule, publish, tutup drop |
 | ADM-03 | Kelola order & fulfillment | Lihat semua order, update status (paid → QC → shipped → delivered), handle return, input no resi |
 | ADM-04 | NFC provisioning & QC | Register batch tag (assign UUID↔UID), konfigurasi NDEF/SDM, catat hasil QC + defect |
@@ -187,7 +189,7 @@ section 3 adalah mekanisme kontrolnya.
   [VALIDATED]): platform passwordless — Google OAuth + email OTP;
   akun kreator dibuat admin via endpoint provision
   (create auth user tanpa password, `profiles.role='creator'`,
-  isi `creators.user_id`, email akses via SumoPod SMTP); tidak ada
+  isi `creators.user_id`, email akses via Cloudflare Email Service); tidak ada
   self-register kreator & tidak ada halaman invite publik.
   TERIMPLEMENTASI 2026-08-21 (`POST /api/admin/users/provision`).
 - Fitur Creator Seed C.Card (2026-08-20, [VALIDATED]): produksi

@@ -96,7 +96,7 @@ pnpm run build       # shared + web/dist + admin/dist (api = tsc only)
 # Integration & e2e (butuh Docker / server hidup)
 npx supabase start && npx supabase db reset   # local stack (DB :54322)
 node supabase/tests/rpc_c13_bid_test.mjs "postgresql://postgres:postgres@127.0.0.1:54322/postgres"
-pnpm run test:e2e    # Playwright (15 file spec / 40 test, web + admin)
+pnpm run test:e2e    # Playwright (16 file spec / 42 test, web + admin)
 ```
 
 ### Environment
@@ -109,7 +109,7 @@ Template per app — copy `<folder>/.env.example` jadi file lokal masing-masing:
 | `apps/admin` | `apps/admin/.env.example` | `.env.local` | `VITE_SUPABASE_*` (anon + MFA, di belakang Access), `VITE_API_URL` (dev `http://localhost:8787`, kosong = same-origin) |
 | `apps/api` | `apps/api/.env.example` | `.dev.vars` (dipakai Wrangler **dan** Node) | `SUPABASE_*`, `NFC_MASTER_KEY`, `MIDTRANS_*`, `PAYOUT_WEBHOOK_SIGNING_KEY`, `EMAIL_*`/`ADMIN_ALERT_EMAIL` (Cloudflare Email Service) |
 
-Secrets prod via `wrangler secret put` — tidak pernah di repo. Turnstile secret & SMTP OTP dikonfigurasi di **Supabase Dashboard** (dipakai GoTrue), bukan dibaca API.
+Secrets prod via `wrangler secret put` — tidak pernah di repo. Turnstile secret & sender email OTP dikonfigurasi di **Supabase Dashboard** (dipakai GoTrue), bukan dibaca API. Email transaksional API via Cloudflare Email Service (`EMAIL_ENABLED`/`EMAIL_FROM`/`ADMIN_ALERT_EMAIL`).
 
 Supabase **wajib** — API fail-fast tanpa `SUPABASE_URL`:
 
@@ -142,7 +142,7 @@ Login **tanpa password** — email OTP atau Google. UUID fixed di `supabase/seed
 | DB / Auth / Realtime | Supabase Postgres (SG) + pgcrypto |
 | Storage | Cloudflare R2 — `cverse-assets` / `cverse-kyc` · zero egress · binding disiapkan di `wrangler.toml` |
 | Shared | `packages/shared` — Zod schemas + constants canonical |
-| Email OTP | Supabase Auth (GoTrue) + SMTP di Supabase Dashboard |
+| Email OTP | Supabase Auth (GoTrue) — sender OTP diatur di Dashboard |
 | Monorepo | pnpm workspaces (`pnpm -r`, tanpa Turborepo) |
 
 Semua angka & enum canonical di `packages/shared/src/index.ts` — jangan hard-code di app.
@@ -181,7 +181,7 @@ Belum diimplementasi: notifikasi in-app/push (F010, F013). Email transaksional A
 │   ├── seed.sql
 │   ├── tests/               # rls_test.sql, rpc_*.mjs, revenue_flow_test.mjs
 │   └── config.toml
-├── e2e/                     # Playwright (15 file spec / 40 test, web + admin)
+├── e2e/                     # Playwright (16 file spec / 42 test, web + admin)
 └── docs/                    # canonical 00_readme → 16_foundation_cleanup
 ```
 
@@ -192,13 +192,13 @@ Belum diimplementasi: notifikasi in-app/push (F010, F013). Email transaksional A
 | # | Flow | Catatan |
 |---|------|---------|
 | 1 | **Primary drop** | 1 kartu/user/drop (atomik), `priceCcoin` canonical, `signedCount=ceil(n/10)`, `priceSigned=priceUnsigned+20` FLAT |
-| 2 | **Fulfillment** | `paid → qc → settled` (vault) vs `paid → qc → shipped → delivered → settled` (shipping) |
+| 2 | **Fulfillment** | Semua pembelian settle ke vault: `paid → qc → settled` (tanpa alamat/ongkir di checkout); pengiriman = satu flow pasca-vault (`vault_shipout`) |
 | 3 | **Settlement** | `wallet_transactions` append-only, escrow `held/released`, ledger idempotent (`metadata.idempotency_key`) |
 | 4 | **NFC Tap → 3D** | SUN URL `c-verse.co/cards/:id/3d?uid&ctr&c=CMAC` → badge `Verified Card`; iOS background reading (tanpa Web NFC) |
 | 5 | **QR Fallback** | Scan dus → `/cards/:id` status `Registered` (tanpa CMAC) |
-| 6 | **Ownership** | `current_owner_id` + `ownership_history`; `location` ∈ `platform_stock/with_owner/platform_vault` |
+| 6 | **Ownership** | `owner_id` + `ownership_history`; `location` ∈ `platform_stock/with_owner/platform_vault` |
 | 7 | **Secondary** | Marketplace (buyout `cards.buyout_price_ccoin`) + bid di halaman kartu (1 active tertinggi, outbid/cancel release, owner accept only); `/browse` = grid tile per-drop |
-| 8 | **Ship-from-vault** | Kartu di vault bisa dikirim kapan saja (`POST /api/orders/vault-shipout`, ongkir integer ≥1) |
+| 8 | **Ship-from-vault** | Kartu di vault bisa dikirim kapan saja (`POST /api/orders/vault-shipout`; fee tetap server-side `SHIPMENT_FEE_CCOIN`, bukan input user) |
 | 9 | **Gamifikasi** | `level=floor(total_xp/10)`, `spend 1 C = 1 XP` + `xp_reward` badge; **top-up tidak menambah XP**; leaderboard multi-type (`xp`/`cards`/`badges`/`creator`) via RPC `get_leaderboard` |
 | 10 | **Dukungan** | Fan C-Coin ke kreator — 100% ke kreator (RPC `send_support`, tanpa platform revenue); pengirim XP 1:1; tombol di `/c/:username` |
 
@@ -229,8 +229,8 @@ Belum diimplementasi: notifikasi in-app/push (F010, F013). Email transaksional A
 | Route | Halaman |
 |-------|---------|
 | `/home` | Home |
-| `/drops/:id/checkout` | Checkout (vault default, opsi shipping + ongkir) |
-| `/orders` · `/orders/:id` | Daftar & timeline (tracking hanya untuk shipping) |
+| `/drops/:id/checkout` | Checkout (settle langsung ke vault — tanpa alamat/ongkir) |
+| `/orders` · `/orders/:id` | Daftar & timeline `paid → qc → settled` (tracking hanya di shipment `vault_shipout`) |
 | `/wallet` | Saldo + ledger + top-up (cap non-KYC 500 C) + payout (min 10 C, fee 1%) |
 | `/collection` · `/me` | Koleksi + level/badge |
 | `/me/manage` | Kelola kartu — buyout, bid accept, ship-from-vault |
@@ -248,11 +248,11 @@ Guard login dilakukan per halaman (`if (!user)`), bukan lewat wrapper route.
 | `/creators` | ADM-01 | CRUD kreator (off-platform) |
 | `/drops` | ADM-02 | Buat/publish drop |
 | `/orders` | ADM-03 | Fulfillment + resi |
-| `/nfc` | ADM-04 | Batch + QC kartu |
+| `/nfc` | ADM-04 | Batch + QC kartu + seed ops (vault-in / release / batalkan sale) |
 | `/payouts` | ADM-05 | Escrow + rekonsiliasi |
 | `/disputes` | ADM-06 | Mediasi |
 | `/badges` | ADM-07 | Badge (criteria + ikon + XP reward) |
-| `/kyc` | F014 | Approve/reject KYC |
+| `/kyc` | F014 | Approve/reject KYC (+ alasan penolakan) |
 | `/audit` | ADM-08 | Append-only, retensi ≥1 th |
 | `/investor` | ADM-10 | GMV · users · drops · secondary (bukan publik) |
 
@@ -298,7 +298,7 @@ Status implementasi per item (`[done]` = ada di code + test; `[spec NN]` = spec 
 - **Fee snapshot** — `fee_rate_platform/royalty/seller` disimpan per transaksi + `platform_revenue` & kredit treasury. `[done]`
 - **Security header** — `X-Frame-Options: DENY`, `nosniff`, `Referrer-Policy`, `Permissions-Policy`. `[done]`
 - **Consent** — `consent_analytics_detail` + `consent_data_market` (`PATCH /api/profile/consent`, UI di `/me/privacy`). `[done]`
-- **Creator views** — `creator_page_views` log dari day 1 (`GET /api/creators/:id?stats=1`). `[done]`
+- **Creator views** — `creator_page_views` log dari day 1; tulis hanya via RPC `record_creator_page_view`, stats owner-fenced (`GET /api/public/:username/views/stats` — RPC `get_creator_page_stats`; `GET /api/creators/:id?stats=1` sama-sama owner only). `[done]`
 
 ---
 
@@ -331,10 +331,10 @@ Semua keputusan terkunci di `docs/` — baca urut untuk onboarding tanpa perlu b
 | 00 | `00_readme.md` | Orientasi + glossary + angka kunci |
 | 01 | `01_scope.md` | MoSCoW + RICE + ADM-01..10 |
 | 02 | `02_pages.md` | Sitemap per role + SEO Worker |
-| 03 | `03_flows.md` | 9 flow end-to-end + gate |
+| 03 | `03_flows.md` | 11 flow end-to-end + gate |
 | 04 | `04_user_stories.md` | Given/When/Then |
 | 05 | `05_data_model.md` | Skema logis + invariant I1..I14 |
-| 06 | `06_tech_decisions.md` | Full-edge stack + D1..D7 |
+| 06 | `06_tech_decisions.md` | Full-edge stack + D1..D8 |
 | 07 | `07_constraints.md` | Gate legal & operasional |
 | 08 | `08_deployment.md` | Runbook step-by-step |
 | 09 | `09_recommendations.md` | Build-time implications (fee, numbering, consent) |
@@ -344,7 +344,7 @@ Semua keputusan terkunci di `docs/` — baca urut untuk onboarding tanpa perlu b
 | 13 | `13_atomic_checkout_rpc.md` | RPC uang single-transaction |
 | 14 | `14_payments_integration.md` | Midtrans Snap + IRIS payout |
 | 15 | `15_quality_gates.md` | Target coverage + gate CI |
-| 16 | `16_foundation_cleanup.md` | Cleanup F-01..F-08 |
+| 16 | `16_foundation_cleanup.md` | Cleanup F-01..F-10 |
 
 Angka kanonik ada di `docs/00_readme.md` §4 **dan** `packages/shared/src/index.ts` — keduanya harus sinkron.
 
