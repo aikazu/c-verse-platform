@@ -43,7 +43,11 @@ export function NfcPage() {
       .limit(50);
     setSeedPending((sp ?? []) as unknown as SeedPendingRow[]);
     const err = bErr ?? cErr ?? spErr;
-    if (err) setMsg(err.message);
+    // Aturan repo: teks error mentah (PostgREST/Supabase) tidak boleh tampil di UI.
+    if (err) {
+      console.error("nfc load failed:", err);
+      setMsg("Gagal memuat data NFC — periksa koneksi lalu refresh.");
+    }
   }
   useEffect(() => {
     load();
@@ -63,6 +67,52 @@ export function NfcPage() {
     setBusyId(cardId);
     try {
       await apiFetch(`/api/admin/cards/${cardId}/cancel-seed-sale`, { method: "POST" });
+      load();
+    } catch (err) {
+      setMsg(errMessage(err));
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  // Audit batch 3 (lane I): aksi two-phase seed sale yang selama ini hanya ada
+  // di API kini tersedia di UI — PATCH vault-in (fisik diterima di vault) dan
+  // POST release-seed-sale (settlement PHASE-2, irreversible).
+  async function vaultIn(cardId: string) {
+    if (
+      !(await confirm({
+        title: `Tandai C.Card ${cardId} diterima di vault?`,
+        message: "Lokasi kartu berubah menjadi platform_vault. Verifikasi NFC tetap wajib sebelum release.",
+        confirmLabel: "Vault-in",
+      }))
+    )
+      return;
+    setMsg(null);
+    setBusyId(cardId);
+    try {
+      await apiFetch(`/api/admin/cards/${cardId}/vault-in`, { method: "PATCH", body: JSON.stringify({}) });
+      load();
+    } catch (err) {
+      setMsg(errMessage(err));
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  async function releaseSeedSale(cardId: string) {
+    if (
+      !(await confirm({
+        title: `Rilis seed sale C.Card ${cardId}?`,
+        message: "Settlement permanen: seller 85%, royalti kreator 7,5%, platform 7,5%.",
+        confirmLabel: "Rilis",
+        danger: true,
+      }))
+    )
+      return;
+    setMsg(null);
+    setBusyId(cardId);
+    try {
+      await apiFetch(`/api/admin/cards/${cardId}/release-seed-sale`, { method: "POST" });
       load();
     } catch (err) {
       setMsg(errMessage(err));
@@ -190,9 +240,17 @@ export function NfcPage() {
                     </td>
                     <td>{c.verify_status ?? "—"}</td>
                     <td>
-                      <button className="btn-ghost admin-mini" onClick={() => abortSeedSale(c.id)} disabled={busyId === c.id}>
-                        Batalkan sale
-                      </button>
+                      <div className="flex-gap-6 flex-wrap">
+                        <button className="btn-ghost admin-mini" onClick={() => vaultIn(c.id)} disabled={busyId === c.id}>
+                          Vault-in
+                        </button>
+                        <button className="btn-gold admin-mini" onClick={() => releaseSeedSale(c.id)} disabled={busyId === c.id}>
+                          Rilis
+                        </button>
+                        <button className="btn-ghost admin-mini" onClick={() => abortSeedSale(c.id)} disabled={busyId === c.id}>
+                          Batalkan sale
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))
