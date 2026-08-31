@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { api } from "../lib/api";
+import { ApiError, api } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { useToast } from "../lib/toast";
 
@@ -72,6 +72,10 @@ export default function UsernameSetupModal() {
       await refresh();
       push("Username tersimpan!", "success");
     } catch (err: unknown) {
+      // Respons PATCH adalah hasil otoritatif — probe 404 bisa saja username
+      // suspended (disembunyikan dari profil publik), jadi kegagalan simpan
+      // karena duplikat ikut membalikkan hint ke "taken".
+      if (err instanceof ApiError && err.status === 409) setStatus("taken");
       push(errorMessage(err) || "Gagal menyimpan username", "error");
     } finally {
       setBusy(false);
@@ -89,7 +93,9 @@ export default function UsernameSetupModal() {
   const hint: Record<string, string> = {
     idle: "Min 3 karakter, huruf/angka/underscore",
     checking: "Memeriksa ketersediaan…",
-    available: "✓ Tersedia!",
+    // Probe 404 tidak otoritatif (username suspended juga 404 di endpoint
+    // publik) — jangan klaim "Tersedia"; simpan yang memutuskan.
+    available: "Cek ketersediaan lewat simpan",
     taken: "✗ Username sudah dipakai",
     invalid: "Hanya huruf kecil, angka, underscore (3–20 karakter)",
   };
@@ -152,7 +158,7 @@ export default function UsernameSetupModal() {
                 marginTop: 6,
                 color:
                   status === "available"
-                    ? "var(--signal)"
+                    ? "var(--text-muted)"
                     : status === "taken" || status === "invalid"
                       ? "var(--alert)"
                       : "var(--text-dim)",
