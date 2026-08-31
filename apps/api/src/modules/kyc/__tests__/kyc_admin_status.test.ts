@@ -128,37 +128,41 @@ describe("POST /api/kyc/:id/approve | :id/reject (admin KYC status, P2-5)", () =
     });
   });
 
-  it("admin reject -> 200, setKycStatus(id, 'rejected'), audit append (status rejected, tanpa body = reason null)", async () => {
+  // Lane P2: reason penolakan WAJIB (trim, min 3, maks 1000) — audit trail
+  // tidak boleh berakhir dengan reason:null. Tanpa body / kosong / terlalu
+  // pendek → 400 tanpa perubahan status dan tanpa audit append.
+  it("admin reject tanpa body -> 400, tanpa perubahan status, tanpa audit", async () => {
     control.setStatusResult = { id: "kyc-1", user_id: "user-1", status: "rejected" };
     const res = await post("/kyc-1/reject");
-    expect(res.status).toBe(200);
-    const body = (await res.json()) as { kyc?: { id: string; status: string } };
-    expect(body.kyc).toMatchObject({ id: "kyc-1", status: "rejected" });
-    expect(control.setStatusCalls).toEqual([{ id: "kyc-1", status: "rejected" }]);
-    expect(control.auditCalls).toHaveLength(1);
-    expect(control.auditCalls[0]).toMatchObject({
-      adminUserId: "admin-1",
-      action: "update",
-      targetTable: "kyc_records",
-      targetId: "kyc-1",
-      payloadSummary: { status: "rejected", reason: null },
-    });
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as { error: string };
+    expect(body.error).toBe("Alasan penolakan wajib diisi (min 3 karakter)");
+    expect(control.setStatusCalls).toHaveLength(0);
+    expect(control.auditCalls).toHaveLength(0);
   });
 
-  // Audit batch 3 (lane I): reason penolakan ikut ke audit payload —
-  // sebelumnya reviewer tidak bisa mengetahui ALASAN penolakan dari audit log.
-  it("admin reject dengan reason -> audit payload membawa reason", async () => {
-    control.setStatusResult = { id: "kyc-1", user_id: "user-1", status: "rejected" };
-    const res = await post("/kyc-1/reject", { reason: "Foto KTP tidak jelas" });
-    expect(res.status).toBe(200);
-    expect(control.auditCalls[0]?.payloadSummary).toEqual({ status: "rejected", reason: "Foto KTP tidak jelas" });
-  });
-
-  it("admin reject dengan reason kosong -> audit payload reason null (backward-compat)", async () => {
+  it("admin reject dengan reason kosong -> 400", async () => {
     control.setStatusResult = { id: "kyc-1", user_id: "user-1", status: "rejected" };
     const res = await post("/kyc-1/reject", { reason: "" });
-    expect(res.status).toBe(200);
-    expect(control.auditCalls[0]?.payloadSummary).toEqual({ status: "rejected", reason: null });
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as { error: string };
+    expect(body.error).toBe("Alasan penolakan wajib diisi (min 3 karakter)");
+    expect(control.setStatusCalls).toHaveLength(0);
+  });
+
+  it("admin reject dengan reason < 3 karakter -> 400", async () => {
+    control.setStatusResult = { id: "kyc-1", user_id: "user-1", status: "rejected" };
+    const res = await post("/kyc-1/reject", { reason: "ab" });
+    expect(res.status).toBe(400);
+    expect(control.setStatusCalls).toHaveLength(0);
+    expect(control.auditCalls).toHaveLength(0);
+  });
+
+  it("admin reject dengan reason whitespace saja -> 400", async () => {
+    control.setStatusResult = { id: "kyc-1", user_id: "user-1", status: "rejected" };
+    const res = await post("/kyc-1/reject", { reason: "   " });
+    expect(res.status).toBe(400);
+    expect(control.setStatusCalls).toHaveLength(0);
   });
 
   it("admin reject dengan reason > 1000 karakter -> 400 tanpa perubahan status", async () => {
@@ -167,6 +171,19 @@ describe("POST /api/kyc/:id/approve | :id/reject (admin KYC status, P2-5)", () =
     expect(res.status).toBe(400);
     expect(control.setStatusCalls).toHaveLength(0);
     expect(control.auditCalls).toHaveLength(0);
+  });
+
+  // Audit batch 3 (lane I): reason penolakan ikut ke audit payload —
+  // sebelumnya reviewer tidak bisa mengetahui ALASAN penolakan dari audit log.
+  it("admin reject dengan reason valid -> 200, setKycStatus rejected, audit payload membawa reason (trim)", async () => {
+    control.setStatusResult = { id: "kyc-1", user_id: "user-1", status: "rejected" };
+    const res = await post("/kyc-1/reject", { reason: "  Foto KTP tidak jelas  " });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { kyc?: { id: string; status: string } };
+    expect(body.kyc).toMatchObject({ id: "kyc-1", status: "rejected" });
+    expect(control.setStatusCalls).toEqual([{ id: "kyc-1", status: "rejected" }]);
+    expect(control.auditCalls).toHaveLength(1);
+    expect(control.auditCalls[0]?.payloadSummary).toEqual({ status: "rejected", reason: "Foto KTP tidak jelas" });
   });
 
   it("unknown record id -> 404 and NO audit append", async () => {

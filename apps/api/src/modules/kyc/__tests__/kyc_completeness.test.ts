@@ -67,13 +67,17 @@ function submit(body: Record<string, unknown>) {
   });
 }
 
+// Lane P2 (regression fix): web uploadKycFile mengembalikan STORAGE PATH bucket
+// kyc-files (`${userId}/${kind}-${ts}.${ext}`), bukan URL — `.url()` membatalkan
+// semua submission. Kontrak baru: path caller-scoped (diawali `${user.id}/`),
+// charset aman, tanpa traversal.
 const BASE = {
   fullName: "Budi Santoso",
   nik: "3201234567890001",
   address: "Jl. Merdeka No. 17, Jakarta",
   dob: "1990-05-12",
-  ktpUrl: "https://example.supabase.co/storage/v1/object/sign/kyc-files/u-1/ktp.jpg",
-  selfieUrl: "https://example.supabase.co/storage/v1/object/sign/kyc-files/u-1/selfie.jpg",
+  ktpUrl: "u-1/ktp-1725060000000.jpg",
+  selfieUrl: "u-1/selfie-1725060000000.jpg",
   npwpUrl: undefined,
 };
 
@@ -88,8 +92,8 @@ describe("POST /api/kyc (audit P0-5 completeness)", () => {
     const res = await submit(BASE);
     expect(res.status).toBe(201);
     expect(control.upsertedRow?.dob).toBe("1990-05-12");
-    expect(control.upsertedRow?.ktp_url).toContain("ktp.jpg");
-    expect(control.upsertedRow?.selfie_url).toContain("selfie.jpg");
+    expect(control.upsertedRow?.ktp_url).toBe("u-1/ktp-1725060000000.jpg");
+    expect(control.upsertedRow?.selfie_url).toBe("u-1/selfie-1725060000000.jpg");
   });
 
   it("payload tanpa dob → 400", async () => {
@@ -140,8 +144,50 @@ describe("POST /api/kyc (audit P0-5 completeness)", () => {
     expect(body.kyc.nik).not.toContain("3201234567890001");
   });
 
-  it("ktpUrl bukan URL → 400 (audit batch 2 F7)", async () => {
-    const res = await submit({ ...BASE, ktpUrl: "bukan-url" });
+  // Lane P2 (regression fix): ktpUrl/selfieUrl adalah storage path — bukan URL.
+  // Path dari uid lain / traversal / charset liar harus ditolak 400.
+  it("ktpUrl path milik user lain → 400", async () => {
+    const res = await submit({ ...BASE, ktpUrl: "someone-else/ktp-1.jpg" });
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as { error: string };
+    expect(body.error).toBe("Path file KYC tidak valid");
+  });
+
+  it("selfieUrl path milik user lain → 400", async () => {
+    const res = await submit({ ...BASE, selfieUrl: "someone-else/selfie-1.jpg" });
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as { error: string };
+    expect(body.error).toBe("Path file KYC tidak valid");
+  });
+
+  it("npwpUrl path milik user lain → 400 (opsional tapi tetap caller-scoped)", async () => {
+    const res = await submit({ ...BASE, npwpUrl: "someone-else/npwp-1.pdf" });
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as { error: string };
+    expect(body.error).toBe("Path file KYC tidak valid");
+  });
+
+  it("path traversal ../ → 400", async () => {
+    const res = await submit({ ...BASE, ktpUrl: "u-1/../../other-user/ktp.jpg" });
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as { error: string };
+    expect(body.error).toBe("Path file KYC tidak valid");
+  });
+
+  it("karakter di luar whitelist (query/encoded) → 400", async () => {
+    const res = await submit({ ...BASE, ktpUrl: "u-1/ktp.jpg?token=abc" });
+    expect(res.status).toBe(400);
+  });
+
+  it("path milik sendiri → 201 dan tersimpan apa adanya", async () => {
+    const res = await submit(BASE);
+    expect(res.status).toBe(201);
+    expect(control.upsertedRow?.ktp_url).toBe("u-1/ktp-1725060000000.jpg");
+    expect(control.upsertedRow?.selfie_url).toBe("u-1/selfie-1725060000000.jpg");
+  });
+
+  it("ktpUrl kosong → 400", async () => {
+    const res = await submit({ ...BASE, ktpUrl: "" });
     expect(res.status).toBe(400);
   });
 });

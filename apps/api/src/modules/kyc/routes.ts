@@ -7,6 +7,17 @@ import { redactKycForOwner } from "../../lib/redact.js";
 
 const app = new Hono();
 
+// Lane P2 (regression fix): ktpUrl/selfieUrl/npwpUrl adalah STORAGE PATH bucket
+// kyc-files — web uploadKycFile mengembalikan `${userId}/${kind}-${ts}.${ext}`,
+// bukan URL (batch 2 F7 salah pasang `.url()` sehingga semua submission 400).
+// Kontrak: path caller-scoped (diawali `${user.id}/`), charset aman, tanpa
+// traversal `..` — dicek SETELAH auth karena butuh user.id.
+const KYC_PATH_CHARSET_RE = /^[A-Za-z0-9._\-/]+$/;
+
+function isOwnKycStoragePath(path: string, userId: string): boolean {
+  return path.startsWith(`${userId}/`) && KYC_PATH_CHARSET_RE.test(path) && !path.includes("..");
+}
+
 app.get("/", async (c) => {
   const authRes = await requireUser(c);
   if ("error" in authRes) return c.json({ error: authRes.error === 403 ? "Akun disuspend" : "Unauthorized" }, authRes.error);
@@ -28,11 +39,10 @@ app.post(
       nik: z.string().regex(/^\d{16}$/, "NIK harus 16 digit angka"),
       address: z.string().min(10).max(500),
       dob: z.string().optional(),
-      // Audit batch 2 F7: ktpUrl harus URL valid (write-side; row lama tidak
-      // diverifikasi ulang saat read).
-      ktpUrl: z.string().url(),
-      npwpUrl: z.string().optional(),
-      selfieUrl: z.string().optional(),
+      // Lane P2: bukan `.url()` — web mengirim storage path (lihat helper di atas).
+      ktpUrl: z.string().min(1).max(500),
+      npwpUrl: z.string().max(500).optional(),
+      selfieUrl: z.string().min(1).max(500),
     }),
   ),
   async (c) => {
@@ -47,6 +57,13 @@ app.post(
     if (!body.dob || !body.ktpUrl || !body.selfieUrl) {
       return c.json({ error: "Lengkapi DOB, foto KTP, dan selfie untuk validasi KYC" }, 400);
     }
+    // Lane P2: storage path wajib caller-scoped — path uid lain memungkinkan
+    // PII orang lain di-review/di-sign atas nama submitter ini.
+    const invalidPath =
+      !isOwnKycStoragePath(body.ktpUrl, user.id) ||
+      !isOwnKycStoragePath(body.selfieUrl, user.id) ||
+      (body.npwpUrl != null && body.npwpUrl !== "" && !isOwnKycStoragePath(body.npwpUrl, user.id));
+    if (invalidPath) return c.json({ error: "Path file KYC tidak valid" }, 400);
     const existing = await getKycByUser(user.id);
     if (existing && existing.status === "approved") return c.json({ error: "KYC sudah approved" }, 400);
     const rec = await upsertKycSubmission(user.id, existing, {
@@ -86,11 +103,10 @@ app.post("/:id/approve", async (c) => {
   return c.json({ kyc: rec });
 });
 
-// Audit batch 3 (lane I): reject menerima `reason` opsional (validated string,
-// kosong tetap diterima demi backward-compat dengan caller lama yang mengirim
-// body kosong) dan menuliskannya ke audit payload — dulu payload hanya
-// { status: "rejected" } sehingga alasan penolakan tidak tercatat di audit log.
-// Body DIPARSA MANUAL (bukan zValidator): request tanpa body harus tetap lolos.
+// Lane P2: reason penolakan WAJIB (trim, min 3, maks 1000) — audit trail tidak
+// boleh berakhir dengan reason:null (kontrak lane I sebelumnya menerima kosong
+// demi backward-compat). Body tetap diparse manual: request tanpa body harus
+// menghasilkan 400 yang jelas, bukan parse error.
 app.post("/:id/reject", async (c) => {
   const authRes = await requireAdmin(c);
   if ("error" in authRes) {
@@ -98,11 +114,17 @@ app.post("/:id/reject", async (c) => {
     return c.json(e.body, e.status);
   }
   const user = authRes.user;
-  const rejectSchema = z.object({ reason: z.string().max(1000).optional() });
+  const rejectSchema = z.object({ reason: z.string().trim().min(3).max(1000) });
   const rawBody: unknown = await c.req.json().catch(() => ({}));
   const parsed = rejectSchema.safeParse(rawBody);
-  if (!parsed.success) return c.json({ error: "Alasan penolakan tidak valid (maks. 1000 karakter)" }, 400);
-  const reason = parsed.data.reason?.trim() ? parsed.data.reason : null;
+  if (!parsed.success) {
+    const isTooLong = parsed.error.issues.some((issue) => issue.code === "too_big");
+    return c.json(
+      { error: isTooLong ? "Alasan penolakan tidak valid (maks. 1000 karakter)" : "Alasan penolakan wajib diisi (min 3 karakter)" },
+      400,
+    );
+  }
+  const reason = parsed.data.reason;
   const rec = await setKycStatus(c.req.param("id"), "rejected");
   if (!rec) return c.json({ error: "Not found" }, 404);
   await logAuditDb(
