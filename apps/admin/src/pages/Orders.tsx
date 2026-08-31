@@ -1,23 +1,52 @@
 import { useEffect, useState } from "react";
-import { useConfirm } from "../components/ConfirmProvider";
+import { type ConfirmOptions, useConfirm } from "../components/ConfirmProvider";
 import { StatusBadge } from "../components/StatusBadge";
 import { apiFetch } from "../lib/api";
 import { supabase } from "../lib/supabase";
 import type { OrderRow, ShipmentRow } from "../lib/types";
 import { errMessage } from "../lib/utils";
 
+/**
+ * Opsi konfirmasi D8 per transisi status pengiriman (pure — mudah diuji).
+ * null = transisi tanpa konfirmasi (tidak ada saat ini). Kirim TANPA resi
+ * irreversible/lacak-nol → danger.
+ */
+export function shipmentConfirmOptions(status: string, trackingNumber: string | undefined): ConfirmOptions | null {
+  switch (status) {
+    case "cancelled":
+      return { title: "Batalkan pengiriman ini?", message: "Aksi ini tidak dapat dibatalkan.", confirmLabel: "Batalkan", danger: true };
+    case "packed":
+      return { title: "Tandai pengiriman ini sudah dipacking?", confirmLabel: "Packing" };
+    case "shipped":
+      return trackingNumber
+        ? { title: "Tandai pengiriman ini dikirim?", confirmLabel: "Kirim" }
+        : {
+            title: "Kirim tanpa nomor resi?",
+            message: "Pengiriman tanpa nomor resi tidak dapat dilacak.",
+            confirmLabel: "Kirim",
+            danger: true,
+          };
+    case "delivered":
+      return { title: "Tandai pengiriman ini selesai (diterima)?", confirmLabel: "Selesai" };
+    default:
+      return null;
+  }
+}
+
 export function OrdersPage() {
   const confirm = useConfirm();
   const [rows, setRows] = useState<OrderRow[]>([]);
   const [shipments, setShipments] = useState<ShipmentRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [trackInputs, setTrackInputs] = useState<Record<string, string>>({});
   const [busyId, setBusyId] = useState<string | null>(null);
 
   async function load() {
     setLoading(true);
-    const [{ data: o }, { data: s }] = await Promise.all([
+    setLoadError(false);
+    const [{ data: o, error: oErr }, { data: s, error: sErr }] = await Promise.all([
       supabase
         .from("orders")
         .select("id,card_id,status,delivery_option,tracking_number,created_at")
@@ -25,6 +54,11 @@ export function OrdersPage() {
         .limit(100),
       supabase.from("shipments").select("id,card_id,status,tracking_number").order("created_at", { ascending: false }).limit(500),
     ]);
+    if (oErr || sErr) {
+      setLoadError(true);
+      setLoading(false);
+      return;
+    }
     setRows((o ?? []) as OrderRow[]);
     setShipments((s ?? []) as ShipmentRow[]);
     setLoading(false);
@@ -39,16 +73,10 @@ export function OrdersPage() {
   }
 
   async function updateShipment(shipmentId: string, status: string, trackingNumber?: string) {
-    if (
-      status === "cancelled" &&
-      !(await confirm({
-        title: "Batalkan pengiriman ini?",
-        message: "Aksi ini tidak dapat dibatalkan.",
-        confirmLabel: "Batalkan",
-        danger: true,
-      }))
-    )
-      return;
+    // D8: setiap aksi mutasi lewat konfirmasi in-app. Kirim TANPA resi =
+    // tidak dapat dilacak → danger; transisi lain standar; Batal sudah danger.
+    const options = shipmentConfirmOptions(status, trackingNumber);
+    if (options && !(await confirm(options))) return;
     setMsg(null);
     setBusyId(shipmentId);
     try {
@@ -133,6 +161,13 @@ export function OrdersPage() {
         {loading ? (
           <div style={{ padding: 20 }} className="muted">
             Memuat…
+          </div>
+        ) : loadError ? (
+          <div className="admin-msg" role="alert" aria-live="polite" style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <span>Gagal memuat data pesanan — periksa koneksi lalu coba lagi.</span>
+            <button className="btn-ghost admin-mini" onClick={load}>
+              Coba Lagi
+            </button>
           </div>
         ) : rows.length === 0 ? (
           <div style={{ padding: 20 }} className="muted">

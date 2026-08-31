@@ -110,6 +110,7 @@ export function CreatorsPage() {
       setMsg("Email, nama tampilan, dan handle wajib diisi.");
       return;
     }
+    if (!(await confirm({ title: `Buat akun kreator untuk ${form.email.trim()}?`, confirmLabel: "Buat Akun" }))) return;
     setBusy(true);
     try {
       const res = await apiFetch<ProvisionResult>("/api/admin/users/provision", {

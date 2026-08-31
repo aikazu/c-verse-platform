@@ -20,16 +20,23 @@ export function DropsPage() {
     dropStartAt: "",
   });
   const [msg, setMsg] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState(false);
   const [creating, setCreating] = useState(false);
   const [busy, setBusy] = useState(false);
 
   async function load() {
     setLoading(true);
-    const { data } = await supabase
+    setLoadError(false);
+    const { data, error } = await supabase
       .from("drops")
       .select("id,title,series,status,total_units,sold_count,price_ccoin,price_unsigned_ccoin,raffle_end_at,drawn_at,created_at")
       .order("created_at", { ascending: false })
       .limit(500);
+    if (error) {
+      setLoadError(true);
+      setLoading(false);
+      return;
+    }
     setRows((data ?? []) as DropRow[]);
     setLoading(false);
   }
@@ -221,6 +228,13 @@ export function DropsPage() {
         {loading ? (
           <div style={{ padding: 20 }} className="muted">
             Memuat…
+          </div>
+        ) : loadError ? (
+          <div className="admin-msg" role="alert" aria-live="polite" style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <span>Gagal memuat data drops — periksa koneksi lalu coba lagi.</span>
+            <button className="btn-ghost admin-mini" onClick={load}>
+              Coba Lagi
+            </button>
           </div>
         ) : (
           <div className="table-wrap">

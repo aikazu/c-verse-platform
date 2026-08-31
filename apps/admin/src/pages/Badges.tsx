@@ -1,16 +1,24 @@
 import { useEffect, useState } from "react";
+import { useConfirm } from "../components/ConfirmProvider";
 import { apiFetch } from "../lib/api";
 import { supabase } from "../lib/supabase";
 import type { BadgeRow } from "../lib/types";
 import { errMessage } from "../lib/utils";
 
 export function BadgesPage() {
+  const confirm = useConfirm();
   const [rows, setRows] = useState<BadgeRow[]>([]);
   const [msg, setMsg] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
 
   async function load() {
-    const { data } = await supabase.from("badges").select("*").order("created_at", { ascending: false });
+    setLoadError(false);
+    const { data, error } = await supabase.from("badges").select("*").order("created_at", { ascending: false });
+    if (error) {
+      setLoadError(true);
+      return;
+    }
     setRows((data ?? []) as BadgeRow[]);
   }
   useEffect(() => {
@@ -18,11 +26,21 @@ export function BadgesPage() {
   }, []);
 
   async function toggleActive(b: BadgeRow) {
+    const isCurrentlyActive = b.is_active ?? true;
+    const willDeactivate = isCurrentlyActive;
+    if (
+      !(await confirm({
+        title: willDeactivate ? `Nonaktifkan lencana "${b.name}"?` : `Aktifkan lencana "${b.name}"?`,
+        ...(willDeactivate ? { message: "User tidak bisa memperoleh lencana ini selama nonaktif." } : {}),
+        confirmLabel: willDeactivate ? "Nonaktifkan" : "Aktifkan",
+        danger: willDeactivate,
+      }))
+    )
+      return;
     setMsg(null);
     setBusyId(b.id);
     try {
-      const isActive = !(b.is_active ?? true);
-      await apiFetch(`/api/gamification/badges/${b.id}`, { method: "PATCH", body: JSON.stringify({ isActive }) });
+      await apiFetch(`/api/gamification/badges/${b.id}`, { method: "PATCH", body: JSON.stringify({ isActive: !isCurrentlyActive }) });
       load();
     } catch (err) {
       setMsg(errMessage(err));
@@ -40,6 +58,14 @@ export function BadgesPage() {
       {msg && (
         <div className="admin-msg" role="status" aria-live="polite">
           {msg}
+        </div>
+      )}
+      {loadError && (
+        <div className="admin-msg" role="alert" aria-live="polite" style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <span>Gagal memuat data lencana — periksa koneksi lalu coba lagi.</span>
+          <button className="btn-ghost admin-mini" onClick={load}>
+            Coba Lagi
+          </button>
         </div>
       )}
       <div className="card">
