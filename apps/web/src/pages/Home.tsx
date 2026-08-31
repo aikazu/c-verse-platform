@@ -95,7 +95,7 @@ function HomeInner() {
             )}
             {vaultCards.length > 0 && (
               <Link to="/me/manage" className="hm-action-link">
-                <span className="hm-action-text">{vaultCards.length} kartu di vault — bisa dikirim kapan saja</span>
+                <span className="hm-action-text">{vaultCards.length} C.Card di vault — bisa dikirim kapan saja</span>
                 <span className="hm-action-arrow">→</span>
               </Link>
             )}

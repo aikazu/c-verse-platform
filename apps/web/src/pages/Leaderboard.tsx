@@ -93,26 +93,23 @@ export default function Leaderboard() {
     if (board.length === 0) return null;
     if (activeType === "xp") {
       // Honest: only derived from the rows we actually have. The board is
-      // ranked by totalXp/level, so we highlight the leader's XP and the
-      // total cards those players collectively own (sum, not a fabricated
-      // global stat).
+      // ranked by totalXp/level, so we highlight the leader's XP and level
+      // plus the roster size — nothing fabricated beyond the rows shown.
       const topXp = board[0]?.totalXp ?? 0;
-      const totalCards = board.reduce((sum, e) => sum + e.score, 0); // unused on xp — fallback
-      // For xp board `score` is XP-equivalent; we don't have per-row card
-      // count, so we skip the "C.Card Top 50" stat instead of fabricating.
       const topLevel = board[0]?.level ?? 0;
+      // Di papan xp `score` adalah XP, bukan jumlah kartu — total "C.Card
+      // Top 50" sengaja tidak ditampilkan daripada memfabrikasi angka
+      // (menjumlahkan `score` akan menjumlahkan XP).
       return [
         { key: "LV TERTINGGI", value: String(topLevel) },
         { key: "XP TERTINGGI", value: topXp.toLocaleString("id-ID") },
         { key: "PEMAIN", value: String(board.length) },
-        // intentionally omit cards total — not in xp board
-        ...(totalCards > 0 ? [{ key: "C.CARD TOP 50", value: totalCards.toLocaleString("id-ID") }] : []),
       ];
     }
     if (activeType === "cards") {
       const topCards = board[0]?.score ?? 0;
       return [
-        { key: "KOLEKSI TERBANYAK", value: `${topCards.toLocaleString("id-ID")} kartu` },
+        { key: "KOLEKSI TERBANYAK", value: `${topCards.toLocaleString("id-ID")} C.Card` },
         { key: "KOLEKTOR", value: String(board.length) },
       ];
     }
