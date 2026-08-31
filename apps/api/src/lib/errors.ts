@@ -14,7 +14,9 @@ const MAPPINGS: Array<{ pattern: RegExp; message: string }> = [
   { pattern: /permission denied/i, message: "Forbidden" },
 ];
 
-const FALLBACK = "Operasi gagal";
+// Exported for lib/db.ts callRpc — unmapped RPC codes fall back to the same
+// generic copy so raw Postgres text never reaches clients through any seam.
+export const FALLBACK = "Operasi gagal";
 
 // Pentest P2 (2026-08-30): curated RPC business errors are part of the client
 // contract. SECURITY DEFINER RPCs surface them as P0001 messages shaped as a

@@ -1,4 +1,5 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { FALLBACK } from "./errors.js";
 
 // RPC facade (docs/13): semua aksi uang & stok lewat Postgres RPC single-transaction.
 // RPC security definer membaca auth.uid() dari JWT — klien harus dibuat dengan
@@ -66,6 +67,10 @@ const ERROR_MESSAGES: Record<string, string> = {
   NO_PENDING_SALE: "Tidak ada transaksi seed yang menunggu release untuk kartu ini",
   NOT_SEED_CARD: "Kartu bukan Creator Seed C.Card",
   SEED_ABORT_DUPLICATE: "Transaksi seed ini sudah pernah di-abort sebelumnya",
+  CARD_NOT_IN_VAULT: "Kartu belum ada di vault platform — tidak bisa di-shipout dari sini",
+  SEED_SALE_IN_PROGRESS: "Kartu seed sedang dalam transaksi yang belum selesai",
+  SHIPMENT_ACTIVE: "Sudah ada pengiriman aktif untuk kartu ini",
+  INVALID_LEADERBOARD_TYPE: "Tipe leaderboard tidak valid (xp|cards|badges|creator)",
   INVALID_STATE: "Payout tidak bisa di-refund (status disbursed / refunded)",
   INVALID_TRANSITION: "Transisi tidak valid",
   INVALID_ARG: "Argumen tidak valid",
@@ -75,8 +80,20 @@ const ERROR_MESSAGES: Record<string, string> = {
 async function callRpc<T>(db: SupabaseClient, fn: string, args: Record<string, unknown>): Promise<T> {
   const { data, error } = await db.rpc(fn, args);
   if (error) {
-    const code = error.message.trim().split("\n")[0];
-    throw new RpcError(code, ERROR_MESSAGES[code] ?? error.message);
+    // Audit 2026-08-31: RAISE EXCEPTION 'CODE: detail' -> err.code adalah token
+    // UPPER_SNAKE murni (split di ':' pertama) supaya cabang
+    // `err.code === "PERMISSION_DENIED"` dkk. di routes benar-benar match.
+    const firstLine = error.message.trim().split("\n")[0] ?? "";
+    const colonIdx = firstLine.indexOf(":");
+    const code = colonIdx === -1 ? firstLine : firstLine.slice(0, colonIdx).trim();
+    const mapped = ERROR_MESSAGES[code];
+    if (!mapped) {
+      // Unmapped = bukan business code kurasi — raw Postgres/PostgREST text
+      // tidak pernah sampai ke klien (generic fallback), raw dilog server-side
+      // untuk incident response (pola yang sama dengan app.onError).
+      console.error(`[db.rpc:${fn}] unmapped error (${error.code ?? "-"}):`, error.message);
+    }
+    throw new RpcError(code, mapped ?? FALLBACK);
   }
   return data as T;
 }
