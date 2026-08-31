@@ -37,7 +37,6 @@ export default function App() {
 
   async function onLogout() {
     await supabase.auth.signOut();
-    localStorage.removeItem("admin_demo_session");
     nav("/");
   }
 
