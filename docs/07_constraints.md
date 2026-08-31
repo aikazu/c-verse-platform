@@ -116,6 +116,9 @@
 - Bidder bisa cancel bidnya sendiri → C-Coin release.
 - Bid bisa dibatalkan 24 jam setelah dipasang (BID_CANCEL_COOLDOWN);
   setelah cancel, C-12 rebuy cooldown tetap berlaku.
+  Angka 24 jam terkunci di DUA tempat: `interval '24 hours'` di `cancel_bid`
+  (04_rpc.sql) dan `BID_CANCEL_COOLDOWN_HOURS` di shared — dipin literal test
+  di kedua sisi; ubah berarti ubah keduanya.
 - Bid lebih tinggi → bid lama `outbid`, C-Coin balik otomatis
   ke bidder lama.
 - History bid per kartu: 90 hari terakhir; bid `accepted` (complete)

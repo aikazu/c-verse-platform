@@ -175,9 +175,10 @@ describe("GET /api/nfc/cards/:cardId — bidder name privacy masking", () => {
 
 // Owner directive 2026-09-01 (BID_CANCEL_COOLDOWN): viewer butuh tahu kapan
 // cancel bidnya menjadi mungkin — activeBid miliknya (isMine) membawa
-// canCancelAt = createdAt + BID_CANCEL_COOLDOWN_HOURS. Timing data TIDAK boleh
-// bocor ke bid orang lain: bids[] list di payload ini maupun list publik
-// /api/bids/card/:cardId tetap tanpa canCancelAt.
+// canCancelAt = createdAt + BID_CANCEL_COOLDOWN_HOURS. canCancelAt tidak
+// diberikan untuk bid orang lain (bids[] list di payload ini maupun list
+// publik /api/bids/card/:cardId) — kontrak UI-nya cancel control milik
+// bidder sendiri, bukan privacy timing (createdAt memang publik di Bid).
 describe("GET /api/nfc/cards/:cardId — bid cancel cooldown (canCancelAt)", () => {
   beforeEach(() => {
     control.card = makeCard();

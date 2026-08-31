@@ -66,7 +66,14 @@ export function ConfirmProvider({ children }: { children: React.ReactNode }) {
             {request.options.message && <div className="cfm-message">{request.options.message}</div>}
             {request.options.requireCheck && (
               <label className="cfm-check">
-                <input type="checkbox" checked={isChecked} onChange={(e) => setIsChecked(e.target.checked)} />
+                {/* Autofocus ke checkbox: tombol confirm disabled saat requireCheck,
+                    dan browser membuang autofocus pada elemen disabled. */}
+                <input
+                  type="checkbox"
+                  checked={isChecked}
+                  onChange={(e) => setIsChecked(e.target.checked)}
+                  autoFocus={!request.options.danger || undefined}
+                />
                 <span>{request.options.requireCheck.label}</span>
               </label>
             )}
@@ -79,7 +86,7 @@ export function ConfirmProvider({ children }: { children: React.ReactNode }) {
                 className={request.options.danger ? "cfm-btn-danger" : "btn-gold"}
                 onClick={() => close(true)}
                 disabled={!!request.options.requireCheck && !isChecked}
-                autoFocus
+                autoFocus={!request.options.requireCheck || undefined}
               >
                 {request.options.confirmLabel ?? "Lanjutkan"}
               </button>

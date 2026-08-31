@@ -44,12 +44,23 @@ export default function CardInfo() {
   const [buyoutOpen, setBuyoutOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [bidAmount, setBidAmount] = useState("");
+  // Cooldown cancel bid (founder 2026-09-01): canCancelAt = created_at + 24h
+  // (dihitung server, hanya untuk activeBid milik viewer). Tick 30s hanya
+  // berjalan saat terkunci — tombol terbuka sendiri jika halaman dibiarkan
+  // melewati batas.
+  const [nowMs, setNowMs] = useState(() => Date.now());
   const confirm = useConfirm();
   const { data, isLoading, refetch } = useQuery<ApiCardDetailResponse>({
     queryKey: ["card", cardId],
     queryFn: () => api.card(cardId!),
     enabled: !!cardId,
   });
+  const canCancelAtMs = data?.activeBid?.isMine && data.activeBid.canCancelAt ? new Date(data.activeBid.canCancelAt).getTime() : null;
+  useEffect(() => {
+    if (canCancelAtMs == null || canCancelAtMs <= nowMs) return;
+    const timer = window.setInterval(() => setNowMs(Date.now()), 30_000);
+    return () => window.clearInterval(timer);
+  }, [canCancelAtMs, nowMs]);
   // P1-6 (audit 2026-08-24): auto-buka panel buyout saat deep-link dari Marketplace
   // (#beli anchor) — kurangi friksi 2 klik jadi 1 untuk pembeli sekunder.
   // Hooks dulu sebelum early-return agar urutan konsisten.
@@ -118,10 +129,7 @@ export default function CardInfo() {
   // isOwner / canBuyout dibaca oleh JSX di bawah; useEffect pakai derived.
   const canBuyout = canBuyoutDerived;
   const myActiveBid = activeBid?.isMine ? activeBid : null;
-  // Cooldown cancel bid (founder 2026-09-01): canCancelAt = created_at + 24h
-  // (dihitung server). Dihitung sekali per render dari payload — tanpa ticker.
-  const canCancelAtMs = myActiveBid?.canCancelAt ? new Date(myActiveBid.canCancelAt).getTime() : null;
-  const isCancelLocked = canCancelAtMs != null && canCancelAtMs > Date.now();
+  const isCancelLocked = canCancelAtMs != null && canCancelAtMs > nowMs;
   const canCancelLabel =
     canCancelAtMs != null ? new Date(canCancelAtMs).toLocaleString("id-ID", { dateStyle: "short", timeStyle: "short" }) : "";
 

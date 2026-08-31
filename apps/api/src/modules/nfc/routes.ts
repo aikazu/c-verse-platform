@@ -143,9 +143,11 @@ function publicOwner(
 
 /**
  * Owner directive 2026-09-01 (BID_CANCEL_COOLDOWN): bid bisa dibatalkan 24 jam
- * setelah dipasang — UI butuh tahu kapan cancel menjadi mungkin. Timing data
- * HANYA untuk activeBid milik viewer (isMine) di payload ini; bid orang lain
- * (bids[] list & /api/bids/card/:cardId) tidak boleh membawa informasi waktu.
+ * setelah dipasang — UI butuh tahu kapan cancel menjadi mungkin. canCancelAt
+ * HANYA untuk activeBid milik viewer (isMine) di payload ini: kontrak UI-nya
+ * cancel control milik bidder sendiri (createdAt bid sendiri tetap bagian
+ * kontrak Bid publik — yang tidak diberikan adalah field turunan cooldown
+ * untuk bid orang lain).
  */
 function withCancelAt(bid: PublicBid): PublicBid & { canCancelAt?: string } {
   if (!bid.isMine) return bid;
