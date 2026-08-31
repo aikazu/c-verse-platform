@@ -71,7 +71,7 @@ export default function Marketplace() {
   const sortedByPrice = useMemo(() => [...rawCards].sort((a, b) => (a.buyoutPriceCcoin ?? 0) - (b.buyoutPriceCcoin ?? 0)), [rawCards]);
   const medianPrice = sortedByPrice.length > 0 ? (sortedByPrice[Math.floor(sortedByPrice.length / 2)]?.buyoutPriceCcoin ?? null) : null;
   const highest = sortedByPrice.length > 0 ? (sortedByPrice[sortedByPrice.length - 1]?.buyoutPriceCcoin ?? null) : null;
-  const floorTitle = sortedByPrice[0]?.drop?.title ?? sortedByPrice[0]?.card.id ?? null;
+  const floorTitle = sortedByPrice[0] ? (sortedByPrice[0]?.drop?.title ?? "Tanpa judul") : null;
 
   return (
     <div className="page-stack">
@@ -223,13 +223,13 @@ export default function Marketplace() {
             const art = drop?.artworkUrl ? { backgroundImage: `url("${drop.artworkUrl.replace(/"/g, "%22")}")` } : null;
             const rank = floorRank.get(card.id) ?? null;
             const seriesLabel = drop?.series ?? "—";
-            const init = getInitials(drop?.title ?? card.id, seriesLabel);
+            const init = getInitials(drop?.title, seriesLabel);
             const sellerName = entry.seller?.displayName ?? "—";
             const detailHref = card?.id ? `/cards/${card.id}#beli` : "/browse";
             // Lane C: seller.id tidak lagi ada di payload publik — card.id unik per listing.
             const cardKey = card.id;
             return (
-              <Link key={cardKey} to={detailHref} className="card market-card" aria-label={`Beli ${drop?.title ?? card.id}`}>
+              <Link key={cardKey} to={detailHref} className="card market-card" aria-label={`Beli ${drop?.title ?? "C.Card"}`}>
                 <div className="market-art">
                   {art ? <div className="art" style={art} /> : null}
                   {!art && (
