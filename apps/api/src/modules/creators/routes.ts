@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { clientIp, requireUser } from "../../lib/auth.js";
+import { clientIp, requireAdmin, requireUser } from "../../lib/auth.js";
 import { sanitizeDbError } from "../../lib/errors.js";
 import {
   getCreatorByHandle,
@@ -95,6 +95,18 @@ app.get("/:id", async (c) => {
       (a, b) => new Date(b.dropStartAt ?? b.dropAt ?? b.createdAt).getTime() - new Date(a.dropStartAt ?? a.dropAt ?? a.createdAt).getTime(),
     );
   const wantStats = c.req.query("stats") === "1" || c.req.query("includeStats") === "1";
+  if (wantStats) {
+    // Audit batch 2 F1: stats=1 menyajikan analitik PRIVAT (totalViews/
+    // uniqueViewers/topReferrer) — fence identik dengan /:username/views/stats:
+    // owner only (creator rec milik user yang login); admin lewat requireAdmin
+    // (role=admin + MFA aal2). Anon 401, user lain 403.
+    const authRes = await requireUser(c);
+    if ("error" in authRes) return c.json({ error: authRes.error === 403 ? "Akun disuspend" : "Unauthorized" }, authRes.error);
+    if (rec?.userId !== authRes.user.id) {
+      const adminRes = await requireAdmin(c);
+      if ("error" in adminRes) return c.json({ error: "Tidak diizinkan" }, 403);
+    }
+  }
   if (wantStats && rec) {
     const views = await listCreatorPageViews(rec.id);
     const totalViews = views.length;
@@ -202,26 +214,32 @@ app.get("/me/drops/:dropId", async (c) => {
   const authRes = await requireUser(c);
   if ("error" in authRes) return c.json({ error: authRes.error === 403 ? "Akun disuspend" : "Unauthorized" }, authRes.error);
   const user = authRes.user;
-  const { C_COIN_RATE_IDR } = await import("@c-verse/shared");
+  const { C_COIN_RATE_IDR, REVENUE_SHARE_PLATFORM_PRODUCED } = await import("@c-verse/shared");
   const { getDropById, listCardsByDrop } = await import("../../lib/reads/drops.js");
+  const { countCardsWithOwnershipHistory } = await import("./reads.js");
   const drop = await getDropById(c.req.param("dropId"));
   if (!drop) return c.json({ error: "Drop tidak ditemukan" }, 404);
   if (drop.creatorId !== user.id) return c.json({ error: "Bukan drop kamu" }, 403);
   const cards = await listCardsByDrop(drop.id);
-  const sold = cards.filter((c) => c.status !== "inventory");
-  const inventory = cards.filter((c) => c.status === "inventory");
-  const withBid = cards.filter((c) => c.buyoutPriceCcoin != null);
-  const soldRevenueCcoin = sold.length * (drop.priceCcoin ?? 0);
-  // 70/30 (platform 70 / creator 30) per docs/01_scope.md founder decision — creator
-  // share = 30% dari primary sale revenue. Secondary royalties dilacak terpisah
-  // (lihat /api/creators/me/payouts filtered type='royalty').
-  const creatorSharePrimaryCcoin = Math.floor(soldRevenueCcoin * 0.3);
+  // Audit batch 2 F2: "sold" = kartu yang pernah pindah tangan (≥1 baris
+  // ownership_history — ditulis checkout/draw untuk primary, buyout/accept-bid/
+  // release-seed untuk secondary). Status listed_buyout/bid_pending/tampered/
+  // defect/lost BUKAN penanda jual — filter status lama menggelembungkan angka.
+  const sold = await countCardsWithOwnershipHistory(cards.map((ca) => ca.id));
+  const inventory = cards.filter((ca) => ca.status === "inventory");
+  const withBid = cards.filter((ca) => ca.buyoutPriceCcoin != null);
+  const soldRevenueCcoin = sold * (drop.priceCcoin ?? 0);
+  // 70/30 (platform 70 / creator 30) per docs/01_scope.md founder decision —
+  // share kreator dari REVENUE_SHARE_PLATFORM_PRODUCED (@c-verse/shared, bukan
+  // hardcode). Secondary royalties dilacak terpisah (lihat /api/creators/me/payouts
+  // filtered type='royalty').
+  const creatorSharePrimaryCcoin = Math.floor(soldRevenueCcoin * REVENUE_SHARE_PLATFORM_PRODUCED.creator);
   const creatorSharePrimaryIdr = creatorSharePrimaryCcoin * C_COIN_RATE_IDR;
   return c.json({
     drop,
     cards: {
       total: cards.length,
-      sold: sold.length,
+      sold,
       inventory: inventory.length,
       withBuyout: withBid.length,
     },
