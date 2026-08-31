@@ -1,3 +1,4 @@
+import { escapeLikePattern, isSafeId, sanitizeFilterToken } from "../pgfilter.js";
 import { mapCardRow, mapDropRow, readDb } from "../reads.js";
 import type { Card, Drop } from "../store.js";
 
@@ -33,9 +34,13 @@ export async function listDrops(filter?: DropFilter): Promise<Drop[]> {
     query = query.in("status", publicStatuses);
   }
 
-  // Search di SQL via ilike
+  // Search di SQL via ilike — input di-sanitize dulu agar tidak bisa menyuntik
+  // kondisi or() tambahan (mis. `?search=x,status.eq.draft`) atau wildcard LIKE.
   if (filter?.search) {
-    query = query.or(`title.ilike.%${filter.search}%,series.ilike.%${filter.search}%`);
+    const term = escapeLikePattern(sanitizeFilterToken(filter.search).trim());
+    if (term !== "") {
+      query = query.or(`title.ilike.%${term}%,series.ilike.%${term}%`);
+    }
   }
 
   const { data, error } = await query;
@@ -83,6 +88,9 @@ export async function listCards(query: CardQuery = {}): Promise<Card[]> {
 
 /** Resolve card by id OR nfcShortId (route params accept both). */
 export async function getCardByIdOrNfc(idOrShort: string): Promise<Card | null> {
+  // Route param is unauthenticated input — reject anything that could alter the
+  // or() template (filter syntax) before it is ever interpolated.
+  if (!isSafeId(idOrShort)) return null;
   const db = readDb();
   const { data, error } = await db.from("cards").select("*").or(`id.eq.${idOrShort},nfc_short_id.eq.${idOrShort}`).maybeSingle();
   if (error) throw new Error(error.message);
