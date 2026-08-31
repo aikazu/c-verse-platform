@@ -24,7 +24,10 @@ export default function Card3D() {
     enabled: !!cardId,
   });
   const drop: ApiDrop | null = data?.drop ?? null;
-  useCardViewer(viewerRef, drop?.artwork3dUrl ?? null, drop?.artworkUrl ?? null);
+  // isReady menutup kasus drop tanpa artwork3dUrl & artworkUrl sekaligus:
+  // deps viewer tidak berubah saat loading→loaded, jadi butuh flag terpisah
+  // agar jalur placeholder.obj tetap dieksekusi.
+  useCardViewer(viewerRef, drop?.artwork3dUrl ?? null, drop?.artworkUrl ?? null, data != null);
   if (isLoading) return <div className="muted ci-note">Memuat…</div>;
   if (!data)
     return (

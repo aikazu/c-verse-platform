@@ -169,7 +169,16 @@ function disposeObject3D(root: THREE_TYPES.Object3D): void {
   });
 }
 
-export function useCardViewer(containerRef: React.RefObject<HTMLDivElement | null>, meshUrl: string | null, textureUrl: string | null) {
+export function useCardViewer(
+  containerRef: React.RefObject<HTMLDivElement | null>,
+  meshUrl: string | null,
+  textureUrl: string | null,
+  // Payload-ready gate: host div baru ada setelah halaman selesai loading.
+  // Tanpa ini, drop tanpa artwork3dUrl DAN artworkUrl membuat deps tetap
+  // [null, null] sehingga effect tidak pernah jalan ulang (host kosong —
+  // jalur placeholder.obj tidak pernah dieksekusi).
+  isReady = true,
+) {
   const rafRef = useRef<number | null>(null);
   useEffect(() => {
     if (!containerRef.current) return;
@@ -352,6 +361,13 @@ export function useCardViewer(containerRef: React.RefObject<HTMLDivElement | nul
       disposed = true;
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
       detachWindowListeners?.();
+      // Unmount normal: subtree mesh yang sudah termuat (geometri OBJ,
+      // MeshStandardMaterial + texture map) tidak tercatat di `disposables`
+      // — bebaskan eksplisit di sini. Kalau unmount balapan dengan load
+      // asinkron, mesh masih null dan race path di atas yang dispose.
+      // Dispose ganda (kedua path melihat mesh yang sama) adalah no-op di
+      // three.js.
+      if (mesh) disposeObject3D(mesh);
       try {
         renderer?.dispose();
       } catch {
@@ -361,5 +377,5 @@ export function useCardViewer(containerRef: React.RefObject<HTMLDivElement | nul
       for (const resource of disposables) resource.dispose();
       disposables.length = 0;
     };
-  }, [meshUrl, textureUrl]);
+  }, [meshUrl, textureUrl, isReady]);
 }
