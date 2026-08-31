@@ -3,61 +3,53 @@ import { useEffect, useState } from "react";
 import { StatusBadge } from "../components/StatusBadge";
 import { supabase } from "../lib/supabase";
 
-export function InvestorPage() {
-  const [data, setData] = useState<{
-    gmv: number;
-    secondaryVol: number;
-    users: number;
-    drops: number;
-    sold: number;
-    units: number;
-    dropsRows: { id: string; title: string; status: string; sold_count: number | null; total_units: number }[];
-  } | null>(null);
-  const [error, setError] = useState(false);
+// Audit batch 3 (lane I): agregat GMV/secondary/users kini dihitung server-side
+// via RPC get_investor_stats (supabase/migrations/04_rpc.sql — is_admin
+// body-guarded). Sebelumnya aproksimasi client-side memakai wallet_transactions
+// + users dengan .limit(1000) sehingga UNDERCOUNT di data nyata.
 
-  useEffect(() => {
-    async function load() {
-      setError(false);
-      const [wtx, us, dr] = await Promise.all([
-        supabase.from("wallet_transactions").select("amount_ccoin,type,ref_type").limit(1000),
-        supabase.from("users").select("id,total_xp").limit(1000),
-        supabase.from("drops").select("id,title,status,total_units,sold_count").limit(100),
-      ]);
-      if (wtx.error || us.error || dr.error) {
-        setError(true);
-        return;
-      }
-      const w = (wtx.data ?? []) as { amount_ccoin: number; type: string; ref_type: string | null }[];
-      const users = (us.data ?? []) as { id: string }[];
-      const drops = (dr.data ?? []) as { id: string; title: string; status: string; total_units: number; sold_count: number | null }[];
-      // GMV: primary checkout ('checkout' ref='drop'), settled secondary buyout ('platform_buy'),
-      // dan seed buyout PHASE-1 escrow ('escrow_hold' ref_type='card' — buyout_card
-      // di 04_rpc.sql, sebelumnya 20260823020000_seed_xp_unify.sql).
-      // Place-bid escrow ('escrow_hold' ref_type='bid') TIDAK masuk GMV karena belum settled.
-      const gmv = w
-        .filter((t) => t.type === "checkout" || t.type === "platform_buy" || (t.type === "escrow_hold" && t.ref_type === "card"))
-        .reduce((n, t) => n + Math.abs(t.amount_ccoin), 0);
-      const secondaryVol = w.filter((t) => t.type === "payout" || t.type === "royalty").reduce((n, t) => n + Math.abs(t.amount_ccoin), 0);
-      setData({
-        gmv,
-        secondaryVol,
-        users: users.length,
-        drops: drops.length,
-        sold: drops.reduce((n, d) => n + (d.sold_count ?? 0), 0),
-        units: drops.reduce((n, d) => n + (d.total_units ?? 0), 0),
-        dropsRows: drops,
-      });
+type InvestorStats = { users: number; gmvCcoin: number; secondaryVolCcoin: number; txCount: number };
+type DropPerfRow = { id: string; title: string; status: string; sold_count: number | null; total_units: number };
+
+export function InvestorPage() {
+  const [stats, setStats] = useState<InvestorStats | null>(null);
+  const [drops, setDrops] = useState<DropPerfRow[]>([]);
+  const [error, setError] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  async function load() {
+    setError(false);
+    setLoading(true);
+    const [statsRes, dropsRes] = await Promise.all([
+      supabase.rpc("get_investor_stats"),
+      supabase.from("drops").select("id,title,status,total_units,sold_count").order("created_at", { ascending: false }).limit(100),
+    ]);
+    if (statsRes.error || dropsRes.error) {
+      setError(true);
+      setLoading(false);
+      return;
     }
+    setStats((statsRes.data ?? null) as InvestorStats | null);
+    setDrops((dropsRes.data ?? []) as DropPerfRow[]);
+    setLoading(false);
+  }
+  useEffect(() => {
     load();
   }, []);
 
+  const sold = drops.reduce((n, d) => n + (d.sold_count ?? 0), 0);
+  const units = drops.reduce((n, d) => n + (d.total_units ?? 0), 0);
+
   if (error)
     return (
-      <div className="admin-msg" role="alert" aria-live="polite" style={{ margin: 24 }}>
-        Gagal memuat data investor — periksa koneksi lalu muat ulang halaman.
+      <div className="admin-msg" role="alert" aria-live="polite" style={{ margin: 24, display: "flex", gap: 8, alignItems: "center" }}>
+        <span>Gagal memuat data investor — periksa koneksi lalu coba lagi.</span>
+        <button className="btn-ghost admin-mini" onClick={load}>
+          Coba Lagi
+        </button>
       </div>
     );
-  if (!data)
+  if (!stats || loading)
     return (
       <div className="muted" style={{ padding: 24, textAlign: "center" }}>
         Memuat…
@@ -77,24 +69,26 @@ export function InvestorPage() {
       <div className="admin-stats">
         <div className="admin-stat-card gold">
           <div className="admin-stat-label">GMV (C-Coin)</div>
-          <div className="admin-stat-value">{data.gmv}</div>
-          <div className="admin-stat-hint">≈ {formatIdr(ccoinToIdr(data.gmv))}</div>
+          <div className="admin-stat-value">{stats.gmvCcoin}</div>
+          <div className="admin-stat-hint">
+            ≈ {formatIdr(ccoinToIdr(stats.gmvCcoin))} · {stats.txCount} transaksi tercatat
+          </div>
         </div>
         <div className="admin-stat-card">
           <div className="admin-stat-label">Users</div>
-          <div className="admin-stat-value">{data.users}</div>
+          <div className="admin-stat-value">{stats.users}</div>
           <div className="admin-stat-hint">Total terdaftar</div>
         </div>
         <div className="admin-stat-card">
           <div className="admin-stat-label">Drops</div>
-          <div className="admin-stat-value">{data.drops}</div>
+          <div className="admin-stat-value">{drops.length}</div>
           <div className="admin-stat-hint">
-            {data.sold}/{data.units} unit terjual
+            {sold}/{units} unit terjual
           </div>
         </div>
         <div className="admin-stat-card">
           <div className="admin-stat-label">Secondary</div>
-          <div className="admin-stat-value">{data.secondaryVol}</div>
+          <div className="admin-stat-value">{stats.secondaryVolCcoin}</div>
           <div className="admin-stat-hint">C-Coin volume</div>
         </div>
       </div>
@@ -111,7 +105,7 @@ export function InvestorPage() {
               </tr>
             </thead>
             <tbody>
-              {data.dropsRows.slice(0, 20).map((d) => (
+              {drops.slice(0, 20).map((d) => (
                 <tr key={d.id}>
                   <td style={{ fontWeight: 600, fontSize: 12 }}>{d.title}</td>
                   <td>
@@ -126,7 +120,7 @@ export function InvestorPage() {
         </div>
       </div>
       <div className="muted" style={{ fontSize: 11, marginTop: 12 }}>
-        Sumber: Supabase (RLS, authenticated read). Data untuk internal founder saja — tidak diekspos ke publik.
+        Sumber: database internal. Data untuk internal founder saja — tidak diekspos ke publik.
       </div>
     </div>
   );
