@@ -34,9 +34,6 @@
   "engines": {
     "node": ">=20"
   },
-  "dependencies": {
-    "pg": "^8.23.0"
-  },
   "devDependencies": {
     "@biomejs/biome": "^2.5.11",
     "@playwright/test": "^1.62.1",
