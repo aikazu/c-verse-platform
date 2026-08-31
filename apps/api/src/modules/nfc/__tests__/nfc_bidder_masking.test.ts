@@ -173,6 +173,61 @@ describe("GET /api/nfc/cards/:cardId — bidder name privacy masking", () => {
   });
 });
 
+// Owner directive 2026-09-01 (BID_CANCEL_COOLDOWN): viewer butuh tahu kapan
+// cancel bidnya menjadi mungkin — activeBid miliknya (isMine) membawa
+// canCancelAt = createdAt + BID_CANCEL_COOLDOWN_HOURS. Timing data TIDAK boleh
+// bocor ke bid orang lain: bids[] list di payload ini maupun list publik
+// /api/bids/card/:cardId tetap tanpa canCancelAt.
+describe("GET /api/nfc/cards/:cardId — bid cancel cooldown (canCancelAt)", () => {
+  beforeEach(() => {
+    control.card = makeCard();
+    control.shortIdCard = null;
+    control.bids = [];
+    control.users = [];
+    control.viewer = null;
+    control.history = [];
+  });
+
+  it("own activeBid (isMine) includes ISO canCancelAt = createdAt + 24h", async () => {
+    // Deterministik dari fixture createdAt "2026-08-01T00:00:00Z".
+    control.users = [makeUser({ id: "bidder-1" })];
+    control.bids = [makeBid({ id: "bid-1", bidderId: "bidder-1", amountCCoin: 90 })];
+    control.viewer = control.users[0];
+
+    const res = await getCardDetail();
+    const body = (await res.json()) as { activeBid: { isMine?: boolean; canCancelAt?: string; createdAt: string } | null };
+    expect(body.activeBid?.isMine).toBe(true);
+    // toISOString() menormalkan ke presisi milidetik — bandingkan instant-nya.
+    expect(body.activeBid?.canCancelAt).toBe(new Date(new Date("2026-08-01T00:00:00Z").getTime() + 86_400_000).toISOString());
+    expect(Number.isNaN(new Date(body.activeBid?.canCancelAt ?? "").getTime())).toBe(false);
+  });
+
+  it("activeBid milik viewer lain (isMine false) has NO canCancelAt; bids[] never carries it", async () => {
+    control.users = [makeUser({ id: "bidder-1" })];
+    control.bids = [makeBid({ id: "bid-1", bidderId: "bidder-1", amountCCoin: 90 })];
+    control.viewer = makeUser({ id: "someone-else" });
+
+    const res = await getCardDetail();
+    const body = (await res.json()) as {
+      activeBid: Record<string, unknown> | null;
+      bids: Array<Record<string, unknown>>;
+    };
+    expect(body.activeBid?.isMine).toBe(false);
+    expect(body.activeBid && "canCancelAt" in body.activeBid).toBe(false);
+    expect(body.bids.every((b) => !("canCancelAt" in b))).toBe(true);
+  });
+
+  it("anonymous viewer: activeBid milik orang lain tanpa canCancelAt", async () => {
+    control.users = [makeUser({ id: "bidder-1" })];
+    control.bids = [makeBid({ id: "bid-1", bidderId: "bidder-1", amountCCoin: 90 })];
+
+    const res = await getCardDetail();
+    const body = (await res.json()) as { activeBid: Record<string, unknown> | null };
+    expect(body.activeBid?.isMine).toBeUndefined();
+    expect(body.activeBid && "canCancelAt" in body.activeBid).toBe(false);
+  });
+});
+
 // Lane C (remediation batch 1): identitas owner/bidder tidak boleh bocor di
 // payload publik — UUID stabil (owner.id, bidderId) memungkinkan deanonymisasi
 // lintas-listing meskipun nama sudah dimasking "Anonim".

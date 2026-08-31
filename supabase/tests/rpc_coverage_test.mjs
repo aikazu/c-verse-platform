@@ -169,6 +169,10 @@ await admin.query("commit");
   const b1 = await userClient(U.b1);
   const activeBid = await admin.query("select id from public.bids where card_id = 'cov-card-s1' and status = 'active'");
   const bidId = activeBid.rows[0].id;
+  // BID_CANCEL_COOLDOWN (owner directive 2026-09-01): bid dipasang di S1 (baru
+  // saja) -> backdate agar melewati window 24 jam; umur bid dites terpisah di
+  // rpc_bid_cancel_cooldown_test.mjs — fokus S3 tetap escrow release.
+  await admin.query("update public.bids set created_at = now() - interval '25 hours' where id = $1", [bidId]);
   const forbidden = await expectCode(a.query("select public.cancel_bid($1)", [bidId]));
   await b1.query("select public.cancel_bid($1)", [bidId]);
   const afterCancel = await balance(U.b1);

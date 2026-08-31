@@ -1,4 +1,4 @@
-import { MIN_SECONDARY_PRICE_CCOIN } from "@c-verse/shared";
+import { BID_CANCEL_COOLDOWN_HOURS, MIN_SECONDARY_PRICE_CCOIN } from "@c-verse/shared";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { FALLBACK } from "./errors.js";
 
@@ -51,6 +51,9 @@ const ERROR_MESSAGES: Record<string, string> = {
   NOT_FOUND: "Tidak ditemukan",
   FORBIDDEN: "Tidak diizinkan",
   NOT_ACTIVE: "Bid tidak aktif",
+  // Owner directive 2026-09-01: window cancel mengikuti BID_CANCEL_COOLDOWN_HOURS
+  // (packages/shared) — pesan ikut konstanta, bukan angka hardcode.
+  BID_CANCEL_COOLDOWN: `Bid baru bisa dibatalkan ${BID_CANCEL_COOLDOWN_HOURS} jam setelah dipasang`,
   NO_ACTIVE_BID: "Tidak ada bid active untuk kartu ini",
   MAX_BUYOUT_ACTIVE: "Maksimum 20 kartu buyout aktif per user",
   NOT_FOR_SALE: "Kartu tidak dijual buyout",

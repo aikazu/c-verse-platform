@@ -701,6 +701,11 @@ end $$;
 
 -- ══════════════════════════════════════════════════════════════════════════
 -- cancel_bid: bidder cancel own active bid (escrow release).
+-- BID_CANCEL_COOLDOWN (owner directive 2026-09-01; BID_CANCEL_COOLDOWN_HOURS
+-- = 24 di packages/shared/src/index.ts): bid baru bisa dibatalkan 24 jam
+-- setelah dipasang. Komposisi dengan C-12: cancel dibuka setelah 24h, lalu
+-- cooldown rebuy 24 jam (COOLING_PERIOD_24H) tetap berlaku setelahnya di
+-- place_bid/buyout_card — dua window berbeda, tidak saling menggantikan.
 -- ══════════════════════════════════════════════════════════════════════════
 create or replace function public.cancel_bid(p_bid_id text) returns public.bids
 language plpgsql security definer set search_path = public as $$
@@ -713,6 +718,11 @@ begin
   if not found then raise exception 'NOT_FOUND'; end if;
   if v_bid.bidder_id <> v_user then raise exception 'FORBIDDEN'; end if;
   if v_bid.status <> 'active' then raise exception 'NOT_ACTIVE'; end if;
+  -- BID_CANCEL_COOLDOWN (BID_CANCEL_COOLDOWN_HOURS = 24): tolak sebelum wallet
+  -- write apa pun. Boundary strict `>`: created_at tepat now()-24h sudah boleh.
+  if v_bid.created_at > now() - interval '24 hours' then
+    raise exception 'BID_CANCEL_COOLDOWN';
+  end if;
 
   perform public.wallet_credit(v_user, v_bid.amount_ccoin, 'escrow_release', 'bid', v_bid.id, 'release-' || v_bid.id);
   update bids set status = 'cancelled', cancelled_at = now() where id = p_bid_id returning * into v_bid;

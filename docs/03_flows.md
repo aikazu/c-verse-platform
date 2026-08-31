@@ -253,6 +253,7 @@ BROWSE (discovery drop; bid di halaman kartu):
       C-Coin bidder lama otomatis kembali ke saldo
    -> bidder bisa CANCEL bidnya sendiri (selama belum accepted)
       -> C-Coin release
+      -> bid bisa dibatalkan 24 jam setelah dipasang (BID_CANCEL_COOLDOWN); setelah cancel, C-12 rebuy cooldown tetap berlaku
    -> owner TIDAK bisa reject — hanya ACCEPT (current active)
    -> accept -> transfer ownership + escrow -> bid lain yang tersisa otomatis outbid + release
 ```

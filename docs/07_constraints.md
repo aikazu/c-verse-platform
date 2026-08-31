@@ -114,6 +114,8 @@
 ### C-05e Flow bid (keputusan 2026-08-12)
 - TANPA reject — owner hanya accept (current active) atau diam.
 - Bidder bisa cancel bidnya sendiri → C-Coin release.
+- Bid bisa dibatalkan 24 jam setelah dipasang (BID_CANCEL_COOLDOWN);
+  setelah cancel, C-12 rebuy cooldown tetap berlaku.
 - Bid lebih tinggi → bid lama `outbid`, C-Coin balik otomatis
   ke bidder lama.
 - History bid per kartu: 90 hari terakhir; bid `accepted` (complete)

@@ -480,6 +480,12 @@ export const MAX_ACTIVE_BIDS_PER_USER = 3; // keputusan founder 2026-08-16
 export const MIN_PAYOUT_CCOIN = 10; // docs/07 C-09b: minimum payout 10 C-Coin (Rp 100rb)
 export const BALANCE_CAP_CCOIN = 500; // cap saldo top-up non-KYC (docs 07 C-08, founder 2026-08-16); KYC approved = tanpa cap
 export const ESCROW_RELEASE_DELAY_DAYS = 7; // escrow shipping auto-release DELIVERED + H+7
+// Owner directive 2026-09-01: bid baru bisa dibatalkan 24 jam setelah dipasang —
+// dieksekusi RPC cancel_bid (BID_CANCEL_COOLDOWN) + diekspos ke viewer sebagai
+// activeBid.canCancelAt (GET /api/nfc/cards/:cardId, hanya untuk bid miliknya).
+// Komplemen C-12 rebuy cooldown (COOLING_PERIOD_24H) yang berlaku SETELAH
+// cancel/jual — window cancel vs window rebuy adalah dua kunci berbeda.
+export const BID_CANCEL_COOLDOWN_HOURS = 24;
 
 // Guards
 export function isCcoinInteger(n: number): boolean {

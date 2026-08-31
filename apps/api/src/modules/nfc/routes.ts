@@ -1,3 +1,4 @@
+import { BID_CANCEL_COOLDOWN_HOURS } from "@c-verse/shared";
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import { z } from "zod";
@@ -7,7 +8,7 @@ import { listBids } from "../../lib/reads/bids.js";
 import { getCardByIdOrNfc, getDropById } from "../../lib/reads/drops.js";
 import { logAuditDb } from "../../lib/reads/kyc.js";
 import { getUserById, listUsersByIds } from "../../lib/reads/users.js";
-import { isPubliclyMasked, publicDisplayName, toPublicBid } from "../../lib/reads.js";
+import { isPubliclyMasked, type PublicBid, publicDisplayName, toPublicBid } from "../../lib/reads.js";
 import type { Bid, Card, User } from "../../lib/store.js";
 import { getSupabase } from "../../lib/supabase.js";
 import { getCardByNfcShortId, getCardByNfcUid, listOwnershipByCard } from "./reads.js";
@@ -137,6 +138,20 @@ function publicOwner(
     displayName: publicDisplayName(owner),
     username: isMasked ? null : (owner.username ?? null),
     isOwner: viewerId != null && owner.id === viewerId,
+  };
+}
+
+/**
+ * Owner directive 2026-09-01 (BID_CANCEL_COOLDOWN): bid bisa dibatalkan 24 jam
+ * setelah dipasang — UI butuh tahu kapan cancel menjadi mungkin. Timing data
+ * HANYA untuk activeBid milik viewer (isMine) di payload ini; bid orang lain
+ * (bids[] list & /api/bids/card/:cardId) tidak boleh membawa informasi waktu.
+ */
+function withCancelAt(bid: PublicBid): PublicBid & { canCancelAt?: string } {
+  if (!bid.isMine) return bid;
+  return {
+    ...bid,
+    canCancelAt: new Date(new Date(bid.createdAt).getTime() + BID_CANCEL_COOLDOWN_HOURS * 3_600_000).toISOString(),
   };
 }
 
@@ -275,7 +290,7 @@ app.get("/cards/:cardId", async (c) => {
       : null,
     creator: creator ? { id: creator.id, displayName: creator.displayName, username: creator.username ?? null } : null,
     owner: publicOwner(owner, viewerId),
-    activeBid: maskedBids[0] ? toPublicBid(maskedBids[0], viewerId) : null,
+    activeBid: maskedBids[0] ? withCancelAt(toPublicBid(maskedBids[0], viewerId)) : null,
     bids: maskedBids.map((b) => toPublicBid(b, viewerId)),
     // Riwayat tetap tampil dengan ownerName yang sudah dimasking — kolom ownerId (UUID) dibuang.
     ownershipHistory: history.map((h) => ({

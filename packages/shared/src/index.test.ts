@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   BALANCE_CAP_CCOIN,
+  BID_CANCEL_COOLDOWN_HOURS,
   calcLevel,
   calcSignedCount,
   calcSignedPrice,
@@ -89,6 +90,14 @@ describe("limits (founder 2026-08-16)", () => {
     // Split ceil: price 1 -> seller -1, price 2 -> seller 0 (settlement abort),
     // price 3 -> 1/1/1. Literal pin agar threshold tidak tergeser diam-diam.
     expect(MIN_SECONDARY_PRICE_CCOIN).toBe(3);
+  });
+
+  it("BID_CANCEL_COOLDOWN_HOURS literal pin = 24 (owner directive 2026-09-01)", () => {
+    // Cancel bid baru boleh 24 jam setelah dipasang (BID_CANCEL_COOLDOWN di
+    // RPC cancel_bid; activeBid.canCancelAt di GET /api/nfc/cards/:cardId).
+    // Komplemen C-12 rebuy cooldown (COOLING_PERIOD_24H) yang berlaku SETELAH
+    // cancel/jual — literal pin agar window cancel tidak tergeser diam-diam.
+    expect(BID_CANCEL_COOLDOWN_HOURS).toBe(24);
   });
 });
 
