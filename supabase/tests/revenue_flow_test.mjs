@@ -552,6 +552,110 @@ try {
       sellerBal === 4;
     report("T11 accept_bid ceil split 1/1/4 @ price 6", ok, `rev=${JSON.stringify(rev.rows[0] ?? {})} seller=${sellerBal} (ekspektasi 4)`);
   }
+
+  // ══ T12: accept_bid harga kecil — guard SECONDARY_PRICE_TOO_SMALL ═════════
+  // Split ceil membuat price 1/2 -> seller <= 0 (wallet_credit INVALID_AMOUNT,
+  // settlement abort). Guard first-class menolak SEBELUM wallet writes dengan
+  // kode kurasi; price 3 = batas aman (1/1/1).
+  {
+    const seller = uuid(12);
+    const bidder = uuid(121);
+    const results12 = {};
+    for (const price of [1, 2, 3]) {
+      const drop = `flow-t12p${price}-${stamp}`;
+      await mkUser(seller, "T12 Seller", 0);
+      await mkUser(bidder, "T12 Bidder", 100);
+      await mkDrop(drop, {
+        units: 1,
+        signed: 0,
+        priceU: price,
+        raffleEnd: "now() - interval '25 hours'",
+        drawn: "now() - interval '24 hours'",
+      });
+      const card = (await admin.query("select id from public.cards where drop_id = $1", [drop])).rows[0].id;
+      await admin.query("update public.cards set owner_id = $2, status = 'sold' where id = $1", [card, seller]);
+      const cb = await asUser(bidder);
+      await cb.query("select public.place_bid($1, $2)", [card, price]);
+      await cb.end();
+      const cs = await asUser(seller);
+      let raised = null;
+      try {
+        await cs.query("select public.accept_bid($1)", [card]);
+      } catch (e) {
+        raised = errCode(e);
+      }
+      await cs.end();
+      results12[price] = { raised, sellerBal: await walletBalance(seller) };
+    }
+    const okT12 =
+      results12[1].raised === "SECONDARY_PRICE_TOO_SMALL" &&
+      results12[2].raised === "SECONDARY_PRICE_TOO_SMALL" &&
+      results12[3].raised === null &&
+      results12[3].sellerBal === 1;
+    const revT12 = await admin.query(
+      "select platform_ccoin, royalty_ccoin, seller_ccoin from public.platform_revenue where ref_type = 'bid' and ref_id in (select id from public.bids where card_id like 'card-flow-t12p3-%')",
+    );
+    const ok =
+      okT12 &&
+      Number(revT12.rows[0]?.platform_ccoin) === 1 &&
+      Number(revT12.rows[0]?.royalty_ccoin) === 1 &&
+      Number(revT12.rows[0]?.seller_ccoin) === 1;
+    report(
+      "T12 accept_bid guard SECONDARY_PRICE_TOO_SMALL (1/2 raise, 3 settles 1/1/1)",
+      ok,
+      `p1=${results12[1].raised} p2=${results12[2].raised} p3=${results12[3].raised ?? "settled"} seller=${results12[3].sellerBal} rev=${JSON.stringify(revT12.rows[0] ?? {})}`,
+    );
+  }
+
+  // ══ T13: buyout_card harga kecil — guard + happy price 3 (1/1/1) ══════════
+  {
+    const seller = uuid(13);
+    const buyer = uuid(131);
+    await mkUser(seller, "T13 Seller", 0);
+    await mkUser(buyer, "T13 Buyer", 100);
+    const results13 = {};
+    for (const price of [1, 3]) {
+      const drop = `flow-t13p${price}-${stamp}`;
+      await mkDrop(drop, {
+        units: 1,
+        signed: 0,
+        priceU: price,
+        raffleEnd: "now() - interval '25 hours'",
+        drawn: "now() - interval '24 hours'",
+      });
+      const card = (await admin.query("select id from public.cards where drop_id = $1", [drop])).rows[0].id;
+      await admin.query("update public.cards set owner_id = $2, status = 'sold', buyout_price_ccoin = $3 where id = $1", [
+        card,
+        seller,
+        price,
+      ]);
+      const c = await asUser(buyer);
+      let raised = null;
+      try {
+        await c.query("select public.buyout_card($1)", [card]);
+      } catch (e) {
+        raised = errCode(e);
+      }
+      await c.end();
+      results13[price] = { raised, sellerBal: await walletBalance(seller) };
+    }
+    const revT13 = await admin.query(
+      "select platform_ccoin, royalty_ccoin, seller_ccoin from public.platform_revenue where ref_type = 'buyout' and ref_id in (select id from public.wallet_transactions where ref_id in (select id from public.cards where drop_id = $1) and type = 'platform_buy')",
+      [`flow-t13p3-${stamp}`],
+    );
+    const ok =
+      results13[1].raised === "SECONDARY_PRICE_TOO_SMALL" &&
+      results13[3].raised === null &&
+      results13[3].sellerBal === 1 &&
+      Number(revT13.rows[0]?.platform_ccoin) === 1 &&
+      Number(revT13.rows[0]?.royalty_ccoin) === 1 &&
+      Number(revT13.rows[0]?.seller_ccoin) === 1;
+    report(
+      "T13 buyout_card guard SECONDARY_PRICE_TOO_SMALL (1 raise, 3 settles 1/1/1)",
+      ok,
+      `p1=${results13[1].raised} p3=${results13[3].raised ?? "settled"} seller=${results13[3].sellerBal} rev=${JSON.stringify(revT13.rows[0] ?? {})}`,
+    );
+  }
 } finally {
   await admin.end();
 }

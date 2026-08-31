@@ -38,6 +38,10 @@ export const SECONDARY_FEE_PCT = 0.15; // 15% total secondary
 export const SECONDARY_PLATFORM_PCT = 0.075;
 export const SECONDARY_ROYALTY_PCT = 0.075;
 export const SECONDARY_SELLER_PCT = 0.85;
+// Floor harga jual sekunder: price - 2*ceil(0.075p) >= 1 hanya terpenuhi di
+// p >= 3 — di bawahnya seller share <= 0 dan settlement akan abort
+// (SECONDARY_PRICE_TOO_SMALL di RPC accept_bid/buyout_card/release_seed_sale).
+export const MIN_SECONDARY_PRICE_CCOIN = 3;
 export const REVENUE_SHARE_PLATFORM_PRODUCED = { platform: 0.7, creator: 0.3 } as const;
 export const REVENUE_SHARE_CREATOR_PRODUCED = { platform: 0.3, creator: 0.7 } as const; // deferred Y2+ (not in MVP)
 
@@ -47,8 +51,8 @@ export const REVENUE_SHARE_CREATOR_PRODUCED = { platform: 0.3, creator: 0.7 } as
  * lama membuat harga kecil terbelah 0/0/price: pendapatan platform menguap,
  * melanggar aturan "platform revenue must never evaporate"). Seller takes the
  * remainder so the three parts always sum exactly to the sale price.
- * Catatan: price <= 2 menghasilkan seller <= 0 — RPC settlement akan menolak
- * via guard INVALID_AMOUNT wallet_credit (harga jual sekunder realistis >> 2).
+ * Catatan: price <= 2 menghasilkan seller <= 0 — ditolak di sisi schema
+ * (MIN_SECONDARY_PRICE_CCOIN) dan guard RPC SECONDARY_PRICE_TOO_SMALL.
  */
 export function splitSecondaryFeeCcoin(priceCcoin: number): { platformCcoin: number; royaltyCcoin: number; sellerCcoin: number } {
   const platformCcoin = Math.ceil(priceCcoin * SECONDARY_PLATFORM_PCT);
@@ -167,19 +171,21 @@ export const checkoutSchema = z.object({
 });
 export type CheckoutInput = z.infer<typeof checkoutSchema>;
 
-// Secondary: set buyout price on owned card (KYC gate before)
+// Secondary: set buyout price on owned card (KYC gate before). Floor harga:
+// MIN_SECONDARY_PRICE_CCOIN — di bawahnya seller share <= 0 (settlement abort).
 export const setBuyoutSchema = z.object({
   cardId: z.string().min(1),
-  buyoutPriceCcoin: z.number().int().min(1).nullable(), // null = cabut buyout
+  buyoutPriceCcoin: z.number().int().min(MIN_SECONDARY_PRICE_CCOIN).nullable(), // null = cabut buyout
 });
 export type SetBuyoutInput = z.infer<typeof setBuyoutSchema>;
 
 // Bids: directly on card (no listing indirection). 1 active per card; outbid auto-release.
+// Floor amount = MIN_SECONDARY_PRICE_CCOIN — settlement split ceil butuh seller >= 1.
 export const placeBidSchema = z.object({
   cardId: z.string().min(1),
-  amountCcoin: z.number().int().min(1),
+  amountCcoin: z.number().int().min(MIN_SECONDARY_PRICE_CCOIN),
   // legacy alias
-  amountCCoin: z.number().int().min(1).optional(),
+  amountCCoin: z.number().int().min(MIN_SECONDARY_PRICE_CCOIN).optional(),
 });
 export type PlaceBidInput = z.infer<typeof placeBidSchema>;
 

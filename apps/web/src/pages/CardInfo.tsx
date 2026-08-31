@@ -1,12 +1,11 @@
-import type { Bid } from "@c-verse/shared";
-import { cardVariantLabel } from "@c-verse/shared";
+import { cardVariantLabel, MIN_SECONDARY_PRICE_CCOIN } from "@c-verse/shared";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { CardThumb } from "../components/CardThumb";
 import { useConfirm } from "../components/ConfirmProvider";
 import { ApiError, api } from "../lib/api";
-import type { ApiCardDetailResponse, ApiCardOwnershipRow } from "../lib/api-types";
+import type { ApiCardDetailResponse, ApiCardOwnershipRow, ApiPublicBid } from "../lib/api-types";
 import { useAuth } from "../lib/auth";
 import { scanNfcTaps } from "../lib/nfc-web";
 import { useToast } from "../lib/toast";
@@ -30,10 +29,9 @@ const BUYOUT_ERRORS: Record<string, string> = {
   CARD_NOT_TRADABLE: "C.Card ini tidak dapat diperdagangkan",
 };
 
-// Lane C: payload publik tidak lagi membawa UUID (owner.id, bidderId) — server
-// mengganti personalisasi dengan flag isOwner/isMine (viewer-scoped, aman).
-type ApiCardOwnerPublic = { displayName: string; username?: string | null; isOwner?: boolean };
-type ApiPublicBid = Bid & { isMine?: boolean };
+// Lane C: payload publik tidak lagi membawa UUID — server mengganti
+// personalisasi dengan flag isOwner (owner) / isMine (bid) viewer-scoped;
+// shape-nya dimodelkan langsung di api-types (ApiCardOwnerRef/ApiPublicBid).
 
 export default function CardInfo() {
   const { cardId } = useParams();
@@ -52,7 +50,7 @@ export default function CardInfo() {
   // (#beli anchor) — kurangi friksi 2 klik jadi 1 untuk pembeli sekunder.
   // Hooks dulu sebelum early-return agar urutan konsisten.
   const buyoutPrice = data?.card?.buyoutPriceCcoin ?? null;
-  const isOwnerDerived = (data?.owner as ApiCardOwnerPublic | null | undefined)?.isOwner === true;
+  const isOwnerDerived = data?.owner?.isOwner === true;
   const canBuyoutDerived = buyoutPrice != null && !!user && !isOwnerDerived;
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -111,11 +109,11 @@ export default function CardInfo() {
   const owner = data.owner;
   const activeBid = data.activeBid;
   const history: ApiCardOwnershipRow[] = data.ownershipHistory ?? [];
-  const bids: Bid[] = data.bids ?? [];
+  const bids: ApiPublicBid[] = data.bids ?? [];
   const verifyBadge = VERIFY_BADGES[card.verifyStatus ?? "unknown"] ?? VERIFY_BADGES.unknown;
   // isOwner / canBuyout dibaca oleh JSX di bawah; useEffect pakai derived.
   const canBuyout = canBuyoutDerived;
-  const myActiveBid = (activeBid as ApiPublicBid | null)?.isMine ? activeBid : null;
+  const myActiveBid = activeBid?.isMine ? activeBid : null;
 
   async function onBuyout() {
     if (
@@ -169,7 +167,8 @@ export default function CardInfo() {
     }
   }
 
-  const nextMinBid = (activeBid?.amountCCoin ?? 0) + 1;
+  // Floor pasar sekunder — bid 1-2 C tidak bisa settle (split ceil butuh seller >= 1).
+  const nextMinBid = Math.max(MIN_SECONDARY_PRICE_CCOIN, (activeBid?.amountCCoin ?? 0) + 1);
 
   async function onPlaceBid() {
     if (!user) {
@@ -177,9 +176,9 @@ export default function CardInfo() {
       return;
     }
     const amt = Number(bidAmount);
-    // Pattern CreatorPage: integer >= 1 wajib — tolak desimal/Infinity/NaN.
-    if (!Number.isInteger(amt) || amt < 1) {
-      push("Minimal 1 C", "info");
+    // Pattern CreatorPage: integer >= MIN_SECONDARY_PRICE_CCOIN wajib — tolak desimal/Infinity/NaN.
+    if (!Number.isInteger(amt) || amt < MIN_SECONDARY_PRICE_CCOIN) {
+      push(`Minimal ${MIN_SECONDARY_PRICE_CCOIN} C`, "info");
       return;
     }
     if (activeBid && amt <= activeBid.amountCCoin) {

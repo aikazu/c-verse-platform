@@ -758,6 +758,10 @@ begin
   order by amount_ccoin desc limit 1 for update;
   if not found then raise exception 'NO_ACTIVE_BID'; end if;
 
+  -- Guard MIN_SECONDARY_PRICE_CCOIN (packages/shared/src/index.ts) — split CEIL
+  -- butuh seller >= 1 (price 1/2 -> seller <= 0); tolak sebelum wallet writes.
+  if v_bid.amount_ccoin < 3 then raise exception 'SECONDARY_PRICE_TOO_SMALL'; end if;
+
   -- ── PHASE-1 LOCK (seed belum vault-in + verified) ──────────────────────
   if v_is_seed and (v_card.location <> 'platform_vault'::card_location
                     or v_card.verify_status <> 'verified'::verify_status) then
@@ -928,6 +932,10 @@ begin
 
   v_price := v_card.buyout_price_ccoin;
   v_seller := v_card.owner_id;
+
+  -- Guard MIN_SECONDARY_PRICE_CCOIN (paritas accept_bid) — tolak sebelum
+  -- wallet writes; di bawah 3 C seller share <= 0 pada split CEIL.
+  if v_price < 3 then raise exception 'SECONDARY_PRICE_TOO_SMALL'; end if;
 
   -- ── PHASE-1 LOCK (seed belum vault-in + verified) ──────────────────────
   if v_is_seed and (v_card.location <> 'platform_vault'::card_location
@@ -1209,6 +1217,9 @@ begin
     v_buyer := v_bid.bidder_id;
     v_dest := coalesce(v_bid.destination, 'buyer_address'::public.shipment_to_dest);
 
+    -- Guard MIN_SECONDARY_PRICE_CCOIN (defense-in-depth; seed price = drop price).
+    if v_price < 3 then raise exception 'SECONDARY_PRICE_TOO_SMALL'; end if;
+
     -- Lane D (2026-08-31): split CEIL (lihat accept_bid) — seller remainder.
     v_platform_ccoin := ceil(v_price * 0.075);
     v_royalty_ccoin := ceil(v_price * 0.075);
@@ -1259,6 +1270,9 @@ begin
   v_price := v_order.total_ccoin;
   v_buyer := v_order.user_id;
   v_dest := (case when v_order.delivery_option = 'vault' then 'platform_vault'::public.shipment_to_dest else 'buyer_address'::public.shipment_to_dest end);
+
+  -- Guard MIN_SECONDARY_PRICE_CCOIN (paritas Path A; seed price = drop price).
+  if v_price < 3 then raise exception 'SECONDARY_PRICE_TOO_SMALL'; end if;
 
   -- Lane D (2026-08-31): split CEIL (lihat accept_bid) — seller remainder.
   v_platform_ccoin := ceil(v_price * 0.075);

@@ -1,3 +1,4 @@
+import { MIN_SECONDARY_PRICE_CCOIN } from "@c-verse/shared";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { FALLBACK } from "./errors.js";
 
@@ -40,6 +41,7 @@ const ERROR_MESSAGES: Record<string, string> = {
   ADDRESS_REQUIRED: "Alamat pengiriman wajib (min 10 karakter) untuk opsi kirim fisik",
   SHIPPING_FEE_REQUIRED: "Ongkir (C-Coin integer ≥ 1) wajib untuk kirim fisik",
   INVALID_AMOUNT: "Nominal tidak valid (integer ≥ 1)",
+  SECONDARY_PRICE_TOO_SMALL: `Harga terlalu kecil — minimum ${MIN_SECONDARY_PRICE_CCOIN} C-Coin untuk pasar sekunder`,
   INSUFFICIENT: "Saldo C-Coin tidak cukup",
   ENTRY_CLOSED: "Window entry raffle sudah tutup / drop sudah di-draw",
   ENTRY_EXISTS: "Kamu sudah ikut raffle drop ini",

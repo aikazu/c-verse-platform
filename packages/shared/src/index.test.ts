@@ -19,7 +19,10 @@ import {
   leaderboardQuerySchema,
   leaderboardTypeSchema,
   MAX_ACTIVE_BIDS_PER_USER,
+  MIN_SECONDARY_PRICE_CCOIN,
   orderStatusLabel,
+  placeBidSchema,
+  setBuyoutSchema,
   shipmentToDestLabel,
   shipmentTypeLabel,
   splitSecondaryFeeCcoin,
@@ -80,6 +83,28 @@ describe("limits (founder 2026-08-16)", () => {
   it("top-up cap non-KYC = 500; max 3 active bids per user", () => {
     expect(BALANCE_CAP_CCOIN).toBe(500);
     expect(MAX_ACTIVE_BIDS_PER_USER).toBe(3);
+  });
+
+  it("MIN_SECONDARY_PRICE_CCOIN literal pin = 3 (price - 2*ceil(7,5%) >= 1)", () => {
+    // Split ceil: price 1 -> seller -1, price 2 -> seller 0 (settlement abort),
+    // price 3 -> 1/1/1. Literal pin agar threshold tidak tergeser diam-diam.
+    expect(MIN_SECONDARY_PRICE_CCOIN).toBe(3);
+  });
+});
+
+describe("secondary price floor in schemas (MIN_SECONDARY_PRICE_CCOIN)", () => {
+  it("placeBidSchema rejects amounts below the floor", () => {
+    expect(() => placeBidSchema.parse({ cardId: "c1", amountCcoin: 1 })).toThrow();
+    expect(() => placeBidSchema.parse({ cardId: "c1", amountCcoin: 2 })).toThrow();
+    expect(() => placeBidSchema.parse({ cardId: "c1", amountCCoin: 2 })).toThrow(); // legacy alias
+    expect(placeBidSchema.parse({ cardId: "c1", amountCcoin: 3 }).amountCcoin).toBe(3);
+  });
+
+  it("setBuyoutSchema rejects price below the floor but keeps null (cabut)", () => {
+    expect(() => setBuyoutSchema.parse({ cardId: "c1", buyoutPriceCcoin: 1 })).toThrow();
+    expect(() => setBuyoutSchema.parse({ cardId: "c1", buyoutPriceCcoin: 2 })).toThrow();
+    expect(setBuyoutSchema.parse({ cardId: "c1", buyoutPriceCcoin: null }).buyoutPriceCcoin).toBeNull();
+    expect(setBuyoutSchema.parse({ cardId: "c1", buyoutPriceCcoin: 3 }).buyoutPriceCcoin).toBe(3);
   });
 });
 
