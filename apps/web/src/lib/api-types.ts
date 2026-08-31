@@ -165,8 +165,9 @@ export interface ApiCardOwnerRef {
 }
 
 // Bid publik (toPublicBid di apps/api/src/lib/reads.ts): bidderId dibuang,
-// isMine hanya ada saat ada viewer.
-export type ApiPublicBid = Omit<Bid, "bidderId"> & { isMine?: boolean };
+// isMine hanya ada saat ada viewer. canCancelAt (founder 2026-09-01) = created_at
+// + 24h cooldown (ISO UTC) — hanya untuk bid milik viewer; absen = bebas cancel.
+export type ApiPublicBid = Omit<Bid, "bidderId"> & { isMine?: boolean; canCancelAt?: string };
 
 export interface ApiCardOwnershipRow {
   id: string;

@@ -252,6 +252,13 @@
 	font-size: 12px;
 }
 
+/* Cooldown cancel bid (founder 2026-09-01) — info statis "Bisa dibatalkan …" */
+.ci-cancel-note {
+	margin-top: 6px;
+	font-size: 11px;
+	color: var(--text-muted);
+}
+
 /* ── Ownership / bid history cards ─────────────────────────────────────────── */
 .ci-head-row {
 	display: flex;

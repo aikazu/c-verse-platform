@@ -10,6 +10,8 @@ export interface ConfirmOptions {
   cancelLabel?: string;
   /** Aksi irreversible (accept bid, kirim kartu) — tombol konfirmasi merah. */
   danger?: boolean;
+  /** Checklist wajib (founder 2026-09-01): confirm terkunci sampai dicentang. */
+  requireCheck?: { label: string };
 }
 
 type ConfirmRequest = { options: ConfirmOptions; resolve: (value: boolean) => void };
@@ -22,6 +24,7 @@ export function useConfirm() {
 
 export function ConfirmProvider({ children }: { children: React.ReactNode }) {
   const [request, setRequest] = useState<ConfirmRequest | null>(null);
+  const [isChecked, setIsChecked] = useState(false);
 
   const confirm = useCallback((options: ConfirmOptions) => new Promise<boolean>((resolve) => setRequest({ options, resolve })), []);
 
@@ -31,6 +34,11 @@ export function ConfirmProvider({ children }: { children: React.ReactNode }) {
       return null;
     });
   }, []);
+
+  // Checklist mulai kosong tiap dialog baru — uncheck mengunci confirm kembali.
+  useEffect(() => {
+    setIsChecked(false);
+  }, [request]);
 
   // Escape = batal (aksesibilitas keyboard), konsisten dengan UsernameSetupModal.
   useEffect(() => {
@@ -56,6 +64,12 @@ export function ConfirmProvider({ children }: { children: React.ReactNode }) {
               {request.options.title}
             </div>
             {request.options.message && <div className="cfm-message">{request.options.message}</div>}
+            {request.options.requireCheck && (
+              <label className="cfm-check">
+                <input type="checkbox" checked={isChecked} onChange={(e) => setIsChecked(e.target.checked)} />
+                <span>{request.options.requireCheck.label}</span>
+              </label>
+            )}
             <div className="cfm-actions">
               <button type="button" className="btn-ghost" onClick={() => close(false)}>
                 {request.options.cancelLabel ?? "Batal"}
@@ -64,6 +78,7 @@ export function ConfirmProvider({ children }: { children: React.ReactNode }) {
                 type="button"
                 className={request.options.danger ? "cfm-btn-danger" : "btn-gold"}
                 onClick={() => close(true)}
+                disabled={!!request.options.requireCheck && !isChecked}
                 autoFocus
               >
                 {request.options.confirmLabel ?? "Lanjutkan"}

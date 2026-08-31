@@ -321,12 +321,14 @@ function ActionPanel(props: {
       return;
     }
     const poolLabel = pool === "regular" ? "reguler" : pool === "premium" ? "premium" : "kedua pool";
-    // Konfirmasi sebelum C-Coin ditahan (founder 2026-08-29: aksi spend wajib confirm).
+    // Konfirmasi sebelum C-Coin ditahan (founder 2026-08-29: aksi spend wajib confirm)
+    // + checklist entry irreversibel (founder 2026-09-01).
     if (
       !(await confirm({
         title: `Ikut raffle ${props.drop.title}?`,
         message: `Pool ${poolLabel} — ${holdAmount} C ditahan. Tidak menang, otomatis kembali.`,
         confirmLabel: "Ikut",
+        requireCheck: { label: "Saya paham mengikuti raffle tidak bisa dibatalkan." },
       }))
     )
       return;

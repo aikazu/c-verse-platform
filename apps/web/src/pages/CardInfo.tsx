@@ -29,6 +29,10 @@ const BUYOUT_ERRORS: Record<string, string> = {
   CARD_NOT_TRADABLE: "C.Card ini tidak dapat diperdagangkan",
 };
 
+// Cooldown cancel bid (founder 2026-09-01): pesan server untuk kode ini sudah
+// friendly (teks cooldown dari route) — dipakai apa adanya, bukan raw Postgres.
+const CANCEL_BID_COOLDOWN = "BID_CANCEL_COOLDOWN";
+
 // Lane C: payload publik tidak lagi membawa UUID — server mengganti
 // personalisasi dengan flag isOwner (owner) / isMine (bid) viewer-scoped;
 // shape-nya dimodelkan langsung di api-types (ApiCardOwnerRef/ApiPublicBid).
@@ -114,6 +118,12 @@ export default function CardInfo() {
   // isOwner / canBuyout dibaca oleh JSX di bawah; useEffect pakai derived.
   const canBuyout = canBuyoutDerived;
   const myActiveBid = activeBid?.isMine ? activeBid : null;
+  // Cooldown cancel bid (founder 2026-09-01): canCancelAt = created_at + 24h
+  // (dihitung server). Dihitung sekali per render dari payload — tanpa ticker.
+  const canCancelAtMs = myActiveBid?.canCancelAt ? new Date(myActiveBid.canCancelAt).getTime() : null;
+  const isCancelLocked = canCancelAtMs != null && canCancelAtMs > Date.now();
+  const canCancelLabel =
+    canCancelAtMs != null ? new Date(canCancelAtMs).toLocaleString("id-ID", { dateStyle: "short", timeStyle: "short" }) : "";
 
   async function onBuyout() {
     if (
@@ -160,8 +170,11 @@ export default function CardInfo() {
       push("Bid dibatalkan", "success");
       refetch();
     } catch (e) {
-      console.error("cancelBid gagal", e);
-      push(GENERIC_ERROR, "error");
+      const err = e instanceof ApiError ? e : null;
+      const friendly = err?.code === CANCEL_BID_COOLDOWN ? err.message || undefined : undefined;
+      // Code-map dulu; tanpa map → fallback generik (raw text hanya di console).
+      if (!friendly) console.error("cancelBid gagal", e);
+      push(friendly ?? GENERIC_ERROR, "error");
     } finally {
       setBusy(false);
     }
@@ -185,8 +198,16 @@ export default function CardInfo() {
       push(`Bid harus lebih tinggi dari ${activeBid.amountCCoin} C`, "info");
       return;
     }
-    // Konfirmasi sebelum C-Coin ditahan (founder 2026-08-29: aksi spend wajib confirm).
-    if (!(await confirm({ title: `Tawar ${amt} C?`, message: "C-Coin ditahan sampai bid kalah atau dibatalkan.", confirmLabel: "Tawar" })))
+    // Konfirmasi sebelum C-Coin ditahan (founder 2026-08-29: aksi spend wajib confirm)
+    // + checklist cooldown cancel (founder 2026-09-01).
+    if (
+      !(await confirm({
+        title: `Tawar ${amt} C?`,
+        message: "C-Coin ditahan sampai bid kalah atau dibatalkan.",
+        confirmLabel: "Tawar",
+        requireCheck: { label: "Saya paham bid baru bisa dibatalkan setelah 24 jam." },
+      }))
+    )
       return;
     setBusy(true);
     try {
@@ -302,9 +323,12 @@ export default function CardInfo() {
                     {activeBid.amountCCoin} C <span className="ci-bid-by">oleh {activeBid.bidderName}</span>
                   </div>
                   {myActiveBid && (
-                    <button className="btn-ghost ci-cancel-btn" onClick={onCancelBid} disabled={busy}>
-                      {busy ? "Memproses…" : "Batalkan bid"}
-                    </button>
+                    <>
+                      <button className="btn-ghost ci-cancel-btn" onClick={onCancelBid} disabled={busy || isCancelLocked}>
+                        {busy ? "Memproses…" : "Batalkan bid"}
+                      </button>
+                      {isCancelLocked && <div className="ci-cancel-note">Bisa dibatalkan {canCancelLabel}</div>}
+                    </>
                   )}
                 </div>
               )}
