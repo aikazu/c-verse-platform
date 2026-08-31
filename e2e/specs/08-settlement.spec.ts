@@ -103,9 +103,15 @@ test.describe("Settlement (money flow)", () => {
       holdAmount = Number.parseInt(ctaText.match(/tahan (\d+) C/)?.[1] ?? "0", 10);
       await cta.click();
       // D8: spend wajib lewat in-app confirm modal (ConfirmProvider) — bukan window.confirm.
+      // Checklist wajib (founder 2026-09-01): confirm terkunci sampai checkbox
+      // "tidak bisa dibatalkan" dicentang.
       const dialog = page.locator('[role="dialog"]', { hasText: "Ikut raffle" });
       await expect(dialog).toBeVisible({ timeout: 5000 });
-      await dialog.getByRole("button", { name: "Ikut", exact: true }).click();
+      const confirmBtn = dialog.getByRole("button", { name: "Ikut", exact: true });
+      await expect(confirmBtn).toBeDisabled();
+      await dialog.getByRole("checkbox", { name: "Saya paham mengikuti raffle tidak bisa dibatalkan." }).check();
+      await expect(confirmBtn).toBeEnabled();
+      await confirmBtn.click();
       // Sukses: onNavHome() → /home. Gagal (mis. ENTRY_CLOSED) → tetap di halaman.
       const isSuccessful = await page
         .waitForURL(/\/home/, { timeout: 8000 })
