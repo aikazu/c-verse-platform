@@ -1,14 +1,16 @@
-import { orderStatusLabel, shipmentStatusLabel } from "@c-verse/shared";
+import { escrowStatusLabel, orderStatusLabel, shipmentStatusLabel, shipmentToDestLabel, shipmentTypeLabel } from "@c-verse/shared";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
+import { useConfirm } from "../components/ConfirmProvider";
 import { RequireAuth } from "../components/RequireAuth";
 import { StatusBadge } from "../components/StatusBadge";
 import { api } from "../lib/api";
 import { useToast } from "../lib/toast";
 import "./orders.css";
 
-const errorMessage = (e: unknown): string => (e instanceof Error ? e.message : String(e));
+// Fallback terakhir untuk error tanpa code-map — jangan render teks server mentah.
+const GENERIC_ERROR = "Terjadi kesalahan, coba lagi";
 
 function fmtDate(s: string | null | undefined): string {
   if (!s) return "—";
@@ -26,6 +28,7 @@ export default function OrderDetail() {
 function OrderDetailInner() {
   const { id } = useParams();
   const { push } = useToast();
+  const confirm = useConfirm();
   const [busy, setBusy] = useState(false);
   const [disputeOpen, setDisputeOpen] = useState(false);
   const [disputeSent, setDisputeSent] = useState(false); // P1-5: hide tombol setelah submit
@@ -53,6 +56,8 @@ function OrderDetailInner() {
       push("Alasan dispute minimal 10 karakter", "info");
       return;
     }
+    // D8: submit dispute = aksi tidak bisa dibatalkan — wajib konfirmasi in-app.
+    if (!(await confirm({ title: "Kirim dispute untuk pesanan ini?", confirmLabel: "Kirim" }))) return;
     setBusy(true);
     try {
       await api.openDispute(o.id, disputeReason.trim());
@@ -61,7 +66,8 @@ function OrderDetailInner() {
       setDisputeSent(true); // P1-5: hide tombol setelah submit agar tidak double-submit
       refetch();
     } catch (e: unknown) {
-      push(errorMessage(e), "error");
+      console.error("openDispute gagal", e);
+      push(GENERIC_ERROR, "error");
     } finally {
       setBusy(false);
     }
@@ -91,8 +97,8 @@ function OrderDetailInner() {
       <div className="card card-pad">
         <div className="od-card-head">
           <div>
-            <span className="eyebrow">Pesanan · {o.id.slice(0, 10)}</span>
-            <h2 className="h2 od-mt-4">{drop?.title ?? o.dropId}</h2>
+            <span className="eyebrow">Pesanan</span>
+            <h2 className="h2 od-mt-4">{drop?.title ?? "Tanpa judul"}</h2>
             <div className="od-total">{o.totalCCoin} C</div>
           </div>
           <StatusBadge status={o.status} kind="order" style={{ fontSize: 11, flexShrink: 0 }} />
@@ -111,9 +117,9 @@ function OrderDetailInner() {
             </div>
           )}
           <div>
-            <span className="od-meta-label">ESCROW</span>
+            <span className="od-meta-label">STATUS DANA</span>
             <br />
-            <span className="od-meta-mono-sm">{o.escrowStatus ?? "held"}</span>
+            <span className="od-meta-mono-sm">{escrowStatusLabel(o.escrowStatus ?? "held")}</span>
           </div>
           {!isVault && o.trackingNumber && (
             <div>
@@ -208,7 +214,7 @@ function OrderDetailInner() {
               {shipments.map((s) => (
                 <div key={s.id} className="od-shipment-row">
                   <span>
-                    {s.type} → {s.toDest} · {shipmentStatusLabel(s.status)}
+                    {shipmentTypeLabel(s.type)} → {shipmentToDestLabel(s.toDest)} · {shipmentStatusLabel(s.status)}
                   </span>
                   <span className="od-shipment-track">{s.trackingNumber ?? "—"}</span>
                 </div>

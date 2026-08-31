@@ -134,7 +134,7 @@ function CollectionInner() {
                 </div>
                 <div className="kl-tile-body">
                   <div className="kl-tile-title">
-                    {ca.drop?.title ?? ca.dropId} · #{ca.unitNumber}
+                    {ca.drop?.title ?? "Tanpa judul"} · #{ca.unitNumber}
                   </div>
                   <div className="kl-tile-meta">
                     {ca.drop?.series} {ca.buyoutPriceCcoin ? `· ${ca.buyoutPriceCcoin} C` : ""}

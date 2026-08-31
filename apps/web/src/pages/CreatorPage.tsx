@@ -415,7 +415,7 @@ export default function CreatorPage() {
                   </span>
                   <span className="lb-cards">
                     {e.score.toLocaleString("id-ID")}
-                    <span className="lb-cards-label">kartu</span>
+                    <span className="lb-cards-label">C.Card</span>
                   </span>
                 </Link>
               );

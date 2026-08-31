@@ -75,10 +75,12 @@ function OrdersInner() {
                   <tr key={o.id}>
                     <td>
                       <Link to={`/orders/${o.id}`} className="od-order-link">
-                        {o.id.slice(0, 12)}
+                        {/* Label manusiawi + tanggal — UUID tidak boleh tampil sebagai teks */}
+                        Pesanan · {new Date(o.createdAt).toLocaleDateString("id-ID")}
                       </Link>
                     </td>
-                    <td className="od-td-muted">{o.dropId}</td>
+                    {/* Payload list tidak membawa judul drop — fallback netral, bukan dropId */}
+                    <td className="od-td-muted">Tanpa judul</td>
                     <td className="od-td-total">{o.totalCCoin} C</td>
                     <td>
                       <StatusBadge status={o.status} kind="order" style={{ fontSize: 10 }} />

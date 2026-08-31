@@ -1,4 +1,4 @@
-import { AOV_UNSIGNED_CCOIN, calcSignedPrice } from "@c-verse/shared";
+import { AOV_UNSIGNED_CCOIN, calcSignedPrice, dropEntryStatusLabel } from "@c-verse/shared";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
@@ -13,7 +13,8 @@ import { ErrorState, LoadingState } from "../lib/QueryStates";
 import { useToast } from "../lib/toast";
 import "./commerce.css";
 
-const errorMessage = (e: unknown): string => (e instanceof Error ? e.message : String(e));
+// Fallback terakhir untuk error tanpa code-map — jangan render teks server mentah.
+const GENERIC_ERROR = "Terjadi kesalahan, coba lagi";
 
 /**
  * P0-1 (audit 2026-08-24): derive fase UI dari field backend.
@@ -335,7 +336,8 @@ function ActionPanel(props: {
       props.onPush(`Berhasil ikut raffle (${poolLabel})`, "success");
       props.onNavHome();
     } catch (e: unknown) {
-      props.onPush(errorMessage(e), "error");
+      console.error("entryRaffle gagal", e);
+      props.onPush(GENERIC_ERROR, "error");
     } finally {
       setBusy(false);
     }
@@ -397,7 +399,7 @@ function ActionPanel(props: {
       {props.phase === "raffle" && props.myEntry && (
         <div className="pill pill-success cm-phase-pill" role="status">
           ✓ Sudah ikut ({myEntryLabel}) — {props.myEntry.holdCcoin} C{" "}
-          {props.myEntry.status === "held" ? "ditahan" : `· ${props.myEntry.status}`}
+          {props.myEntry.status === "held" ? "ditahan" : `· ${dropEntryStatusLabel(props.myEntry.status)}`}
         </div>
       )}
 

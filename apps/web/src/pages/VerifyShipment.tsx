@@ -4,12 +4,13 @@ import { Link } from "react-router-dom";
 import { useConfirm } from "../components/ConfirmProvider";
 import { RequireAuth } from "../components/RequireAuth";
 import { api } from "../lib/api";
-import type { ApiProfileResponse } from "../lib/api-types";
+import type { ApiProfileEnrichedCard, ApiProfileResponse } from "../lib/api-types";
 import { ErrorState, LoadingState } from "../lib/QueryStates";
 import { useToast } from "../lib/toast";
 import "./account.css";
 
-const errorMessage = (e: unknown): string => (e instanceof Error ? e.message : String(e));
+// Fallback terakhir untuk error tanpa code-map — jangan render teks server mentah.
+const GENERIC_ERROR = "Terjadi kesalahan, coba lagi";
 
 /**
  * P0-6 (audit 2026-08-24): PG-USR-07b — halaman USER untuk SELLER secondary
@@ -45,7 +46,8 @@ function VerifyShipmentInner() {
   // (buyoutPriceCcoin kosong artinya buyout diambil). Filter dari cards + listings.
   const myCards = data.cards ?? [];
   const eligible = myCards.filter((c) => c.location === "with_owner" && c.buyoutPriceCcoin == null);
-  async function onSubmit(cardId: string) {
+  async function onSubmit(card: ApiProfileEnrichedCard) {
+    const cardId = card.id;
     const address = (addr[cardId] ?? "").trim();
     const tracking = (track[cardId] ?? "").trim();
     if (address.length < 10) {
@@ -54,7 +56,8 @@ function VerifyShipmentInner() {
     }
     if (
       !(await confirm({
-        title: `Kirim kartu #${cardId} ke vault?`,
+        // Nomor unit, bukan UUID — label manusiawi di copy konfirmasi.
+        title: `Kirim C.Card #${card.unitNumber} ke vault?`,
         message: "Setelah diterima, tim verifikasi NFC sebelum payout dilepas.",
         confirmLabel: "Kirim",
         danger: true,
@@ -67,7 +70,8 @@ function VerifyShipmentInner() {
       push("Pengiriman dicatat — admin menerima di vault", "success");
       refetch();
     } catch (e: unknown) {
-      push(errorMessage(e), "error");
+      console.error("sellerShipToVault gagal", e);
+      push(GENERIC_ERROR, "error");
     } finally {
       setBusyId(null);
     }
@@ -106,7 +110,7 @@ function VerifyShipmentInner() {
           {eligible.map((card) => (
             <div key={card.id} className="card card-pad" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               <div style={{ fontWeight: 600, fontSize: 13 }}>
-                {(card as unknown as { drop?: { title?: string } }).drop?.title ?? card.dropId} · #{card.unitNumber}
+                {(card as unknown as { drop?: { title?: string } }).drop?.title ?? "Tanpa judul"} · #{card.unitNumber}
                 <span className="pill pill-warn" style={{ fontSize: 10, marginLeft: 8 }}>
                   Perlu Dikirim ke Vault
                 </span>
@@ -136,7 +140,7 @@ function VerifyShipmentInner() {
                   placeholder="JNE / J&T / SiCepat"
                 />
               </div>
-              <button className="btn-gold" onClick={() => onSubmit(card.id)} disabled={busyId === card.id}>
+              <button className="btn-gold" onClick={() => onSubmit(card)} disabled={busyId === card.id}>
                 {busyId === card.id ? "Mencatat…" : "Catat Pengiriman"}
               </button>
             </div>

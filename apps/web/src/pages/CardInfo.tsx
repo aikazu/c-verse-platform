@@ -1,4 +1,5 @@
 import type { Bid } from "@c-verse/shared";
+import { cardVariantLabel } from "@c-verse/shared";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
@@ -11,7 +12,8 @@ import { scanNfcTaps } from "../lib/nfc-web";
 import { useToast } from "../lib/toast";
 import "./cards.css";
 
-const errorMessage = (e: unknown): string => (e instanceof Error ? e.message : String(e));
+// Fallback terakhir untuk error tanpa code-map — jangan render teks server mentah.
+const GENERIC_ERROR = "Terjadi kesalahan, coba lagi";
 
 const VERIFY_BADGES: Record<string, { label: string; cls: string }> = {
   verified: { label: "✓ Verified", cls: "pill pill-success" },
@@ -135,7 +137,9 @@ export default function CardInfo() {
     } catch (e) {
       const err = e instanceof ApiError ? e : null;
       const friendly = err?.code ? BUYOUT_ERRORS[err.code] : undefined;
-      push(friendly ?? errorMessage(e), "error");
+      // Code-map dulu; tanpa map → fallback generik (raw text hanya di console).
+      if (!friendly) console.error("buyout gagal", err?.code ?? e);
+      push(friendly ?? GENERIC_ERROR, "error");
     } finally {
       setBusy(false);
     }
@@ -158,7 +162,8 @@ export default function CardInfo() {
       push("Bid dibatalkan", "success");
       refetch();
     } catch (e) {
-      push(errorMessage(e), "error");
+      console.error("cancelBid gagal", e);
+      push(GENERIC_ERROR, "error");
     } finally {
       setBusy(false);
     }
@@ -172,7 +177,8 @@ export default function CardInfo() {
       return;
     }
     const amt = Number(bidAmount);
-    if (!Number.isFinite(amt) || amt < 1) {
+    // Pattern CreatorPage: integer >= 1 wajib — tolak desimal/Infinity/NaN.
+    if (!Number.isInteger(amt) || amt < 1) {
       push("Minimal 1 C", "info");
       return;
     }
@@ -190,7 +196,8 @@ export default function CardInfo() {
       setBidAmount("");
       refetch();
     } catch (e) {
-      push(errorMessage(e), "error");
+      console.error("placeBid gagal", e);
+      push(GENERIC_ERROR, "error");
     } finally {
       setBusy(false);
     }
@@ -226,7 +233,7 @@ export default function CardInfo() {
             <span className="eyebrow">{drop?.series ?? "C.Card"}</span>
             <div className="ci-unit-row">
               <div className="ci-unit">
-                #{card.unitNumber} <em>· {card.variant}</em>
+                #{card.unitNumber} <em>· {cardVariantLabel(card.variant)}</em>
               </div>
               <span className={`${verifyBadge.cls} ci-badge-sm`}>{verifyBadge.label}</span>
               {drop?.isSeed && <span className="badge-seed ci-badge-sm">✦ Seed 1-of-1</span>}
@@ -250,7 +257,7 @@ export default function CardInfo() {
                 </div>
               )}
               <div className="ci-meta">
-                Nomor #{card.unitNumber} · {card.variant}
+                Nomor #{card.unitNumber} · {cardVariantLabel(card.variant)}
               </div>
               {owner && (
                 <div className="ci-stat-row">

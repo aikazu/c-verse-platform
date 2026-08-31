@@ -2,13 +2,14 @@ import { AOV_UNSIGNED_CCOIN } from "@c-verse/shared";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { api, formatIdr } from "../lib/api";
+import { api, ccoinToIdr, formatIdr } from "../lib/api";
 import type { ApiDrop, ApiDropDetailResponse } from "../lib/api-types";
 import { useAuth } from "../lib/auth";
 import { useToast } from "../lib/toast";
 import "./commerce.css";
 
-const errorMessage = (e: unknown): string => (e instanceof Error ? e.message : String(e));
+// Fallback terakhir untuk error tanpa code-map — jangan render teks server mentah.
+const GENERIC_ERROR = "Terjadi kesalahan, coba lagi";
 
 export default function Checkout() {
   const { id } = useParams();
@@ -61,7 +62,9 @@ export default function Checkout() {
       push(`Checkout berhasil — ${price} C · fisik tersimpan di vault`, "success");
       nav(`/orders/${res.order.id}`);
     } catch (e: unknown) {
-      push(errorMessage(e), "error");
+      // Raw server text tidak untuk user — catat di console, tampilkan fallback generik.
+      console.error("checkout gagal", e);
+      push(GENERIC_ERROR, "error");
     } finally {
       setBuying(false);
     }
@@ -101,7 +104,7 @@ export default function Checkout() {
           <div>
             <div className="label">HARGA</div>
             <div className="cm-summary-value">
-              {price} C · <span className="cm-summary-idr">{formatIdr(price * 10000)}</span>
+              {price} C · <span className="cm-summary-idr">{formatIdr(ccoinToIdr(price))}</span>
             </div>
           </div>
           <div>

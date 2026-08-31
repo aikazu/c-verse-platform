@@ -1,4 +1,4 @@
-import { BALANCE_CAP_CCOIN, walletTxTypeLabel } from "@c-verse/shared";
+import { BALANCE_CAP_CCOIN, C_COIN_RATE_IDR, walletTxTypeLabel } from "@c-verse/shared";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -13,7 +13,10 @@ import "./wallet.css";
 const CHANNEL = "CH:08 / WALLET";
 const CHANNEL_EXTRA = "TREASURY LINK";
 
-const errorMessage = (e: unknown): string => (e instanceof Error ? e.message : String(e));
+// Rate tampilan dari konstanta shared — tidak ada salinan "Rp 10.000" manual.
+const RATE_LABEL = `1 C = ${formatIdr(C_COIN_RATE_IDR)}`;
+// Fallback terakhir untuk error tanpa code-map — jangan render teks server mentah.
+const GENERIC_ERROR = "Terjadi kesalahan, coba lagi";
 
 export default function Wallet() {
   return (
@@ -75,7 +78,8 @@ function WalletInner() {
         push(`${err.message} — buka KYC sekarang`, "error");
         nav("/me/kyc");
       } else {
-        push(errorMessage(e), "error");
+        console.error("top-up gagal", e);
+        push(GENERIC_ERROR, "error");
       }
     } finally {
       setBusyTopup(false);
@@ -101,7 +105,8 @@ function WalletInner() {
       } else if (err?.status === 423) {
         push("Payout ditahan admin", "error");
       } else {
-        push(errorMessage(e), "error");
+        console.error("payout gagal", e);
+        push(GENERIC_ERROR, "error");
       }
     } finally {
       setBusyPayout(false);
@@ -134,7 +139,7 @@ function WalletInner() {
             <h1 className="page-hero-title">
               C<em>-Coin</em>
             </h1>
-            <p className="page-hero-desc">1 C = Rp 10.000</p>
+            <p className="page-hero-desc">{RATE_LABEL}</p>
           </div>
         </div>
       </section>
@@ -166,7 +171,7 @@ function WalletInner() {
         <div className="card card-pad wa-actions">
           <div>
             <div className="wa-block-title">Isi Saldo</div>
-            <div className="muted wa-sub">Pilih metode dan nominal — 1 C = Rp 10.000</div>
+            <div className="muted wa-sub">Pilih metode dan nominal — {RATE_LABEL}</div>
           </div>
           <div className="wa-note wa-note-gold">
             Saldo C-Coin <strong className="wa-note-strong">tidak dapat diuangkan</strong>.
@@ -232,7 +237,8 @@ function WalletInner() {
                 <button
                   className="btn-ghost"
                   onClick={() => {
-                    if (payoutAmt < 10) {
+                    // Pattern CreatorPage: integer >= 1 wajib — tolak desimal/Infinity.
+                    if (!Number.isInteger(payoutAmt) || payoutAmt < 10) {
                       push("Payout minimum 10 C-Coin", "info");
                       return;
                     }

@@ -1,4 +1,4 @@
-import { type Card, SHIPMENT_FEE_CCOIN } from "@c-verse/shared";
+import { type Card, cardVariantLabel, SHIPMENT_FEE_CCOIN } from "@c-verse/shared";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
@@ -11,6 +11,9 @@ import { useToast } from "../lib/toast";
 import "./account.css";
 
 type EnrichedCard = ApiProfileEnrichedCard;
+
+// Fallback terakhir untuk error tanpa code-map — jangan render teks server mentah.
+const GENERIC_ERROR = "Terjadi kesalahan, coba lagi";
 
 export default function ManageCards() {
   return (
@@ -55,14 +58,16 @@ function ManageCardsInner() {
         push("Harga dihapus", "success");
         refetch();
       } catch (e: unknown) {
-        push(e instanceof Error ? e.message : String(e), "error");
+        console.error("patchBuyout gagal", e);
+        push(GENERIC_ERROR, "error");
       } finally {
         setBusyId(null);
       }
       return;
     }
     const v = Number(raw);
-    if (Number.isNaN(v) || v < 1) {
+    // Pattern CreatorPage: integer >= 1 wajib — tolak desimal/Infinity/NaN.
+    if (!Number.isInteger(v) || v < 1) {
       push("Minimal 1 C", "info");
       return;
     }
@@ -72,7 +77,8 @@ function ManageCardsInner() {
       push(`Dijual ${v} C`, "success");
       refetch();
     } catch (e: unknown) {
-      push(e instanceof Error ? e.message : String(e), "error");
+      console.error("setBuyout gagal", e);
+      push(GENERIC_ERROR, "error");
     } finally {
       setBusyId(null);
     }
@@ -99,7 +105,8 @@ function ManageCardsInner() {
       push("Pengiriman dibuat", "success");
       refetch();
     } catch (e: unknown) {
-      push(e instanceof Error ? e.message : String(e), "error");
+      console.error("vaultShipout gagal", e);
+      push(GENERIC_ERROR, "error");
     } finally {
       setBusyId(null);
     }
@@ -123,7 +130,8 @@ function ManageCardsInner() {
       push("Penawaran diterima — fisik disimpan di vault", "success");
       refetch();
     } catch (e: unknown) {
-      push(e instanceof Error ? e.message : String(e), "error");
+      console.error("acceptBid gagal", e);
+      push(GENERIC_ERROR, "error");
     } finally {
       setBusyId(null);
     }
@@ -163,8 +171,10 @@ function ManageCardsInner() {
             // langsung bombardir user dengan 3 form terbuka — visual fokus.
             <div key={card.id} className="card ac-card">
               <div style={{ fontWeight: 600, fontSize: 13 }}>
-                {card.drop?.title ?? card.dropId} · #{card.unitNumber}{" "}
-                <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--text-dim)" }}>· {card.variant}</span>
+                {card.drop?.title ?? "Tanpa judul"} · #{card.unitNumber}{" "}
+                <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--text-dim)" }}>
+                  · {cardVariantLabel(card.variant)}
+                </span>
               </div>
               <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                 {card.buyoutPriceCcoin ? (
