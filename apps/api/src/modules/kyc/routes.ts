@@ -23,10 +23,14 @@ app.post(
     "json",
     z.object({
       fullName: z.string().min(2).max(100),
-      nik: z.string().length(16),
+      // Audit batch 2 F7: NIK wajib 16 DIGIT (dulu cuma .length(16) sehingga NIK
+      // alfabetik lolos dan luput dari mask redactNik saat dibaca balik owner).
+      nik: z.string().regex(/^\d{16}$/, "NIK harus 16 digit angka"),
       address: z.string().min(10).max(500),
       dob: z.string().optional(),
-      ktpUrl: z.string().optional(),
+      // Audit batch 2 F7: ktpUrl harus URL valid (write-side; row lama tidak
+      // diverifikasi ulang saat read).
+      ktpUrl: z.string().url(),
       npwpUrl: z.string().optional(),
       selfieUrl: z.string().optional(),
     }),
@@ -38,7 +42,8 @@ app.post(
     const body = c.req.valid("json");
     // P0-5 (audit 2026-08-24): wajib dob + ktpUrl + selfieUrl agar sesuai
     // US-USR-011 (KTP, selfie, NPWP opsional). NPWP opsional. NIK checksum
-    // dilakukan client-side; server-side minimal length 16 char (lihat zValidator).
+    // dilakukan client-side; server-side wajib 16 digit angka (lihat zValidator,
+    // diperketat audit batch 2 F7).
     if (!body.dob || !body.ktpUrl || !body.selfieUrl) {
       return c.json({ error: "Lengkapi DOB, foto KTP, dan selfie untuk validasi KYC" }, 400);
     }

@@ -119,4 +119,29 @@ describe("POST /api/kyc (audit P0-5 completeness)", () => {
     const res = await submit({ ...BASE, nik: "123456789012345" });
     expect(res.status).toBe(400);
   });
+
+  // Audit batch 2 F7: NIK alfabetik dulu lolos (.length(16) saja) lalu tidak
+  // ter-mask redactNik — validasi write-side wajib ^\d{16}$.
+  it("NIK alfabetik → 400", async () => {
+    const res = await submit({ ...BASE, nik: "abcdefghijklmnop" });
+    expect(res.status).toBe(400);
+  });
+
+  it("NIK campuran digit+huruf → 400", async () => {
+    const res = await submit({ ...BASE, nik: "320123456789000X" });
+    expect(res.status).toBe(400);
+  });
+
+  it("NIK valid → 201 dan NIK ter-mask di respons", async () => {
+    const res = await submit(BASE);
+    expect(res.status).toBe(201);
+    const body = (await res.json()) as { kyc: { nik: string } };
+    expect(body.kyc.nik).toBe("************0001");
+    expect(body.kyc.nik).not.toContain("3201234567890001");
+  });
+
+  it("ktpUrl bukan URL → 400 (audit batch 2 F7)", async () => {
+    const res = await submit({ ...BASE, ktpUrl: "bukan-url" });
+    expect(res.status).toBe(400);
+  });
 });

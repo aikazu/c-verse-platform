@@ -9,6 +9,7 @@ import { listOrdersByUser, listShipmentsByRequester } from "../../lib/reads/orde
 import { getKycByUser, getWalletByUser, listUserBadges } from "../../lib/reads/profile.js";
 import { getUserByUsername } from "../../lib/reads/users.js";
 import { readDb } from "../../lib/reads.js";
+import { redactKycForOwner } from "../../lib/redact.js";
 import type { Bid } from "../../lib/store.js";
 
 const app = new Hono();
@@ -72,7 +73,9 @@ app.get("/", async (c) => {
     bids: myBids,
     listings: [],
     badges,
-    kyc,
+    // Audit batch 2 F6: row KYC di endpoint ini dulu membeberkan NIK penuh +
+    // address. Paritas dengan GET /api/kyc — PII lewat redactKycForOwner.
+    kyc: kyc ? redactKycForOwner(kyc) : null,
     stats: {
       totalCards: myCards.length,
       vaultCards: myCards.filter((ca) => ca.location === "platform_vault").length,
