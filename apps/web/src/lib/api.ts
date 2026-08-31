@@ -148,10 +148,12 @@ export const api = {
   openDispute: (orderId: string, reason: string) =>
     req<{ order: Order }>(`/orders/${orderId}/dispute`, { method: "POST", body: JSON.stringify({ reason }) }),
   // Body validated server-side by vaultShipoutSchema. Server source of truth.
-  vaultShipout: (cardId: string, address: string, feeCcoin: number) =>
+  // Fee is NOT client input — the vault_shipout RPC derives it from the
+  // server-side constant SHIPMENT_FEE_CCOIN (audit 2026-08-31).
+  vaultShipout: (cardId: string, address: string) =>
     req<{ ok: boolean; shipment: Shipment; wallet: Wallet }>("/orders/vault-shipout", {
       method: "POST",
-      body: JSON.stringify({ cardId, address, feeCcoin }),
+      body: JSON.stringify({ cardId, address }),
     }),
 
   // nfc / cards (merged verify per 02-pages: card info + 3D separate)

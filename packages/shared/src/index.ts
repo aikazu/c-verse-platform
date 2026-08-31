@@ -30,6 +30,10 @@ export function formatIdr(idr: number): string {
 
 // ── Fees & revenue share ───────────────────────────────────────────────────
 export const PAYOUT_FEE_PCT = 0.01; // 1% disbursement fee to seller/creator
+// Vault ship-out ongkir — server-side constant, bukan input client (audit
+// 2026-08-31: fee client-supplied underchargable to 1 C). Docs pin no fixed
+// value ("ongkir C-Coin integer >= 1"); 2 = nilai default UI sebelumnya.
+export const SHIPMENT_FEE_CCOIN = 2;
 export const SECONDARY_FEE_PCT = 0.15; // 15% total secondary
 export const SECONDARY_PLATFORM_PCT = 0.075;
 export const SECONDARY_ROYALTY_PCT = 0.075;
@@ -185,10 +189,11 @@ export const cancelBidSchema = z.object({
   bidId: z.string().min(1),
 });
 
+// Fee TIDAK bagian body — ongkir ship-out adalah konstanta server
+// SHIPMENT_FEE_CCOIN (di-derive di dalam RPC vault_shipout).
 export const vaultShipoutSchema = z.object({
   cardId: z.string().min(1),
   address: z.string().min(10).max(500),
-  feeCcoin: z.number().int().min(1),
 });
 export type VaultShipoutInput = z.infer<typeof vaultShipoutSchema>;
 

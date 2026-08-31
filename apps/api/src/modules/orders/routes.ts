@@ -1,4 +1,4 @@
-import { checkoutSchema } from "@c-verse/shared";
+import { checkoutSchema, SHIPMENT_FEE_CCOIN } from "@c-verse/shared";
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import { z } from "zod";
@@ -100,41 +100,35 @@ app.post("/:id/dispute", zValidator("json", z.object({ reason: z.string().min(10
 // Ship from vault (any vault-held card owned by caller, even without order context)
 // Founder 2026-08-28: atomic RPC `vault_shipout` — shipment insert + fee debit
 // (treasury + platform_revenue ref_type 'shipment') single transaction di SQL.
-// Fee client-provided (integer >= 1, zod tetap); ownership/active-shipment check
-// berpindah ke dalam RPC (race-safe).
-app.post(
-  "/vault-shipout",
-  zValidator(
-    "json",
-    z.object({ cardId: z.string().min(1), address: z.string().min(10).max(500), feeCcoin: z.number().int().min(1).max(100) }),
-  ),
-  async (c) => {
-    const authRes = await requireUser(c);
-    if ("error" in authRes) return c.json({ error: authRes.error === 403 ? "Akun disuspend" : "Unauthorized" }, authRes.error);
-    const user = authRes.user;
-    const { cardId, address, feeCcoin } = c.req.valid("json");
-    const db = userDb(authRes.token);
-    try {
-      const shipment = await rpcVaultShipout(db, cardId, address, feeCcoin);
-      // Tracking number diisi admin via PATCH /api/shipments/:id/status saat benar-benar dikirim.
-      await logAuditDb(
-        user.id,
-        "create",
-        "shipments",
-        String((shipment as { id?: string }).id ?? cardId),
-        { cardId, feeCcoin },
-        clientIp(c),
-        await tokenFingerprint(c.req.header("authorization")),
-      );
-      return c.json({ ok: true, shipment }, 200);
-    } catch (err) {
-      if (err instanceof RpcError) {
-        const status = err.code === "INSUFFICIENT" ? 402 : err.code === "AUTH_REQUIRED" ? 401 : err.code === "FORBIDDEN" ? 403 : 400;
-        return c.json({ error: err.message, code: err.code }, status);
-      }
-      throw err;
+// Fee = konstanta server SHIPMENT_FEE_CCOIN, di-derive di dalam RPC (audit
+// 2026-08-31: fee client-supplied underchargable) — body hanya {cardId, address};
+// ownership/active-shipment check di dalam RPC (race-safe).
+app.post("/vault-shipout", zValidator("json", z.object({ cardId: z.string().min(1), address: z.string().min(10).max(500) })), async (c) => {
+  const authRes = await requireUser(c);
+  if ("error" in authRes) return c.json({ error: authRes.error === 403 ? "Akun disuspend" : "Unauthorized" }, authRes.error);
+  const user = authRes.user;
+  const { cardId, address } = c.req.valid("json");
+  const db = userDb(authRes.token);
+  try {
+    const shipment = await rpcVaultShipout(db, cardId, address);
+    // Tracking number diisi admin via PATCH /api/shipments/:id/status saat benar-benar dikirim.
+    await logAuditDb(
+      user.id,
+      "create",
+      "shipments",
+      String((shipment as { id?: string }).id ?? cardId),
+      { cardId, feeCcoin: SHIPMENT_FEE_CCOIN },
+      clientIp(c),
+      await tokenFingerprint(c.req.header("authorization")),
+    );
+    return c.json({ ok: true, shipment }, 200);
+  } catch (err) {
+    if (err instanceof RpcError) {
+      const status = err.code === "INSUFFICIENT" ? 402 : err.code === "AUTH_REQUIRED" ? 401 : err.code === "FORBIDDEN" ? 403 : 400;
+      return c.json({ error: err.message, code: err.code }, status);
     }
-  },
-);
+    throw err;
+  }
+});
 
 export default app;

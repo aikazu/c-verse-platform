@@ -356,6 +356,8 @@ end $$;
 -- ship fee di titik ini (founder 2026-08-28). Atomic dalam satu transaksi:
 -- wallet_debit fee + record_platform_revenue (ref_type 'shipment', fee penuh
 -- ke treasury) + insert shipments 'vault_shipout' requested (queue admin).
+-- Fee = konstanta server SHIPMENT_FEE_CCOIN (packages/shared) — audit
+-- 2026-08-31: fee client-supplied underchargable, jadi BUKAN parameter RPC.
 -- Anti double-ship: raise manual SHIPMENT_ACTIVE (bukan raw unique violation),
 -- paritas dengan partial unique index uq_shipments_active_per_card.
 -- Catatan: p_type 'vault_shipout' WAJIB terdaftar di enum wallet_tx_type
@@ -363,8 +365,7 @@ end $$;
 -- ══════════════════════════════════════════════════════════════════════════
 create or replace function public.vault_shipout(
   p_card_id text,
-  p_address text,
-  p_fee_ccoin integer
+  p_address text
 ) returns public.shipments
 language plpgsql security definer set search_path = public as $$
 declare
@@ -373,9 +374,10 @@ declare
   v_is_seed boolean := false;
   v_shipment public.shipments;
   v_shipment_id text := gen_random_uuid()::text;
+  -- pin: SHIPMENT_FEE_CCOIN (packages/shared/src/index.ts) — wajib sama nilai
+  v_fee_ccoin constant integer := 2;
 begin
   if v_user is null then raise exception 'AUTH_REQUIRED'; end if;
-  if p_fee_ccoin is null or p_fee_ccoin < 1 then raise exception 'INVALID_AMOUNT'; end if;
   if p_address is null or length(trim(p_address)) < 10 then raise exception 'ADDRESS_REQUIRED'; end if;
 
   select * into v_card from cards where id = p_card_id for update;
@@ -401,17 +403,17 @@ begin
 
   -- 1) debit ship fee (idem unik per attempt; replay diblok guard SHIPMENT_ACTIVE;
   --    bukan spend XP — type 'vault_shipout' di luar daftar XP wallet_debit)
-  perform public.wallet_debit(v_user, p_fee_ccoin, 'vault_shipout', 'card', p_card_id,
+  perform public.wallet_debit(v_user, v_fee_ccoin, 'vault_shipout', 'card', p_card_id,
           'shipout-' || v_user || '-' || p_card_id || '-' || v_shipment_id);
 
   -- 2) ledger: ship fee = pendapatan platform penuh -> treasury + platform_revenue
-  perform public.record_platform_revenue('shipment', 'shipment', v_shipment_id, p_fee_ccoin,
-          p_fee_ccoin, 0, 0);
+  perform public.record_platform_revenue('shipment', 'shipment', v_shipment_id, v_fee_ccoin,
+          v_fee_ccoin, 0, 0);
 
   -- 3) shipment queue admin (fulfil via admin_fulfill_shipment)
   insert into shipments (id, card_id, requester_id, type, from_location, to_dest, address, fee_ccoin, status)
   values (v_shipment_id, p_card_id, v_user, 'vault_shipout', 'platform', 'buyer_address',
-          jsonb_build_object('street', p_address), p_fee_ccoin, 'requested')
+          jsonb_build_object('street', p_address), v_fee_ccoin, 'requested')
   returning * into v_shipment;
 
   -- 4) parity jalur ship-out lama: kartu keluar QC → layak kirim (display admin)
@@ -1644,8 +1646,8 @@ grant execute on function public.wallet_credit(uuid, integer, text, text, text, 
 revoke execute on function public.checkout(text, text) from public;
 grant execute on function public.checkout(text, text) to authenticated;
 
-revoke execute on function public.vault_shipout(text, text, integer) from public;
-grant execute on function public.vault_shipout(text, text, integer) to authenticated;
+revoke execute on function public.vault_shipout(text, text) from public;
+grant execute on function public.vault_shipout(text, text) to authenticated;
 
 revoke execute on function public.drop_entry(text, text) from public;
 grant execute on function public.drop_entry(text, text) to authenticated;

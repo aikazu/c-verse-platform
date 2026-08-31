@@ -1,4 +1,4 @@
-import type { Card } from "@c-verse/shared";
+import { type Card, SHIPMENT_FEE_CCOIN } from "@c-verse/shared";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
@@ -26,7 +26,6 @@ function ManageCardsInner() {
   const confirm = useConfirm();
   const [buyout, setBuyout] = useState<Record<string, string>>({});
   const [vaultAddr, setVaultAddr] = useState<Record<string, string>>({});
-  const [vaultFee, setVaultFee] = useState<Record<string, number>>({});
   const [busyId, setBusyId] = useState<string | null>(null);
   const { data, refetch } = useQuery({ queryKey: ["profile-manage"], queryFn: () => api.profile(), enabled: !!user });
 
@@ -80,16 +79,23 @@ function ManageCardsInner() {
   }
   async function onVaultShip(card: Card) {
     const addr = vaultAddr[card.id] ?? "";
-    const fee = vaultFee[card.id] ?? 2;
     if (addr.length < 10) {
       push("Alamat minimal 10 karakter", "info");
       return;
     }
     // Konfirmasi: ongkir dipotong + kartu berstatus dikirim (founder 2026-08-29).
-    if (!(await confirm({ title: "Kirim C.Card ini?", message: `Ongkir ${fee} C dipotong dari saldo.`, confirmLabel: "Kirim" }))) return;
+    // Fee = konstanta server SHIPMENT_FEE_CCOIN — bukan input client.
+    if (
+      !(await confirm({
+        title: "Kirim C.Card ini?",
+        message: `Ongkir ${SHIPMENT_FEE_CCOIN} C dipotong dari saldo.`,
+        confirmLabel: "Kirim",
+      }))
+    )
+      return;
     setBusyId(card.id);
     try {
-      await api.vaultShipout(card.id, addr, fee);
+      await api.vaultShipout(card.id, addr);
       push("Pengiriman dibuat", "success");
       refetch();
     } catch (e: unknown) {
@@ -241,15 +247,6 @@ function ManageCardsInner() {
                       style={{ fontSize: 12 }}
                     />
                     <div className="ac-card-row">
-                      <input
-                        className="input"
-                        type="number"
-                        min={1}
-                        aria-label="Ongkir C-Coin"
-                        value={vaultFee[card.id] ?? 2}
-                        onChange={(e) => setVaultFee((s) => ({ ...s, [card.id]: Number(e.target.value) }))}
-                        style={{ width: 100, fontSize: 12, fontFamily: "var(--font-mono)" }}
-                      />
                       <button
                         className="btn-gold"
                         onClick={() => onVaultShip(card)}

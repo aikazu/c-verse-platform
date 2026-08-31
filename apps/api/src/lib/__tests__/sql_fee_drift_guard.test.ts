@@ -21,6 +21,7 @@ import {
   SECONDARY_PLATFORM_PCT,
   SECONDARY_ROYALTY_PCT,
   SECONDARY_SELLER_PCT,
+  SHIPMENT_FEE_CCOIN,
 } from "@c-verse/shared";
 
 // Path repo root: dari apps/api/src/lib/__tests__ naik 5 level ke repo root
@@ -47,6 +48,7 @@ describe("SQL fee drift guard — shared constants vs migration literals", () =>
     expect(REVENUE_SHARE_PLATFORM_PRODUCED.platform).toBe(0.7);
     expect(REVENUE_SHARE_PLATFORM_PRODUCED.creator).toBe(0.3);
     expect(MAX_BUYOUT_ACTIVE_PER_USER).toBe(20);
+    expect(SHIPMENT_FEE_CCOIN).toBe(2);
   });
 
   it("every migration with record_platform_revenue emits derived fee literals", () => {
@@ -118,6 +120,25 @@ describe("SQL fee drift guard — shared constants vs migration literals", () =>
     expect(withGuard.length, `MAX_BUYOUT_ACTIVE / >= ${maxBuyoutStr} harus muncul di setidaknya 2 file (RLS + RPC)`).toBeGreaterThanOrEqual(
       2,
     );
+  });
+
+  it("SHIPMENT_FEE_CCOIN pin: fee literal di-derive di dalam blok fungsi vault_shipout (04_rpc.sql)", () => {
+    const feeStr = String(SHIPMENT_FEE_CCOIN);
+    const migrations = readMigrations();
+
+    const rpcFile = migrations.find((m) => m.content.includes("create or replace function public.vault_shipout("));
+    expect(rpcFile, "fungsi vault_shipout harus ada di migrations").toBeDefined();
+    if (!rpcFile) return;
+
+    const start = rpcFile.content.indexOf("create or replace function public.vault_shipout(");
+    const end = rpcFile.content.indexOf("$$;", start);
+    const fnBody = rpcFile.content.slice(start, end);
+
+    // Fee BUKAN parameter RPC — bukan input client (audit 2026-08-31:
+    // client-supplied fee underchargable). Guard: param lama tidak boleh kembali.
+    expect(fnBody).not.toContain("p_fee_ccoin");
+    // Fee di-derive dari konstanta lokal yang meng-pin SHIPMENT_FEE_CCOIN.
+    expect(fnBody, `${rpcFile.file}::vault_shipout harus memuat literal fee ${feeStr}`).toContain(`integer := ${feeStr}`);
   });
 
   it("red-check: matcher akan FAIL jika fee literal diubah ke nilai salah", () => {

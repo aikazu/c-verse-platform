@@ -1,3 +1,4 @@
+import { SHIPMENT_FEE_CCOIN } from "@c-verse/shared";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.hoisted(() => {
@@ -5,7 +6,7 @@ vi.hoisted(() => {
 });
 
 const control = vi.hoisted(() => ({
-  rpcData: { id: "ship-1", cardId: "card-1", type: "vault_shipout", status: "requested", feeCcoin: 5 } as Record<string, unknown>,
+  rpcData: { id: "ship-1", cardId: "card-1", type: "vault_shipout", status: "requested", feeCcoin: 2 } as Record<string, unknown>,
   rpcError: null as { message: string } | null,
   rpcCalls: [] as Array<{ fn: string; args: Record<string, unknown> }>,
   auditCalls: [] as Array<Record<string, unknown>>,
@@ -78,20 +79,19 @@ function shipout(body: Record<string, unknown>) {
 describe("vault-shipout — atomic RPC vault_shipout (founder 2026-08-28)", () => {
   beforeEach(() => {
     control.rpcCalls = [];
-    control.rpcData = { id: "ship-1", cardId: "card-1", type: "vault_shipout", status: "requested", feeCcoin: 5 };
+    control.rpcData = { id: "ship-1", cardId: "card-1", type: "vault_shipout", status: "requested", feeCcoin: SHIPMENT_FEE_CCOIN };
     control.rpcError = null;
     control.auditCalls = [];
   });
 
-  it("happy path: RPC vault_shipout dipanggil dengan { p_card_id, p_address, p_fee_ccoin } + response shipment", async () => {
-    const res = await shipout({ cardId: "card-1", address: "Jl. Test 123, Jakarta Selatan", feeCcoin: 5 });
+  it("happy path: body tanpa feeCcoin — RPC vault_shipout dipanggil dengan { p_card_id, p_address } saja", async () => {
+    const res = await shipout({ cardId: "card-1", address: "Jl. Test 123, Jakarta Selatan" });
     expect(res.status).toBe(200);
     expect(control.rpcCalls).toHaveLength(1);
     expect(control.rpcCalls[0]?.fn).toBe("vault_shipout");
     expect(control.rpcCalls[0]?.args).toEqual({
       p_card_id: "card-1",
       p_address: "Jl. Test 123, Jakarta Selatan",
-      p_fee_ccoin: 5,
     });
     const body = (await res.json()) as { ok: boolean; shipment: Record<string, unknown> };
     expect(body.ok).toBe(true);
@@ -99,9 +99,26 @@ describe("vault-shipout — atomic RPC vault_shipout (founder 2026-08-28)", () =
     expect(body.shipment.type).toBe("vault_shipout");
   });
 
+  it("fee bukan input client: body dengan feeCcoin di-strip — RPC tetap tanpa p_fee_ccoin", async () => {
+    const res = await shipout({ cardId: "card-1", address: "Jl. Test 123, Jakarta Selatan", feeCcoin: 999 });
+    expect(res.status).toBe(200);
+    expect(control.rpcCalls[0]?.args).toEqual({
+      p_card_id: "card-1",
+      p_address: "Jl. Test 123, Jakarta Selatan",
+    });
+  });
+
+  it("audit payload memakai fee server SHIPMENT_FEE_CCOIN", async () => {
+    await shipout({ cardId: "card-1", address: "Jl. Test 123, Jakarta Selatan" });
+    expect(control.auditCalls).toHaveLength(1);
+    const callArgs = control.auditCalls[0]?.args as unknown[] | undefined;
+    const detail = callArgs?.[4] as { cardId?: string; feeCcoin?: number };
+    expect(detail).toEqual({ cardId: "card-1", feeCcoin: SHIPMENT_FEE_CCOIN });
+  });
+
   it("RpcError INSUFFICIENT (saldo ongkir kurang) -> 402", async () => {
     control.rpcError = { message: "INSUFFICIENT" };
-    const res = await shipout({ cardId: "card-1", address: "Jl. Test 123, Jakarta Selatan", feeCcoin: 5 });
+    const res = await shipout({ cardId: "card-1", address: "Jl. Test 123, Jakarta Selatan" });
     expect(res.status).toBe(402);
     const body = (await res.json()) as { code: string };
     expect(body.code).toBe("INSUFFICIENT");
@@ -109,21 +126,15 @@ describe("vault-shipout — atomic RPC vault_shipout (founder 2026-08-28)", () =
 
   it("RpcError SHIPMENT_ACTIVE (duplikat aktif, race di SQL) -> 400 mapped (bukan raw DB message)", async () => {
     control.rpcError = { message: "SHIPMENT_ACTIVE" };
-    const res = await shipout({ cardId: "card-1", address: "Jl. Test 123, Jakarta Selatan", feeCcoin: 5 });
+    const res = await shipout({ cardId: "card-1", address: "Jl. Test 123, Jakarta Selatan" });
     expect(res.status).toBe(400);
     const body = (await res.json()) as { error: string; code: string };
     expect(body.code).toBe("SHIPMENT_ACTIVE");
     expect(body.error).not.toContain("duplicate key");
   });
 
-  it("zod tetap: fee < 1 ditolak 400 sebelum RPC", async () => {
-    const res = await shipout({ cardId: "card-1", address: "Jl. Test 123, Jakarta Selatan", feeCcoin: 0 });
-    expect(res.status).toBe(400);
-    expect(control.rpcCalls).toHaveLength(0);
-  });
-
   it("zod tetap: address < 10 char ditolak 400 sebelum RPC", async () => {
-    const res = await shipout({ cardId: "card-1", address: "jl", feeCcoin: 5 });
+    const res = await shipout({ cardId: "card-1", address: "jl" });
     expect(res.status).toBe(400);
     expect(control.rpcCalls).toHaveLength(0);
   });

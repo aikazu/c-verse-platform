@@ -370,7 +370,9 @@ try {
     ]);
     const treasuryBefore = await walletBalance(TREASURY);
     const c = await asUser(owner);
-    await c.query("select public.vault_shipout($1, 'Jl. Shipout No. 8 Jakarta', 5)", [cards[0].id]);
+    // Fee = konstanta server (SHIPMENT_FEE_CCOIN = 2) — bukan argumen RPC lagi.
+    const SHIPMENT_FEE = 2;
+    await c.query("select public.vault_shipout($1, 'Jl. Shipout No. 8 Jakarta')", [cards[0].id]);
     await c.end();
     const ship = await admin.query(
       "select type::text as t, status::text as s, fee_ccoin::int as fee, address->>'street' as street from public.shipments where card_id = $1 and type = 'vault_shipout' order by created_at desc limit 1",
@@ -381,8 +383,8 @@ try {
       [cards[0].id],
     );
     const debit = await admin.query(
-      "select count(*)::int as n from public.wallet_transactions where user_id = $1 and type = 'vault_shipout' and amount_ccoin = -5",
-      [owner],
+      "select count(*)::int as n from public.wallet_transactions where user_id = $1 and type = 'vault_shipout' and amount_ccoin = $2",
+      [owner, -SHIPMENT_FEE],
     );
     const ownerBal = await walletBalance(owner);
     const treasuryDelta = (await walletBalance(TREASURY)) - treasuryBefore;
@@ -390,7 +392,7 @@ try {
     const c2 = await asUser(owner);
     let repeatRejected = false;
     try {
-      await c2.query("select public.vault_shipout($1, 'Jl. Shipout No. 8 Jakarta', 5)", [cards[0].id]);
+      await c2.query("select public.vault_shipout($1, 'Jl. Shipout No. 8 Jakarta')", [cards[0].id]);
     } catch (e) {
       repeatRejected = errCode(e) === "SHIPMENT_ACTIVE";
     }
@@ -399,7 +401,7 @@ try {
     let nonOwnerRejected = false;
     const c3 = await asUser(other);
     try {
-      await c3.query("select public.vault_shipout($1, 'Jl. Intruder No. 9 Jakarta', 5)", [cards[1].id]);
+      await c3.query("select public.vault_shipout($1, 'Jl. Intruder No. 9 Jakarta')", [cards[1].id]);
     } catch (e) {
       nonOwnerRejected = errCode(e) === "FORBIDDEN";
     }
@@ -408,16 +410,16 @@ try {
     const ok =
       ship.rows[0]?.t === "vault_shipout" &&
       ship.rows[0]?.s === "requested" &&
-      Number(ship.rows[0]?.fee) === 5 &&
+      Number(ship.rows[0]?.fee) === SHIPMENT_FEE &&
       ship.rows[0]?.street === "Jl. Shipout No. 8 Jakarta" &&
-      Number(rev.rows[0]?.g) === 5 &&
-      Number(rev.rows[0]?.p) === 5 &&
+      Number(rev.rows[0]?.g) === SHIPMENT_FEE &&
+      Number(rev.rows[0]?.p) === SHIPMENT_FEE &&
       Number(rev.rows[0]?.r) === 0 &&
       Number(rev.rows[0]?.s) === 0 &&
       rev.rows[0]?.pct === "1.0" &&
       debit.rows[0].n === 1 &&
-      ownerBal === 95 &&
-      treasuryDelta === 5 &&
+      ownerBal === 100 - SHIPMENT_FEE &&
+      treasuryDelta === SHIPMENT_FEE &&
       repeatRejected &&
       nonOwnerRejected;
     report(

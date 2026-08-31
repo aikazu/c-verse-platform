@@ -90,12 +90,12 @@ export function rpcCheckout(db: SupabaseClient, dropId: string, pool: "regular" 
 
 // Post-purchase ship-out dari platform vault (owner bayar ship fee).
 // Atomic di SQL: shipment insert + fee debit ke treasury + platform_revenue
-// (ref_type 'shipment') dalam satu transaksi.
-export function rpcVaultShipout(db: SupabaseClient, cardId: string, address: string, feeCcoin: number) {
+// (ref_type 'shipment') dalam satu transaksi. Fee BUKAN parameter — SQL
+// derive dari konstanta server SHIPMENT_FEE_CCOIN (audit 2026-08-31).
+export function rpcVaultShipout(db: SupabaseClient, cardId: string, address: string) {
   return callRpc<Record<string, unknown>>(db, "vault_shipout", {
     p_card_id: cardId,
     p_address: address,
-    p_fee_ccoin: feeCcoin,
   });
 }
 

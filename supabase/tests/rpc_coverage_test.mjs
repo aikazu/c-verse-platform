@@ -784,14 +784,16 @@ await admin.query("commit");
   await admin.query("select public.admin_fulfill_shipment('cov-ship-1c', 'cancelled')");
   const cancelledSt = (await admin.query("select status::text as st from public.shipments where id = 'cov-ship-1c'")).rows[0].st;
 
-  // vault_shipout sungguhan (sebagai owner): fee 25 -> debit + revenue 'shipment'
+  // vault_shipout sungguhan (sebagai owner): fee = konstanta server 2
+  // (SHIPMENT_FEE_CCOIN — bukan argumen RPC lagi) -> debit + revenue 'shipment'
+  const SHIPMENT_FEE = 2;
   const aBalBefore = await balance(U.a);
   const a = await userClient(U.a);
   // pg tidak mem-parse composite return jadi object — ambil field id langsung.
-  const soId = (await a.query("select (public.vault_shipout('cov-card-ship-2', 'Jl. Coverage Shipout No. 2 Bandung', 25)).id as sid"))
-    .rows[0].sid;
+  const soId = (await a.query("select (public.vault_shipout('cov-card-ship-2', 'Jl. Coverage Shipout No. 2 Bandung')).id as sid")).rows[0]
+    .sid;
   // anti double-ship: shipment aktif kedua -> SHIPMENT_ACTIVE
-  const doubleShip = await expectCode(a.query("select public.vault_shipout('cov-card-ship-2', 'Jl. Coverage Shipout No. 2 Bandung', 25)"));
+  const doubleShip = await expectCode(a.query("select public.vault_shipout('cov-card-ship-2', 'Jl. Coverage Shipout No. 2 Bandung')"));
   await a.end();
   const aBalAfter = await balance(U.a);
   const revShipout = (
@@ -821,8 +823,8 @@ await admin.query("commit");
     notifDeliv === 1 && // trigger notifikasi delivered
     terminal.startsWith("INVALID_TRANSITION") && // delivered = terminal
     cancelledSt === "cancelled" &&
-    aBalBefore - aBalAfter === 25 && // vault_shipout: debit fee tepat sekali
-    revShipout?.p === 25 &&
+    aBalBefore - aBalAfter === SHIPMENT_FEE && // vault_shipout: debit fee tepat sekali
+    revShipout?.p === SHIPMENT_FEE &&
     revShipout?.r === 0 &&
     revShipout?.s === 0 && // fee penuh ke platform/treasury
     doubleShip === "SHIPMENT_ACTIVE" &&
