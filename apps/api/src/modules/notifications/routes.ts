@@ -14,7 +14,10 @@ app.get("/", async (c) => {
   const authRes = await requireUser(c);
   if ("error" in authRes) return c.json({ error: authRes.error === 403 ? "Akun disuspend" : "Unauthorized" }, authRes.error);
   const user = authRes.user;
-  const limit = Math.min(100, Math.max(1, Number(c.req.query("limit") ?? 30)));
+  // Audit batch 2 F8: Number("abc") = NaN dan NaN lolos dari clamp Math.min/max —
+  // guard Number.isFinite + fallback default 30 sebelum masuk .limit().
+  const parsed = Number(c.req.query("limit"));
+  const limit = Number.isFinite(parsed) ? Math.min(100, Math.max(1, Math.floor(parsed))) : 30;
   const list = await listNotificationsByUser(user.id, limit);
   return c.json({ notifications: list });
 });

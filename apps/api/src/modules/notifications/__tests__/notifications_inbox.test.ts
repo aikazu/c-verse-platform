@@ -8,6 +8,7 @@ const control = vi.hoisted(() => ({
   rows: [] as Array<Record<string, unknown>>,
   markedIds: [] as string[],
   markAll: false,
+  limitArg: null as number | null,
 }));
 
 vi.mock("../../../lib/auth.js", () => ({
@@ -46,7 +47,10 @@ vi.mock("../../../lib/supabase.js", () => {
           eq: (_col: string, _val: unknown) => q,
           is: (_col: string, _val: unknown) => q,
           order: () => q,
-          limit: (_n: number) => Promise.resolve({ data: control.rows, error: null }),
+          limit: (n: number) => {
+            control.limitArg = n;
+            return Promise.resolve({ data: control.rows, error: null });
+          },
           maybeSingle: () => Promise.resolve({ data: null, error: null }),
         };
         return q;
@@ -90,6 +94,7 @@ describe("GET /api/notifications (P0-3 inbox)", () => {
     control.rows = [];
     control.markedIds = [];
     control.markAll = false;
+    control.limitArg = null;
   });
 
   it("returns inbox list", async () => {
@@ -117,5 +122,30 @@ describe("GET /api/notifications (P0-3 inbox)", () => {
     expect(res.status).toBe(200);
     const body = (await res.json()) as { unread: number };
     expect(typeof body.unread).toBe("number");
+  });
+
+  // Audit batch 2 F8: Number("abc") = NaN mengalir ke .limit(NaN) → 500.
+  it("?limit=abc → 200 dengan default 30 (audit batch 2 F8)", async () => {
+    const res = await app.request("/api/notifications?limit=abc", {
+      headers: { Authorization: "Bearer t" },
+    });
+    expect(res.status).toBe(200);
+    expect(control.limitArg).toBe(30);
+  });
+
+  it("?limit=250 di-clamp ke 100", async () => {
+    const res = await app.request("/api/notifications?limit=250", {
+      headers: { Authorization: "Bearer t" },
+    });
+    expect(res.status).toBe(200);
+    expect(control.limitArg).toBe(100);
+  });
+
+  it("?limit=5 dipakai apa adanya", async () => {
+    const res = await app.request("/api/notifications?limit=5", {
+      headers: { Authorization: "Bearer t" },
+    });
+    expect(res.status).toBe(200);
+    expect(control.limitArg).toBe(5);
   });
 });
