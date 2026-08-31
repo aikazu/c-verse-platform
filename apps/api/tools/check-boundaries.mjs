@@ -2,7 +2,7 @@
 /**
  * check-boundaries.mjs — zero-dependency boundary enforcement for apps/api/src.
  *
- * Rules over apps/api/src dot-ts files (relative import specifiers only):
+ * Rules over apps/api/src .ts/.mts files (relative import specifiers only):
  *  - R1 KERNEL PURITY: files under src/lib/ must not import anything under src/modules/.
  *  - R2 MODULE PRIVACY: a file inside modules/<x>/ may import into modules/<y>/ (y !== x)
  *    ONLY via the module entry `<y>/index.ts` (specifier ending in `<y>/index.js`).
@@ -42,15 +42,18 @@ function toPosix(value) {
 const STATIC_IMPORT_RE = /\bfrom\s*(["'])([^"'\n]+)\1/g;
 const SIDE_EFFECT_IMPORT_RE = /\bimport\s*(["'])([^"'\n]+)\1/g;
 const DYNAMIC_IMPORT_RE = /\bimport\s*\(\s*(["'])([^"'\n]+)\1/g;
+// Template-literal dynamic import: import(`./x.js`) — plain specifiers only
+// (`$` excluded so interpolated templates are never resolved as literals).
+const TEMPLATE_DYNAMIC_IMPORT_RE = /\bimport\s*\(\s*(`)([^`$\n]+)\1/g;
 
 /**
  * Extract relative import specifiers from source text.
  * Covers: static `from "..."`, `export ... from "..."`, side-effect `import "..."`,
- * dynamic `import("...")`. Returns [{ specifier, line }], deduped, sorted by line.
+ * dynamic `import("...")` and `import(\`...\`)`. Returns [{ specifier, line }], deduped, sorted by line.
  */
 function extractImports(source) {
   const found = new Map();
-  const regexes = [STATIC_IMPORT_RE, SIDE_EFFECT_IMPORT_RE, DYNAMIC_IMPORT_RE];
+  const regexes = [STATIC_IMPORT_RE, SIDE_EFFECT_IMPORT_RE, DYNAMIC_IMPORT_RE, TEMPLATE_DYNAMIC_IMPORT_RE];
   for (const regex of regexes) {
     regex.lastIndex = 0;
     let match = regex.exec(source);
@@ -144,11 +147,14 @@ function collectViolations(srcDirAbs) {
         walk(entryAbs);
         continue;
       }
-      if (!entry.name.endsWith(".ts") || entry.name.endsWith(".d.ts")) {
+      const fileName = entry.name;
+      const isTypeScript = fileName.endsWith(".ts") || fileName.endsWith(".mts");
+      const isDeclaration = fileName.endsWith(".d.ts") || fileName.endsWith(".d.mts");
+      if (!isTypeScript || isDeclaration) {
         continue;
       }
       // Test files are exempt as importers: white-box by design and never imported by production.
-      if (entry.name.endsWith(".test.ts")) {
+      if (fileName.endsWith(".test.ts") || fileName.endsWith(".test.mts")) {
         continue;
       }
       const filePosix = toPosix(entryAbs);
@@ -208,6 +214,8 @@ const FIXTURES = new Map([
     ['import { readFile } from "node:fs";', 'import { z } from "zod-ish";', 'export { helper } from "../modules/a/routes.js";'].join("\n"),
   ],
   ["src/modules/a/routes.ts", ['import { bRoutes } from "../b/routes.js";', "export const aRoutes = bRoutes;"].join("\n")],
+  // Backtick dynamic import inside a .mts file — must be caught like any other import.
+  ["src/modules/a/lazy.mts", ["const lazyB = await import(`../b/routes.js`);", "export const lazyValue = lazyB;"].join("\n")],
   ["src/index.ts", ['const mod = await import("./modules/a/routes.js");', "export const rootValue = mod;"].join("\n")],
   ["src/__tests__/file.ts", ['import { readValue } from "../modules/a/reads.js";', "export const t = readValue;"].join("\n")],
   // --- set B: must pass clean ---
@@ -233,6 +241,7 @@ const FIXTURES = new Map([
 const EXPECTED_VIOLATIONS = [
   { rule: "R1", file: "src/lib/kernel.ts", line: 3, specifier: "../modules/a/routes.js" },
   { rule: "R2", file: "src/modules/a/routes.ts", line: 1, specifier: "../b/routes.js" },
+  { rule: "R2", file: "src/modules/a/lazy.mts", line: 1, specifier: "../b/routes.js" },
   { rule: "R3", file: "src/__tests__/file.ts", line: 1, specifier: "../modules/a/reads.js" },
   { rule: "R3", file: "src/index.ts", line: 1, specifier: "./modules/a/routes.js" },
 ];
