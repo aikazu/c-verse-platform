@@ -1,4 +1,4 @@
-import { BALANCE_CAP_CCOIN, C_COIN_RATE_IDR, MIN_PAYOUT_CCOIN } from "@c-verse/shared";
+import { C_COIN_RATE_IDR, MIN_PAYOUT_CCOIN } from "@c-verse/shared";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.hoisted(() => {
@@ -97,7 +97,8 @@ describe("Wallet routes", () => {
 
     expect(body.transactions).toHaveLength(1);
     expect(body.transactions[0].id).toBe("tx-1");
-    expect(body.topupCapNoKyc).toBe(BALANCE_CAP_CCOIN);
+    // Pin the literal — asserting the shared constant against itself is tautological.
+    expect(body.topupCapNoKyc).toBe(500);
     expect(body.minPayout).toBe(MIN_PAYOUT_CCOIN);
     expect(body.payoutHeld).toBe(false);
     expect(body.payoutHoldUntil).toBeNull();
