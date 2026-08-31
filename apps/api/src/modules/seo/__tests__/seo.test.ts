@@ -112,7 +112,11 @@ describe("GET /api/seo/sitemap.xml", () => {
     ];
     control.creatorUsers = [karinaUser];
     control.creators = [{ id: "cr-1", userId: "cu-1", handle: "karina-official", status: "active", createdAt: "2026-08-02T00:00:00.000Z" }];
-    control.cards = [{ id: "card-9", createdAt: "2026-08-03T00:00:00.000Z" }];
+    control.cards = [
+      { id: "card-9", dropId: "drop-live", createdAt: "2026-08-03T00:00:00.000Z" },
+      { id: "card-draft", dropId: "drop-draft", createdAt: "2026-08-03T00:00:00.000Z" },
+      { id: "card-orphan", dropId: "drop-gone", createdAt: "2026-08-03T00:00:00.000Z" },
+    ];
 
     const res = await app.request("/api/seo/sitemap.xml");
     expect(res.status).toBe(200);
@@ -133,6 +137,9 @@ describe("GET /api/seo/sitemap.xml", () => {
     expect(xml).toContain(`<loc>${base}/c/karina-official</loc>`);
     expect(xml).not.toContain(`<loc>${base}/c/karina</loc>`);
     expect(xml).toContain(`<loc>${base}/cards/card-9/3d</loc>`);
+    // cards of non-public drops must NOT be listed (audit batch 2 F3)
+    expect(xml).not.toContain(`/cards/card-draft/3d`);
+    expect(xml).not.toContain(`/cards/card-orphan/3d`);
 
     expect(readsDrops.listDrops).toHaveBeenCalledTimes(1);
     expect(readsCreators.listCreatorUsers).toHaveBeenCalledTimes(1);
@@ -178,6 +185,20 @@ describe("GET /api/seo/meta", () => {
     expect(readsUsers.getUserByUsername).toHaveBeenCalledWith("ghost");
   });
 
+  it("suspended creator → 404 (audit batch 2 F5)", async () => {
+    control.creatorByHandle = { id: "cr-1", userId: "cu-1", handle: "karina" };
+    control.userById = { ...karinaUser, flagReason: "fraud" };
+    const res = await app.request("/api/seo/meta?path=/c/karina");
+    expect(res.status).toBe(404);
+  });
+
+  it("anonymous creator → 404 (audit batch 2 F5 — parity listCreatorUsers)", async () => {
+    control.creatorByHandle = { id: "cr-1", userId: "cu-1", handle: "karina" };
+    control.userById = { ...karinaUser, isAnonymous: true };
+    const res = await app.request("/api/seo/meta?path=/c/karina");
+    expect(res.status).toBe(404);
+  });
+
   it("card detail: Product jsonLd with sku + drop-derived og", async () => {
     control.cardById = { id: "card-1", dropId: "drop-1", unitNumber: 3, nfcShortId: "drp1-003" };
     control.dropById = dropFixture({ id: "drop-1", narrative: "Cerita drop" });
@@ -195,6 +216,17 @@ describe("GET /api/seo/meta", () => {
     expect(body.jsonLd?.sku).toBe("drp1-003");
     expect(readsDrops.getCardByIdOrNfc).toHaveBeenCalledWith("card-1");
     expect(readsDrops.getDropById).toHaveBeenCalledWith("drop-1");
+  });
+
+  it("card of non-public drop → 404 (audit batch 2 F4)", async () => {
+    control.cardById = { id: "card-2", dropId: "drop-draft", unitNumber: 1, nfcShortId: "drp1-001" };
+    control.dropById = dropFixture({ id: "drop-draft", status: "draft" });
+    const res = await app.request("/api/seo/meta?path=/cards/card-2/3d");
+    expect(res.status).toBe(404);
+
+    control.dropById = dropFixture({ id: "drop-draft", status: "cancelled" });
+    const cancelled = await app.request("/api/seo/meta?path=/cards/card-2/3d");
+    expect(cancelled.status).toBe(404);
   });
 
   it("drop detail: Event jsonLd with startDate; 404 when drop missing", async () => {

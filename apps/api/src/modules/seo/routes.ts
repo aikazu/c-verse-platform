@@ -7,15 +7,23 @@ import type { CreatorRec } from "../../lib/store.js";
 
 const app = new Hono();
 
+// Status drop yang dianggap publik untuk permukaan SEO (sitemap + OG meta) —
+// daftar yang sama dengan filter sitemap drops. draft/cancelled/closed tidak
+// publik: URL kartu/drop-nya tidak boleh bocor lewat sitemap maupun meta.
+const SEO_PUBLIC_DROP_STATUSES: string[] = ["published", "live", "sold_out", "scheduled"];
+
 // GET /sitemap.xml — dynamic sitemap for SEO (docs 02 s.8: SPA + Worker HTMLRewriter + sitemap generator)
 app.get("/sitemap.xml", async (_c) => {
   const base = `https://${PRIMARY_DOMAIN}`;
-  const drops = (await listDrops()).filter((d) => ["published", "live", "sold_out", "scheduled"].includes(d.status));
+  const drops = (await listDrops()).filter((d) => SEO_PUBLIC_DROP_STATUSES.includes(d.status));
   const creators = await listCreatorUsers();
   const recByUserId = new Map<string, CreatorRec>(
     (await listCreators()).filter((cr) => cr.userId != null).map((cr) => [cr.userId as string, cr]),
   );
-  const cards = (await listCards()).slice(0, 100); // cap for Y1
+  // Audit batch 2 F3: hanya kartu milik drop publik yang boleh masuk sitemap —
+  // tanpa filter ini URL kartu drop draft/cancelled ikut ter-list.
+  const publicDropIds = new Set(drops.map((d) => d.id));
+  const cards = (await listCards()).filter((ca) => publicDropIds.has(ca.dropId)).slice(0, 100); // cap for Y1
   const now = new Date().toISOString();
   const urls: string[] = [
     `<url><loc>${base}/</loc><lastmod>${now}</lastmod></url>`,
@@ -45,6 +53,10 @@ app.get("/meta", async (c) => {
     // mirror store behavior: username fallback only when no creator record matches the handle
     const user = rec ? (rec.userId ? await getUserById(rec.userId) : null) : await getUserByUsername(slug);
     if (!user) return c.json({ error: "Not found" }, 404);
+    // Audit batch 2 F5: halaman publik menyembunyikan kreator suspended +
+    // anonymous (paritas listCreatorUsers: is_anonymous=false, flag_reason null) —
+    // meta OG/JSON-LD ikut 404 agar displayName tidak bocor lewat prerender.
+    if (user.flagReason || user.isAnonymous) return c.json({ error: "Not found" }, 404);
     const rec2 = await getCreatorByUserId(user.id);
     return c.json({
       og: { title: `${user.displayName} — C.Verse`, description: `Koleksi kreator ${user.displayName} di C.Verse`, image: null },
@@ -62,6 +74,10 @@ app.get("/meta", async (c) => {
     const card = await getCardByIdOrNfc(id);
     if (!card) return c.json({ error: "Not found" }, 404);
     const drop = await getDropById(card.dropId);
+    // Audit batch 2 F4: kartu dari drop non-publik (atau tanpa parent drop)
+    // tidak mendapat OG meta — narrative/artwork drop draft/cancelled tidak
+    // boleh ter-prerender. Bentuk 404 sama dengan path tak dikenal.
+    if (!drop || !SEO_PUBLIC_DROP_STATUSES.includes(drop.status)) return c.json({ error: "Not found" }, 404);
     return c.json({
       og: {
         title: `${drop?.title ?? "Kartu"} #${card.unitNumber} — C.Verse`,
