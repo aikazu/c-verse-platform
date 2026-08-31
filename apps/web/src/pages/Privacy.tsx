@@ -1,23 +1,39 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
+import { RequireAuth } from "../components/RequireAuth";
 import { api } from "../lib/api";
 import type { ApiProfileResponse } from "../lib/api-types";
+import { ErrorState, LoadingState } from "../lib/QueryStates";
 import { useToast } from "../lib/toast";
 import "./account.css";
 
 const errorMessage = (e: unknown): string => (e instanceof Error ? e.message : String(e));
 
+// Sama seperti /home & /notifications: gate di dalam komponen halaman supaya
+// query profil hanya jalan untuk user yang sudah terautentikasi.
 export default function Privacy() {
+  return (
+    <RequireAuth>
+      <PrivacyInner />
+    </RequireAuth>
+  );
+}
+
+function PrivacyInner() {
   const { push } = useToast();
-  const { data, refetch } = useQuery<ApiProfileResponse>({
+  const { data, isLoading, isError, refetch } = useQuery<ApiProfileResponse>({
     queryKey: ["profile-privacy"],
     queryFn: () => api.profile(),
   });
+  const [saving, setSaving] = useState(false);
+  // Loading/error eksplisit (pola QueryStates) — fetch gagal tidak boleh
+  // terlihat seperti halaman kosong.
+  if (isLoading) return <LoadingState />;
+  if (isError) return <ErrorState onRetry={() => refetch()} label="Gagal memuat preferensi privasi" />;
   const user = data?.user;
   const isAnonymous = user?.isAnonymous ?? false;
   const ca = Boolean(user?.consentAnalyticsDetail);
   const cm = Boolean(user?.consentDataMarket);
-  const [saving, setSaving] = useState(false);
   async function toggle() {
     setSaving(true);
     try {
