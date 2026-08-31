@@ -8,7 +8,6 @@ import { sanitizeDbError } from "../../lib/errors.js";
 import { getDropById, listCardsByIds } from "../../lib/reads/drops.js";
 import { logAuditDb } from "../../lib/reads/kyc.js";
 import { getOrderById, listOrdersByUser, listShipmentsByCards } from "../../lib/reads/orders.js";
-import { readDb } from "../../lib/reads.js";
 import { uid } from "../../lib/store.js";
 
 const app = new Hono();
@@ -74,7 +73,14 @@ app.post("/:id/dispute", zValidator("json", z.object({ reason: z.string().min(10
   if (existing.status === "refunded") {
     return c.json({ error: `Order sudah refunded — tidak bisa dibuka dispute` }, 409);
   }
-  const db = readDb();
+  // Audit 2026-08-31: insert lewat USER-SCOPED client (bukan service-role
+  // readDb) — RLS disputes_insert_own (reporter_id = auth.uid()) jadi
+  // enforcement layer. Pre-check dedupe: satu dispute open per order (RLS
+  // select-own menampakkan hanya dispute milik reporter) — tanpa ini satu user
+  // bisa spam N dispute open per order.
+  const db = userDb(authRes.token);
+  const { data: openDispute } = await db.from("disputes").select("id").eq("order_id", id).eq("status", "open").maybeSingle();
+  if (openDispute) return c.json({ error: "Sudah ada dispute terbuka untuk order ini" }, 409);
   const disputeId = uid("dsp-");
   const { error } = await db.from("disputes").insert({
     id: disputeId,
