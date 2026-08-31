@@ -246,6 +246,29 @@ export function mapOwnershipRow(r: Row): {
   };
 }
 
+// ── Public payload projections (A3 privacy) ─────────────────────────────────
+// Aturan masking tunggal untuk semua payload publik: user anonim atau flagged
+// (suspended) tampil sebagai 'Anonim'. UUID stabil (owner.id, bidderId) tidak
+// pernah keluar dari server — korelasi lintas-listing bisa deanonymisasi meski
+// nama sudah dimasking.
+
+export function isPubliclyMasked(user: { isAnonymous: boolean; flagReason: string | null } | null): boolean {
+  return !user || user.isAnonymous || user.flagReason != null;
+}
+
+export function publicDisplayName(user: { displayName: string; isAnonymous: boolean; flagReason: string | null } | null): string {
+  return isPubliclyMasked(user) ? "Anonim" : (user as { displayName: string }).displayName;
+}
+
+/** Bid untuk payload publik: bidderId dibuang; `isMine` hanya saat ada viewer (personalisasi aman). */
+export type PublicBid = Omit<Bid, "bidderId"> & { isMine?: boolean };
+
+export function toPublicBid(bid: Bid, viewerId?: string | null): PublicBid {
+  const { bidderId: _strippedBidderId, ...safeFields } = bid;
+  if (viewerId) return { ...safeFields, isMine: bid.bidderId === viewerId };
+  return safeFields;
+}
+
 // ── Pagination helper (query param limit/offset, clamp) ────────────────────
 export interface PageParams {
   limit: number;

@@ -1,12 +1,14 @@
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import { z } from "zod";
+import { getOptionalUser } from "../../lib/auth.js";
 import { deriveAppKey, verifySun } from "../../lib/cmac.js";
 import { listBids } from "../../lib/reads/bids.js";
 import { getCardByIdOrNfc, getDropById } from "../../lib/reads/drops.js";
 import { logAuditDb } from "../../lib/reads/kyc.js";
 import { getUserById, listUsersByIds } from "../../lib/reads/users.js";
-import type { Bid, Card } from "../../lib/store.js";
+import { isPubliclyMasked, publicDisplayName, toPublicBid } from "../../lib/reads.js";
+import type { Bid, Card, User } from "../../lib/store.js";
 import { getSupabase } from "../../lib/supabase.js";
 import { getCardByNfcShortId, getCardByNfcUid, listOwnershipByCard } from "./reads.js";
 
@@ -113,10 +115,29 @@ async function maskBidderNames(bids: Bid[]): Promise<Bid[]> {
   const bidderIds = [...new Set(bids.map((b) => b.bidderId))];
   const bidderById = new Map((await listUsersByIds(bidderIds)).map((u) => [u.id, u] as const));
   return bids.map((b) => {
-    const bidder = bidderById.get(b.bidderId);
-    const isMasked = !bidder || bidder.isAnonymous || bidder.flagReason != null;
+    const isMasked = isPubliclyMasked(bidderById.get(b.bidderId) ?? null);
     return isMasked ? { ...b, bidderName: "Anonim" } : b;
   });
+}
+
+/**
+ * Owner publik (A3 / lane C): anonim/flagged → displayName 'Anonim' tanpa
+ * username; UUID (owner.id) tidak pernah keluar dari server — korelasi
+ * lintas-listing bisa deanonymisasi walau nama sudah "Anonim". `isOwner` adalah
+ * personalisasi viewer (satu-satunya cara aman pemilik mengenali kartunya
+ * sendiri setelah id dibuang); untuk viewer lain selalu false.
+ */
+function publicOwner(
+  owner: User | null,
+  viewerId: string | null,
+): { displayName: string; username: string | null; isOwner: boolean } | null {
+  if (!owner) return null;
+  const isMasked = isPubliclyMasked(owner);
+  return {
+    displayName: publicDisplayName(owner),
+    username: isMasked ? null : (owner.username ?? null),
+    isOwner: viewerId != null && owner.id === viewerId,
+  };
 }
 
 interface TapOutcome {
@@ -205,6 +226,11 @@ async function verifyTap(card: Card, input: TapInput): Promise<TapOutcome> {
 app.get("/cards/:cardId", async (c) => {
   const card = await getCardByIdOrNfc(c.req.param("cardId"));
   if (!card) return c.json({ error: "Kartu tidak ditemukan", status: "unknown" }, 404);
+  // Personalisasi opsional (getOptionalUser — tanpa session tetap 200): hanya
+  // menyalakan flag isOwner/isMine; identitas viewer tidak pernah mempengaruhi
+  // payload user lain.
+  const viewer = await getOptionalUser(c);
+  const viewerId = viewer?.id ?? null;
   const [drop, owner, bidList, history] = await Promise.all([
     getDropById(card.dropId),
     card.ownerId ? getUserById(card.ownerId) : Promise.resolve(null),
@@ -218,7 +244,7 @@ app.get("/cards/:cardId", async (c) => {
   ]);
   // Privacy: owner yang sekarang is_anonymous atau suspended HARUS disamarkan jadi "Anonim" — biar
   // orang tidak bisa melacak displayName historis user yang sudah memilih jadi anon.
-  const ownerNames = new Map(users.map((u) => [u.id, u.isAnonymous || u.flagReason ? "Anonim" : u.displayName] as const));
+  const ownerNames = new Map(users.map((u) => [u.id, publicDisplayName(u)] as const));
   const maskedBids = await maskBidderNames(bids);
   return c.json({
     card: {
@@ -230,8 +256,8 @@ app.get("/cards/:cardId", async (c) => {
       buyoutPriceCcoin: card.buyoutPriceCcoin,
       nfcShortId: card.nfcShortId,
       // nfcUid sengaja TIDAK diekspos — itu input diversifikasi kunci CMAC (docs/12); publik cukup nfcShortId.
+      // ownerId (UUID) juga tidak diekspos — deanonymisasi via korelasi; UI pakai flag isOwner di `owner`.
       verifyStatus: card.verifyStatus,
-      ownerId: card.ownerId,
     },
     drop: drop
       ? {
@@ -248,12 +274,19 @@ app.get("/cards/:cardId", async (c) => {
         }
       : null,
     creator: creator ? { id: creator.id, displayName: creator.displayName, username: creator.username ?? null } : null,
-    owner: owner
-      ? { id: owner.id, displayName: owner.displayName, username: owner.username ?? null, isAnonymous: owner.isAnonymous ?? false }
-      : null,
-    activeBid: maskedBids[0] ?? null,
-    bids: maskedBids,
-    ownershipHistory: history.map((h) => ({ ...h, ownerName: ownerNames.get(h.ownerId) ?? "—" })),
+    owner: publicOwner(owner, viewerId),
+    activeBid: maskedBids[0] ? toPublicBid(maskedBids[0], viewerId) : null,
+    bids: maskedBids.map((b) => toPublicBid(b, viewerId)),
+    // Riwayat tetap tampil dengan ownerName yang sudah dimasking — kolom ownerId (UUID) dibuang.
+    ownershipHistory: history.map((h) => ({
+      id: h.id,
+      cardId: h.cardId,
+      acquiredVia: h.acquiredVia,
+      orderId: h.orderId,
+      bidId: h.bidId,
+      transferredAt: h.transferredAt,
+      ownerName: ownerNames.get(h.ownerId) ?? "—",
+    })),
   });
 });
 
@@ -276,6 +309,11 @@ app.get("/cards/:cardId/3d", async (c) => {
   }
 
   const verified = verifyStatus === "verified";
+  // Lane C: UUID tidak pernah menjadi fallback link publik. Owner anonim/flagged
+  // (atau tanpa username) tidak dirender di viewer 3D — halaman /cards/:cardId
+  // menampilkan 'Anonim' untuk kasus yang sama (masking hanya boleh mengetatkan).
+  const ownerUsername = owner && !isPubliclyMasked(owner) ? (owner.username ?? null) : null;
+  const ownerRef = ownerUsername ? { name: publicDisplayName(owner), link: `/u/${ownerUsername}` } : null;
   return c.json({
     card: {
       id: card.id,
@@ -299,7 +337,7 @@ app.get("/cards/:cardId/3d", async (c) => {
     creator: drop
       ? { id: drop.creatorId, name: drop.creatorName, link: `/c/${(await getUserById(drop.creatorId))?.username ?? drop.creatorId}` }
       : null,
-    owner: owner ? { id: owner.id, name: owner.displayName, link: `/u/${owner.username ?? owner.id}` } : null,
+    owner: ownerRef,
     releaseDate: drop?.dropStartAt ?? drop?.dropAt ?? null,
     verifiedBadge: verified ? "Verified Card" : verifyStatus === "tamper_detected" ? "Tamper Detected" : null,
     hint: verified ? null : "Verifikasi via tap NFC untuk badge Verified Card (QR = Registered, lebih lemah).",
@@ -325,7 +363,7 @@ app.get("/verify/:shortId", async (c) => {
       verifyStatus: display,
     },
     drop: drop ? { id: drop.id, title: drop.title, series: drop.series, artworkUrl: drop.artworkUrl } : null,
-    owner: owner ? { displayName: owner.displayName } : null,
+    owner: owner ? { displayName: publicDisplayName(owner) } : null,
     verifyStatus: display,
     verifyMethod: "qr_shortid",
     tamperDetected: display === "tamper_detected",
@@ -375,7 +413,7 @@ app.post(
       reason: outcome.reason ?? null,
       card: { id: card.id, unitNumber: card.unitNumber, variant: card.variant, status: card.status, nfcShortId: card.nfcShortId },
       drop: drop ? { id: drop.id, title: drop.title, series: drop.series, artworkUrl: drop.artworkUrl, narrative: drop.narrative } : null,
-      owner: owner ? { displayName: owner.displayName } : null,
+      owner: owner ? { displayName: publicDisplayName(owner) } : null,
       verifyMethod: "nfc_cmac",
       redirectTo: `/cards/${card.id}/3d`,
       verifiedBadge: outcome.verifyStatus === "verified" ? "Verified Card" : null,

@@ -241,3 +241,44 @@ describe("GET /api/drops/:id/cards — per-drop card list (B1)", () => {
     expect(res.status).toBe(404);
   });
 });
+
+describe("GET /api/drops/:id — status gate & cardsPreview projection (lane C)", () => {
+  beforeEach(() => {
+    control.drop = null;
+    control.cards = [];
+    control.users = [];
+    vi.clearAllMocks();
+  });
+
+  it("drop draft → 404 (id time-based mudah ditebak — gate paritas dengan /:id/cards)", async () => {
+    control.drop = dropFixture({ status: "draft" });
+    const res = await app.request("/api/drops/drop-x");
+    expect(res.status).toBe(404);
+  });
+
+  it("drop cancelled → 404", async () => {
+    control.drop = dropFixture({ status: "cancelled" });
+    const res = await app.request("/api/drops/drop-x");
+    expect(res.status).toBe(404);
+  });
+
+  it("cardsPreview diproyeksi minimal { id, unitNumber, variant } — tanpa nfcUid/lastCtr/ownerId", async () => {
+    control.drop = dropFixture();
+    control.cards = [
+      cardFixture({ id: "card-01", unitNumber: 1, ownerId: "winner-1" }),
+      cardFixture({ id: "card-02", unitNumber: 2, variant: "unsigned", ownerId: "winner-2", nfcShortId: "x-002" }),
+    ];
+    control.users = [userFixture()];
+
+    const res = await app.request("/api/drops/drop-x");
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { cardsPreview?: Array<Record<string, unknown>> };
+    expect(body.cardsPreview).toHaveLength(2);
+    for (const preview of body.cardsPreview ?? []) {
+      expect(Object.keys(preview).sort()).toEqual(["id", "unitNumber", "variant"]);
+      expect(preview.nfcUid).toBeUndefined();
+      expect(preview.lastCtr).toBeUndefined();
+      expect(preview.ownerId).toBeUndefined();
+    }
+  });
+});

@@ -226,7 +226,8 @@ export default function Marketplace() {
             const init = getInitials(drop?.title ?? card.id, seriesLabel);
             const sellerName = entry.seller?.displayName ?? "—";
             const detailHref = card?.id ? `/cards/${card.id}#beli` : "/browse";
-            const cardKey = `${card.id}-${entry.seller?.id ?? "anon"}`;
+            // Lane C: seller.id tidak lagi ada di payload publik — card.id unik per listing.
+            const cardKey = card.id;
             return (
               <Link key={cardKey} to={detailHref} className="card market-card" aria-label={`Beli ${drop?.title ?? card.id}`}>
                 <div className="market-art">

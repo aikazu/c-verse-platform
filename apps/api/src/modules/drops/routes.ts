@@ -9,7 +9,7 @@ import { getCreatorByUserId } from "../../lib/reads/creators.js";
 import { type DropFilter, getDropById, listCardsByDrop, listDrops } from "../../lib/reads/drops.js";
 import { logAuditDb } from "../../lib/reads/kyc.js";
 import { getUserById, listUsersByIds } from "../../lib/reads/users.js";
-import { pageMeta, parsePageParams, slicePage } from "../../lib/reads.js";
+import { pageMeta, parsePageParams, publicDisplayName, slicePage } from "../../lib/reads.js";
 import type { Card, Drop } from "../../lib/store.js";
 import { randomHex } from "../../lib/store.js";
 import { getSupabase } from "../../lib/supabase.js";
@@ -23,12 +23,6 @@ interface DropWinner {
   unitNumber: number;
   variant: "signed" | "unsigned";
   displayName: string;
-}
-
-// Privacy (A3): identitas anonim/flagged (suspended) tidak pernah tampil publik —
-// aturan masking yang sama dengan seller marketplace dan owner NFC.
-function publicDisplayName(user: { displayName: string; isAnonymous: boolean; flagReason: string | null } | null): string {
-  return user && !user.isAnonymous && user.flagReason == null ? user.displayName : "Anonim";
 }
 
 // Pemenang diekspos hanya setelah drop selesai (sudah draw / sold out / closed) —
@@ -103,7 +97,10 @@ app.get("/", async (c) => {
 
 app.get("/:id", async (c) => {
   const d = await getDropById(c.req.param("id"));
-  if (!d) return c.json({ error: "Drop tidak ditemukan" }, 404);
+  // Lane C (remediation): status gate paritas dengan /:id/cards dan RLS
+  // drops_select_public — id drop time-based mudah ditebak, draft/cancelled
+  // tidak boleh readable walau id-nya ketahuan (admin memakai list endpoint).
+  if (!d || !PUBLIC_DROP_STATUSES.includes(d.status)) return c.json({ error: "Drop tidak ditemukan" }, 404);
   const [cards, creatorUser, creatorRec] = await Promise.all([
     listCardsByDrop(d.id),
     getUserById(d.creatorId),
@@ -138,7 +135,9 @@ app.get("/:id", async (c) => {
     // identitas publik kreator — link /c/:handle, jangan pernah pakai creatorId (UUID)
     creatorHandle: creatorRec?.handle ?? creatorUser?.username ?? null,
     creatorUsername: creatorUser?.username ?? null,
-    cardsPreview: cards.slice(0, 6),
+    // Preview ringkas: baris kartu penuh membawa nfcUid (input diversifikasi
+    // kunci CMAC — docs/12), lastCtr, dan ownerId; tidak satu pun boleh publik.
+    cardsPreview: cards.slice(0, 6).map((ca) => ({ id: ca.id, unitNumber: ca.unitNumber, variant: ca.variant })),
     ...(winners ? { winners } : {}),
     stats: { total: cards.length, sold: soldCards.length, available: cards.filter((ca) => ca.status === "inventory").length },
   });

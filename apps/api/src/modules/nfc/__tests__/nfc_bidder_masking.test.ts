@@ -7,21 +7,32 @@ vi.hoisted(() => {
 
 const control = vi.hoisted(() => ({
   card: null as unknown,
+  shortIdCard: null as unknown,
   bids: [] as unknown[],
   users: [] as unknown[],
+  viewer: null as unknown,
+  history: [] as unknown[],
 }));
 
+vi.mock("../../../lib/auth.js", () => ({
+  getOptionalUser: () => Promise.resolve(control.viewer),
+  requireUser: () => Promise.resolve({ error: 401 }),
+  requireAdmin: () => Promise.resolve({ error: 401 }),
+  adminGateError: () => ({ body: { error: "x" }, status: 401 }),
+  clientIp: () => "127.0.0.1",
+  tokenFingerprint: () => Promise.resolve("sha256:test"),
+}));
 vi.mock("../reads.js", () => ({
-  getCardByNfcUid: () => Promise.resolve(null),
-  getCardByNfcShortId: () => Promise.resolve(null),
-  listOwnershipByCard: () => Promise.resolve([]),
+  getCardByNfcUid: () => Promise.resolve(control.card),
+  getCardByNfcShortId: () => Promise.resolve(control.shortIdCard ?? null),
+  listOwnershipByCard: () => Promise.resolve(control.history),
 }));
 vi.mock("../../../lib/reads/drops.js", () => ({
   getCardByIdOrNfc: () => Promise.resolve(control.card),
   getDropById: () => Promise.resolve(null),
 }));
 vi.mock("../../../lib/reads/users.js", () => ({
-  getUserById: () => Promise.resolve(null),
+  getUserById: (id: string) => Promise.resolve((control.users as User[]).find((u) => u.id === id) ?? null),
   listUsersByIds: (ids: string[]) => Promise.resolve((control.users as User[]).filter((u) => ids.includes(u.id))),
 }));
 vi.mock("../../../lib/reads/bids.js", () => ({ listBids: () => Promise.resolve(control.bids) }));
@@ -106,8 +117,11 @@ function getCardDetail() {
 describe("GET /api/nfc/cards/:cardId — bidder name privacy masking", () => {
   beforeEach(() => {
     control.card = makeCard();
+    control.shortIdCard = null;
     control.bids = [];
     control.users = [];
+    control.viewer = null;
+    control.history = [];
   });
 
   it("masks anonymous bidder names in bids[] and activeBid", async () => {
@@ -142,11 +156,10 @@ describe("GET /api/nfc/cards/:cardId — bidder name privacy masking", () => {
 
     const res = await getCardDetail();
     const body = (await res.json()) as CardDetailBody;
-    expect(body.activeBid?.bidderId).toBe("bidder-open");
     expect(body.activeBid?.bidderName).toBe("Public Bidder");
-    const byId = new Map(body.bids.map((b) => [b.bidderId, b.bidderName]));
-    expect(byId.get("bidder-open")).toBe("Public Bidder");
-    expect(byId.get("bidder-anon")).toBe("Anonim");
+    const byName = new Map(body.bids.map((b) => [b.bidderName, b.amountCCoin]));
+    expect(byName.get("Public Bidder")).toBe(300);
+    expect(byName.get("Anonim")).toBe(100);
   });
 
   it("masks defensively when the bidder row is missing from users", async () => {
@@ -157,5 +170,131 @@ describe("GET /api/nfc/cards/:cardId — bidder name privacy masking", () => {
     const body = (await res.json()) as CardDetailBody;
     expect(body.activeBid?.bidderName).toBe("Anonim");
     expect(body.bids[0]?.bidderName).toBe("Anonim");
+  });
+});
+
+// Lane C (remediation batch 1): identitas owner/bidder tidak boleh bocor di
+// payload publik — UUID stabil (owner.id, bidderId) memungkinkan deanonymisasi
+// lintas-listing meskipun nama sudah dimasking "Anonim".
+describe("GET /api/nfc/cards/:cardId — public payload identity stripping (lane C)", () => {
+  beforeEach(() => {
+    control.card = makeCard();
+    control.shortIdCard = null;
+    control.bids = [];
+    control.users = [];
+    control.viewer = null;
+  });
+
+  it("strips technical/identity keys: card.ownerId, card.nfcUid, card.lastCtr, owner.id, bids[].bidderId, ownershipHistory[].ownerId", async () => {
+    control.users = [makeUser({ id: "owner-1", displayName: "Open Owner" })];
+    control.bids = [makeBid({ id: "bid-1", bidderId: "owner-1", bidderName: "Open Owner", amountCCoin: 90 })];
+    control.history = [
+      {
+        id: "hist-1",
+        cardId: "card-1",
+        ownerId: "owner-1",
+        acquiredVia: "primary",
+        orderId: null,
+        bidId: null,
+        transferredAt: "2026-08-01T00:00:00Z",
+      },
+    ];
+
+    const res = await getCardDetail();
+    const body = (await res.json()) as {
+      card: Record<string, unknown>;
+      owner: Record<string, unknown> | null;
+      activeBid: Record<string, unknown> | null;
+      bids: Array<Record<string, unknown>>;
+      ownershipHistory: Array<Record<string, unknown>>;
+    };
+    expect(body.card.nfcUid).toBeUndefined();
+    expect(body.card.lastCtr).toBeUndefined();
+    expect(body.card.ownerId).toBeUndefined();
+    expect(body.owner && "id" in body.owner).toBe(false);
+    expect(body.activeBid && "bidderId" in body.activeBid).toBe(false);
+    expect(body.bids.length).toBeGreaterThan(0);
+    expect(body.bids.every((b) => !("bidderId" in b))).toBe(true);
+    // ownership rows ada (riwayat tetap tampil, ownerName terisi) tapi tanpa ownerId
+    expect(body.ownershipHistory.length).toBeGreaterThan(0);
+    expect(body.ownershipHistory[0].ownerName).toBe("Open Owner");
+    expect(body.ownershipHistory.every((h) => !("ownerId" in h))).toBe(true);
+  });
+
+  it("anonymous owner → owner 'Anonim' tanpa username; owner publik → nama + username, tanpa id", async () => {
+    control.users = [makeUser({ id: "owner-1", displayName: "Secret Owner", username: "secret-owner", isAnonymous: true })];
+    const anonRes = await getCardDetail();
+    const anonBody = (await anonRes.json()) as { owner: { displayName: string; username: string | null } | null };
+    expect(anonBody.owner?.displayName).toBe("Anonim");
+    expect(anonBody.owner?.username ?? null).toBeNull();
+
+    control.users = [makeUser({ id: "owner-1", displayName: "Open Owner", username: "open-owner" })];
+    const openRes = await getCardDetail();
+    const openBody = (await openRes.json()) as { owner: { displayName: string; username: string | null } | null };
+    expect(openBody.owner?.displayName).toBe("Open Owner");
+    expect(openBody.owner?.username).toBe("open-owner");
+  });
+
+  it("personalisasi viewer: isOwner untuk pemilik, isMine untuk bid-nya sendiri — tanpa membocorkan id", async () => {
+    control.users = [
+      makeUser({ id: "owner-1", displayName: "Open Owner", username: "open-owner" }),
+      makeUser({ id: "bidder-1", displayName: "Bidders Real Name" }),
+    ];
+    control.bids = [makeBid({ id: "bid-1", bidderId: "bidder-1", bidderName: "Bidders Real Name", amountCCoin: 90 })];
+
+    // viewer anonim: isOwner/isMine false
+    const anonRes = await getCardDetail();
+    const anonBody = (await anonRes.json()) as { owner: { isOwner?: boolean } | null; activeBid: { isMine?: boolean } | null };
+    expect(anonBody.owner?.isOwner).toBe(false);
+    expect(anonBody.activeBid?.isMine ?? false).toBe(false);
+
+    // viewer = pemilik kartu
+    control.viewer = control.users[0];
+    const ownerRes = await getCardDetail();
+    const ownerBody = (await ownerRes.json()) as { owner: { isOwner?: boolean } | null };
+    expect(ownerBody.owner?.isOwner).toBe(true);
+
+    // viewer = bidder aktif
+    control.viewer = control.users[1];
+    const bidderRes = await getCardDetail();
+    const bidderBody = (await bidderRes.json()) as { activeBid: { isMine?: boolean } | null };
+    expect(bidderBody.activeBid?.isMine).toBe(true);
+  });
+
+  it("GET /cards/:cardId/3d — owner anonim → owner null; owner publik → { name, link } tanpa id", async () => {
+    control.users = [makeUser({ id: "owner-1", displayName: "Secret Owner", username: "secret-owner", isAnonymous: true })];
+    const anonRes = await app.request("/api/nfc/cards/card-1/3d");
+    const anonBody = (await anonRes.json()) as { owner: { id?: string; name: string; link: string | null } | null };
+    expect(anonBody.owner).toBeNull();
+
+    control.users = [makeUser({ id: "owner-1", displayName: "Open Owner", username: "open-owner" })];
+    const openRes = await app.request("/api/nfc/cards/card-1/3d");
+    const openBody = (await openRes.json()) as { owner: { id?: string; name: string; link: string } | null };
+    expect(openBody.owner?.name).toBe("Open Owner");
+    expect(openBody.owner?.link).toBe("/u/open-owner");
+    expect(openBody.owner && "id" in openBody.owner).toBe(false);
+  });
+
+  it("GET /verify/:shortId — owner anonim → displayName 'Anonim'", async () => {
+    control.shortIdCard = makeCard();
+    control.users = [makeUser({ id: "owner-1", displayName: "Secret Owner", isAnonymous: true })];
+    const res = await app.request("/api/nfc/verify/drop-001");
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { owner: { displayName: string } | null };
+    expect(body.owner?.displayName).toBe("Anonim");
+  });
+
+  it("POST /verify-nfc — owner anonim → displayName 'Anonim' (branch CMAC)", async () => {
+    control.users = [makeUser({ id: "owner-1", displayName: "Secret Owner", isAnonymous: true })];
+    // field crypto ada → route masuk branch verifyTap yang mengembalikan owner
+    // (master key tidak diset di file ini → verifyStatus unknown, owner tetap diekspos → harus ter-mask).
+    const res = await app.request("/api/nfc/verify-nfc", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ uid: "04a1b2c3d4e580", counter: "000005", cmac: "0011223344556677" }),
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { owner: { displayName: string } | null };
+    expect(body.owner?.displayName).toBe("Anonim");
   });
 });

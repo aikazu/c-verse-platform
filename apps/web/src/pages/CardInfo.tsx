@@ -28,6 +28,11 @@ const BUYOUT_ERRORS: Record<string, string> = {
   CARD_NOT_TRADABLE: "C.Card ini tidak dapat diperdagangkan",
 };
 
+// Lane C: payload publik tidak lagi membawa UUID (owner.id, bidderId) — server
+// mengganti personalisasi dengan flag isOwner/isMine (viewer-scoped, aman).
+type ApiCardOwnerPublic = { displayName: string; username?: string | null; isOwner?: boolean };
+type ApiPublicBid = Bid & { isMine?: boolean };
+
 export default function CardInfo() {
   const { cardId } = useParams();
   const { user } = useAuth();
@@ -45,8 +50,7 @@ export default function CardInfo() {
   // (#beli anchor) — kurangi friksi 2 klik jadi 1 untuk pembeli sekunder.
   // Hooks dulu sebelum early-return agar urutan konsisten.
   const buyoutPrice = data?.card?.buyoutPriceCcoin ?? null;
-  const ownerId = data?.owner?.id ?? null;
-  const isOwnerDerived = !!user && ownerId === user.id;
+  const isOwnerDerived = (data?.owner as ApiCardOwnerPublic | null | undefined)?.isOwner === true;
   const canBuyoutDerived = buyoutPrice != null && !!user && !isOwnerDerived;
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -109,7 +113,7 @@ export default function CardInfo() {
   const verifyBadge = VERIFY_BADGES[card.verifyStatus ?? "unknown"] ?? VERIFY_BADGES.unknown;
   // isOwner / canBuyout dibaca oleh JSX di bawah; useEffect pakai derived.
   const canBuyout = canBuyoutDerived;
-  const myActiveBid = activeBid?.bidderId && user && activeBid.bidderId === user.id ? activeBid : null;
+  const myActiveBid = (activeBid as ApiPublicBid | null)?.isMine ? activeBid : null;
 
   async function onBuyout() {
     if (
@@ -251,9 +255,14 @@ export default function CardInfo() {
               {owner && (
                 <div className="ci-stat-row">
                   <span className="label">Pemilik</span>
-                  <Link to={`/u/${owner.username ?? owner.id}`} className="ci-link-gold">
-                    {owner.displayName}
-                  </Link>
+                  {owner.username ? (
+                    <Link to={`/u/${owner.username}`} className="ci-link-gold">
+                      {owner.displayName}
+                    </Link>
+                  ) : (
+                    // owner anonim/flagged (masking server) → teks polos tanpa link
+                    <span>{owner.displayName}</span>
+                  )}
                 </div>
               )}
               {card.buyoutPriceCcoin != null ? (
@@ -325,7 +334,7 @@ export default function CardInfo() {
               <div className="ci-history-list">
                 {history.map((h) => (
                   <div key={h.id} className="ci-history-row">
-                    <span className="ci-history-owner">{h.ownerName ?? h.ownerId}</span>
+                    <span className="ci-history-owner">{h.ownerName ?? "—"}</span>
                     <span className="ci-history-date">{new Date(h.transferredAt).toLocaleDateString("id-ID")}</span>
                   </div>
                 ))}

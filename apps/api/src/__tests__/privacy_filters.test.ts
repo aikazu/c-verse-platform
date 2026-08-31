@@ -94,6 +94,10 @@ vi.mock("../lib/auth.js", () => ({
   adminGateError: () => ({ body: { error: "Unauthorized" }, status: 401 }),
   tokenFingerprint: () => Promise.resolve("sha256:test"),
   clientIp: () => "127.0.0.1",
+  // Lane C: nfc card detail memakai getOptionalUser untuk isOwner/isMine —
+  // tes ini selalu viewer anonim.
+  getOptionalUser: () => Promise.resolve(null),
+  requireUser: () => Promise.resolve({ error: 401 }),
 }));
 vi.mock("../lib/reads/kyc.js", () => ({ logAuditDb: () => Promise.resolve() }));
 
@@ -524,9 +528,11 @@ describe("GET /api/nfc/cards/:cardId — ownership history anonymisation", () =>
     const res = await app.request("/api/nfc/cards/card-1");
     expect(res.status).toBe(200);
     const body = (await res.json()) as {
-      ownershipHistory: Array<{ ownerId: string; ownerName: string }>;
+      ownershipHistory: Array<{ id: string; ownerId?: string; ownerName: string }>;
     };
-    const anonRow = body.ownershipHistory.find((h) => h.ownerId === "u-anon");
+    // Lane C: baris riwayat publik tidak lagi membawa ownerId (UUID) — lookup by row id.
+    expect(body.ownershipHistory.every((h) => !("ownerId" in h))).toBe(true);
+    const anonRow = body.ownershipHistory.find((h) => h.id === "oh-2");
     expect(anonRow?.ownerName).toBe("Anonim");
   });
 
@@ -534,9 +540,9 @@ describe("GET /api/nfc/cards/:cardId — ownership history anonymisation", () =>
     const res = await app.request("/api/nfc/cards/card-1");
     expect(res.status).toBe(200);
     const body = (await res.json()) as {
-      ownershipHistory: Array<{ ownerId: string; ownerName: string }>;
+      ownershipHistory: Array<{ id: string; ownerName: string }>;
     };
-    const susRow = body.ownershipHistory.find((h) => h.ownerId === "u-suspended");
+    const susRow = body.ownershipHistory.find((h) => h.id === "oh-3");
     expect(susRow?.ownerName).toBe("Anonim");
   });
 
@@ -544,9 +550,9 @@ describe("GET /api/nfc/cards/:cardId — ownership history anonymisation", () =>
     const res = await app.request("/api/nfc/cards/card-1");
     expect(res.status).toBe(200);
     const body = (await res.json()) as {
-      ownershipHistory: Array<{ ownerId: string; ownerName: string }>;
+      ownershipHistory: Array<{ id: string; ownerName: string }>;
     };
-    const pubRow = body.ownershipHistory.find((h) => h.ownerId === "u-public");
+    const pubRow = body.ownershipHistory.find((h) => h.id === "oh-1");
     expect(pubRow?.ownerName).toBe("Public Owner");
   });
 });

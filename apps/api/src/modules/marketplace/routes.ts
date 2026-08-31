@@ -6,7 +6,7 @@ import { requireUser } from "../../lib/auth.js";
 import { RpcError, rpcBuyoutCard, rpcSetBuyout, userDb } from "../../lib/db.js";
 import { listDrops } from "../../lib/reads/drops.js";
 import { listUsersByIds } from "../../lib/reads/users.js";
-import { pageMeta, parsePageParams, slicePage } from "../../lib/reads.js";
+import { isPubliclyMasked, pageMeta, parsePageParams, publicDisplayName, slicePage } from "../../lib/reads.js";
 import type { Drop, User } from "../../lib/store.js";
 import { listMarketplaceCards } from "./reads.js";
 
@@ -31,9 +31,11 @@ app.get("/", async (c) => {
     });
   }
   if (mine) {
+    // Lane C: filter milik-sendiri WAJIB terautentikasi — fallback diam-diam ke
+    // list publik menyesatkan pemilik (billing/privasi), 401 eksplisit.
     const authRes = await requireUser(c);
-    const user = "error" in authRes ? null : authRes.user;
-    if (user) cards = cards.filter((ca) => ca.ownerId === user.id);
+    if ("error" in authRes) return c.json({ error: authRes.error === 403 ? "Akun disuspend" : "Unauthorized" }, authRes.error);
+    cards = cards.filter((ca) => ca.ownerId === authRes.user.id);
   }
 
   const sellerIds = [...new Set(cards.map((ca) => ca.ownerId).filter((id): id is string => id != null))];
@@ -46,7 +48,9 @@ app.get("/", async (c) => {
       const seller = card.ownerId ? (sellerById.get(card.ownerId) ?? null) : null;
       return {
         kind: "buyout" as const,
-        card,
+        // Lane C: kartu publik diproyeksi minimal (yang dirender UI) — baris
+        // penuh membawa ownerId/nfcUid (input kunci CMAC)/lastCtr/location.
+        card: { id: card.id, unitNumber: card.unitNumber, variant: card.variant },
         drop: drop
           ? {
               id: drop.id,
@@ -57,8 +61,14 @@ app.get("/", async (c) => {
               isSeed: drop.isSeed,
             }
           : null,
-        // Privacy (A3): seller anon/suspended disamarkan 'Anonim' — gaya masking NFC module.
-        seller: seller ? { id: seller.id, displayName: seller.isAnonymous || seller.flagReason ? "Anonim" : seller.displayName } : null,
+        // Privacy (A3) + lane C: seller anon/suspended → 'Anonim' tanpa
+        // username; UUID seller tidak pernah keluar di payload publik.
+        seller: seller
+          ? {
+              displayName: publicDisplayName(seller),
+              username: isPubliclyMasked(seller) ? null : (seller.username ?? null),
+            }
+          : null,
         buyoutPriceCcoin: card.buyoutPriceCcoin,
         idrPrice: (card.buyoutPriceCcoin ?? 0) * C_COIN_RATE_IDR,
       };

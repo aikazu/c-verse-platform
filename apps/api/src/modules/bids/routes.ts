@@ -6,6 +6,7 @@ import { requireUser } from "../../lib/auth.js";
 import { RpcError, rpcAcceptBid, rpcCancelBid, rpcPlaceBid, userDb } from "../../lib/db.js";
 import { listBidsByCard } from "../../lib/reads/bids.js";
 import { listUsersByIds } from "../../lib/reads/users.js";
+import { toPublicBid } from "../../lib/reads.js";
 import type { Bid } from "../../lib/store.js";
 
 const app = new Hono();
@@ -25,24 +26,37 @@ async function maskBidderNames(bids: Bid[]): Promise<Bid[]> {
   });
 }
 
+/**
+ * Lane C: window riwayat 90 hari (docs 07) — `?days=` di-clamp 1..90;
+ * NaN/absent → 90. Diterapkan merata di GET /:id dan GET /card/:cardId.
+ */
+function resolveWindowDays(query: Record<string, string>): number {
+  const parsed = Number(query.days);
+  if (!Number.isFinite(parsed)) return 90;
+  return Math.min(90, Math.max(1, parsed));
+}
+
 // GET bids for a card
 app.get("/:id", async (c) => {
+  const cutoff = Date.now() - resolveWindowDays(c.req.query()) * 86400000;
   const bids = await listBidsByCard(c.req.param("id"));
-  const sorted = [...bids].sort(
+  const filtered = bids.filter((b) => b.status === "accepted" || new Date(b.createdAt).getTime() >= cutoff);
+  const sorted = [...filtered].sort(
     (a, b) => b.amountCCoin - a.amountCCoin || new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
   );
-  return c.json({ bids: await maskBidderNames(sorted) });
+  // bidderId (UUID stabil) tidak pernah keluar di payload publik — masking nama
+  // saja tidak cukup (korelasi lintas-listing bisa deanonymisasi).
+  return c.json({ bids: (await maskBidderNames(sorted)).map((b) => toPublicBid(b)) });
 });
 
 app.get("/card/:cardId", async (c) => {
   const cardId = c.req.param("cardId");
-  const windowDays = Number(c.req.query("days") ?? 90);
-  const cutoff = Date.now() - windowDays * 86400000;
+  const cutoff = Date.now() - resolveWindowDays(c.req.query()) * 86400000;
   const bids = await listBidsByCard(cardId);
   const filtered = bids
     .filter((b) => b.status === "accepted" || new Date(b.createdAt).getTime() >= cutoff)
     .sort((a, b) => b.amountCCoin - a.amountCCoin || new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-  return c.json({ bids: await maskBidderNames(filtered) });
+  return c.json({ bids: (await maskBidderNames(filtered)).map((b) => toPublicBid(b)) });
 });
 
 // POST / — place bid directly on card (docs 03 Flow 7: outbid + hold)

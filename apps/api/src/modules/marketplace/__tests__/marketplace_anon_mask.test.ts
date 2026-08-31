@@ -100,7 +100,7 @@ function userFixture(over: Record<string, unknown> = {}): Record<string, unknown
   };
 }
 
-type Listing = { seller: { id: string; displayName: string } | null; buyoutPriceCcoin: number | null };
+type Listing = { seller: { displayName: string; username?: string | null } | null; buyoutPriceCcoin: number | null };
 type Body = { marketplace: Listing[] };
 
 describe("GET /api/marketplace seller privacy masking (A3)", () => {
@@ -111,7 +111,7 @@ describe("GET /api/marketplace seller privacy masking (A3)", () => {
     vi.clearAllMocks();
   });
 
-  it("masks anonymous seller displayName as 'Anonim' while keeping the id", async () => {
+  it("masks anonymous seller displayName as 'Anonim' without exposing the seller id", async () => {
     control.cards = [cardFixture({ ownerId: "seller-1" })];
     control.drops = [dropFixture()];
     control.users = [userFixture({ id: "seller-1", isAnonymous: true })];
@@ -121,20 +121,20 @@ describe("GET /api/marketplace seller privacy masking (A3)", () => {
     const body = (await res.json()) as Body;
 
     expect(body.marketplace).toHaveLength(1);
-    // id tetap dikirim (shape existing), nama diganti 'Anonim' — username tidak diekspos
-    expect(body.marketplace[0].seller).toEqual({ id: "seller-1", displayName: "Anonim" });
+    // nama diganti 'Anonim', username tidak ikut terbit, dan UUID seller tidak pernah keluar
+    expect(body.marketplace[0].seller).toEqual({ displayName: "Anonim", username: null });
   });
 
-  it("keeps the real displayName for a non-anonymous seller", async () => {
+  it("keeps the real displayName + username for a non-anonymous seller (id tetap tersembunyi)", async () => {
     control.cards = [cardFixture({ ownerId: "seller-2" })];
     control.drops = [dropFixture()];
-    control.users = [userFixture({ id: "seller-2", displayName: "Seller Dua" })];
+    control.users = [userFixture({ id: "seller-2", displayName: "Seller Dua", username: "seller2" })];
 
     const res = await app.request("/");
     expect(res.status).toBe(200);
     const body = (await res.json()) as Body;
 
-    expect(body.marketplace[0].seller).toEqual({ id: "seller-2", displayName: "Seller Dua" });
+    expect(body.marketplace[0].seller).toEqual({ displayName: "Seller Dua", username: "seller2" });
   });
 
   it("masks suspended sellers too (consistent with NFC module masking)", async () => {
@@ -146,6 +146,45 @@ describe("GET /api/marketplace seller privacy masking (A3)", () => {
     expect(res.status).toBe(200);
     const body = (await res.json()) as Body;
 
-    expect(body.marketplace[0].seller).toEqual({ id: "seller-3", displayName: "Anonim" });
+    expect(body.marketplace[0].seller).toEqual({ displayName: "Anonim", username: null });
+  });
+});
+
+// Lane C (remediation batch 1): listing publik mem-proyeksi kartu minimal —
+// baris kartu penuh membawa ownerId/nfcUid/lastCtr (input kunci CMAC).
+describe("GET /api/marketplace — public card projection & mine=1 auth (lane C)", () => {
+  beforeEach(() => {
+    control.cards = [];
+    control.drops = [];
+    control.users = [];
+    vi.clearAllMocks();
+  });
+
+  it("card diproyeksi ke { id, unitNumber, variant } — tanpa ownerId/nfcUid/lastCtr/location", async () => {
+    control.cards = [cardFixture({ ownerId: "seller-2" })];
+    control.drops = [dropFixture()];
+    control.users = [userFixture({ id: "seller-2", displayName: "Seller Dua", username: "seller2" })];
+
+    const res = await app.request("/");
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { marketplace: Array<{ card: Record<string, unknown> }> };
+
+    const card = body.marketplace[0].card;
+    expect(Object.keys(card).sort()).toEqual(["id", "unitNumber", "variant"]);
+    expect(card.ownerId).toBeUndefined();
+    expect(card.nfcUid).toBeUndefined();
+    expect(card.lastCtr).toBeUndefined();
+    expect(card.location).toBeUndefined();
+  });
+
+  it("mine=1 tanpa sesi → 401 (bukan fallback diam-diam ke list publik)", async () => {
+    control.cards = [cardFixture()];
+    control.drops = [dropFixture()];
+    control.users = [];
+
+    const res = await app.request("/?mine=1");
+    expect(res.status).toBe(401);
+    const body = (await res.json()) as { error?: string };
+    expect(typeof body.error).toBe("string");
   });
 });
