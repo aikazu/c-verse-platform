@@ -3,8 +3,8 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { FALLBACK } from "./errors.js";
 
 // RPC facade (docs/13): semua aksi uang & stok lewat Postgres RPC single-transaction.
-// RPC security definer membaca auth.uid() dari JWT — klien harus dibuat dengan
-// access token USER (diteruskan dari Authorization header), bukan service key.
+// Clients are built with the anon key (valid apikey); the user's JWT is forwarded via
+// the accessToken callback (Authorization header) so SECURITY DEFINER RPCs see auth.uid() — never the service key.
 
 function getEnv(name: string): string | undefined {
   const g = globalThis as unknown as Record<string, string | undefined>;
@@ -16,15 +16,20 @@ function getEnv(name: string): string | undefined {
 /** Per-request Supabase client authenticated as the calling user (JWT forwarded). */
 export function userDb(userToken: string): SupabaseClient {
   const url = getEnv("SUPABASE_URL");
+  const anonKey = getEnv("SUPABASE_ANON_KEY");
   if (!url?.startsWith("http")) {
     throw new Error("SUPABASE_URL tidak terkonfigurasi — API tidak jalan tanpa DB (fail-fast).");
+  }
+  if (!anonKey) {
+    throw new Error("SUPABASE_ANON_KEY tidak terkonfigurasi — userDb butuh anon key sebagai apikey (fail-fast).");
   }
   // The client key must be the anon key: hosted Kong validates `apikey` against
   // published keys only and rejects a user JWT there with 401 "Invalid API key"
   // (the local stack is lax, so this only surfaced against the hosted project).
   // The user JWT rides in Authorization via the accessToken callback — SECURITY
-  // DEFINER RPCs still resolve auth.uid() from it.
-  return createClient(url, getEnv("SUPABASE_ANON_KEY") ?? userToken, {
+  // DEFINER RPCs still resolve auth.uid() from it. A missing anon key must fail
+  // fast rather than silently fall back to the user JWT as the client key.
+  return createClient(url, anonKey, {
     auth: { persistSession: false, autoRefreshToken: false },
     accessToken: async () => userToken,
   });

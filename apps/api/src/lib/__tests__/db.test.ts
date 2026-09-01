@@ -127,4 +127,14 @@ describe("userDb request headers (lib/db.ts)", () => {
     expect(captured.apikey).toBe("test-anon-key");
     expect(captured.authorization).toBe("Bearer user-jwt-token");
   });
+
+  // A silent `?? userToken` fallback would send the user JWT as the client key
+  // again — exactly the hosted-Kong 401 "Invalid API key" bug this file fixes.
+  // A half-configured deploy (SUPABASE_URL set, SUPABASE_ANON_KEY forgotten via
+  // `wrangler secret put`) must fail fast, matching getSupabase in lib/supabase.ts.
+  it("throws when SUPABASE_ANON_KEY is missing — silent fallback would re-enable the hosted Kong bug", () => {
+    process.env.SUPABASE_URL = "https://test-project.supabase.co";
+    delete process.env.SUPABASE_ANON_KEY;
+    expect(() => userDb("user-jwt-token")).toThrow(/SUPABASE_ANON_KEY/);
+  });
 });
