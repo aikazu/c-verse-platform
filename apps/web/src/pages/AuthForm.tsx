@@ -24,6 +24,10 @@ const DEMO_ACCOUNTS = [
 
 const errorMessage = (e: unknown): string => (e instanceof Error ? e.message : String(e));
 
+// Jeda kirim-ulang OTP: 30s setelah kirim pertama, berlipat 2x tiap kirim sukses, mentok 5 menit.
+const RESEND_BASE_S = 30;
+const RESEND_MAX_S = 300;
+
 function redirectTarget(state: unknown): string {
   if (state && typeof state === "object" && "from" in state) {
     const from = (state as { from?: unknown }).from;
@@ -46,13 +50,14 @@ export default function AuthForm() {
   const [otpSent, setOtpSent] = useState(false);
   const [busy, setBusy] = useState(false);
   const [captchaToken, setCaptchaToken] = useState<string | undefined>(undefined);
+  const [resendIn, setResendIn] = useState(0);
+  const resendDelayRef = useRef(RESEND_BASE_S);
   const turnstileRef = useRef<HTMLDivElement | null>(null);
   const turnstileRefHandle = useRef<TurnstileHandle | null>(null);
 
-  // Widget hanya ada di form request-OTP (render saat !otpSent) — mount persis di situ,
-  // bukan setelah otpSent (container sudah unmount saat itu → ref null, widget tak pernah render).
+  // Widget di-mount sekali dan hidup di KEDUA layar (request + kode) — token Turnstile
+  // single-use per kirim, jadi layar kode juga butuh widget untuk token resend yang segar.
   useEffect(() => {
-    if (otpSent) return;
     let destroyed = false;
     if (turnstileRef.current && !turnstileRefHandle.current) {
       mountTurnstile(turnstileRef.current, setCaptchaToken, () => setCaptchaToken(undefined)).then((handle) => {
@@ -65,10 +70,16 @@ export default function AuthForm() {
       turnstileRefHandle.current?.destroy();
       turnstileRefHandle.current = null;
     };
-  }, [otpSent]);
+  }, []);
 
-  async function onRequestOtp(e: React.FormEvent) {
-    e.preventDefault();
+  // Tick mundur 1 detik; timer dibuat ulang tiap tick — tak ada interval yang bocor.
+  useEffect(() => {
+    if (resendIn <= 0) return undefined;
+    const timer = window.setTimeout(() => setResendIn((s) => s - 1), 1000);
+    return () => window.clearTimeout(timer);
+  }, [resendIn]);
+
+  async function sendCode() {
     if (isTurnstileEnabled && !captchaToken) {
       push("Selesaikan captcha dulu", "error");
       return;
@@ -78,6 +89,11 @@ export default function AuthForm() {
       // full_name dipakai saat akun BARU dibuat; email existing diabaikan (login).
       await sendOtp(email, turnstileRefHandle.current?.token(), displayName.trim() ? displayName : undefined);
       setOtpSent(true);
+      setResendIn(resendDelayRef.current);
+      resendDelayRef.current = Math.min(resendDelayRef.current * 2, RESEND_MAX_S);
+      // Token terpakai oleh kirim yang sukses — reset agar kirim berikutnya punya token segar.
+      turnstileRefHandle.current?.reset();
+      setCaptchaToken(undefined);
       push(`Kode 6 digit dikirim ke ${email}`, "success");
     } catch (err: unknown) {
       // Token Turnstile single-use — reset agar percobaan berikutnya punya token baru.
@@ -87,6 +103,15 @@ export default function AuthForm() {
     } finally {
       setBusy(false);
     }
+  }
+
+  async function onRequestOtp(e: React.FormEvent) {
+    e.preventDefault();
+    await sendCode();
+  }
+
+  async function onResend() {
+    await sendCode();
   }
 
   async function onVerifyOtp(e: React.FormEvent) {
@@ -156,6 +181,8 @@ export default function AuthForm() {
 
         <div className="cx-divider" />
 
+        <div ref={turnstileRef} />
+
         {!otpSent ? (
           <form onSubmit={onRequestOtp} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             <div className="form-row" style={{ marginBottom: 0 }}>
@@ -176,7 +203,6 @@ export default function AuthForm() {
                 placeholder="Cara dipanggil di C.Verse"
               />
             </div>
-            <div ref={turnstileRef} />
             <button
               className="btn-gold"
               disabled={busy || !isSupabaseAuth || (isTurnstileEnabled && !captchaToken)}
@@ -204,6 +230,15 @@ export default function AuthForm() {
             </div>
             <button className="btn-gold" disabled={busy || code.length !== 6} style={{ padding: "12px", width: "100%" }}>
               {busy ? "Memverifikasi…" : "Verifikasi & Masuk"}
+            </button>
+            <button
+              type="button"
+              className="btn-ghost"
+              onClick={onResend}
+              disabled={busy || resendIn > 0}
+              style={{ padding: "11px", width: "100%", fontFamily: "var(--font-mono)", fontSize: 12 }}
+            >
+              {resendIn > 0 ? `Kirim ulang kode (${resendIn}s)` : "Kirim ulang kode"}
             </button>
           </form>
         )}
