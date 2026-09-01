@@ -24,9 +24,9 @@ const DEMO_ACCOUNTS = [
 
 const errorMessage = (e: unknown): string => (e instanceof Error ? e.message : String(e));
 
-// Jeda kirim-ulang OTP: 30s setelah kirim pertama, berlipat 2x tiap kirim sukses, mentok 5 menit.
-const RESEND_BASE_S = 30;
-const RESEND_MAX_S = 300;
+// Jeda kirim-ulang OTP: 30 detik setelah kirim pertama, berlipat 2x tiap kirim sukses, mentok 5 menit.
+const RESEND_BASE_SECONDS = 30;
+const RESEND_MAX_SECONDS = 300;
 
 function redirectTarget(state: unknown): string {
   if (state && typeof state === "object" && "from" in state) {
@@ -51,7 +51,7 @@ export default function AuthForm() {
   const [busy, setBusy] = useState(false);
   const [captchaToken, setCaptchaToken] = useState<string | undefined>(undefined);
   const [resendIn, setResendIn] = useState(0);
-  const resendDelayRef = useRef(RESEND_BASE_S);
+  const resendDelayRef = useRef(RESEND_BASE_SECONDS);
   const turnstileRef = useRef<HTMLDivElement | null>(null);
   const turnstileRefHandle = useRef<TurnstileHandle | null>(null);
 
@@ -75,7 +75,7 @@ export default function AuthForm() {
   // Tick mundur 1 detik; timer dibuat ulang tiap tick — tak ada interval yang bocor.
   useEffect(() => {
     if (resendIn <= 0) return undefined;
-    const timer = window.setTimeout(() => setResendIn((s) => s - 1), 1000);
+    const timer = window.setTimeout(() => setResendIn((prev) => prev - 1), 1000);
     return () => window.clearTimeout(timer);
   }, [resendIn]);
 
@@ -90,7 +90,7 @@ export default function AuthForm() {
       await sendOtp(email, turnstileRefHandle.current?.token(), displayName.trim() ? displayName : undefined);
       setOtpSent(true);
       setResendIn(resendDelayRef.current);
-      resendDelayRef.current = Math.min(resendDelayRef.current * 2, RESEND_MAX_S);
+      resendDelayRef.current = Math.min(resendDelayRef.current * 2, RESEND_MAX_SECONDS);
       // Token terpakai oleh kirim yang sukses — reset agar kirim berikutnya punya token segar.
       turnstileRefHandle.current?.reset();
       setCaptchaToken(undefined);
@@ -235,7 +235,7 @@ export default function AuthForm() {
               type="button"
               className="btn-ghost"
               onClick={onResend}
-              disabled={busy || resendIn > 0}
+              disabled={busy || resendIn > 0 || (isTurnstileEnabled && !captchaToken)}
               style={{ padding: "11px", width: "100%", fontFamily: "var(--font-mono)", fontSize: 12 }}
             >
               {resendIn > 0 ? `Kirim ulang kode (${resendIn}s)` : "Kirim ulang kode"}

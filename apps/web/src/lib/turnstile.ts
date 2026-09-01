@@ -19,16 +19,13 @@ declare global {
   }
 }
 
+// Satu attempt load = satu promise yang di-memoize; semua pemanggil berbagi nasib tag yang sama.
+let scriptPromise: Promise<void> | undefined;
+
 function loadScript(): Promise<void> {
-  return new Promise((resolve) => {
+  scriptPromise ??= new Promise<void>((resolve) => {
     if (window.turnstile) {
       resolve();
-      return;
-    }
-    const prev = document.querySelector<HTMLScriptElement>("script[data-turnstile]");
-    if (prev) {
-      const handler = () => resolve();
-      prev.addEventListener("load", handler);
       return;
     }
     window.onTurnstileLoad = () => resolve();
@@ -36,10 +33,16 @@ function loadScript(): Promise<void> {
     script.src = "https://challenges.cloudflare.com/turnstile/v0/api.js?onload=onTurnstileLoad";
     script.async = true;
     script.defer = true;
-    script.dataset.turnstile = "1";
-    script.onerror = () => resolve(); // jangan blok login jika CDN gagal
+    script.onerror = () => {
+      // Buang tag gagal + lepas memo agar mount berikutnya bisa mencoba tag baru;
+      // tetap resolve — jangan blok login jika CDN gagal (pemanggil dapat no-op handle).
+      script.remove();
+      scriptPromise = undefined;
+      resolve();
+    };
     document.head.appendChild(script);
   });
+  return scriptPromise;
 }
 
 export interface TurnstileHandle {
@@ -75,7 +78,12 @@ export async function mountTurnstile(
   });
   return {
     token: () => solved ?? window.turnstile?.getResponse(id),
-    reset: () => window.turnstile?.reset(id),
+    reset: () => {
+      // Single-use: kosongkan token lama seketika (jangan tunggu widget solve ulang),
+      // supaya token() tak pernah mengembalikan token yang sudah terpakai.
+      solved = undefined;
+      window.turnstile?.reset(id);
+    },
     destroy: () => window.turnstile?.remove(id),
   };
 }
