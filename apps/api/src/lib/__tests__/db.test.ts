@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { RpcError, rpcCheckout } from "../db.js";
+import { RpcError, rpcCheckout, userDb } from "../db.js";
 
 // Lane E remediation (audit 2026-08-31): callRpc previously (a) echoed the raw
 // Postgres/PostgREST message for unmapped error codes and (b) kept the whole
@@ -93,5 +93,38 @@ describe("callRpc error mapping (lib/db.ts)", () => {
     });
     expect(err.code).toBe("INVALID_LEADERBOARD_TYPE");
     expect(err.message).toBe("Tipe leaderboard tidak valid (xp|cards|badges|creator)");
+  });
+});
+
+describe("userDb request headers (lib/db.ts)", () => {
+  const originalEnv = { ...process.env };
+
+  afterEach(() => {
+    process.env = { ...originalEnv };
+    vi.restoreAllMocks();
+  });
+
+  // Hosted Kong validates `apikey` against published keys only — a user JWT
+  // there is a 401 "Invalid API key" (local stack is lax, which is why every
+  // user-scoped RPC only broke once pointed at the hosted project). The anon
+  // key must be the apikey; the user JWT rides in Authorization alone.
+  it("sends the anon key as apikey and the user JWT as Bearer token", async () => {
+    process.env.SUPABASE_URL = "https://test-project.supabase.co";
+    process.env.SUPABASE_ANON_KEY = "test-anon-key";
+    const captured: { apikey: string | null; authorization: string | null } = {
+      apikey: null,
+      authorization: null,
+    };
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(async (_input, init) => {
+      const headers = new Headers(init?.headers);
+      captured.apikey = headers.get("apikey");
+      captured.authorization = headers.get("authorization");
+      return new Response(JSON.stringify({}), { status: 200, headers: { "Content-Type": "application/json" } });
+    });
+    const db = userDb("user-jwt-token");
+    await db.rpc("dummy_fn", { p_amount: 1 });
+    expect(fetchSpy).toHaveBeenCalled();
+    expect(captured.apikey).toBe("test-anon-key");
+    expect(captured.authorization).toBe("Bearer user-jwt-token");
   });
 });

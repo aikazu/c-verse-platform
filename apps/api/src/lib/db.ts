@@ -19,7 +19,15 @@ export function userDb(userToken: string): SupabaseClient {
   if (!url?.startsWith("http")) {
     throw new Error("SUPABASE_URL tidak terkonfigurasi — API tidak jalan tanpa DB (fail-fast).");
   }
-  return createClient(url, userToken, { auth: { persistSession: false, autoRefreshToken: false } });
+  // The client key must be the anon key: hosted Kong validates `apikey` against
+  // published keys only and rejects a user JWT there with 401 "Invalid API key"
+  // (the local stack is lax, so this only surfaced against the hosted project).
+  // The user JWT rides in Authorization via the accessToken callback — SECURITY
+  // DEFINER RPCs still resolve auth.uid() from it.
+  return createClient(url, getEnv("SUPABASE_ANON_KEY") ?? userToken, {
+    auth: { persistSession: false, autoRefreshToken: false },
+    accessToken: async () => userToken,
+  });
 }
 
 export class RpcError extends Error {
