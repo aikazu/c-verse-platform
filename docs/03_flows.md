@@ -3,7 +3,10 @@
 > Status: [VALIDATED — partial: open items payout (SLA, disbursement,
 > cap Rp 5-10 jt) & validasi C-03 iPhone masih [DRAFT] — lihat
 > `07_constraints.md`]
-> Last updated: 2026-08-31 (fee ship-out = konstanta server
+> Last updated: 2026-09-03 (dual-token: penghasilan seller/kreator/
+> royalti/Dukungan masuk C-Gems — lot terkunci 24 jam; payout debit
+> Gems matured FIFO; konversi Gems→C-Coin 1:1 — D3b `06_tech_decisions.md`)
+> Previous: 2026-08-31 (fee ship-out = konstanta server
 > `SHIPMENT_FEE_CCOIN` — bukan input user)
 > Previous: 2026-08-23 (admin abort path PHASE-1 stuck seed sale —
 > RPC cancel_seed_sale di `04_rpc.sql`, sebelumnya
@@ -158,23 +161,31 @@ checkout -> debit WalletTransaction (immutable, append-only)
        secondary (buyout/bid): 7,5% platform / 7,5% royalti / 85% seller
        -> setiap event menulis row platform_revenue (snapshot fee rate)
           + kredit wallet treasury platform (fixed UUID ...0c0)
+       -> [2026-09-03] bagian penerima (seller/royalti/kreator 30%)
+          MASUK sebagai C-Gems (saldo penghasilan; lot terkunci 24
+          jam) — bukan C-Coin; buyer tetap membayar C-Coin
    -> payout: creator POST /api/payments/payout (request, dana dikunci)
+      -> debit C-Gems HANYA lot matured > 24 jam (FIFO; KYC wajib)
    -> payout batch mingguan (cron/admin) -> IDR kurs Rp 10.000
    -> withholding PPh 23 + PPN 11% -> payout fee 1% fixed
-   -> seller/kreator: default disburse IDR, opsional tahan C-Coin
    -> webhook IRIS menandai payouts.status = disbursed/failed
 ```
 
 - Ledger: `wallet_transactions` append-only, tidak ada UPDATE/
   DELETE. Saldo = kolom `wallets.balance_ccoin` (di-maintain atomik
-  oleh RPC wallet_credit/debit; invarian ≡ SUM transaksi).
+  oleh RPC wallet_credit/debit; invarian ≡ SUM transaksi). Ledger
+  Gems terpisah: `gem_lots` + `gem_transactions` →
+  `wallets.balance_gems` (`05_data_model.md`).
 - Cap saldo (founder 2026-08-16): top-up non-KYC maks 500 C-Coin
   (ditolak 422 sebelum Snap dibuat); KYC approved = tanpa cap.
 - Dukungan kreator (A1 2026-08-31): `POST /api/wallet/support` →
   RPC `send_support` — debit pengirim + kredit kreator atomik;
-  100% ke kreator TANPA platform_revenue; pengirim XP 1:1
+  100% ke kreator (masuk C-Gems, lot 24 jam — bukan C-Coin)
+  TANPA platform_revenue; pengirim XP 1:1
   (wallet_debit type 'support'), kreator tidak dapat XP; min 1
   C-Coin, target wajib kreator aktif.
+- Konversi Gems→C-Coin (2026-09-03): satu arah 1:1, tanpa
+  potongan, tanpa XP; TIDAK terkena cooldown 24 jam (lihat Flow 8).
 - Rekonsiliasi harian: top-up webhook vs ledger vs float riil
   (ADM-05). Pendapatan platform = SUM(platform_revenue) ≡ saldo
   wallet treasury.
@@ -278,7 +289,9 @@ Settlement:
       purchase → vault only) — TANPA alamat buyer, tidak ada
       shipment otomatis; buyer bisa minta ship-out kapan saja
       via PG-USR-07 (bayar ongkir saat itu)
-   -> seller payout (Flow 3) — HANYA setelah KYC approved
+   -> seller menerima 85% sebagai C-Gems (lot terkunci 24 jam —
+      konversi ke C-Coin/payout: Flow 8) — payout HANYA setelah
+      KYC approved
 ```
 
 ### Kirim dari Vault (ship-from-custody, KEPUTUSAN USER 2026-08-12)
@@ -330,7 +343,7 @@ Anti-fraud Y1 (rule-based, bukan ML):
   device/IP yang sama → flag + investigasi manual.
 - Max buyout aktif: 20 kartu per user.
 
-## Flow 8: Top-Up & Payout C-Coin
+## Flow 8: Top-Up & Payout (dual-token C-Coin/C-Gems)
 
 ```
 TOP-UP (di area user, /wallet):
@@ -344,16 +357,25 @@ TOP-UP (di area user, /wallet):
       Snap dibuat; race double-webhook ditolak RPC TOPUP_CAP_EXCEEDED
       (audit log + refund manual). KYC approved = TANPA cap.
 
-PAYOUT (self-service request + batch, FIX 2026-08-16):
-   -> creator POST /api/payments/payout {amountCcoin}
+PAYOUT (self-service request + batch, FIX 2026-08-16; sumber =
+C-Gems sejak 2026-09-03 — D3b):
+   -> creator POST /api/payments/payout (jumlah C-Gems)
       -> RPC payout_request: KYC approved WAJIB (KYC_REQUIRED),
-         min 10 C-Coin (MIN_PAYOUT), hold fraud dicek (PAYOUT_HELD),
-         saldo didebit (dikunci) + row payouts status='pending'
+         min 10 (MIN_PAYOUT), hold fraud dicek (PAYOUT_HELD),
+         debit HANYA lot Gems matured > 24 jam (FIFO; lot
+         terkunci ditolak) + row payouts status='pending'
    -> batch mingguan (cron Selasa 06:00 WIB / admin POST
       /api/payments/admin/payout-run) -> payout_batch_run
       (fee 1%, idr_amount diisi net)
    -> disbursement IRIS (ops) -> webhook /midtrans/payout-webhook
       -> payouts.status = disbursed/failed
+
+KONVERSI GEMS -> C-COIN (satu arah, 2026-09-03 — D3b):
+   -> user konversi saldo C-Gems ke C-Coin 1:1: tanpa potongan,
+      tanpa XP di titik konversi; C-Coin hasil konversi dapat XP
+      saat dibelanjakan (aturan spend existing)
+   -> TIDAK terkena cooldown 24 jam (hanya payout yang menunggu
+      lot matured)
 ```
 
 ## Flow 9: Admin Intra-day (ops)
@@ -490,8 +512,9 @@ ADM-06: dispute masuk -> review bukti -> keputusan
 Split penjualan pertama seed card (secondary 85/7,5/7,5): karena
 kreator = OWNER sekaligus kreator kartu, kreator efektif menerima
 **85% + 7,5% royalti lifetime = 92,5%**, platform 7,5% (bukan fee
-12%/6% — lihat glossary). Semua transaksi tetap C-Coin; payout /
-escrow normal (Flow 3 & 7). Serah hadiah [3] BUKAN transaksi
+12%/6% — lihat glossary). Buyer membayar C-Coin; penghasilan
+seller/royalti masuk C-Gems (lot 24 jam); payout / escrow normal
+(Flow 3, 7 & 8). Serah hadiah [3] BUKAN transaksi
 penjualan — tidak ada split/gateway/escrow.
 
 ## Flow 11: Provision Akun Kreator (admin) — passwordless

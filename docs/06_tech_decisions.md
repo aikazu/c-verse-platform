@@ -1,7 +1,9 @@
 # 06 — Tech Decisions (Keputusan Arsitektur)
 
 > Status: [VALIDATED]
-> Last updated: 2026-08-31 (email = Cloudflare Email Service binding
+> Last updated: 2026-09-03 (D3b: dual-token C-Coin/C-Gems — saldo
+> penghasilan, lock 24 jam, payout/conversi)
+> Previous: 2026-08-31 (email = Cloudflare Email Service binding
 > `send_email` — SumoPod SMTP dihapus)
 > Previous: 2026-08-18 (sinkronisasi dengan codebase — hapus Turborepo/Drizzle, catat service-role shortcut)
 > Konsolidasi final dari full-edge decision. Dok ini SELF-CONTAINED
@@ -142,6 +144,43 @@ Retensi: minimum 1 tahun (UU PDP + forensik fraud).
 - Fallback Opsi B (wallet-as-a-service issuer berizin) disimpan
   sebagai contingency untuk perubahan regulasi masa depan.
 
+### D3b — Dual-Token: C-Coin (belanja) + C-Gems (penghasilan) [baru 2026-09-03]
+
+- Keputusan owner (brainstorm + riset regulasi 2026-09-02,
+  terkunci 2026-09-03): ledger dipisah menjadi dua token —
+  penuntasan implisit C-01 (dulu satu saldo nyampur "hasil titip
+  jual" dengan saldo belanja).
+- **C-Coin = saldo belanja**: lahir dari top-up (Midtrans), untuk
+  drop, marketplace, bid, ongkir ship-out, kirim Dukungan.
+  One-way, TIDAK bisa dicairkan, non-refundable. XP didapat saat
+  dibelanjakan (aturan spend existing).
+- **C-Gems = saldo penghasilan**: lahir HANYA dari settlement
+  milik sendiri — hasil jual seed (release), buyout/accept-bid
+  (seller 85%), royalti kreator (drop primary + sekunder), dan
+  Dukungan yang diterima (100%). Non-transferable antar user.
+- **Pintu keluar C-Gems (hanya dua)**:
+  1. Payout ke IDR — KYC wajib, batch mingguan, fee 1%; payout
+     debit HANYA lot Gems matured (cooldown di bawah). Hasil
+     pencairan = "Pembayaran Hasil Titip Jual/Konsinyasi".
+  2. Konversi satu arah Gems→C-Coin 1:1 — tanpa potongan, tanpa
+     XP di titik konversi; C-Coin hasil konversi dapat XP saat
+     dibelanjakan.
+- **Cooldown 24 jam per-lot**: setiap kredit Gems membentuk lot
+  terkunci 24 jam (`gem_lots.mature_at`); payout hanya debit lot
+  matured (FIFO). Konversi TIDAK terkena cooldown. Skema
+  `wallets.balance_gems` + `gem_lots` + `gem_transactions`:
+  `05_data_model.md`.
+- **Revenue lane TIDAK berubah**: treasury/system user tetap
+  menerima C-Coin via `record_platform_revenue`; share 70/30
+  (primary) & 7,5/7,5/85 (secondary) tetap.
+- **Rasio legal**: C-Coin one-way/non-cashable mempertahankan
+  posisi "bukan e-money" (C-01 Opsi A, label "Gamified Point
+  Redemption"). Riset regulasi 2026-09-02 + PENDING refresh
+  lawyer: lihat amend C-01 di `07_constraints.md`.
+- **Motivasi (temuan audit)**: RPC `payout_request` lama debit
+  C-Coin tanpa gate kreator → premis non-cashable bocor; kini
+  payout debit `balance_gems` matured only.
+
 ### D4 — Verifikasi NFC (Server-Side CMAC)
 
 - NDEF: `https://c-verse.co/cards/{short_id}/3d` + SUN dynamic
@@ -237,3 +276,5 @@ Retensi: minimum 1 tahun (UU PDP + forensik fraud).
 - 02_legal_compliance 2,2 (C-Coin [VALIDATED 2026-08-13]: bukan
   e-money, struktur Opsi A closed-loop + payout fee 1%).
 - Diskusi founder 2026-08-12 (D1, D2).
+- Brainstorm + riset regulasi dual-token 2026-09-02 (keputusan
+  owner terkunci 2026-09-03) — D3b.

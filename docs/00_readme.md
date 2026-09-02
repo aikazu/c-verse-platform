@@ -1,7 +1,7 @@
 # 00 — README: Development Strategy C.Verse MVP
 
 > Status: [VALIDATED]
-> Last updated: 2026-08-31 (Dukungan kreator — RPC `send_support`, enum `wallet_tx_type` +'support', XP pengirim 1:1; drop winners + grid kartu per-drop; `/browse` jadi grid tile per-drop; masking "Anonim" di marketplace/bids/winners; modul API browse dihapus)
+> Last updated: 2026-09-03 (dual-token economy — C-Coin belanja + C-Gems penghasilan: settlement masuk Gems, lock 24 jam, payout debit Gems matured, konversi Gems→C-Coin 1:1; lihat `07_constraints.md` C-01 amend + `06_tech_decisions.md` D3b)
 > Konteks: foundation code sudah ada di
 > `C:\Users\iqbal\Documents\C-Verse\Platform` (mulai 2026-08-12).
 > Folder ini = satu-satunya acuan eksekusi; dok ini = pintu masuk.
@@ -20,7 +20,7 @@
 | # | Dok | Isi |
 |---|-----|-----|
 | 5 | `05_data_model.md` | Skema tabel, relasi, enum, invariant I1-I14, matriks RLS |
-| 6 | `06_tech_decisions.md` | Stack full-edge + keputusan arsitektur D1-D7 |
+| 6 | `06_tech_decisions.md` | Stack full-edge + keputusan arsitektur D1-D8 (+ D3b dual-token) |
 | 7 | `07_constraints.md` | Gate legal/ops, C-01..C-14, **matriks keputusan FINAL (jangan dibalik)** |
 | 8 | `08_deployment.md` | Runbook deploy, CI/CD, rollback, go-live checklist |
 
@@ -105,14 +105,15 @@ semua dok sekaligus (mubazir token, AI kehilangan fokus):
 | resale | Aksi jual-beli kedua |
 | kreator / creator | Kreator (prose / code) |
 | kolektor / collector | Kolektor (prose / code) |
-| C-Coin | Mata uang platform, medium tunggal transaksi — **semua nominal integer ≥ 1 (tanpa desimal)** |
+| C-Coin | Saldo belanja dari top-up (drop, marketplace, bid, ongkir, kirim Dukungan) — non-cashable/non-refundable; **semua nominal integer ≥ 1 (tanpa desimal)** |
+| C-Gems | Saldo penghasilan (settlement milik sendiri: hasil jual, royalti kreator, Dukungan diterima) — non-transferable; pintu keluar: payout ke IDR (KYC, fee 1%, lot > 24 jam) atau konversi satu arah ke C-Coin 1:1 |
 | NTAG 424 DNA TagTamper | Chip NFC + provenance system |
 
 | Parameter | Nilai | Sumber |
 |-----------|-------|--------|
 | Rate C-Coin | 1 C-Coin = Rp 10.000 (top-up) | `05_data_model.md`, `07_constraints.md` |
-| Struktur C-Coin | Opsi A: saldo buyer closed-loop TANPA withdraw; hasil seller/kreator auto-disburse IDR | `07_constraints.md` |
-| Payout fee (disbursement seller/kreator) | 1% fixed | `01_scope.md` |
+| Struktur token | Dual-token (2026-09-03): C-Coin belanja closed-loop TANPA withdraw + C-Gems penghasilan (payout IDR / konversi 1:1) — Opsi A tetap basis legal ("Gamified Point Redemption") | `07_constraints.md` C-01 amend, `06_tech_decisions.md` D3b |
+| Payout fee (disbursement seller/kreator) | 1% fixed — sumber dana = C-Gems lot matured | `01_scope.md`, `07_constraints.md` C-09b |
 | Revenue share primary (platform-produced) | 70% platform / 30% kreator | `01_scope.md` |
 | Revenue share primary (kreator-produced) | 30% platform / 70% kreator — **TIDAK ADA di MVP** | `01_scope.md` |
 | Fee secondary total | 15% (7,5% platform + 7,5% royalti kreator LIFETIME + 85% owner) | `01_scope.md` |
@@ -157,7 +158,7 @@ HARUS sinkron dengan tabel di atas (dua arah).
 | GTM off-platform | 17_mvp_off_platform_gtm (rekrut via personal relationship + 1-2 agency partner, 30-50 kreator; TANPA aplikasi/approval in-platform; keputusan 2026-08-12) |
 | Tech stack | 01_tech_stack (full-edge: React/Vite di CF Pages + Hono di CF Workers + Supabase + R2, konsolidasi 2026-08-11), 20_tech_stack_decision (monorepo, free tier cukup Y1) |
 | Flow MVP (orisinal) | 05_mvp_flow (Flow 1-10: primary raffle+C FCFS, fulfillment, payment/settlement, NFC tap, QR fallback, ownership transfer, secondary Marketplace+Browse, pendukung/onboarding, top-up & payout; Flow 10 seed card 2026-08-20) |
-| Legal & C-Coin | 02_legal_compliance (2,2 [VALIDATED 2026-08-13]: C-Coin bukan e-money, struktur Opsi A closed-loop + payout fee 1%), 14_legal_consultation_brief (Sesi A gate launch — A1-A3 dijawab lawyer fintech 2026-08-13) |
+| Legal & C-Coin | 02_legal_compliance (2,2 [VALIDATED 2026-08-13]: C-Coin bukan e-money, struktur Opsi A closed-loop + payout fee 1%), 14_legal_consultation_brief (Sesi A gate launch — A1-A3 dijawab lawyer fintech 2026-08-13); dual-token 2026-09-03 menuntaskan pemisahan "hasil titip jual" — refresh lawyer = pending sebelum go-live |
 | SOP operasional | 03_operations_playbook (SOP 1-6: produksi & QC, inventory, fulfillment/shipping, CS, trust & safety, finance & payout) |
 
 ## 8. Perubahan Terhadap Dokumen Sumber (2026-08-12)
@@ -229,8 +230,13 @@ Dok di folder ini meng-override dokumen sumber workspace:
     (`vault_shipout`) dari Kelola Kartu dan bayar ongkir di titik
     itu (fee → treasury + `platform_revenue` ref_type
     'shipment'). Berlaku juga di secondary — ownership pindah di
-    ledger, kartu tetap di vault. Semua nominal C-Coin
+    ledger, kartu tetap di vault. Semua nominal C-Coin & C-Gems
     **integer ≥ 1 tanpa desimal**.
+17. **Dual-token economy** (2026-09-03): penghasilan seller/kreator/
+    royalti/Dukungan diterima masuk sebagai **C-Gems** (lot terkunci
+    24 jam; payout hanya lot matured — KYC, fee 1%; konversi satu
+    arah Gems→C-Coin 1:1 tanpa XP). C-Coin tetap medium belanja
+    non-cashable. Detail: `06_tech_decisions.md` D3b.
 
 ## Sumber
 

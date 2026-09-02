@@ -50,6 +50,8 @@ Rules:
 | Notifications | **Notifikasi** | Replaces `Inbox`, `SIGNAL`, `INBOX FEED`. |
 | Order table | **Pesanan** | `<th>Order</th>` → `Pesanan`. |
 | Currency | **C** (inline), **C-Coin** (balance label) | Consistent: `1 C = Rp…`, never mixed `C`/`C-Coin` in same card without reason. |
+| Earnings balance | **C-Gems** | Saldo penghasilan (hasil jual, royalti, Dukungan diterima) — separate from C-Coin (saldo belanja); non-transferable. |
+| Gem lock status | **Bisa dicair** / **Terkunci 24 jam** | Status lot C-Gems; Penarikan hanya untuk lot **Bisa dicair**. |
 
 ## Redundancy rule
 

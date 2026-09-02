@@ -1,7 +1,10 @@
 # 05 — Data Model (Skema Logis)
 
 > Status: [VALIDATED]
-> Last updated: 2026-08-31 (skema cards/bids/badges diselaraskan ke
+> Last updated: 2026-09-03 (dual-token: `wallets.balance_gems` +
+> tabel `gem_lots`/`gem_transactions` — keputusan D3b
+> `06_tech_decisions.md`)
+> Previous: 2026-08-31 (skema cards/bids/badges diselaraskan ke
 > `01_schema.sql`: `variant`, `nfc_uid`/`nfc_short_id`, `owner_id`,
 > PK text, tabel `badges`, user_badges PK komposit; catatan kolom legacy)
 > Previous: 2026-08-20 (creators.user_id diisi via admin-provisioning RPC; role 'creator' di-set admin — keputusan 2026-08-20)
@@ -236,11 +239,12 @@ orders
 > ke C-Coin dibulatkan ke atas (ceiling) ke integer. Kolom
 > sudah `int` — jangan pernah ubah ke numeric/decimal.
 
-### wallets & wallet_transactions (C-Coin)
+### wallets & wallet_transactions (C-Coin) + C-Gems ledger
 ```
 wallets
   user_id uuid PK FK users.id
   balance_ccoin int           -- cache; audit via SUM(transactions)
+  balance_gems int default 0  -- cache saldo C-Gems; audit via SUM(gem_transactions)
   total_topup_ccoin int default 0  -- akumulasi top-up (gate cap non-KYC + KYC threshold)
   total_spent_ccoin int default 0  -- akumulasi spend (basis XP)
   hold_payout_until timestamptz nullable  -- hold payout jika akun di-flag fraud
@@ -301,6 +305,39 @@ platform_revenue                                   [BARU 2026-08-16]
 > / `total_spent_ccoin` (akumulasi, di-maintain RPC), `bids.bidder_name`
 > (denormalisasi display name utk masking publik), `cards.qc_status` =
 > `text` + CHECK (bukan tipe enum).
+
+### gem_lots & gem_transactions (C-Gems — dual-token, keputusan 2026-09-03)
+```
+gem_lots
+  id uuid PK
+  user_id uuid FK users.id
+  amount int                  -- nominal lot saat kredit (integer >= 1)
+  remaining int               -- sisa lot; debit payout mengurangi (FIFO matured)
+  ref_type text               -- mis. 'seed_release' | 'buyout' | 'bid_accept' | 'royalty' | 'support'
+  ref_id uuid nullable
+  created_at timestamptz
+  mature_at timestamptz       -- created_at + 24 jam; payout hanya lot matured
+
+gem_transactions
+  id uuid PK
+  user_id uuid FK users.id
+  amount int                  -- signed (+/-)
+  balance_after_gems int      -- saldo Gems setelah transaksi (audit trail)
+  ref_type text
+  ref_table text nullable
+  ref_id uuid nullable
+  idem_key text UNIQUE        -- idempotency
+  created_at timestamptz
+```
+> **C-Gems** (aturan lengkap: D3b `06_tech_decisions.md`; legal:
+> amend C-01 `07_constraints.md`): saldo penghasilan — lahir HANYA
+> dari settlement milik sendiri (release seed, seller 85%
+> buyout/accept-bid, royalti kreator, Dukungan 100%);
+> non-transferable antar user. Setiap kredit membentuk lot terkunci
+> 24 jam; payout (KYC, batch mingguan, fee 1%) hanya debit lot
+> matured FIFO. Konversi satu arah Gems→C-Coin 1:1 (tanpa potongan,
+> tanpa XP) TIDAK terkena cooldown. Append-only; semua nominal
+> integer >= 1.
 
 ### bids (offer ke owner — bisa di kartu manapun)
 ```
@@ -520,6 +557,8 @@ cards N─1 bids (offer ke owner; 1 kartu bisa banyak bid)
 cards 1─N ownership_history
 users 1─1 wallets
 wallets 1─N wallet_transactions
+users 1─N gem_lots
+users 1─N gem_transactions
 users 1─N orders (buyer)
 users 1─N payouts
 orders 1─1 disputes (optional)
@@ -549,6 +588,7 @@ profiles 1─N user_badges
 | I12 | Profil publik hanya jika `is_anonymous = false` AND `flag_reason IS NULL` (suspended) — termasuk leaderboard (filter **di dalam RPC** `get_leaderboard`), sitemap, dan ownership history (historical owner di-mask jadi "Anonim") | RPC + RLS |
 | I13 | Blok rebuy seller 1 hari — kartu tidak bisa dibeli kembali oleh owner sebelumnya dalam 1x24 jam; pembeli bebas listing ulang kapan saja; wash trading diterima (fee 15% tetap kena) | App logic |
 | I14 | Creator self-dealing — kreator dilarang membeli kartu drop sendiri di secondary untuk 30 hari pertama | App logic + flag |
+| I15 | C-Gems: lot & transaksi append-only; payout HANYA debit lot matured (> 24 jam, FIFO); saldo Gems tidak pernah negatif; non-transferable antar user | RPC gem ledger |
 
 ## 5. RLS (Row Level Security) — Ringkas
 
