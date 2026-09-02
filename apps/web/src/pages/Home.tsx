@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { CardThumb } from "../components/CardThumb";
+import { BerandaVisual } from "../components/HeroVisuals";
 import { PageHero } from "../components/PageHero";
 import { RequireAuth } from "../components/RequireAuth";
 import { api } from "../lib/api";
@@ -50,6 +51,7 @@ function HomeInner() {
   return (
     <div className="page-stack">
       <PageHero
+        heroVisual={<BerandaVisual />}
         channel="00"
         channelLabel="BERANDA"
         title="Beranda"

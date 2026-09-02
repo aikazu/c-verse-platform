@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useConfirm } from "../components/ConfirmProvider";
+import { KelolaVisual } from "../components/HeroVisuals";
 import { PageHero } from "../components/PageHero";
 import { RequireAuth } from "../components/RequireAuth";
 import { api } from "../lib/api";
@@ -80,6 +81,7 @@ function VerifyShipmentInner() {
   return (
     <div className="page-stack">
       <PageHero
+        heroVisual={<KelolaVisual />}
         channel="10B"
         channelLabel="KELOLA"
         title="Kirim ke Vault"

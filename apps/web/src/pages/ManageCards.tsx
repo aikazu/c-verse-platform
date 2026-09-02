@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useConfirm } from "../components/ConfirmProvider";
+import { KelolaVisual } from "../components/HeroVisuals";
 import { PageHero } from "../components/PageHero";
 import { RequireAuth } from "../components/RequireAuth";
 import { api } from "../lib/api";
@@ -140,6 +141,7 @@ function ManageCardsInner() {
   return (
     <div className="page-stack">
       <PageHero
+        heroVisual={<KelolaVisual />}
         channel="10A"
         channelLabel="KELOLA"
         title="Kelola C.Card"

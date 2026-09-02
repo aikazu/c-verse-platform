@@ -9,6 +9,7 @@ import { ToastProvider } from "./lib/toast";
 import { NotFoundPage } from "./pages/ErrorPage";
 import UsernameSetupModal from "./pages/UsernameSetupModal";
 import "./styles.css";
+import "./components/hero-visuals.css";
 
 // Code-splitting: tiap halaman jadi chunk terpisah — visitor landing tidak
 // mengunduh kode marketplace/wallet/creator dashboard (audit performance P0).

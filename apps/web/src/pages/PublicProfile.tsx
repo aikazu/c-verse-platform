@@ -1,6 +1,7 @@
 import type { UserBadge as SharedUserBadge } from "@c-verse/shared";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useParams } from "react-router-dom";
+import { ProfilVisual } from "../components/HeroVisuals";
 import { LevelBar } from "../components/LevelBar";
 import { PageHero } from "../components/PageHero";
 import { ApiError, api } from "../lib/api";
@@ -32,6 +33,7 @@ export default function PublicProfile() {
     return (
       <div className="page-stack">
         <PageHero
+          heroVisual={<ProfilVisual />}
           channel="05"
           channelLabel="PROFIL"
           title="Memuat profil…"

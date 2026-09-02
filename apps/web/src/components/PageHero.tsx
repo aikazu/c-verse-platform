@@ -1,16 +1,18 @@
+import type { ReactNode } from "react";
+
 type PageHeroProps = {
   channel: string;
   channelLabel: string;
   extra?: string | null;
   title: string;
-  titleEmphasis?: string | null;
   sub?: string | null;
   desc?: string | null;
-  ticker?: React.ReactNode | null;
-  actions?: React.ReactNode | null;
+  ticker?: ReactNode | null;
+  actions?: ReactNode | null;
+  heroVisual?: ReactNode | null;
 };
 
-export function PageHero({ channel, channelLabel, extra, title, titleEmphasis, sub, desc, ticker, actions }: PageHeroProps) {
+export function PageHero({ channel, channelLabel, extra, title, sub, desc, ticker, actions, heroVisual }: PageHeroProps) {
   const ariaLabel = `Header halaman ${title}`;
   return (
     <section className="page-hero" aria-label={ariaLabel}>
@@ -29,22 +31,24 @@ export function PageHero({ channel, channelLabel, extra, title, titleEmphasis, s
           <span className="rail-cursor" aria-hidden="true" />
         </span>
       </div>
-      <div className="page-hero-inner">
-        <div className="page-hero-copy">
-          {sub ? <div className="page-hero-sub">{sub}</div> : null}
-          <h1 className="page-hero-title">
-            {titleEmphasis ? (
-              <>
-                {title} <em>{titleEmphasis}</em>
-              </>
-            ) : (
-              title
-            )}
-          </h1>
-          {desc ? <p className="page-hero-desc">{desc}</p> : null}
+      {/* H1 kept for a11y/SEO but visually hidden — no repeated word on screen */}
+      <h1 className="sr-only">{title}</h1>
+      {(heroVisual || sub || desc || actions) && (
+        <div className="page-hero-inner">
+          {heroVisual ? (
+            <div className="page-hero-visual" aria-hidden="true">
+              {heroVisual}
+            </div>
+          ) : null}
+          {(sub || desc) && (
+            <div className="page-hero-copy">
+              {sub ? <div className="page-hero-sub">{sub}</div> : null}
+              {desc ? <p className="page-hero-desc">{desc}</p> : null}
+            </div>
+          )}
+          {actions ? <div className="page-hero-actions">{actions}</div> : null}
         </div>
-        {actions ? <div className="page-hero-actions">{actions}</div> : null}
-      </div>
+      )}
       {ticker ? <>{ticker}</> : null}
     </section>
   );

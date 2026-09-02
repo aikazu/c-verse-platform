@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link, useParams } from "react-router-dom";
+import { KreatorVisual } from "../components/HeroVisuals";
 import { PageHero } from "../components/PageHero";
 import { RequireAuth } from "../components/RequireAuth";
 import { StatusBadge } from "../components/StatusBadge";
@@ -59,6 +60,7 @@ function CreatorDropAnalyticsInner() {
   return (
     <div className="page-stack">
       <PageHero
+        heroVisual={<KreatorVisual />}
         channel="06C"
         channelLabel="KREATOR"
         title={drop.title}

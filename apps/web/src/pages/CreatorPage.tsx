@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useConfirm } from "../components/ConfirmProvider";
+import { KreatorVisual } from "../components/HeroVisuals";
 import { PageHero } from "../components/PageHero";
 import { StatusBadge } from "../components/StatusBadge";
 import { trackCreatorPageView } from "../lib/analytics";
@@ -94,6 +95,7 @@ export default function CreatorPage() {
     return (
       <div className="page-stack">
         <PageHero
+          heroVisual={<KreatorVisual />}
           channel="06A"
           channelLabel="KREATOR"
           title="Memuat kreator…"

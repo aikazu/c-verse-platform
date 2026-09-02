@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
+import { PrivasiVisual } from "../components/HeroVisuals";
 import { PageHero } from "../components/PageHero";
 import { RequireAuth } from "../components/RequireAuth";
 import { api } from "../lib/api";
@@ -62,7 +63,13 @@ function PrivacyInner() {
   }
   return (
     <div className="page-stack ac-narrow">
-      <PageHero channel="12" channelLabel="PRIVASI" title="Privasi" desc="Kontrol visibilitas koleksi & izin data" />
+      <PageHero
+        heroVisual={<PrivasiVisual />}
+        channel="12"
+        channelLabel="PRIVASI"
+        title="Privasi"
+        desc="Kontrol visibilitas koleksi & izin data"
+      />
       <div className="card card-pad">
         <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
           <div style={{ flex: 1, minWidth: 160 }}>

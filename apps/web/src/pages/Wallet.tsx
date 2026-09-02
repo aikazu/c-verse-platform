@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useConfirm } from "../components/ConfirmProvider";
+import { DompetVisual } from "../components/HeroVisuals";
 import { PageHero } from "../components/PageHero";
 import { RequireAuth } from "../components/RequireAuth";
 import { ApiError, api, formatIdr } from "../lib/api";
@@ -121,7 +122,7 @@ function WalletInner() {
   const payoutHoldUntil: string | null = data.payoutHoldUntil ?? null;
   return (
     <div className="page-stack">
-      <PageHero channel="08" channelLabel="DOMPET" title="Dompet" desc={RATE_LABEL} />
+      <PageHero heroVisual={<DompetVisual />} channel="08" channelLabel="DOMPET" title="Dompet" desc={RATE_LABEL} />
 
       {payoutHeld && (
         <div className="card card-pad wa-alert">

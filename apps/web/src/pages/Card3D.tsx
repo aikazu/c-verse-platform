@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useRef } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
+import { CardVisual } from "../components/HeroVisuals";
 import { PageHero } from "../components/PageHero";
 import { api } from "../lib/api";
 import type { ApiCard3dResponse, ApiDrop } from "../lib/api-types";
@@ -47,7 +48,7 @@ export default function Card3D() {
       <Link to={`/cards/${card.id ?? cardId}`} className="btn-ghost ci-back">
         ← Kembali
       </Link>
-      <PageHero channel="07B" channelLabel="C.CARD" title={heroTitle} sub={d.drop?.series ?? "3D Viewer"} />
+      <PageHero heroVisual={<CardVisual />} channel="07B" channelLabel="C.CARD" title={heroTitle} sub={d.drop?.series ?? "3D Viewer"} />
       <div className="card ci-clip">
         <div ref={viewerRef} className="ci-viewer-host" />
         <div className="card-pad">
