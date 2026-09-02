@@ -164,6 +164,35 @@ button, a, [role="button"] { touch-action: manipulation; }
 .nav-links a.active { color: var(--gold); text-shadow: 0 0 12px rgba(255, 201, 77, 0.45); }
 .nav-links a.active::before { content: '▶ '; font-size: 8px; }
 .nav-actions { display: flex; gap: 10px; align-items: center; position: relative; }
+.nav-toggle {
+  display: none; align-items: center; justify-content: center;
+  width: 38px; height: 38px; border-radius: 10px;
+  background: var(--surface-2); border: 1px solid var(--border);
+  color: var(--text); font-size: 16px; line-height: 1;
+}
+.nav-drawer {
+  display: none;
+  position: fixed; inset: 0; z-index: 45;
+}
+.nav-drawer.open { display: block; }
+.nav-drawer-backdrop {
+  position: absolute; inset: 0;
+  background: rgba(6, 9, 19, 0.55); backdrop-filter: blur(4px);
+  border: 0; padding: 0; width: 100%; cursor: default;
+}
+.nav-drawer-panel {
+  position: absolute; top: 0; right: 0; bottom: 0;
+  width: min(78vw, 300px);
+  background: var(--surface-1); border-left: 1px solid var(--border);
+  padding: 20px 16px 24px; display: flex; flex-direction: column; gap: 4px;
+  overflow-y: auto;
+}
+.nav-drawer-panel a {
+  padding: 12px 14px; border-radius: 10px;
+  font-family: var(--font-mono); font-size: 13px; letter-spacing: 0.06em;
+  color: var(--text-muted); display: flex; align-items: center; justify-content: space-between;
+}
+.nav-drawer-panel a.active { background: var(--surface-2); color: var(--gold); }
 .main-content { flex: 1; max-width: 1180px; width: 100%; margin: 0 auto; padding: 30px 24px 48px; }
 
 /* ── Buttons — capsule cockpit controls with glow press ────────────────────── */
@@ -774,10 +803,11 @@ tbody tr:hover { background: rgba(91, 230, 255, 0.05); }
 
 .page-hero-inner {
   position: relative; z-index: 1;
-  display: flex; align-items: flex-end; justify-content: space-between;
-  gap: 24px; flex-wrap: wrap;
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 16px; flex-wrap: wrap;
 }
-.page-hero-copy { flex: 1 1 280px; min-width: 0; }
+.page-hero-copy { flex: 1 1 200px; min-width: 0; }
+.page-hero-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 .page-hero-title {
   font-family: var(--font-display);
   font-size: clamp(18px, 2.4vw, 24px);
@@ -2434,12 +2464,36 @@ tbody tr:hover { background: rgba(91, 230, 255, 0.05); }
   .hero-score { width: calc(100% - 40px); margin-top: -110px; }
   .badge-rail { margin: 0 -24px; padding: 4px 24px 18px; -webkit-mask-image: linear-gradient(90deg, #000 0%, #000 calc(100% - 36px), transparent 100%); mask-image: linear-gradient(90deg, #000 0%, #000 calc(100% - 36px), transparent 100%); }
 }
+@media (max-width: 720px) {
+  .nav-links { display: none; }
+  .nav-toggle { display: inline-flex; }
+  .nav-actions { width: auto; }
+  .grid-2 { gap: 14px; }
+  .hero-ticker .ticker-scroll { animation-duration: 24s; }
+}
 @media (max-width: 560px) {
-  .nav-links { gap: 12px; }
+  .navbar { padding: 10px 14px; }
+  .main-content { padding: 18px 14px 32px; }
+  .page-hero { padding: 12px 14px 14px; }
+  .page-hero-rail { font-size: 9px; gap: 6px; }
+  .page-hero-inner { gap: 10px; }
+  .page-hero-desc { font-size: 11.5px; }
   .landing-inner { gap: 48px; }
   .hero-cta { flex-direction: column; align-items: stretch; }
   .error-actions { flex-direction: column; align-items: stretch; }
   .badge-tile { width: 200px; }
+}
+@media (max-width: 390px) {
+  .nav-brand { font-size: 12px; }
+  .page-hero-visual { flex: 0 0 48px; }
+  .hv { width: 40px; height: 28px; }
+  .toolbar { gap: 8px; }
+  .toolbar .input { min-width: 0; flex: 1 1 120px; }
+  .toolbar .select { min-width: 110px; font-size: 12px; }
+  .chip { padding: 6px 9px; font-size: 9px; }
+  .page-hero-rail { font-size: 8.5px; letter-spacing: 0.12em; }
+  .hero-ticker { font-size: 10px; }
+  .table-wrap { margin: 0 -14px; padding: 0 14px; -webkit-overflow-scrolling: touch; }
 }
 
 /* ── Confirm dialog (cfm-) — modal in-app pengganti native window.confirm ── */

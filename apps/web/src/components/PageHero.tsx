@@ -49,7 +49,7 @@ export function PageHero({ channel, channelLabel, extra, title, sub, desc, ticke
           {actions ? <div className="page-hero-actions">{actions}</div> : null}
         </div>
       )}
-      {ticker ? <>{ticker}</> : null}
+      {ticker ?? null}
     </section>
   );
 }

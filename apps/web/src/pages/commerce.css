@@ -420,3 +420,9 @@
   font-size: 13px;
   color: var(--text);
 }
+
+@media (max-width: 390px) {
+  .cm-stat { min-width: 0; flex: 1 1 100%; }
+  .dd-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  .dd-cell-art { border-radius: 8px; }
+}

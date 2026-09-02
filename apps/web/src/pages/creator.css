@@ -398,3 +398,8 @@
 		opacity: 0.6;
 	}
 }
+@media (max-width: 390px) {
+  .cp-sigil { width: 64px; height: 64px; }
+  .cp-sigil-letter { font-size: 22px; }
+  .cp-board { gap: 6px; }
+}

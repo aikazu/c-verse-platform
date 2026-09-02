@@ -329,3 +329,8 @@
 		grid-template-columns: 1fr;
 	}
 }
+
+@media (max-width: 390px) {
+  .ci-stat-grid { gap: 10px; }
+  .ci-history-row { flex-direction: column; align-items: flex-start; gap: 2px; }
+}

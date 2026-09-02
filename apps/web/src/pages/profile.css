@@ -343,3 +343,8 @@
 		opacity: 0.6;
 	}
 }
+
+@media (max-width: 390px) {
+  .pp-sigil { width: 64px; height: 64px; }
+  .pp-sigil-letter { font-size: 22px; }
+}

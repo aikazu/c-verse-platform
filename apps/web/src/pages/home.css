@@ -147,3 +147,9 @@
 		font-size: 12px;
 	}
 }
+
+@media (max-width: 390px) {
+  .hm-thumb { height: 100px; }
+  .hm-card-body { padding: 10px; }
+  .hm-action-link { padding: 6px 10px; }
+}

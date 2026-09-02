@@ -239,35 +239,75 @@ function MenuLink({ to, label, badge, onClick }: { to: string; label: string; ba
 function Navbar() {
   const { user } = useAuth();
   const nav = useNavigate();
+  const [drawerOpen, setDrawerOpen] = React.useState(false);
   return (
-    <nav className="navbar">
-      <NavLink to="/" className="nav-brand">
-        C<span>.</span>Verse
-      </NavLink>
-      <div className="nav-links" style={{ gap: 18 }}>
-        <NavLink to="/drops" className={({ isActive }) => (isActive ? "active" : "")}>
-          Drops
+    <>
+      <nav className="navbar">
+        <NavLink to="/" className="nav-brand">
+          C<span>.</span>Verse
         </NavLink>
-        <NavLink to="/marketplace" className={({ isActive }) => (isActive ? "active" : "")}>
-          Marketplace
-        </NavLink>
-        <NavLink to="/browse" className={({ isActive }) => (isActive ? "active" : "")}>
-          Jelajahi
-        </NavLink>
-        <NavLink to="/leaderboard" className={({ isActive }) => (isActive ? "active" : "")}>
-          Peringkat
-        </NavLink>
-      </div>
-      <div className="nav-actions">
-        {!user ? (
-          <button className="btn-gold" onClick={() => nav("/login")}>
-            Masuk / Daftar
+        <div className="nav-links" style={{ gap: 18 }}>
+          <NavLink to="/drops" className={({ isActive }) => (isActive ? "active" : "")}>
+            Drops
+          </NavLink>
+          <NavLink to="/marketplace" className={({ isActive }) => (isActive ? "active" : "")}>
+            Marketplace
+          </NavLink>
+          <NavLink to="/browse" className={({ isActive }) => (isActive ? "active" : "")}>
+            Jelajahi
+          </NavLink>
+          <NavLink to="/leaderboard" className={({ isActive }) => (isActive ? "active" : "")}>
+            Peringkat
+          </NavLink>
+        </div>
+        <div className="nav-actions">
+          {!user ? (
+            <button className="btn-gold" onClick={() => nav("/login")}>
+              Masuk / Daftar
+            </button>
+          ) : (
+            <UserMenu />
+          )}
+          <button
+            className="nav-toggle"
+            aria-label="Buka menu navigasi"
+            aria-expanded={drawerOpen}
+            onClick={() => setDrawerOpen((v) => !v)}
+          >
+            {drawerOpen ? "✕" : "☰"}
           </button>
-        ) : (
-          <UserMenu />
-        )}
+        </div>
+      </nav>
+      <div className={`nav-drawer${drawerOpen ? " open" : ""}`} aria-hidden={!drawerOpen}>
+        <button className="nav-drawer-backdrop" aria-label="Tutup menu" onClick={() => setDrawerOpen(false)} />
+        <nav className="nav-drawer-panel" aria-label="Navigasi">
+          <NavLink to="/drops" onClick={() => setDrawerOpen(false)} className={({ isActive }) => (isActive ? "active" : "")}>
+            Drops
+          </NavLink>
+          <NavLink to="/marketplace" onClick={() => setDrawerOpen(false)} className={({ isActive }) => (isActive ? "active" : "")}>
+            Marketplace
+          </NavLink>
+          <NavLink to="/browse" onClick={() => setDrawerOpen(false)} className={({ isActive }) => (isActive ? "active" : "")}>
+            Jelajahi
+          </NavLink>
+          <NavLink to="/leaderboard" onClick={() => setDrawerOpen(false)} className={({ isActive }) => (isActive ? "active" : "")}>
+            Peringkat
+          </NavLink>
+          {!user && (
+            <button
+              className="btn-gold"
+              style={{ marginTop: 12 }}
+              onClick={() => {
+                setDrawerOpen(false);
+                nav("/login");
+              }}
+            >
+              Masuk / Daftar
+            </button>
+          )}
+        </nav>
       </div>
-    </nav>
+    </>
   );
 }
 

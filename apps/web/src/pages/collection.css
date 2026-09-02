@@ -166,3 +166,13 @@
 		width: 100%;
 	}
 }
+
+@media (max-width: 480px) {
+  .kl-grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; padding: 10px; }
+  .kl-thumb { height: 110px; }
+  .kl-toolbar { padding: 12px; }
+}
+@media (max-width: 390px) {
+  .kl-grid { grid-template-columns: 1fr; }
+  .kl-head { gap: 8px; }
+}

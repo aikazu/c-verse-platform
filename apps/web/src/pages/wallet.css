@@ -343,3 +343,10 @@
 		gap: 2px;
 	}
 }
+
+@media (max-width: 390px) {
+  .wa-balance-value { font-size: 28px; }
+  .card.wa-balance { padding: 16px; }
+  .wa-toolbar { padding: 12px; }
+  .wa-input-row { flex-direction: column; }
+}

@@ -435,3 +435,8 @@
 		gap: 4px;
 	}
 }
+
+@media (max-width: 390px) {
+  .od-meta { gap: 10px; }
+  .od-ship-address { font-size: 11px; word-break: break-word; }
+}
