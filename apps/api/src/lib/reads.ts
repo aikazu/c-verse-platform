@@ -162,6 +162,7 @@ export function mapWalletRow(r: Row): Wallet {
   return {
     userId: str(r.user_id),
     balanceCCoin: num(r.balance_ccoin),
+    balanceGems: num(r.balance_gems),
     totalTopupCCoin: num(r.total_topup_ccoin),
     totalSpentCCoin: num(r.total_spent_ccoin),
     holdPayoutUntil: nstr(r.hold_payout_until),

@@ -59,4 +59,26 @@ app.post("/support", zValidator("json", supportSchema), async (c) => {
   }
 });
 
+// Convert (dual-token docs/07): Gems -> C-Coin 1:1 via RPC convert_gems (atomic
+// di SQL). Response = wallet terbaru (balanceGems + breakdown matured) supaya
+// UI tidak perlu re-fetch setelah konversi.
+app.post("/convert", zValidator("json", z.object({ amountGems: z.number().int().min(1) })), async (c) => {
+  const authRes = await requireUser(c);
+  if ("error" in authRes) return c.json({ error: authRes.error === 403 ? "Akun disuspend" : "Unauthorized" }, authRes.error);
+  const { amountGems } = c.req.valid("json");
+  const db = userDb(authRes.token);
+  const { error } = await db.rpc("convert_gems", { p_amount: amountGems });
+  if (error) {
+    const code = error.message.trim().split("\n")[0];
+    const status = code === "AUTH_REQUIRED" ? 401 : 400;
+    const messages: Record<string, string> = {
+      AUTH_REQUIRED: "Silakan login dulu",
+      INSUFFICIENT_GEMS: "Gems tidak cukup",
+    };
+    return c.json({ error: messages[code] ?? sanitizeDbError(error), code }, status);
+  }
+  const wallet = await getWallet(authRes.user.id);
+  return c.json({ wallet });
+});
+
 export default app;

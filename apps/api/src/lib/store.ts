@@ -111,10 +111,19 @@ export interface Card {
 export interface Wallet {
   userId: string;
   balanceCCoin: number;
+  balanceGems: number;
   totalTopupCCoin: number;
   totalSpentCCoin: number;
   holdPayoutUntil: string | null;
   updatedAt?: string;
+}
+
+// Dual-token C-Coin/C-Gems (docs/07): wallet read untuk route wallet menyertakan
+// breakdown kesiapan cair — gemsLocked = balanceGems − gemsMatured (belum lewat
+// masa kunci GEMS_LOCK_HOURS).
+export interface WalletGems extends Wallet {
+  gemsMatured: number;
+  gemsLocked: number;
 }
 
 export interface WalletTx {

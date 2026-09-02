@@ -478,6 +478,9 @@ export function calcSignedPrice(priceCcoin: number): number {
 export const MAX_BUYOUT_ACTIVE_PER_USER = 20;
 export const MAX_ACTIVE_BIDS_PER_USER = 3; // keputusan founder 2026-08-16
 export const MIN_PAYOUT_CCOIN = 10; // docs/07 C-09b: minimum payout 10 C-Coin (Rp 100rb)
+// Dual-token C-Coin/C-Gems (docs/07): Gems hasil penjualan/support baru bisa
+// dicairkan (payout_request -> PAYOUT_GEMS_LOCKED) setelah masa kunci habis.
+export const GEMS_LOCK_HOURS = 24;
 export const BALANCE_CAP_CCOIN = 500; // cap saldo top-up non-KYC (docs 07 C-08, founder 2026-08-16); KYC approved = tanpa cap
 export const ESCROW_RELEASE_DELAY_DAYS = 7; // escrow shipping auto-release DELIVERED + H+7
 // Owner directive 2026-09-01: bid baru bisa dibatalkan 24 jam setelah dipasang —
@@ -570,6 +573,7 @@ const WALLET_TX_TYPE_LABELS: Record<string, string> = {
   platform_buy: "Pembelian platform",
   platform_revenue: "Pendapatan platform",
   support: "Dukungan",
+  convert: "Konversi ke C-Coin",
 };
 export function walletTxTypeLabel(type: string): string {
   return labelFrom(WALLET_TX_TYPE_LABELS, type);

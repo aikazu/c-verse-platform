@@ -8,7 +8,9 @@ export async function getWalletByUser(userId: string): Promise<Wallet> {
   const { data, error } = await db.from("wallets").select("*").eq("user_id", userId).maybeSingle();
   if (error) throw new Error(error.message);
   // No wallet row yet -> zero-balance view (rows are created lazily by wallet RPCs).
-  return data ? mapWalletRow(data as Row) : { userId, balanceCCoin: 0, totalTopupCCoin: 0, totalSpentCCoin: 0, holdPayoutUntil: null };
+  return data
+    ? mapWalletRow(data as Row)
+    : { userId, balanceCCoin: 0, balanceGems: 0, totalTopupCCoin: 0, totalSpentCCoin: 0, holdPayoutUntil: null };
 }
 
 export interface UserBadgeWithDef extends UserBadge {

@@ -1,5 +1,5 @@
 import { timingSafeEqual } from "node:crypto";
-import { BALANCE_CAP_CCOIN, C_COIN_RATE_IDR } from "@c-verse/shared";
+import { BALANCE_CAP_CCOIN, C_COIN_RATE_IDR, GEMS_LOCK_HOURS } from "@c-verse/shared";
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import { z } from "zod";
@@ -92,6 +92,9 @@ app.post("/payout", zValidator("json", z.object({ amountCcoin: z.number().int().
       PAYOUT_HELD: "Payout sedang ditahan admin (fraud hold)",
       INSUFFICIENT: "Saldo C-Coin tidak cukup",
       MIN_PAYOUT: "Payout minimum 10 C-Coin",
+      // Dual-token (docs/07): payout mendebit Gems matured — lot yang masih
+      // dikunci ditolak; angka jam mengikuti konstanta shared, bukan hardcode.
+      PAYOUT_GEMS_LOCKED: `Gems masih dikunci ${GEMS_LOCK_HOURS} jam — cairkan setelah masa kunci selesai`,
     };
     return c.json({ error: messages[code] ?? sanitizeDbError(error), code }, status);
   }
