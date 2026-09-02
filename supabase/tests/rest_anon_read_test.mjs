@@ -35,6 +35,12 @@ if (!env) {
   console.log("SKIP rest_anon_read_test — apps/web/.env.local (VITE_SUPABASE_URL/ANON_KEY) tidak tersedia");
   process.exit(0);
 }
+// Test bench ini stack LOKAL: env yang menunjuk project remote (https) membuat
+// probe http di bawah gagal dengan ERR_INVALID_PROTOCOL — SKIP, jangan crash.
+if (!env.url.includes("127.0.0.1") && !env.url.includes("localhost")) {
+  console.log(`SKIP rest_anon_read_test — VITE_SUPABASE_URL bukan stack lokal (${env.url})`);
+  process.exit(0);
+}
 
 // node:http (bukan global fetch): socket dihancurkan eksplisit — undici
 // keep-alive memicu libuv assertion win/async.c saat process.exit di Windows.
