@@ -55,7 +55,7 @@ function CreatorPayoutsInner() {
       <PageHero heroVisual={<KreatorVisual />} channel="06D" channelLabel="KREATOR" title="Riwayat Penarikan" />
       <div className="grid-2" style={{ alignItems: "stretch" }}>
         <div className="card card-pad cx-stat">
-          <span className="label">Total C-Coin Didapat</span>
+          <span className="label">Total C-Gems Didapat</span>
           <div className="cx-stat-value">
             {totalCCoin} <span style={{ fontFamily: "var(--font-mono)", fontSize: 14, color: "var(--text-muted)" }}>C</span>
           </div>

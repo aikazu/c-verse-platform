@@ -27,6 +27,7 @@ import type {
   ApiUser,
   ApiVerifyNfcResponse,
   ApiVerifyShortIdResponse,
+  ApiWalletGems,
   ApiWalletResponse,
 } from "./api-types";
 
@@ -122,6 +123,11 @@ export const api = {
 
   // wallet
   wallet: () => req<ApiWalletResponse>("/wallet"),
+  // Dual-token (docs/07): konversi satu arah Gems → C-Coin 1:1. Server returns
+  // the fresh wallet (balanceGems + breakdown matured) — UI refetch anyway to
+  // keep the ledger query in sync.
+  convertGems: (amountGems: number) =>
+    req<{ wallet: ApiWalletGems }>("/wallet/convert", { method: "POST", body: JSON.stringify({ amountGems }) }),
   // Creator support (A2): spend C-Coin — server returns the fresh balance.
   supportCreator: (creatorId: string, amountCcoin: number) =>
     req<{ transactionId: string; balanceCcoin: number }>("/wallet/support", {

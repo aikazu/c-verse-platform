@@ -1,4 +1,4 @@
-import { BALANCE_CAP_CCOIN, walletTxTypeLabel } from "@c-verse/shared";
+import { BALANCE_CAP_CCOIN, GEMS_LOCK_HOURS, walletTxTypeLabel } from "@c-verse/shared";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -33,6 +33,8 @@ function WalletInner() {
   const [busyTopup, setBusyTopup] = useState(false);
   const [busyPayout, setBusyPayout] = useState(false);
   const [payoutConfirmOpen, setPayoutConfirmOpen] = useState(false); // P1-12 modal konfirmasi payout
+  const [convertAmt, setConvertAmt] = useState(1); // konversi Gems → C-Coin (docs/07)
+  const [busyConvert, setBusyConvert] = useState(false);
   // Midtrans Snap instruction untuk pembayaran yang tidak melempar redirect (fallback tampilkan token)
   const [snapPanel, setSnapPanel] = useState<{ snapToken: string; amountCcoin: number; expiresLabel: string } | null>(null);
 
@@ -96,7 +98,10 @@ function WalletInner() {
         setPayoutConfirmOpen(false);
         nav("/me/kyc");
       } else if (err?.status === 400 && err.code === "MIN_PAYOUT") {
-        push("Payout minimum 10 C-Coin", "error");
+        push("Payout minimum 10 C", "error");
+      } else if (err?.code === "PAYOUT_GEMS_LOCKED") {
+        // Dual-token (docs/07): server sudah kirim copy Indonesia dengan angka jam dari shared.
+        push(err.message, "error");
       } else if (err?.status === 402) {
         push("Saldo tidak cukup", "error");
       } else if (err?.status === 423) {
@@ -107,6 +112,25 @@ function WalletInner() {
       }
     } finally {
       setBusyPayout(false);
+    }
+  }
+
+  async function onConvert() {
+    setBusyConvert(true);
+    try {
+      await api.convertGems(convertAmt);
+      push("Konversi berhasil — C-Coin masuk ke saldo", "success");
+      refetch();
+    } catch (e) {
+      const err = e instanceof ApiError ? e : null;
+      if (err?.status === 400 && err.code === "INSUFFICIENT_GEMS") {
+        push("Gems tidak cukup", "error");
+      } else {
+        console.error("konversi gagal", e);
+        push(GENERIC_ERROR, "error");
+      }
+    } finally {
+      setBusyConvert(false);
     }
   }
 
@@ -130,9 +154,9 @@ function WalletInner() {
       )}
 
       <div className="grid-2">
-        {/* Balance — spec-sheet style */}
+        {/* C-Coin — saldo belanja (top-up; tidak dapat diuangkan) */}
         <div className="card card-pad wa-balance">
-          <div className="label wa-label-gold">Saldo</div>
+          <div className="label wa-label-gold">Saldo C-Coin</div>
           <div className="wa-balance-row">
             <span className="wa-balance-value">{w.balanceCCoin}</span>
             <span className="wa-balance-unit">C-Coin</span>
@@ -144,98 +168,171 @@ function WalletInner() {
           </div>
         </div>
 
-        {/* Actions — operate surface */}
-        <div className="card card-pad wa-actions">
-          <div>
-            <div className="wa-block-title">Isi Saldo</div>
-            <div className="muted wa-sub">Pilih metode dan nominal</div>
+        {/* C-Gems — saldo penghasilan (docs/07): hasil jual + Dukungan diterima */}
+        <div className="card card-pad wa-balance">
+          <div className="label wa-label-gold">Saldo C-Gems</div>
+          <div className="wa-balance-row">
+            <span className="wa-balance-value">{w.balanceGems}</span>
+            <span className="wa-balance-unit">C-Gems</span>
           </div>
-          <div className="wa-note wa-note-gold">
-            Saldo C-Coin <strong className="wa-note-strong">tidak dapat diuangkan</strong>.
-          </div>
-          <div className="wa-note wa-note-info">
-            {kycApproved ? (
-              <>
-                KYC terverifikasi — tanpa cap saldo.{" "}
-                <a href="/me/kyc" className="wa-link">
-                  Lihat status KYC
-                </a>
-              </>
-            ) : (
-              <>
-                Cap saldo non-KYC: <strong className="wa-note-strong">{topupCapNoKyc} C-Coin</strong> —{" "}
-                <a href="/me/kyc" className="wa-link">
-                  selesaikan KYC
-                </a>{" "}
-                untuk tanpa cap.
-              </>
+          <hr className="wa-hr" />
+          <div className="wa-balance-stats">
+            <span className="pill pill-success wa-pill-sm">Bisa dicair · {w.gemsMatured}</span>
+            {w.gemsLocked > 0 && (
+              <span className="pill pill-warn wa-pill-sm">
+                Terkunci {GEMS_LOCK_HOURS} jam · {w.gemsLocked}
+              </span>
             )}
           </div>
-          <select className="select" aria-label="Jumlah top-up C-Coin" value={amount} onChange={(e) => setAmount(Number(e.target.value))}>
-            {([10, 20, 30, 50, 100, 200, 500, 1000, 2000, 5000, 10000] as number[])
-              .filter((v) => kycApproved || v <= BALANCE_CAP_CCOIN)
-              .map((v) => (
-                <option key={v} value={v}>
-                  {v} C · {formatIdr(v * rate)}
-                </option>
-              ))}
-          </select>
-          <button className="btn-gold wa-btn-block" onClick={onTopup} disabled={busyTopup}>
-            {busyTopup ? "Memproses…" : `Isi ${amount} C →`}
-          </button>
-          {snapPanel && (
-            <div className="wa-snap">
-              <div className="wa-snap-title">Pembayaran Midtrans — {snapPanel.amountCcoin} C</div>
-              <div className="wa-snap-token">{snapPanel.snapToken || "Token tidak tersedia"}</div>
-              <div className="muted wa-sub">
-                Selesaikan pembayaran, saldo masuk otomatis setelah webhook (kedaluwarsa {snapPanel.expiresLabel}).
-              </div>
-            </div>
-          )}
+        </div>
+      </div>
 
-          <div className="wa-divider" />
-
-          {isCreator ? (
+      {/* Actions — operate surface */}
+      <div className="card card-pad wa-actions">
+        <div>
+          <div className="wa-block-title">Isi Saldo</div>
+          <div className="muted wa-sub">Pilih metode dan nominal</div>
+        </div>
+        <div className="wa-note wa-note-gold">
+          Saldo C-Coin <strong className="wa-note-strong">tidak dapat diuangkan</strong>.
+        </div>
+        <div className="wa-note wa-note-info">
+          {kycApproved ? (
             <>
-              <div className="wa-row-between">
-                <span className="wa-row-title">Tarik ke Rekening</span>
-                <span className="wa-min-label">MIN 10 C</span>
-              </div>
-              <div className="wa-input-row">
-                <input
-                  className="input wa-input-flex"
-                  type="number"
-                  min={10}
-                  value={payoutAmt}
-                  onChange={(e) => setPayoutAmt(Number(e.target.value))}
-                  aria-label="Jumlah penarikan C-Coin"
-                  placeholder="Jumlah C"
-                />
-                <button
-                  className="btn-ghost"
-                  onClick={() => {
-                    // Pattern CreatorPage: integer >= 1 wajib — tolak desimal/Infinity.
-                    if (!Number.isInteger(payoutAmt) || payoutAmt < 10) {
-                      push("Payout minimum 10 C-Coin", "info");
-                      return;
-                    }
-                    if (payoutAmt > w.balanceCCoin) {
-                      push("Saldo tidak cukup", "info");
-                      return;
-                    }
-                    setPayoutConfirmOpen(true);
-                  }}
-                  disabled={busyPayout}
-                >
-                  {busyPayout ? "Memproses…" : "Tarik"}
-                </button>
-              </div>
-              <div className="wa-hint">Dana dikunci sampai batch mingguan · minimal 10 C</div>
+              KYC terverifikasi — tanpa cap saldo.{" "}
+              <a href="/me/kyc" className="wa-link">
+                Lihat status KYC
+              </a>
             </>
           ) : (
-            <div className="muted wa-sub">Penarikan hanya untuk kreator — KYC wajib.</div>
+            <>
+              Cap saldo non-KYC: <strong className="wa-note-strong">{topupCapNoKyc} C-Coin</strong> —{" "}
+              <a href="/me/kyc" className="wa-link">
+                selesaikan KYC
+              </a>{" "}
+              untuk tanpa cap.
+            </>
           )}
         </div>
+        <select className="select" aria-label="Jumlah top-up C-Coin" value={amount} onChange={(e) => setAmount(Number(e.target.value))}>
+          {([10, 20, 30, 50, 100, 200, 500, 1000, 2000, 5000, 10000] as number[])
+            .filter((v) => kycApproved || v <= BALANCE_CAP_CCOIN)
+            .map((v) => (
+              <option key={v} value={v}>
+                {v} C · {formatIdr(v * rate)}
+              </option>
+            ))}
+        </select>
+        <button className="btn-gold wa-btn-block" onClick={onTopup} disabled={busyTopup}>
+          {busyTopup ? "Memproses…" : `Isi ${amount} C →`}
+        </button>
+        {snapPanel && (
+          <div className="wa-snap">
+            <div className="wa-snap-title">Pembayaran Midtrans — {snapPanel.amountCcoin} C</div>
+            <div className="wa-snap-token">{snapPanel.snapToken || "Token tidak tersedia"}</div>
+            <div className="muted wa-sub">
+              Selesaikan pembayaran, saldo masuk otomatis setelah webhook (kedaluwarsa {snapPanel.expiresLabel}).
+            </div>
+          </div>
+        )}
+
+        <div className="wa-divider" />
+
+        {w.balanceGems > 0 && (
+          <>
+            <div className="wa-row-between">
+              <span className="wa-row-title">Konversi ke C-Coin</span>
+              <span className="wa-min-label">MAKS {w.balanceGems}</span>
+            </div>
+            <div className="wa-input-row">
+              <input
+                className="input wa-input-flex"
+                type="number"
+                min={1}
+                value={convertAmt}
+                onChange={(e) => setConvertAmt(Number(e.target.value))}
+                aria-label="Jumlah konversi C-Gems"
+                placeholder="Jumlah Gems"
+              />
+              <button
+                className="btn-ghost"
+                onClick={async () => {
+                  // Pattern CreatorPage: integer >= 1 wajib — tolak desimal/Infinity.
+                  if (!Number.isInteger(convertAmt) || convertAmt < 1) {
+                    push("Minimal 1 Gems", "info");
+                    return;
+                  }
+                  if (convertAmt > w.balanceGems) {
+                    push("Gems tidak cukup", "info");
+                    return;
+                  }
+                  // Konversi satu arah (docs/07) — irreversible, wajib konfirmasi.
+                  if (
+                    !(await confirm({
+                      title: `Konversi ${convertAmt} Gems?`,
+                      message: `Jadi ${convertAmt} C-Coin — satu arah, tidak dapat dibalik.`,
+                      confirmLabel: "Konversi",
+                    }))
+                  )
+                    return;
+                  onConvert();
+                }}
+                disabled={busyConvert}
+              >
+                {busyConvert ? "Memproses…" : "Konversi"}
+              </button>
+            </div>
+            <div className="wa-hint">1 C-Gems = 1 C-Coin</div>
+            <div className="wa-divider" />
+          </>
+        )}
+
+        {isCreator ? (
+          <>
+            <div className="wa-row-between">
+              <span className="wa-row-title">Tarik ke Rekening</span>
+              <span className="wa-min-label">MIN 10 C</span>
+            </div>
+            <div className="wa-input-row">
+              <input
+                className="input wa-input-flex"
+                type="number"
+                min={10}
+                value={payoutAmt}
+                onChange={(e) => setPayoutAmt(Number(e.target.value))}
+                aria-label="Jumlah penarikan C-Gems"
+                placeholder="Jumlah C"
+              />
+              <button
+                className="btn-ghost"
+                onClick={() => {
+                  // Pattern CreatorPage: integer >= 1 wajib — tolak desimal/Infinity.
+                  if (!Number.isInteger(payoutAmt) || payoutAmt < 10) {
+                    push("Payout minimum 10 C", "info");
+                    return;
+                  }
+                  // Payout hanya dari Gems matured — lot terkunci tidak terhitung (docs/07).
+                  if (payoutAmt > w.gemsMatured) {
+                    push("Saldo bisa cair tidak cukup", "info");
+                    return;
+                  }
+                  setPayoutConfirmOpen(true);
+                }}
+                disabled={busyPayout}
+              >
+                {busyPayout ? "Memproses…" : "Tarik"}
+              </button>
+            </div>
+            {w.gemsLocked > 0 && (
+              <div className="wa-hint">
+                {w.gemsLocked} C-Gems terkunci {GEMS_LOCK_HOURS} jam
+              </div>
+            )}
+            <div className="wa-hint">Dana dikunci sampai batch mingguan · minimal 10 C</div>
+          </>
+        ) : (
+          <div className="muted wa-sub">Penarikan hanya untuk kreator — KYC wajib.</div>
+        )}
       </div>
 
       {/* Ledger — monitor surface */}
@@ -313,7 +410,7 @@ function WalletInner() {
               </div>
               <div className="wa-modal-row">
                 <span className="muted">Saldo tersisa</span>
-                <span className="wa-mono">{w.balanceCCoin - payoutAmt} C</span>
+                <span className="wa-mono">{w.gemsMatured - payoutAmt} C</span>
               </div>
               <div className="muted wa-modal-note">Dana dikunci setelah konfirmasi — dicairkan batch mingguan (Selasa 06:00 WIB).</div>
             </div>

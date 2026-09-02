@@ -64,7 +64,7 @@ export function PayoutsPage() {
   async function refundPayout(id: string, amount: number) {
     if (
       !(await confirm({
-        title: `Refund payout ${id.slice(0, 8)} (${amount} C-Coin)?`,
+        title: `Refund payout ${id.slice(0, 8)} (${amount} C-Gems)?`,
         message: "Dana akan dikembalikan ke wallet kreator dan status payout menjadi 'refunded'.",
         confirmLabel: "Refund",
         danger: true,
@@ -150,7 +150,7 @@ export function PayoutsPage() {
               <tr>
                 <th>User</th>
                 <th>Tipe</th>
-                <th>C-Coin</th>
+                <th>C-Gems</th>
                 <th>IDR</th>
                 <th>Status</th>
                 <th>Batch</th>

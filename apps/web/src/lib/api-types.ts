@@ -93,8 +93,17 @@ export type ApiDropDetailResponse = ApiDrop & {
 };
 
 // ── Wallet ─────────────────────────────────────────────────────────────────
+// Dual-token (docs/07): runtime /api/wallet menambah saldo Gems + breakdown
+// kesiapan cair di atas shared `Wallet` (apps/api/src/lib/store.ts WalletGems).
+// gemsMatured + gemsLocked = balanceGems (lot ≤ GEMS_LOCK_HOURS masih dikunci).
+export interface ApiWalletGems extends Wallet {
+  balanceGems: number;
+  gemsMatured: number;
+  gemsLocked: number;
+}
+
 export interface ApiWalletResponse {
-  wallet: Wallet;
+  wallet: ApiWalletGems;
   transactions: WalletTransaction[];
   rate: number; // default 10_000 (IDR per C-Coin)
   topupCapNoKyc: number;
