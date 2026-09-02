@@ -628,4 +628,9 @@ grant update on public.users, public.cards, public.notifications to authenticate
 -- 2026-08-30 — default privileges Supabase memberi ALL ke anon pada tabel
 -- baru; revoke eksplisit wajib). Tulis HANYA via RPC SECURITY DEFINER
 -- (wallet_credit_gems/wallet_debit_gems); read owner-only via RLS (03_rls).
+-- Review 2026-09-02: authenticated juga menerima ALL dari default privileges —
+-- write di-revoke eksplisit (SELECT di atas tetap; JANGAN revoke all —
+-- getWallet membaca gem_lots via user-scoped client, dilindungi RLS own-row).
 revoke all on public.gem_lots, public.gem_transactions from anon;
+revoke insert, update, delete, truncate, references, trigger
+  on public.gem_lots, public.gem_transactions from authenticated;

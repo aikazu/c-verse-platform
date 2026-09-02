@@ -264,6 +264,11 @@ begin
     v_remaining := v_remaining - least(v_lot.remaining, v_remaining);
   end loop;
 
+  -- Backstop: loop FIFO wajib menutup penuh (unreachable selama invariant
+  -- balance = SUM(remaining) + for update locking berlaku) — gagal keras,
+  -- jangan debit parsial.
+  if v_remaining > 0 then raise exception 'INSUFFICIENT_GEMS'; end if;
+
   update wallets set balance_gems = balance_gems - p_amount
   where user_id = p_user
   returning balance_gems into v_balance;
