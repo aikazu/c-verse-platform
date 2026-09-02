@@ -2,6 +2,7 @@ import type { Badge, LeaderboardEntry, LeaderboardType } from "@c-verse/shared";
 import { LEVEL_TIERS, type LevelTier } from "@c-verse/shared";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useSearchParams } from "react-router-dom";
+import { PageHero } from "../components/PageHero";
 import { api } from "../lib/api";
 import type { ApiBadgesResponse } from "../lib/api-types";
 import { ErrorState, LoadingState } from "../lib/QueryStates";
@@ -136,90 +137,75 @@ export default function Leaderboard() {
   const rest = board.slice(3);
   const totalPlayers = board.length;
 
+  const heroTicker = (
+    <div className="hero-ticker" aria-hidden="true">
+      <span className="ticker-label">{TABS.find((t) => t.value === activeType)?.label ?? "Top 10"}</span>
+      <div className="ticker-track">
+        <div className="ticker-scroll">
+          {board.slice(0, 10).map((e, i) => (
+            <span key={`a-${e.rank}`} className="ticker-item">
+              <span className="tk-key">#{String(i + 1).padStart(2, "0")}</span>
+              <span className="tk-val ticker-name">{e.displayName}</span>
+              <span className="tk-key">{scoreLabel}</span>
+              <span className="tk-val cyan">
+                {activeType === "xp" ? e.totalXp.toLocaleString("id-ID") : e.score.toLocaleString("id-ID")}
+              </span>
+            </span>
+          ))}
+          {board.length > 0 && (
+            <span className="ticker-item">
+              <span className="tk-sep" aria-hidden="true" />
+            </span>
+          )}
+          {tickerChips?.map((chip) => (
+            <span key={`chip-${chip.key}`} className="ticker-item">
+              <span className="tk-key">{chip.key}</span>
+              <span className="tk-val">{chip.value}</span>
+              <span className="tk-sep" aria-hidden="true" />
+            </span>
+          ))}
+          <span className="ticker-item">
+            <span className="tk-key">KOLEKTOR</span>
+            <span className="tk-val cyan">{totalPlayers}</span>
+          </span>
+          <span className="ticker-item">
+            <span className="tk-sep" aria-hidden="true" />
+          </span>
+          {board.slice(0, 10).map((e, i) => (
+            <span key={`b-${e.rank}`} className="ticker-item">
+              <span className="tk-key">#{String(i + 1).padStart(2, "0")}</span>
+              <span className="tk-val ticker-name">{e.displayName}</span>
+              <span className="tk-key">{scoreLabel}</span>
+              <span className="tk-val cyan">
+                {activeType === "xp" ? e.totalXp.toLocaleString("id-ID") : e.score.toLocaleString("id-ID")}
+              </span>
+            </span>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <div className="page-stack">
-      <section className="page-hero" aria-label="Header halaman Peringkat">
-        <div className="page-hero-rail">
-          <span className="rail-channel">CH:04 / RANK</span>
-          <span className="rail-dot" aria-hidden="true" />
-          <span className="rail-sep">·</span>
-          <span className="rail-extra">SYNCING STANDINGS</span>
-          <span className="rail-time" aria-label="Siap">
-            <span className="rail-cursor" aria-hidden="true" />
-          </span>
-        </div>
-        <div className="page-hero-inner">
-          <div className="page-hero-copy">
-            <h1 className="page-hero-title">Peringkat</h1>
-          </div>
-        </div>
-
-        <div className="lb-tabs" role="tablist" aria-label="Papan peringkat">
-          {TABS.map((t) => {
-            const isActive = t.value === activeType;
-            return (
-              <button
-                key={t.value}
-                type="button"
-                role="tab"
-                aria-selected={isActive}
-                className={`lb-tab${isActive ? " is-active" : ""}`}
-                onClick={() => setActiveType(t.value)}
-              >
-                {t.label}
-              </button>
-            );
-          })}
-        </div>
-
-        <div className="hero-ticker" aria-hidden="true">
-          <span className="ticker-label">{TABS.find((t) => t.value === activeType)?.label ?? "Top 10"}</span>
-          <div className="ticker-track">
-            <div className="ticker-scroll">
-              {board.slice(0, 10).map((e, i) => (
-                <span key={`a-${e.rank}`} className="ticker-item">
-                  <span className="tk-key">#{String(i + 1).padStart(2, "0")}</span>
-                  <span className="tk-val ticker-name">{e.displayName}</span>
-                  <span className="tk-key">{scoreLabel}</span>
-                  <span className="tk-val cyan">
-                    {activeType === "xp" ? e.totalXp.toLocaleString("id-ID") : e.score.toLocaleString("id-ID")}
-                  </span>
-                </span>
-              ))}
-              {board.length > 0 && (
-                <span className="ticker-item">
-                  <span className="tk-sep" aria-hidden="true" />
-                </span>
-              )}
-              {tickerChips?.map((chip) => (
-                <span key={`chip-${chip.key}`} className="ticker-item">
-                  <span className="tk-key">{chip.key}</span>
-                  <span className="tk-val">{chip.value}</span>
-                  <span className="tk-sep" aria-hidden="true" />
-                </span>
-              ))}
-              <span className="ticker-item">
-                <span className="tk-key">PEMAIN</span>
-                <span className="tk-val cyan">{totalPlayers}</span>
-              </span>
-              <span className="ticker-item">
-                <span className="tk-sep" aria-hidden="true" />
-              </span>
-              {/* duplicate for seamless marquee loop */}
-              {board.slice(0, 10).map((e, i) => (
-                <span key={`b-${e.rank}`} className="ticker-item">
-                  <span className="tk-key">#{String(i + 1).padStart(2, "0")}</span>
-                  <span className="tk-val ticker-name">{e.displayName}</span>
-                  <span className="tk-key">{scoreLabel}</span>
-                  <span className="tk-val cyan">
-                    {activeType === "xp" ? e.totalXp.toLocaleString("id-ID") : e.score.toLocaleString("id-ID")}
-                  </span>
-                </span>
-              ))}
-            </div>
-          </div>
-        </div>
-      </section>
+      <PageHero channel="04" channelLabel="PERINGKAT" title="Peringkat" ticker={heroTicker} />
+      <div className="lb-tabs" role="tablist" aria-label="Papan peringkat">
+        {TABS.map((t) => {
+          const isActive = t.value === activeType;
+          return (
+            <button
+              key={t.value}
+              type="button"
+              role="tab"
+              aria-selected={isActive}
+              className={`lb-tab${isActive ? " is-active" : ""}`}
+              onClick={() => setActiveType(t.value)}
+            >
+              {t.label}
+            </button>
+          );
+        })}
+      </div>
 
       {board.length === 0 ? (
         <div className="empty-arcade">

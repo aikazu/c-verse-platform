@@ -2,6 +2,7 @@ import { SIGNED_PRICE_DELTA_CCOIN } from "@c-verse/shared";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import { PageHero } from "../components/PageHero";
 import { StatusBadge } from "../components/StatusBadge";
 import { api, formatIdr } from "../lib/api";
 import type { ApiDrop, ApiDropsResponse } from "../lib/api-types";
@@ -35,7 +36,7 @@ const PHASE_LABEL: Record<Phase, string> = {
   upcoming: "Akan Datang",
   raffle: "Raffle",
   drawing: "Segera Diundi",
-  fcfs: "FCFS",
+  fcfs: "Beli Langsung",
   ended: "Selesai",
 };
 
@@ -191,127 +192,114 @@ export default function Drops() {
     return arr;
   }, [filtered, sort, featured]);
 
-  return (
-    <div className="drops-stack">
-      <section className="page-hero" aria-label="Header halaman Drops">
-        <div className="page-hero-rail">
-          <span className="rail-channel">CH:01 / DROPS</span>
-          <span className="rail-dot" aria-hidden="true" />
-          <span className="rail-sep">·</span>
-          <span className="rail-extra">SCANNING COLLECTIONS</span>
-          <span className="rail-time" aria-label="Siap">
-            <span className="rail-cursor" aria-hidden="true" />
+  const heroTicker = (
+    <div className="hero-ticker" aria-hidden="true">
+      <span className="ticker-label">Live Feed</span>
+      <div className="ticker-track">
+        <div className="ticker-scroll">
+          <span className="ticker-item">
+            <span className="tk-key">UNGGULAN</span>
+            <span className="tk-val magenta">{featured?.title ?? "—"}</span>
+          </span>
+          <span className="ticker-item">
+            <span className="tk-sep" aria-hidden="true" />
+          </span>
+          <span className="ticker-item">
+            <span className="tk-key">KATALOG</span>
+            <span className="tk-val cyan">{allDrops.length}</span>
+          </span>
+          <span className="ticker-item">
+            <span className="tk-sep" aria-hidden="true" />
+          </span>
+          <span className="ticker-item">
+            <span className="tk-key">RAFFLE</span>
+            <span className="tk-val signal">{phaseCounts.raffle}</span>
+          </span>
+          <span className="ticker-item">
+            <span className="tk-sep" aria-hidden="true" />
+          </span>
+          <span className="ticker-item">
+            <span className="tk-key">SEGERA DIUNDI</span>
+            <span className="tk-val signal">{phaseCounts.drawing}</span>
+          </span>
+          <span className="ticker-item">
+            <span className="tk-sep" aria-hidden="true" />
+          </span>
+          <span className="ticker-item">
+            <span className="tk-key">AKAN DATANG</span>
+            <span className="tk-val cyan">{phaseCounts.upcoming}</span>
+          </span>
+          <span className="ticker-item">
+            <span className="tk-sep" aria-hidden="true" />
+          </span>
+          <span className="ticker-item">
+            <span className="tk-key">BELI LANGSUNG</span>
+            <span className="tk-val">{phaseCounts.fcfs}</span>
+          </span>
+          <span className="ticker-item">
+            <span className="tk-sep" aria-hidden="true" />
+          </span>
+          <span className="ticker-item">
+            <span className="tk-key">SELESAI</span>
+            <span className="tk-val">{phaseCounts.ended}</span>
+          </span>
+          <span className="ticker-item">
+            <span className="tk-sep" aria-hidden="true" />
+          </span>
+          <span className="ticker-item">
+            <span className="tk-key">UNGGULAN</span>
+            <span className="tk-val magenta">{featured?.title ?? "—"}</span>
+          </span>
+          <span className="ticker-item">
+            <span className="tk-sep" aria-hidden="true" />
+          </span>
+          <span className="ticker-item">
+            <span className="tk-key">KATALOG</span>
+            <span className="tk-val cyan">{allDrops.length}</span>
+          </span>
+          <span className="ticker-item">
+            <span className="tk-sep" aria-hidden="true" />
+          </span>
+          <span className="ticker-item">
+            <span className="tk-key">RAFFLE</span>
+            <span className="tk-val signal">{phaseCounts.raffle}</span>
+          </span>
+          <span className="ticker-item">
+            <span className="tk-sep" aria-hidden="true" />
+          </span>
+          <span className="ticker-item">
+            <span className="tk-key">SEGERA DIUNDI</span>
+            <span className="tk-val signal">{phaseCounts.drawing}</span>
+          </span>
+          <span className="ticker-item">
+            <span className="tk-sep" aria-hidden="true" />
+          </span>
+          <span className="ticker-item">
+            <span className="tk-key">AKAN DATANG</span>
+            <span className="tk-val cyan">{phaseCounts.upcoming}</span>
+          </span>
+          <span className="ticker-item">
+            <span className="tk-sep" aria-hidden="true" />
+          </span>
+          <span className="ticker-item">
+            <span className="tk-key">BELI LANGSUNG</span>
+            <span className="tk-val">{phaseCounts.fcfs}</span>
+          </span>
+          <span className="ticker-item">
+            <span className="tk-sep" aria-hidden="true" />
+          </span>
+          <span className="ticker-item">
+            <span className="tk-key">SELESAI</span>
+            <span className="tk-val">{phaseCounts.ended}</span>
           </span>
         </div>
-        <div className="page-hero-inner">
-          <div className="page-hero-copy">
-            <h1 className="page-hero-title">Drops</h1>
-          </div>
-        </div>
-        <div className="hero-ticker" aria-hidden="true">
-          <span className="ticker-label">Live Feed</span>
-          <div className="ticker-track">
-            <div className="ticker-scroll">
-              <span className="ticker-item">
-                <span className="tk-key">UNGGULAN</span>
-                <span className="tk-val magenta">{featured?.title ?? "—"}</span>
-              </span>
-              <span className="ticker-item">
-                <span className="tk-sep" aria-hidden="true" />
-              </span>
-              <span className="ticker-item">
-                <span className="tk-key">KATALOG</span>
-                <span className="tk-val cyan">{allDrops.length}</span>
-              </span>
-              <span className="ticker-item">
-                <span className="tk-sep" aria-hidden="true" />
-              </span>
-              <span className="ticker-item">
-                <span className="tk-key">RAFFLE</span>
-                <span className="tk-val signal">{phaseCounts.raffle}</span>
-              </span>
-              <span className="ticker-item">
-                <span className="tk-sep" aria-hidden="true" />
-              </span>
-              <span className="ticker-item">
-                <span className="tk-key">SEGERA DIUNDI</span>
-                <span className="tk-val signal">{phaseCounts.drawing}</span>
-              </span>
-              <span className="ticker-item">
-                <span className="tk-sep" aria-hidden="true" />
-              </span>
-              <span className="ticker-item">
-                <span className="tk-key">AKAN DATANG</span>
-                <span className="tk-val cyan">{phaseCounts.upcoming}</span>
-              </span>
-              <span className="ticker-item">
-                <span className="tk-sep" aria-hidden="true" />
-              </span>
-              <span className="ticker-item">
-                <span className="tk-key">FCFS</span>
-                <span className="tk-val">{phaseCounts.fcfs}</span>
-              </span>
-              <span className="ticker-item">
-                <span className="tk-sep" aria-hidden="true" />
-              </span>
-              <span className="ticker-item">
-                <span className="tk-key">SELESAI</span>
-                <span className="tk-val">{phaseCounts.ended}</span>
-              </span>
-              {/* duplicate for seamless marquee loop */}
-              <span className="ticker-item">
-                <span className="tk-sep" aria-hidden="true" />
-              </span>
-              <span className="ticker-item">
-                <span className="tk-key">UNGGULAN</span>
-                <span className="tk-val magenta">{featured?.title ?? "—"}</span>
-              </span>
-              <span className="ticker-item">
-                <span className="tk-sep" aria-hidden="true" />
-              </span>
-              <span className="ticker-item">
-                <span className="tk-key">KATALOG</span>
-                <span className="tk-val cyan">{allDrops.length}</span>
-              </span>
-              <span className="ticker-item">
-                <span className="tk-sep" aria-hidden="true" />
-              </span>
-              <span className="ticker-item">
-                <span className="tk-key">RAFFLE</span>
-                <span className="tk-val signal">{phaseCounts.raffle}</span>
-              </span>
-              <span className="ticker-item">
-                <span className="tk-sep" aria-hidden="true" />
-              </span>
-              <span className="ticker-item">
-                <span className="tk-key">SEGERA DIUNDI</span>
-                <span className="tk-val signal">{phaseCounts.drawing}</span>
-              </span>
-              <span className="ticker-item">
-                <span className="tk-sep" aria-hidden="true" />
-              </span>
-              <span className="ticker-item">
-                <span className="tk-key">AKAN DATANG</span>
-                <span className="tk-val cyan">{phaseCounts.upcoming}</span>
-              </span>
-              <span className="ticker-item">
-                <span className="tk-sep" aria-hidden="true" />
-              </span>
-              <span className="ticker-item">
-                <span className="tk-key">FCFS</span>
-                <span className="tk-val">{phaseCounts.fcfs}</span>
-              </span>
-              <span className="ticker-item">
-                <span className="tk-sep" aria-hidden="true" />
-              </span>
-              <span className="ticker-item">
-                <span className="tk-key">SELESAI</span>
-                <span className="tk-val">{phaseCounts.ended}</span>
-              </span>
-            </div>
-          </div>
-        </div>
-      </section>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="drops-stack">
+      <PageHero channel="01" channelLabel="DROPS" title="Drops" ticker={heroTicker} />
 
       <div className="toolbar" role="search">
         <input

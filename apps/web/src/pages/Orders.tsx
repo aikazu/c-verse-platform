@@ -1,6 +1,7 @@
 import type { Order } from "@c-verse/shared";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
+import { PageHero } from "../components/PageHero";
 import { RequireAuth } from "../components/RequireAuth";
 import { StatusBadge } from "../components/StatusBadge";
 import { api } from "../lib/api";
@@ -29,34 +30,22 @@ function OrdersInner() {
   const orders: Order[] = data?.orders ?? [];
   return (
     <div className="page-stack">
-      <section className="page-hero" aria-label="Header halaman Pesanan">
-        <div className="page-hero-rail">
-          <span className="rail-channel">CH:13 / ORDERS</span>
-          <span className="rail-dot" aria-hidden="true" />
-          <span className="rail-sep">·</span>
-          <span className="rail-extra">ORDER LOG</span>
-          <span className="rail-time" aria-label="Siap">
-            <span className="rail-cursor" aria-hidden="true" />
-          </span>
-        </div>
-        <div className="page-hero-inner">
-          <div className="page-hero-copy">
-            <div className="page-hero-sub">Pesanan</div>
-            <h1 className="page-hero-title">
-              Daftar <em>Pesanan</em>
-            </h1>
-          </div>
+      <PageHero
+        channel="13A"
+        channelLabel="PESANAN"
+        title="Pesanan"
+        actions={
           <Link to="/drops" className="btn-ghost od-hero-cta">
             Jelajahi Drops →
           </Link>
-        </div>
-      </section>
+        }
+      />
       <div className="card">
         <div className="table-wrap">
           <table>
             <thead>
               <tr>
-                <th>Order</th>
+                <th>Pesanan</th>
                 <th>Drop</th>
                 <th>Total</th>
                 <th>Status</th>

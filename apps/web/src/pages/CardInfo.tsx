@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { CardThumb } from "../components/CardThumb";
 import { useConfirm } from "../components/ConfirmProvider";
+import { PageHero } from "../components/PageHero";
 import { ApiError, api } from "../lib/api";
 import type { ApiCardDetailResponse, ApiCardOwnershipRow, ApiPublicBid } from "../lib/api-types";
 import { useAuth } from "../lib/auth";
@@ -231,27 +232,13 @@ export default function CardInfo() {
     }
   }
 
+  const cardHeroTitle = drop?.title ? `${drop.title} · #${card.unitNumber ?? "?"}` : `C.Card #${card.unitNumber ?? "?"}`;
   return (
     <div className="page-stack">
       <Link to="/browse" className="btn-ghost ci-back">
         ← Jelajahi
       </Link>
-      <section className="page-hero" aria-label="Header halaman C.Card">
-        <div className="page-hero-rail">
-          <span className="rail-channel">CH:07 / C.CARD</span>
-          <span className="rail-dot" aria-hidden="true" />
-          <span className="rail-sep">·</span>
-          <span className="rail-extra">CARD DOSSIER</span>
-          <span className="rail-time" aria-label="Siap">
-            <span className="rail-cursor" aria-hidden="true" />
-          </span>
-        </div>
-        <div className="page-hero-inner">
-          <div className="page-hero-copy">
-            <h1 className="page-hero-title">C.Card</h1>
-          </div>
-        </div>
-      </section>
+      <PageHero channel="07A" channelLabel="C.CARD" title={cardHeroTitle} sub={drop?.series ?? undefined} />
       <div className="grid-2 ci-align-start">
         <div className="card ci-clip">
           <div className="ci-thumb">

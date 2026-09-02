@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useConfirm } from "../components/ConfirmProvider";
+import { PageHero } from "../components/PageHero";
 import { RequireAuth } from "../components/RequireAuth";
 import { api } from "../lib/api";
 import type { ApiProfileEnrichedCard } from "../lib/api-types";
@@ -138,27 +139,17 @@ function ManageCardsInner() {
   }
   return (
     <div className="page-stack">
-      <section className="page-hero ac-hero" aria-label="Header halaman Kelola">
-        <div className="page-hero-rail">
-          <span className="rail-channel">CH:10 / MANAGE</span>
-          <span className="rail-dot" aria-hidden="true" />
-          <span className="rail-sep">·</span>
-          <span className="rail-extra">CARD MAINTENANCE</span>
-          <span className="rail-time" aria-label="Siap">
-            <span className="rail-cursor" aria-hidden="true" />
-          </span>
-        </div>
-        <div className="page-hero-inner">
-          <div className="page-hero-copy">
-            <h1 className="page-hero-title">
-              Kelola <em>C.Card</em> — {cards.length}
-            </h1>
-          </div>
+      <PageHero
+        channel="10A"
+        channelLabel="KELOLA"
+        title="Kelola C.Card"
+        desc={cards.length > 0 ? `${cards.length} unit` : undefined}
+        actions={
           <Link to="/collection" className="btn-ghost" style={{ fontFamily: "var(--font-mono)", fontSize: 12 }}>
             ← Koleksi
           </Link>
-        </div>
-      </section>
+        }
+      />
       {cards.length === 0 ? (
         <div className="card card-pad muted" style={{ textAlign: "center", padding: 32 }}>
           Belum punya C.Card

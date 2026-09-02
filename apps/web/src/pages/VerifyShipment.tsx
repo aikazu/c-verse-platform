@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useConfirm } from "../components/ConfirmProvider";
+import { PageHero } from "../components/PageHero";
 import { RequireAuth } from "../components/RequireAuth";
 import { api } from "../lib/api";
 import type { ApiProfileEnrichedCard, ApiProfileResponse } from "../lib/api-types";
@@ -78,26 +79,12 @@ function VerifyShipmentInner() {
   }
   return (
     <div className="page-stack">
-      <section className="page-hero ac-hero" aria-label="Header halaman Pengiriman">
-        <div className="page-hero-rail">
-          <span className="rail-channel">CH:10 / MANAGE</span>
-          <span className="rail-dot" aria-hidden="true" />
-          <span className="rail-sep">·</span>
-          <span className="rail-extra">SHIPMENT VERIFY</span>
-          <span className="rail-time" aria-label="Siap">
-            <span className="rail-cursor" aria-hidden="true" />
-          </span>
-        </div>
-        <div className="page-hero-inner">
-          <div className="page-hero-copy">
-            <h1 className="page-hero-title">Kirim C.Card ke Vault</h1>
-            <p className="page-hero-desc">
-              Setelah kartu terjual dengan tujuan vault, kirim kartu fisik ke platform untuk verifikasi NFC. Payout baru dilepas setelah tim
-              menerima &amp; memverifikasi.
-            </p>
-          </div>
-        </div>
-      </section>
+      <PageHero
+        channel="10B"
+        channelLabel="KELOLA"
+        title="Kirim ke Vault"
+        desc="Kirim kartu fisik ke Vault untuk verifikasi NFC. Penarikan dicairkan setelah verifikasi."
+      />
       {eligible.length === 0 ? (
         <div className="card card-pad muted" style={{ textAlign: "center", padding: 32 }}>
           Tidak ada kartu yang perlu dikirim ke vault.{" "}

@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
+import { PageHero } from "../components/PageHero";
 import { RequireAuth } from "../components/RequireAuth";
 import { StatusBadge } from "../components/StatusBadge";
 import { api, formatIdr } from "../lib/api";
@@ -39,23 +40,7 @@ function CreatorDashboardInner() {
 
   return (
     <div className="page-stack">
-      <section className="page-hero" aria-label="Header halaman konsol kreator">
-        <div className="page-hero-rail">
-          <span className="rail-channel">CH:06 / KREATOR</span>
-          <span className="rail-dot" aria-hidden="true" />
-          <span className="rail-sep">·</span>
-          <span className="rail-extra">CREATOR CONSOLE</span>
-          <span className="rail-time" aria-label="Siap">
-            <span className="rail-cursor" aria-hidden="true" />
-          </span>
-        </div>
-        <div className="page-hero-inner">
-          <div className="page-hero-copy">
-            <span className="eyebrow">Kreator</span>
-            <h1 className="page-hero-title">Dashboard</h1>
-          </div>
-        </div>
-      </section>
+      <PageHero channel="06B" channelLabel="KREATOR" title="Dasbor Kreator" />
 
       <div className="grid-3">
         <div className="card card-pad cx-stat">

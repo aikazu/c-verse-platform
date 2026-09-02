@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { PageHero } from "../components/PageHero";
 import { RequireAuth } from "../components/RequireAuth";
 import { api, formatIdr } from "../lib/api";
 import { LoadingState } from "../lib/QueryStates";
@@ -50,25 +51,7 @@ function CreatorPayoutsInner() {
   const totalIdr = list.reduce((sum, p) => sum + p.idr_amount, 0);
   return (
     <div className="page-stack">
-      <section className="page-hero" aria-label="Header halaman payout kreator">
-        <div className="page-hero-rail">
-          <span className="rail-channel">CH:06 / KREATOR</span>
-          <span className="rail-dot" aria-hidden="true" />
-          <span className="rail-sep">·</span>
-          <span className="rail-extra">PAYOUT LOG</span>
-          <span className="rail-time" aria-label="Siap">
-            <span className="rail-cursor" aria-hidden="true" />
-          </span>
-        </div>
-        <div className="page-hero-inner">
-          <div className="page-hero-copy">
-            <span className="eyebrow">Payout Kreator</span>
-            <h1 className="page-hero-title">
-              Riwayat <em>Payout</em>
-            </h1>
-          </div>
-        </div>
-      </section>
+      <PageHero channel="06D" channelLabel="KREATOR" title="Riwayat Penarikan" />
       <div className="grid-2" style={{ alignItems: "stretch" }}>
         <div className="card card-pad cx-stat">
           <span className="label">Total C-Coin Didapat</span>

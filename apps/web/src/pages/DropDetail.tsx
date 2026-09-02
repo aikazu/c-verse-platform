@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { CardThumb } from "../components/CardThumb";
 import { useConfirm } from "../components/ConfirmProvider";
+import { PageHero } from "../components/PageHero";
 import { StatusBadge } from "../components/StatusBadge";
 import type { ApiDropCardRow, ApiDropDetailWithWinners } from "../lib/api";
 import { api } from "../lib/api";
@@ -114,25 +115,17 @@ export default function DropDetail() {
   const winners = ph === "ended" ? (data.winners ?? []) : [];
   return (
     <div className="page-stack">
-      <section className="page-hero" aria-label="Header halaman Drop">
-        <div className="page-hero-rail">
-          <span className="rail-channel">CH:01 / DROPS</span>
-          <span className="rail-dot" aria-hidden="true" />
-          <span className="rail-sep">·</span>
-          <span className="rail-extra">DROP DOSSIER</span>
-          <span className="rail-time" aria-label="Siap">
-            <span className="rail-cursor" aria-hidden="true" />
-          </span>
-        </div>
-        <div className="page-hero-inner">
-          <div className="page-hero-copy">
-            <h1 className="page-hero-title">{drop.title}</h1>
-          </div>
+      <PageHero
+        channel="01"
+        channelLabel="DROPS"
+        title={drop.title}
+        sub={drop.series ?? undefined}
+        actions={
           <Link to="/drops" className="btn-ghost cm-back">
             ← Kembali ke Drops
           </Link>
-        </div>
-      </section>
+        }
+      />
       <div className="grid-2" style={{ alignItems: "start" }}>
         <div className="card" style={{ overflow: "hidden" }}>
           <div style={{ aspectRatio: "4/3" }}>
@@ -156,9 +149,9 @@ export default function DropDetail() {
                   : ph === "raffle"
                     ? "Raffle"
                     : ph === "drawing"
-                      ? "Draw Soon"
+                      ? "Segera Diundi"
                       : ph === "fcfs"
-                        ? "FCFS"
+                        ? "Beli Langsung"
                         : "Selesai"}
               </span>
               <span className="pill pill-info" style={{ fontFamily: "var(--font-mono)" }}>
@@ -229,7 +222,7 @@ export default function DropDetail() {
           <>
             {signedUnits.length > 0 && (
               <div className="dd-group">
-                <div className="dd-group-label">Premium (Signed)</div>
+                <div className="dd-group-label">Signed</div>
                 <div className="dd-grid">
                   {signedUnits.map((row) => (
                     <UnitCell key={row.id} row={row} drop={drop} />
@@ -239,7 +232,7 @@ export default function DropDetail() {
             )}
             {unsignedUnits.length > 0 && (
               <div className="dd-group">
-                <div className="dd-group-label">Regular (Unsigned)</div>
+                <div className="dd-group-label">Reguler</div>
                 <div className="dd-grid">
                   {unsignedUnits.map((row) => (
                     <UnitCell key={row.id} row={row} drop={drop} />

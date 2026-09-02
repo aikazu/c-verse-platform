@@ -1,6 +1,7 @@
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import { PageHero } from "../components/PageHero";
 import { api, ccoinToIdr, formatIdr } from "../lib/api";
 import type { ApiListingsResponse, ApiMarketplaceEntry } from "../lib/api-types";
 import { ErrorState, LoadingState } from "../lib/QueryStates";
@@ -73,105 +74,92 @@ export default function Marketplace() {
   const highest = sortedByPrice.length > 0 ? (sortedByPrice[sortedByPrice.length - 1]?.buyoutPriceCcoin ?? null) : null;
   const floorTitle = sortedByPrice[0] ? (sortedByPrice[0]?.drop?.title ?? "Tanpa judul") : null;
 
+  const heroTicker = (
+    <div className="hero-ticker" aria-hidden="true">
+      <span className="ticker-label">Order Book</span>
+      <div className="ticker-track">
+        <div className="ticker-scroll">
+          <span className="ticker-item">
+            <span className="tk-key">LISTING</span>
+            <span className="tk-val cyan">{totalListed}</span>
+          </span>
+          <span className="ticker-item">
+            <span className="tk-sep" aria-hidden="true" />
+          </span>
+          <span className="ticker-item">
+            <span className="tk-key">TERMURAH</span>
+            <span className="tk-val">{cheapest ?? "—"} C</span>
+          </span>
+          <span className="ticker-item">
+            <span className="tk-sep" aria-hidden="true" />
+          </span>
+          <span className="ticker-item">
+            <span className="tk-key">MEDIAN</span>
+            <span className="tk-val magenta">{medianPrice ?? "—"} C</span>
+          </span>
+          <span className="ticker-item">
+            <span className="tk-sep" aria-hidden="true" />
+          </span>
+          <span className="ticker-item">
+            <span className="tk-key">TERMAHAL</span>
+            <span className="tk-val">{highest ?? "—"} C</span>
+          </span>
+          <span className="ticker-item">
+            <span className="tk-sep" aria-hidden="true" />
+          </span>
+          {floorTitle && (
+            <span className="ticker-item">
+              <span className="tk-key">LANTAI</span>
+              <span className="tk-val magenta">{floorTitle}</span>
+            </span>
+          )}
+          <span className="ticker-item">
+            <span className="tk-sep" aria-hidden="true" />
+          </span>
+          <span className="ticker-item">
+            <span className="tk-key">LISTING</span>
+            <span className="tk-val cyan">{totalListed}</span>
+          </span>
+          <span className="ticker-item">
+            <span className="tk-sep" aria-hidden="true" />
+          </span>
+          <span className="ticker-item">
+            <span className="tk-key">TERMURAH</span>
+            <span className="tk-val">{cheapest ?? "—"} C</span>
+          </span>
+          <span className="ticker-item">
+            <span className="tk-sep" aria-hidden="true" />
+          </span>
+          <span className="ticker-item">
+            <span className="tk-key">MEDIAN</span>
+            <span className="tk-val magenta">{medianPrice ?? "—"} C</span>
+          </span>
+          <span className="ticker-item">
+            <span className="tk-sep" aria-hidden="true" />
+          </span>
+          <span className="ticker-item">
+            <span className="tk-key">TERMAHAL</span>
+            <span className="tk-val">{highest ?? "—"} C</span>
+          </span>
+          {floorTitle && (
+            <>
+              <span className="ticker-item">
+                <span className="tk-sep" aria-hidden="true" />
+              </span>
+              <span className="ticker-item">
+                <span className="tk-key">LANTAI</span>
+                <span className="tk-val magenta">{floorTitle}</span>
+              </span>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <div className="page-stack">
-      <section className="page-hero" aria-label="Header halaman Marketplace">
-        <div className="page-hero-rail">
-          <span className="rail-channel">CH:02 / MARKET</span>
-          <span className="rail-dot" aria-hidden="true" />
-          <span className="rail-sep">·</span>
-          <span className="rail-extra">TRADING FLOOR OPEN</span>
-          <span className="rail-time" aria-label="Siap">
-            <span className="rail-cursor" aria-hidden="true" />
-          </span>
-        </div>
-        <div className="page-hero-inner">
-          <div className="page-hero-copy">
-            <h1 className="page-hero-title">Marketplace</h1>
-          </div>
-        </div>
-        <div className="hero-ticker" aria-hidden="true">
-          <span className="ticker-label">Order Book</span>
-          <div className="ticker-track">
-            <div className="ticker-scroll">
-              <span className="ticker-item">
-                <span className="tk-key">LISTING</span>
-                <span className="tk-val cyan">{totalListed}</span>
-              </span>
-              <span className="ticker-item">
-                <span className="tk-sep" aria-hidden="true" />
-              </span>
-              <span className="ticker-item">
-                <span className="tk-key">TERMURAH</span>
-                <span className="tk-val">{cheapest ?? "—"} C</span>
-              </span>
-              <span className="ticker-item">
-                <span className="tk-sep" aria-hidden="true" />
-              </span>
-              <span className="ticker-item">
-                <span className="tk-key">MEDIAN</span>
-                <span className="tk-val magenta">{medianPrice ?? "—"} C</span>
-              </span>
-              <span className="ticker-item">
-                <span className="tk-sep" aria-hidden="true" />
-              </span>
-              <span className="ticker-item">
-                <span className="tk-key">TERMAHAL</span>
-                <span className="tk-val">{highest ?? "—"} C</span>
-              </span>
-              <span className="ticker-item">
-                <span className="tk-sep" aria-hidden="true" />
-              </span>
-              {floorTitle && (
-                <span className="ticker-item">
-                  <span className="tk-key">LANTAI</span>
-                  <span className="tk-val magenta">{floorTitle}</span>
-                </span>
-              )}
-              <span className="ticker-item">
-                <span className="tk-sep" aria-hidden="true" />
-              </span>
-              {/* duplicate for seamless marquee loop */}
-              <span className="ticker-item">
-                <span className="tk-key">LISTING</span>
-                <span className="tk-val cyan">{totalListed}</span>
-              </span>
-              <span className="ticker-item">
-                <span className="tk-sep" aria-hidden="true" />
-              </span>
-              <span className="ticker-item">
-                <span className="tk-key">TERMURAH</span>
-                <span className="tk-val">{cheapest ?? "—"} C</span>
-              </span>
-              <span className="ticker-item">
-                <span className="tk-sep" aria-hidden="true" />
-              </span>
-              <span className="ticker-item">
-                <span className="tk-key">MEDIAN</span>
-                <span className="tk-val magenta">{medianPrice ?? "—"} C</span>
-              </span>
-              <span className="ticker-item">
-                <span className="tk-sep" aria-hidden="true" />
-              </span>
-              <span className="ticker-item">
-                <span className="tk-key">TERMAHAL</span>
-                <span className="tk-val">{highest ?? "—"} C</span>
-              </span>
-              {floorTitle && (
-                <>
-                  <span className="ticker-item">
-                    <span className="tk-sep" aria-hidden="true" />
-                  </span>
-                  <span className="ticker-item">
-                    <span className="tk-key">LANTAI</span>
-                    <span className="tk-val magenta">{floorTitle}</span>
-                  </span>
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-      </section>
+      <PageHero channel="02" channelLabel="MARKET" title="Marketplace" ticker={heroTicker} />
 
       <div className="toolbar" role="search">
         <input

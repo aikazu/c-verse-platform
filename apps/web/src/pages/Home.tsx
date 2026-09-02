@@ -1,14 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { CardThumb } from "../components/CardThumb";
+import { PageHero } from "../components/PageHero";
 import { RequireAuth } from "../components/RequireAuth";
 import { api } from "../lib/api";
 import type { ApiDrop, ApiDropsResponse, ApiWalletResponse } from "../lib/api-types";
 import { useAuth } from "../lib/auth";
 import "./home.css";
-
-const CHANNEL = "CH:00 / COCKPIT";
-const CHANNEL_EXTRA = "PILOT DECK";
 
 export default function Home() {
   return (
@@ -51,25 +49,15 @@ function HomeInner() {
   const MAX_BIDS = 3;
   return (
     <div className="page-stack">
-      <section className="page-hero" aria-label="Header halaman Cockpit">
-        <div className="page-hero-rail">
-          <span className="rail-channel">{CHANNEL}</span>
-          <span className="rail-dot" aria-hidden="true" />
-          <span className="rail-sep">·</span>
-          <span className="rail-extra">{CHANNEL_EXTRA}</span>
-          <span className="rail-time" aria-label="Siap">
-            <span className="rail-cursor" aria-hidden="true" />
-          </span>
-        </div>
-        <div className="page-hero-inner">
-          <div className="page-hero-copy">
-            <h1 className="page-hero-title">Cockpit</h1>
-          </div>
-        </div>
-      </section>
+      <PageHero
+        channel="00"
+        channelLabel="BERANDA"
+        title="Beranda"
+        desc={w ? `Halo, ${user.displayName} · ${w.balanceCCoin} C` : `Halo, ${user.displayName}`}
+      />
 
       <div className="card card-pad hm-balance">
-        <span className="eyebrow">Pilot: {user.displayName}</span>
+        <span className="eyebrow">Saldo</span>
         <div className="hm-balance-row">
           <span className="hm-balance-value">
             {w ? w.balanceCCoin : "—"} <span className="hm-balance-unit">C</span>

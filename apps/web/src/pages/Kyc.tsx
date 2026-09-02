@@ -1,6 +1,7 @@
 import { kycStatusLabel } from "@c-verse/shared";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
+import { PageHero } from "../components/PageHero";
 import { RequireAuth } from "../components/RequireAuth";
 import { api } from "../lib/api";
 import type { ApiKycResponse } from "../lib/api-types";
@@ -122,28 +123,12 @@ function KycInner() {
   }
   return (
     <div className="page-stack ac-narrow ac-narrow-lg">
-      <section className="page-hero ac-hero" aria-label="Header halaman Verifikasi">
-        <div className="page-hero-rail">
-          <span className="rail-channel">CH:11 / VERIFIKASI</span>
-          <span className="rail-dot" aria-hidden="true" />
-          <span className="rail-sep">·</span>
-          <span className="rail-extra">PILOT CLEARANCE</span>
-          <span className="rail-time" aria-label="Siap">
-            <span className="rail-cursor" aria-hidden="true" />
-          </span>
-        </div>
-        <div className="page-hero-inner">
-          <div className="page-hero-copy">
-            <h1 className="page-hero-title">
-              Verifikasi <em>Identitas</em>
-            </h1>
-            <p className="page-hero-desc">
-              Diperlukan untuk payout ke rekening (disbursement IDR). Tidak diperlukan untuk pasang harga jual atau terima penawaran — hanya
-              untuk penarikan hasil penjualan.
-            </p>
-          </div>
-        </div>
-      </section>
+      <PageHero
+        channel="11"
+        channelLabel="KYC"
+        title="Verifikasi Identitas"
+        desc="Diperlukan untuk penarikan ke rekening. Tidak diperlukan untuk pasang harga atau terima penawaran."
+      />
       <div className="card card-pad">
         {kyc ? (
           <div className={statusClassName(kyc.status)}>

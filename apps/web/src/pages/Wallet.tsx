@@ -3,15 +3,13 @@ import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useConfirm } from "../components/ConfirmProvider";
+import { PageHero } from "../components/PageHero";
 import { RequireAuth } from "../components/RequireAuth";
 import { ApiError, api, formatIdr } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { ErrorState, LoadingState } from "../lib/QueryStates";
 import { useToast } from "../lib/toast";
 import "./wallet.css";
-
-const CHANNEL = "CH:08 / WALLET";
-const CHANNEL_EXTRA = "TREASURY LINK";
 
 // Rate tampilan dari konstanta shared — tidak ada salinan "Rp 10.000" manual.
 const RATE_LABEL = `1 C = ${formatIdr(C_COIN_RATE_IDR)}`;
@@ -123,26 +121,7 @@ function WalletInner() {
   const payoutHoldUntil: string | null = data.payoutHoldUntil ?? null;
   return (
     <div className="page-stack">
-      <section className="page-hero" aria-label="Header halaman Wallet">
-        <div className="page-hero-rail">
-          <span className="rail-channel">{CHANNEL}</span>
-          <span className="rail-dot" aria-hidden="true" />
-          <span className="rail-sep">·</span>
-          <span className="rail-extra">{CHANNEL_EXTRA}</span>
-          <span className="rail-time" aria-label="Siap">
-            <span className="rail-cursor" aria-hidden="true" />
-          </span>
-        </div>
-        <div className="page-hero-inner">
-          <div className="page-hero-copy">
-            <div className="page-hero-sub">Dompet</div>
-            <h1 className="page-hero-title">
-              C<em>-Coin</em>
-            </h1>
-            <p className="page-hero-desc">{RATE_LABEL}</p>
-          </div>
-        </div>
-      </section>
+      <PageHero channel="08" channelLabel="DOMPET" title="Dompet" desc={RATE_LABEL} />
 
       {payoutHeld && (
         <div className="card card-pad wa-alert">

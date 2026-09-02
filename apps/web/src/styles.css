@@ -738,7 +738,7 @@ tbody tr:hover { background: rgba(91, 230, 255, 0.05); }
 /* Top mono rail — channel ID + status indicators */
 .page-hero-rail {
   position: relative; z-index: 1;
-  display: flex; align-items: center; gap: 10px;
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
   font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.18em;
   text-transform: uppercase;
   color: var(--text-dim);

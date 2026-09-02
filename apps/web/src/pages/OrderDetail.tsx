@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useConfirm } from "../components/ConfirmProvider";
+import { PageHero } from "../components/PageHero";
 import { RequireAuth } from "../components/RequireAuth";
 import { StatusBadge } from "../components/StatusBadge";
 import { api } from "../lib/api";
@@ -74,30 +75,20 @@ function OrderDetailInner() {
   }
   return (
     <div className="page-stack">
-      <section className="page-hero" aria-label="Header halaman Detail Pesanan">
-        <div className="page-hero-rail">
-          <span className="rail-channel">CH:13 / ORDERS</span>
-          <span className="rail-dot" aria-hidden="true" />
-          <span className="rail-sep">·</span>
-          <span className="rail-extra">ORDER DOSSIER</span>
-          <span className="rail-time" aria-label="Siap">
-            <span className="rail-cursor" aria-hidden="true" />
-          </span>
-        </div>
-        <div className="page-hero-inner">
-          <div className="page-hero-copy">
-            <div className="page-hero-sub">Pesanan</div>
-            <h1 className="page-hero-title">Detail Pesanan</h1>
-          </div>
+      <PageHero
+        channel="13B"
+        channelLabel="PESANAN"
+        title="Detail Pesanan"
+        actions={
           <Link to="/orders" className="btn-ghost od-back">
             ← Pesanan
           </Link>
-        </div>
-      </section>
+        }
+      />
       <div className="card card-pad">
         <div className="od-card-head">
           <div>
-            <span className="eyebrow">Pesanan</span>
+            <span className="eyebrow">Ringkasan</span>
             <h2 className="h2 od-mt-4">{drop?.title ?? "Tanpa judul"}</h2>
             <div className="od-total">{o.totalCCoin} C</div>
           </div>

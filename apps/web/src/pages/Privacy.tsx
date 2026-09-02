@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
+import { PageHero } from "../components/PageHero";
 import { RequireAuth } from "../components/RequireAuth";
 import { api } from "../lib/api";
 import type { ApiProfileResponse } from "../lib/api-types";
@@ -61,23 +62,7 @@ function PrivacyInner() {
   }
   return (
     <div className="page-stack ac-narrow">
-      <section className="page-hero ac-hero" aria-label="Header halaman Privasi">
-        <div className="page-hero-rail">
-          <span className="rail-channel">CH:12 / PRIVASI</span>
-          <span className="rail-dot" aria-hidden="true" />
-          <span className="rail-sep">·</span>
-          <span className="rail-extra">STEALTH PROTOCOL</span>
-          <span className="rail-time" aria-label="Siap">
-            <span className="rail-cursor" aria-hidden="true" />
-          </span>
-        </div>
-        <div className="page-hero-inner">
-          <div className="page-hero-copy">
-            <h1 className="page-hero-title">Privasi</h1>
-            <p className="page-hero-desc">Kontrol visibilitas koleksi &amp; izin data</p>
-          </div>
-        </div>
-      </section>
+      <PageHero channel="12" channelLabel="PRIVASI" title="Privasi" desc="Kontrol visibilitas koleksi & izin data" />
       <div className="card card-pad">
         <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
           <div style={{ flex: 1, minWidth: 160 }}>

@@ -151,7 +151,7 @@ function UserMenu() {
             </span>
           </div>
           <div style={{ padding: "6px", display: "flex", flexDirection: "column", gap: 1 }}>
-            <MenuLink to="/home" label="Home" onClick={() => setOpen(false)} />
+            <MenuLink to="/home" label="Beranda" onClick={() => setOpen(false)} />
             <MenuLink to="/notifications" label="Notifikasi" badge={unread} onClick={() => setOpen(false)} />
             <MenuLink to="/orders" label="Pesanan" onClick={() => setOpen(false)} />
             <MenuLink to="/collection" label="Koleksi" onClick={() => setOpen(false)} />
@@ -163,8 +163,8 @@ function UserMenu() {
             <MenuLink to="/me/privacy" label="Privasi" onClick={() => setOpen(false)} />
             {isCreator && (
               <>
-                <MenuLink to="/creator" label="Dashboard Kreator" onClick={() => setOpen(false)} />
-                <MenuLink to="/creator/payouts" label="Payout & Royalti" onClick={() => setOpen(false)} />
+                <MenuLink to="/creator" label="Dasbor Kreator" onClick={() => setOpen(false)} />
+                <MenuLink to="/creator/payouts" label="Penarikan & Royalti" onClick={() => setOpen(false)} />
               </>
             )}
           </div>
@@ -251,7 +251,7 @@ function Navbar() {
           Marketplace
         </NavLink>
         <NavLink to="/browse" className={({ isActive }) => (isActive ? "active" : "")}>
-          Browse
+          Jelajahi
         </NavLink>
         <NavLink to="/leaderboard" className={({ isActive }) => (isActive ? "active" : "")}>
           Peringkat

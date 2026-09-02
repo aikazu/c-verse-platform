@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useRef } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
+import { PageHero } from "../components/PageHero";
 import { api } from "../lib/api";
 import type { ApiCard3dResponse, ApiDrop } from "../lib/api-types";
 import { useCardViewer } from "../lib/viewer";
@@ -40,27 +41,13 @@ export default function Card3D() {
     );
   const d = data;
   const card = d.card;
+  const heroTitle = d.drop?.title ? `${d.drop.title} · #${card.unitNumber ?? "?"}` : `C.Card #${card.unitNumber ?? "?"}`;
   return (
     <div className="page-stack">
       <Link to={`/cards/${card.id ?? cardId}`} className="btn-ghost ci-back">
         ← Kembali
       </Link>
-      <section className="page-hero" aria-label="Header halaman C.Card 3D">
-        <div className="page-hero-rail">
-          <span className="rail-channel">CH:07 / C.CARD</span>
-          <span className="rail-dot" aria-hidden="true" />
-          <span className="rail-sep">·</span>
-          <span className="rail-extra">3D VIEWER ACTIVE</span>
-          <span className="rail-time" aria-label="Siap">
-            <span className="rail-cursor" aria-hidden="true" />
-          </span>
-        </div>
-        <div className="page-hero-inner">
-          <div className="page-hero-copy">
-            <h1 className="page-hero-title">3D Viewer</h1>
-          </div>
-        </div>
-      </section>
+      <PageHero channel="07B" channelLabel="C.CARD" title={heroTitle} sub={d.drop?.series ?? "3D Viewer"} />
       <div className="card ci-clip">
         <div ref={viewerRef} className="ci-viewer-host" />
         <div className="card-pad">

@@ -5,15 +5,13 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { CardThumb } from "../components/CardThumb";
 import { LevelBar } from "../components/LevelBar";
+import { PageHero } from "../components/PageHero";
 import { RequireAuth } from "../components/RequireAuth";
 import { api } from "../lib/api";
 import type { ApiProfileEnrichedCard } from "../lib/api-types";
 import { useAuth } from "../lib/auth";
 import { ErrorState, LoadingState } from "../lib/QueryStates";
 import "./collection.css";
-
-const CHANNEL = "CH:09 / KOLEKSI";
-const CHANNEL_EXTRA = "HANGAR INVENTORY";
 
 export default function Collection() {
   return (
@@ -46,26 +44,10 @@ function CollectionInner() {
   const progressLabel: string = data.user?.levelProgressLabel ?? "Progress level berikutnya";
   return (
     <div className="page-stack">
-      <section className="page-hero" aria-label="Header halaman Koleksi">
-        <div className="page-hero-rail">
-          <span className="rail-channel">{CHANNEL}</span>
-          <span className="rail-dot" aria-hidden="true" />
-          <span className="rail-sep">·</span>
-          <span className="rail-extra">{CHANNEL_EXTRA}</span>
-          <span className="rail-time" aria-label="Siap">
-            <span className="rail-cursor" aria-hidden="true" />
-          </span>
-        </div>
-        <div className="page-hero-inner">
-          <div className="page-hero-copy">
-            <h1 className="page-hero-title">Koleksi</h1>
-          </div>
-        </div>
-      </section>
+      <PageHero channel="09" channelLabel="KOLEKSI" title="Koleksi" desc={`${cards.length} unit · Level ${level} · ${tier}`} />
 
       <div className="kl-head">
         <div className="kl-head-copy">
-          <span className="eyebrow">Koleksi</span>
           <h2 className="h2 kl-title">
             {data.user?.displayName ?? "Koleksi"} <em>· {data.stats?.totalCards ?? cards.length} C.Card</em>
           </h2>

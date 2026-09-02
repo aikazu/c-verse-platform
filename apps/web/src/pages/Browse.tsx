@@ -1,6 +1,7 @@
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { Fragment } from "react";
 import { Link } from "react-router-dom";
+import { PageHero } from "../components/PageHero";
 import { StatusBadge } from "../components/StatusBadge";
 import { api, formatIdr } from "../lib/api";
 import type { ApiDrop, ApiDropsResponse } from "../lib/api-types";
@@ -89,44 +90,35 @@ export default function Browse() {
   ];
   return (
     <div className="page-stack">
-      <section className="page-hero" aria-label="Header halaman Browse">
-        <div className="page-hero-rail">
-          <span className="rail-channel">CH:03 / BROWSE</span>
-          <span className="rail-dot" aria-hidden="true" />
-          <span className="rail-sep">·</span>
-          <span className="rail-extra">KANAL AKTIF</span>
-          <span className="rail-time" aria-label="Siap">
-            <span className="rail-cursor" aria-hidden="true" />
-          </span>
-        </div>
-        <div className="page-hero-inner">
-          <div className="page-hero-copy">
-            <h1 className="page-hero-title">Browse</h1>
-          </div>
-        </div>
-        <div className="hero-ticker" aria-hidden="true">
-          <span className="ticker-label">Scan</span>
-          <div className="ticker-track">
-            <div className="ticker-scroll">
-              {[0, 1].map((copy) => (
-                <Fragment key={copy}>
-                  {tickerItems.map((item) => (
-                    <span key={item.key}>
-                      <span className="ticker-item">
-                        <span className="tk-key">{item.key}</span>
-                        <span className={`tk-val ${item.cls}`}>{item.val}</span>
+      <PageHero
+        channel="03"
+        channelLabel="JELAJAHI"
+        title="Jelajahi"
+        ticker={
+          <div className="hero-ticker" aria-hidden="true">
+            <span className="ticker-label">Scan</span>
+            <div className="ticker-track">
+              <div className="ticker-scroll">
+                {[0, 1].map((copy) => (
+                  <Fragment key={copy}>
+                    {tickerItems.map((item) => (
+                      <span key={item.key}>
+                        <span className="ticker-item">
+                          <span className="tk-key">{item.key}</span>
+                          <span className={`tk-val ${item.cls}`}>{item.val}</span>
+                        </span>
+                        <span className="ticker-item">
+                          <span className="tk-sep" aria-hidden="true" />
+                        </span>
                       </span>
-                      <span className="ticker-item">
-                        <span className="tk-sep" aria-hidden="true" />
-                      </span>
-                    </span>
-                  ))}
-                </Fragment>
-              ))}
+                    ))}
+                  </Fragment>
+                ))}
+              </div>
             </div>
           </div>
-        </div>
-      </section>
+        }
+      />
 
       <div className="toolbar">
         <div className="toolbar-right">

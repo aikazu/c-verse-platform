@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link, useParams } from "react-router-dom";
+import { PageHero } from "../components/PageHero";
 import { RequireAuth } from "../components/RequireAuth";
 import { StatusBadge } from "../components/StatusBadge";
 import { api, formatIdr } from "../lib/api";
@@ -57,35 +58,23 @@ function CreatorDropAnalyticsInner() {
   const pct = cards.total > 0 ? Math.round((cards.sold / cards.total) * 100) : 0;
   return (
     <div className="page-stack">
-      <section className="page-hero" aria-label="Header halaman analitik drop">
-        <div className="page-hero-rail">
-          <span className="rail-channel">CH:06 / KREATOR</span>
-          <span className="rail-dot" aria-hidden="true" />
-          <span className="rail-sep">·</span>
-          <span className="rail-extra">DROP ANALYTICS</span>
-          <span className="rail-time" aria-label="Siap">
-            <span className="rail-cursor" aria-hidden="true" />
-          </span>
-        </div>
-        <div className="page-hero-inner">
-          <div className="page-hero-copy">
-            <span className="eyebrow">Drop Analytics</span>
-            <h1 className="page-hero-title">{drop.title}</h1>
-            <div className="page-hero-sub">
-              {drop.series} · {drop.totalUnits} unit
-            </div>
-            <Link className="cx-hero-back btn-ghost" to="/creator">
-              ← Kembali ke Dashboard
-            </Link>
-          </div>
-          <div className="cx-hero-actions">
+      <PageHero
+        channel="06C"
+        channelLabel="KREATOR"
+        title={drop.title}
+        sub={`${drop.series} · ${drop.totalUnits} unit`}
+        actions={
+          <>
             <StatusBadge status={drop.status} kind="drop" />
             <Link to={`/drops/${drop.id}`} className="btn-ghost cm-hero-cta">
               Publik →
             </Link>
-          </div>
-        </div>
-      </section>
+            <Link className="cx-hero-back btn-ghost" to="/creator">
+              ← Dasbor
+            </Link>
+          </>
+        }
+      />
 
       <div className="grid-3">
         <div className="card card-pad cx-stat">

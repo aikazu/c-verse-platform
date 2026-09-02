@@ -2,6 +2,7 @@ import { AOV_UNSIGNED_CCOIN } from "@c-verse/shared";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { PageHero } from "../components/PageHero";
 import { api, ccoinToIdr, formatIdr } from "../lib/api";
 import type { ApiDrop, ApiDropDetailResponse } from "../lib/api-types";
 import { useAuth } from "../lib/auth";
@@ -71,29 +72,18 @@ export default function Checkout() {
   }
   return (
     <div className="cm-shell">
-      <section className="page-hero" aria-label="Header halaman Checkout">
-        <div className="page-hero-rail">
-          <span className="rail-channel">CH:14 / CHECKOUT</span>
-          <span className="rail-dot" aria-hidden="true" />
-          <span className="rail-sep">·</span>
-          <span className="rail-extra">ACQUISITION SEQUENCE</span>
-          <span className="rail-time" aria-label="Siap">
-            <span className="rail-cursor" aria-hidden="true" />
-          </span>
-        </div>
-        <div className="page-hero-inner">
-          <div className="page-hero-copy">
-            <h1 className="page-hero-title">
-              Check<em>out</em>
-            </h1>
-          </div>
+      <PageHero
+        channel="14"
+        channelLabel="CHECKOUT"
+        title="Checkout"
+        actions={
           <Link to={`/drops/${drop.id}`} className="btn-ghost cm-back">
             ← {drop.title}
           </Link>
-        </div>
-      </section>
+        }
+      />
       <div className="card card-pad">
-        <span className="eyebrow">Checkout</span>
+        <span className="eyebrow">Ringkasan</span>
         <h2 className="h2" style={{ marginTop: 4 }}>
           {drop.title}
         </h2>

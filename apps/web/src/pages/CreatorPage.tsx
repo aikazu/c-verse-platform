@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useConfirm } from "../components/ConfirmProvider";
+import { PageHero } from "../components/PageHero";
 import { StatusBadge } from "../components/StatusBadge";
 import { trackCreatorPageView } from "../lib/analytics";
 import { ApiError, api } from "../lib/api";
@@ -12,11 +13,6 @@ import { useAuth } from "../lib/auth";
 import { ErrorState, LoadingState } from "../lib/QueryStates";
 import { useToast } from "../lib/toast";
 import "./creator.css";
-
-// Operator-channel for sibling-lane collision check: CH:06 / KREATOR
-// (Drops CH:01, Marketplace CH:02, Browse CH:03, Leaderboard CH:04, Profile CH:05).
-const CHANNEL = "CH:06 / KREATOR";
-const CHANNEL_EXTRA = "CREATOR LOG";
 
 const errorMessage = (e: unknown): string => (e instanceof Error ? e.message : String(e));
 
@@ -97,24 +93,13 @@ export default function CreatorPage() {
   if (isLoading) {
     return (
       <div className="page-stack">
-        <section className="page-hero" aria-label="Profil kreator">
-          <div className="page-hero-rail">
-            <span className="rail-channel">{CHANNEL}</span>
-            <span className="rail-dot" aria-hidden="true" />
-            <span className="rail-sep">·</span>
-            <span className="rail-extra">{CHANNEL_EXTRA}</span>
-            <span className="rail-time" aria-label="Memuat">
-              <span className="rail-cursor" aria-hidden="true" />
-            </span>
-          </div>
-          <div className="page-hero-inner">
-            <div className="page-hero-copy">
-              <div className="page-hero-sub">@{username ?? "—"}</div>
-              <h1 className="page-hero-title">Memuat kreator…</h1>
-              <p className="page-hero-desc">Menghubungkan ke konsol kreator C.Verse.</p>
-            </div>
-          </div>
-        </section>
+        <PageHero
+          channel="06A"
+          channelLabel="KREATOR"
+          title="Memuat kreator…"
+          sub={`@${username ?? "—"}`}
+          desc="Menghubungkan ke konsol kreator C.Verse."
+        />
         <LoadingState label="Memuat kreator…" />
       </div>
     );
@@ -123,24 +108,14 @@ export default function CreatorPage() {
   if (notFound) {
     return (
       <div className="page-stack">
-        <section className="page-hero" aria-label="Profil kreator">
-          <div className="page-hero-rail">
-            <span className="rail-channel">{CHANNEL}</span>
-            <span className="rail-dot" aria-hidden="true" />
-            <span className="rail-sep">·</span>
-            <span className="rail-extra">SIGNAL LOST</span>
-            <span className="rail-time" aria-label="Tidak ditemukan">
-              <span className="rail-cursor" aria-hidden="true" />
-            </span>
-          </div>
-          <div className="page-hero-inner">
-            <div className="page-hero-copy">
-              <div className="page-hero-sub">@{username ?? "—"}</div>
-              <h1 className="page-hero-title">Kreator tidak ditemukan</h1>
-              <p className="page-hero-desc">Handle yang diminta tidak ada di katalog kreator publik.</p>
-            </div>
-          </div>
-        </section>
+        <PageHero
+          channel="06A"
+          channelLabel="KREATOR"
+          title="Kreator tidak ditemukan"
+          sub={`@${username ?? "—"}`}
+          desc="Handle yang diminta tidak ada di katalog kreator publik."
+          extra="TIDAK DITEMUKAN"
+        />
         <div className="empty-arcade cp-empty" role="status">
           <div className="empty-icon" aria-hidden="true">
             404
@@ -160,23 +135,13 @@ export default function CreatorPage() {
   if (isError) {
     return (
       <div className="page-stack">
-        <section className="page-hero" aria-label="Profil kreator">
-          <div className="page-hero-rail">
-            <span className="rail-channel">{CHANNEL}</span>
-            <span className="rail-dot" aria-hidden="true" />
-            <span className="rail-sep">·</span>
-            <span className="rail-extra">SIGNAL ERROR</span>
-            <span className="rail-time" aria-label="Gagal">
-              <span className="rail-cursor" aria-hidden="true" />
-            </span>
-          </div>
-          <div className="page-hero-inner">
-            <div className="page-hero-copy">
-              <h1 className="page-hero-title">Gagal memuat kreator</h1>
-              <p className="page-hero-desc">Konsol tidak dapat menghubungi server. Coba ulangi sebentar lagi.</p>
-            </div>
-          </div>
-        </section>
+        <PageHero
+          channel="06A"
+          channelLabel="KREATOR"
+          title="Gagal memuat kreator"
+          desc="Konsol tidak dapat menghubungi server."
+          extra="ERROR"
+        />
         <ErrorState onRetry={retryBoth} label="Gagal memuat profil kreator" />
       </div>
     );
@@ -244,47 +209,40 @@ export default function CreatorPage() {
     },
   ];
 
+  const heroTicker = (
+    <div className="hero-ticker" aria-hidden="true">
+      <span className="ticker-label">Kreator</span>
+      <div className="ticker-track">
+        <div className="ticker-scroll">
+          {tickerItems.map((item) => (
+            <span className="ticker-item" key={`${item.key}-a`}>
+              <span className="tk-key">{item.key}</span>
+              <span className={`tk-val ${item.accent}`}>{item.value}</span>
+              <span className="tk-sep" aria-hidden="true" />
+            </span>
+          ))}
+          {tickerItems.map((item) => (
+            <span className="ticker-item" key={`${item.key}-b`}>
+              <span className="tk-key">{item.key}</span>
+              <span className={`tk-val ${item.accent}`}>{item.value}</span>
+              <span className="tk-sep" aria-hidden="true" />
+            </span>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <div className="page-stack">
-      <section className="page-hero" aria-label="Profil kreator">
-        <div className="page-hero-rail">
-          <span className="rail-channel">{CHANNEL}</span>
-          <span className="rail-dot" aria-hidden="true" />
-          <span className="rail-sep">·</span>
-          <span className="rail-extra">{CHANNEL_EXTRA}</span>
-          <span className="rail-time" aria-label={isFetching ? "Memuat ulang" : "Siap"}>
-            <span className="rail-cursor" aria-hidden="true" />
-          </span>
-        </div>
-        <div className="page-hero-inner">
-          <div className="page-hero-copy">
-            <div className="page-hero-sub">{handleLine}</div>
-            <h1 className="page-hero-title">{creator.displayName}</h1>
-            <p className="page-hero-desc">Katalog kreator resmi C.Verse.</p>
-          </div>
-        </div>
-        <div className="hero-ticker" aria-hidden="true">
-          <span className="ticker-label">Creator Stats</span>
-          <div className="ticker-track">
-            <div className="ticker-scroll">
-              {tickerItems.map((item) => (
-                <span className="ticker-item" key={`${item.key}-a`}>
-                  <span className="tk-key">{item.key}</span>
-                  <span className={`tk-val ${item.accent}`}>{item.value}</span>
-                  <span className="tk-sep" aria-hidden="true" />
-                </span>
-              ))}
-              {tickerItems.map((item) => (
-                <span className="ticker-item" key={`${item.key}-b`}>
-                  <span className="tk-key">{item.key}</span>
-                  <span className={`tk-val ${item.accent}`}>{item.value}</span>
-                  <span className="tk-sep" aria-hidden="true" />
-                </span>
-              ))}
-            </div>
-          </div>
-        </div>
-      </section>
+      <PageHero
+        channel="06A"
+        channelLabel="KREATOR"
+        title={creator.displayName}
+        sub={handleLine}
+        desc="Katalog kreator resmi C.Verse."
+        ticker={heroTicker}
+      />
 
       <section className="card card-pad cp-operator" aria-label="Identitas kreator">
         <div className="cp-operator-row">
@@ -293,8 +251,6 @@ export default function CreatorPage() {
             <span className="cp-sigil-sheen" aria-hidden="true" />
           </div>
           <div className="cp-operator-meta">
-            <span className="eyebrow cp-eyebrow">KREATOR</span>
-            <h2 className="h2 cp-name">{creator.displayName}</h2>
             <div className="mono cp-handle">{handleLine}</div>
           </div>
           {canSupport && (

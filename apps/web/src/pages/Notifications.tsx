@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
+import { PageHero } from "../components/PageHero";
 import { RequireAuth } from "../components/RequireAuth";
 import { api } from "../lib/api";
 import "./orders.css";
@@ -15,7 +16,7 @@ const TEMPLATE_LABEL: Record<string, (p: Record<string, unknown> | null) => stri
   draw_winner: () => "Kamu menang raffle — order dibuat",
   draw_loser: () => "Kamu kalah raffle — C-Coin dikembalikan",
   payout_disbursed: (p) => `Payout ${p?.amount ?? "?"} C diteruskan ke rekening`,
-  payout_failed: (p) => `Payout gagal (${p?.status ?? "?"}) — cek menu Payout`,
+  payout_failed: (p) => `Penarikan gagal (${p?.status ?? "?"}) — cek Dompet`,
   shipment_shipped: () => "C.Card dalam pengiriman",
   shipment_delivered: () => "C.Card sudah diterima",
   kyc_approved: () => "KYC disetujui — penarikan dana tanpa batas saldo",
@@ -71,30 +72,19 @@ function NotificationsInner() {
   const unreadCount = list.filter((n) => n.readAt == null).length;
   return (
     <div className="page-stack">
-      <section className="page-hero" aria-label="Header halaman Notifikasi">
-        <div className="page-hero-rail">
-          <span className="rail-channel">CH:15 / SIGNAL</span>
-          <span className="rail-dot" aria-hidden="true" />
-          <span className="rail-sep">·</span>
-          <span className="rail-extra">INBOX FEED</span>
-          <span className="rail-time" aria-label="Siap">
-            <span className="rail-cursor" aria-hidden="true" />
-          </span>
-        </div>
-        <div className="page-hero-inner">
-          <div className="page-hero-copy">
-            <div className="page-hero-sub">Notifikasi</div>
-            <h1 className="page-hero-title">
-              Inbox <em>{unreadCount > 0 ? `· ${unreadCount} belum dibaca` : ""}</em>
-            </h1>
-          </div>
-          {unreadCount > 0 && (
+      <PageHero
+        channel="15"
+        channelLabel="NOTIFIKASI"
+        title="Notifikasi"
+        desc={unreadCount > 0 ? `${unreadCount} belum dibaca` : undefined}
+        actions={
+          unreadCount > 0 ? (
             <button className="btn-ghost od-hero-cta" onClick={() => markAll.mutate()} disabled={markAll.isPending}>
               {markAll.isPending ? "Memproses…" : "Tandai semua dibaca"}
             </button>
-          )}
-        </div>
-      </section>
+          ) : null
+        }
+      />
       {list.length === 0 ? (
         <div className="card card-pad muted od-empty">Belum ada notifikasi. Update dari raffle, bid, dan order akan muncul di sini.</div>
       ) : (

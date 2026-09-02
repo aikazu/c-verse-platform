@@ -2,15 +2,11 @@ import type { UserBadge as SharedUserBadge } from "@c-verse/shared";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useParams } from "react-router-dom";
 import { LevelBar } from "../components/LevelBar";
+import { PageHero } from "../components/PageHero";
 import { ApiError, api } from "../lib/api";
 import type { ApiPublicProfileCard, ApiPublicProfileResponse } from "../lib/api-types";
 import { ErrorState, LoadingState } from "../lib/QueryStates";
 import "./profile.css";
-
-// Operator-channel for sibling-lane collision check: CH:05 / PROFIL
-// (existing: Drops CH:01, Marketplace CH:02, Browse CH:03, Leaderboard CH:04).
-const CHANNEL = "CH:05 / PROFIL";
-const CHANNEL_EXTRA = "PILOT DOSSIER";
 
 function getSigil(displayName: string, username: string | null | undefined): string {
   const source = displayName?.trim() || username?.trim() || "?";
@@ -35,24 +31,13 @@ export default function PublicProfile() {
   if (isLoading) {
     return (
       <div className="page-stack">
-        <section className="page-hero" aria-label="Profil publik">
-          <div className="page-hero-rail">
-            <span className="rail-channel">{CHANNEL}</span>
-            <span className="rail-dot" aria-hidden="true" />
-            <span className="rail-sep">·</span>
-            <span className="rail-extra">{CHANNEL_EXTRA}</span>
-            <span className="rail-time" aria-label="Memuat">
-              <span className="rail-cursor" aria-hidden="true" />
-            </span>
-          </div>
-          <div className="page-hero-inner">
-            <div className="page-hero-copy">
-              <div className="page-hero-sub">@{username ?? "—"}</div>
-              <h1 className="page-hero-title">Memuat profil…</h1>
-              <p className="page-hero-desc">Menghubungkan ke konsol kolektor C.Verse.</p>
-            </div>
-          </div>
-        </section>
+        <PageHero
+          channel="05"
+          channelLabel="PROFIL"
+          title="Memuat profil…"
+          sub={`@${username ?? "—"}`}
+          desc="Menghubungkan ke konsol kolektor C.Verse."
+        />
         <LoadingState label="Memuat profil…" />
       </div>
     );
@@ -61,24 +46,14 @@ export default function PublicProfile() {
   if (notFound) {
     return (
       <div className="page-stack">
-        <section className="page-hero" aria-label="Profil publik">
-          <div className="page-hero-rail">
-            <span className="rail-channel">{CHANNEL}</span>
-            <span className="rail-dot" aria-hidden="true" />
-            <span className="rail-sep">·</span>
-            <span className="rail-extra">SIGNAL LOST</span>
-            <span className="rail-time" aria-label="Tidak ditemukan">
-              <span className="rail-cursor" aria-hidden="true" />
-            </span>
-          </div>
-          <div className="page-hero-inner">
-            <div className="page-hero-copy">
-              <div className="page-hero-sub">@{username ?? "—"}</div>
-              <h1 className="page-hero-title">Pilot tidak ditemukan</h1>
-              <p className="page-hero-desc">Handle yang diminta tidak ada di katalog kolektor publik.</p>
-            </div>
-          </div>
-        </section>
+        <PageHero
+          channel="05"
+          channelLabel="PROFIL"
+          title="Kolektor tidak ditemukan"
+          sub={`@${username ?? "—"}`}
+          desc="Handle yang diminta tidak ada di katalog kolektor publik."
+          extra="TIDAK DITEMUKAN"
+        />
         <div className="empty-arcade pp-empty" role="status">
           <div className="empty-icon" aria-hidden="true">
             404
@@ -98,23 +73,13 @@ export default function PublicProfile() {
   if (isError) {
     return (
       <div className="page-stack">
-        <section className="page-hero" aria-label="Profil publik">
-          <div className="page-hero-rail">
-            <span className="rail-channel">{CHANNEL}</span>
-            <span className="rail-dot" aria-hidden="true" />
-            <span className="rail-sep">·</span>
-            <span className="rail-extra">SIGNAL ERROR</span>
-            <span className="rail-time" aria-label="Gagal">
-              <span className="rail-cursor" aria-hidden="true" />
-            </span>
-          </div>
-          <div className="page-hero-inner">
-            <div className="page-hero-copy">
-              <h1 className="page-hero-title">Gagal memuat profil</h1>
-              <p className="page-hero-desc">Konsol tidak dapat menghubungi server. Coba ulangi sebentar lagi.</p>
-            </div>
-          </div>
-        </section>
+        <PageHero
+          channel="05"
+          channelLabel="PROFIL"
+          title="Gagal memuat profil"
+          desc="Konsol tidak dapat menghubungi server."
+          extra="ERROR"
+        />
         <ErrorState onRetry={() => void refetch()} label="Gagal memuat profil publik" />
       </div>
     );
@@ -129,28 +94,16 @@ export default function PublicProfile() {
   }
 
   if (data.hidden) {
-    // Privacy invariant: hidden profile never reveals displayName / collection / level / badges.
     const handleOnly = data.user?.username ? `@${data.user.username}` : `@${username ?? ""}`;
     return (
       <div className="page-stack">
-        <section className="page-hero" aria-label="Profil publik">
-          <div className="page-hero-rail">
-            <span className="rail-channel">{CHANNEL}</span>
-            <span className="rail-dot" aria-hidden="true" />
-            <span className="rail-sep">·</span>
-            <span className="rail-extra">PRIVATE DOSSIER</span>
-            <span className="rail-time" aria-label="Tersembunyi">
-              <span className="rail-cursor" aria-hidden="true" />
-            </span>
-          </div>
-          <div className="page-hero-inner">
-            <div className="page-hero-copy">
-              <div className="page-hero-sub">{handleOnly}</div>
-              <h1 className="page-hero-title">Profil disembunyikan</h1>
-              <p className="page-hero-desc">Pemilik memilih untuk menutup berkas publiknya.</p>
-            </div>
-          </div>
-        </section>
+        <PageHero
+          channel="05"
+          channelLabel="PROFIL"
+          title="Profil disembunyikan"
+          sub={handleOnly}
+          desc="Pemilik memilih untuk menutup berkas publiknya."
+        />
         <div className="empty-arcade pp-empty" role="status">
           <div className="empty-icon pp-hidden-icon" aria-hidden="true">
             ◌
@@ -182,57 +135,48 @@ export default function PublicProfile() {
     { key: "TIER", value: tier.toUpperCase(), accent: "signal" as const },
   ];
 
+  const heroTicker = (
+    <div className="hero-ticker" aria-hidden="true">
+      <span className="ticker-label">Kolektor</span>
+      <div className="ticker-track">
+        <div className="ticker-scroll">
+          {tickerItems.map((item) => (
+            <span className="ticker-item" key={`${item.key}-a`}>
+              <span className="tk-key">{item.key}</span>
+              <span className={`tk-val ${item.accent}`}>{item.value}</span>
+              <span className="tk-sep" aria-hidden="true" />
+            </span>
+          ))}
+          {tickerItems.map((item) => (
+            <span className="ticker-item" key={`${item.key}-b`}>
+              <span className="tk-key">{item.key}</span>
+              <span className={`tk-val ${item.accent}`}>{item.value}</span>
+              <span className="tk-sep" aria-hidden="true" />
+            </span>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <div className="page-stack">
-      <section className="page-hero" aria-label="Profil publik">
-        <div className="page-hero-rail">
-          <span className="rail-channel">{CHANNEL}</span>
-          <span className="rail-dot" aria-hidden="true" />
-          <span className="rail-sep">·</span>
-          <span className="rail-extra">{CHANNEL_EXTRA}</span>
-          <span className="rail-time" aria-label={isFetching ? "Memuat ulang" : "Siap"}>
-            <span className="rail-cursor" aria-hidden="true" />
-          </span>
-        </div>
-        <div className="page-hero-inner">
-          <div className="page-hero-copy">
-            <div className="page-hero-sub">{handle}</div>
-            <h1 className="page-hero-title">{user.displayName}</h1>
-            <p className="page-hero-desc">Berkas kolektor resmi C.Verse.</p>
-          </div>
-        </div>
-        <div className="hero-ticker" aria-hidden="true">
-          <span className="ticker-label">Pilot Stats</span>
-          <div className="ticker-track">
-            <div className="ticker-scroll">
-              {tickerItems.map((item) => (
-                <span className="ticker-item" key={`${item.key}-a`}>
-                  <span className="tk-key">{item.key}</span>
-                  <span className={`tk-val ${item.accent}`}>{item.value}</span>
-                  <span className="tk-sep" aria-hidden="true" />
-                </span>
-              ))}
-              {tickerItems.map((item) => (
-                <span className="ticker-item" key={`${item.key}-b`}>
-                  <span className="tk-key">{item.key}</span>
-                  <span className={`tk-val ${item.accent}`}>{item.value}</span>
-                  <span className="tk-sep" aria-hidden="true" />
-                </span>
-              ))}
-            </div>
-          </div>
-        </div>
-      </section>
+      <PageHero
+        channel="05"
+        channelLabel="PROFIL"
+        title={user.displayName}
+        sub={handle}
+        desc="Berkas kolektor resmi C.Verse."
+        ticker={heroTicker}
+      />
 
-      <section className="card card-pad pp-operator" aria-label="Identitas operator">
+      <section className="card card-pad pp-operator" aria-label="Identitas kolektor">
         <div className="pp-operator-row">
           <div className="pp-sigil" aria-hidden="true">
             <span className="pp-sigil-letter">{sigil}</span>
             <span className="pp-sigil-sheen" aria-hidden="true" />
           </div>
           <div className="pp-operator-meta">
-            <span className="eyebrow pp-eyebrow">KOLEKTOR</span>
-            <h2 className="h2 pp-name">{user.displayName}</h2>
             <div className="mono pp-handle">{handle}</div>
             <div className="pp-chips">
               <span className={`tier-${tier} pp-tier-chip`} aria-label={`Tier ${tier}`}>
