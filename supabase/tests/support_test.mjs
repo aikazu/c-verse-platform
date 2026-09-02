@@ -2,8 +2,9 @@
 // Jalankan against Supabase lokal (disposable — db reset bebas):
 //   node supabase/tests/support_test.mjs postgresql://postgres:postgres@127.0.0.1:54322/postgres
 // Skenario:
-//   S1: dukungan sukses — saldo pindah penuh (100% ke kreator), 2 baris tx
-//       type 'support', XP pengirim naik = amount, XP kreator TIDAK naik
+//   S1: dukungan sukses — debit C-Coin pengirim penuh, kredit 100% ke kreator
+//       sbg C-GEMS (dual-token 2026-09-03: gem_transactions + lot 24 jam),
+//       XP pengirim naik = amount, XP kreator TIDAK naik
 //   S2: dukungan diri sendiri                     -> SELF_SUPPORT
 //   S3: amount 0                                  -> INVALID_AMOUNT
 //   S4: kreator tidak ada (uuid acak)             -> CREATOR_NOT_FOUND
@@ -73,7 +74,7 @@ async function asUser(userId, fn) {
 }
 
 async function walletOf(userId) {
-  const r = await admin.query("select balance_ccoin, total_spent_ccoin from public.wallets where user_id = $1", [userId]);
+  const r = await admin.query("select balance_ccoin, balance_gems, total_spent_ccoin from public.wallets where user_id = $1", [userId]);
   return r.rows[0];
 }
 
@@ -95,25 +96,29 @@ async function walletOf(userId) {
        from public.wallet_transactions where type = 'support' and user_id = any($1) order by amount_ccoin asc`,
       [allUsers],
     );
+    // Dual-token 2026-09-03: kredit kreator masuk gem_transactions (ledger gems).
+    const gemTxs = await admin.query(
+      `select user_id, amount, ref_type, ref_id, idem_key from public.gem_transactions where ref_type = 'support' and user_id = any($1)`,
+      [allUsers],
+    );
     const senderXp = await admin.query("select total_xp, cumulative_spend_ccoin, level from public.users where id = $1", [sender.id]);
     const creatorXp = await admin.query("select total_xp from public.users where id = $1", [creator.id]);
 
     const debit = txs.rows.find((t) => t.user_id === sender.id);
-    const credit = txs.rows.find((t) => t.user_id === creator.id);
+    const gemCredit = gemTxs.rows.find((t) => t.user_id === creator.id);
     const checks = [
       [senderWallet.balance_ccoin === 1000 - AMOUNT, `sender balance ${senderWallet.balance_ccoin}`],
       [senderWallet.total_spent_ccoin === AMOUNT, `sender total_spent ${senderWallet.total_spent_ccoin}`],
-      [creatorWallet.balance_ccoin === AMOUNT, `creator balance ${creatorWallet.balance_ccoin}`],
-      [txs.rows.length === 2, `tx rows ${txs.rows.length}`],
+      [creatorWallet.balance_gems === AMOUNT, `creator gems ${creatorWallet.balance_gems}`],
+      [creatorWallet.balance_ccoin === 0, `creator ccoin (harus 0) ${creatorWallet.balance_ccoin}`],
+      [txs.rows.length === 1, `ccoin tx rows ${txs.rows.length}`],
+      [gemTxs.rows.length === 1, `gems tx rows ${gemTxs.rows.length}`],
       [
         debit && debit.amount_ccoin === -AMOUNT && debit.ref_type === "user" && debit.ref_id === creator.id,
         "debit row -50 ref=user/creator",
       ],
-      [
-        credit && credit.amount_ccoin === AMOUNT && credit.ref_type === "user" && credit.ref_id === sender.id,
-        "credit row +50 ref=user/sender",
-      ],
-      [debit && credit && debit.idem !== credit.idem, "idempotency keys distinct"],
+      [gemCredit && gemCredit.amount === AMOUNT && gemCredit.ref_id === sender.id, "gems credit row +50 ref=user/sender"],
+      [debit && gemCredit && debit.idem !== gemCredit.idem_key, "idempotency keys distinct"],
       [
         res.transactionId === (debit?.id ?? null),
         `transactionId ${JSON.stringify(res.transactionId)} vs debit ${JSON.stringify(debit?.id)}`,
@@ -125,7 +130,7 @@ async function walletOf(userId) {
       [creatorXp.rows[0].total_xp === 0, `creator total_xp ${creatorXp.rows[0].total_xp}`],
     ];
     const failed = checks.filter(([ok]) => !ok).map(([, d]) => d);
-    report("S1", failed.length === 0, failed.join("; ") || "full transfer + XP sender-only");
+    report("S1", failed.length === 0, failed.join("; ") || "sender ccoin debit + creator gems credit, XP sender-only");
   }
 }
 
@@ -207,8 +212,13 @@ async function walletOf(userId) {
 await admin.query("set role postgres");
 await admin.query("begin");
 await admin.query("alter table public.wallet_transactions disable trigger trg_wtx_immutable");
+await admin.query("alter table public.gem_transactions disable trigger trg_gem_tx_immutable");
 await admin.query("delete from public.wallet_transactions where user_id = any($1)", [allUsers]);
+// gem_transactions dibuang EKSPLISIT selagi trigger disabled — delete via
+// cascade users akan kena guard append-only yang sudah di-enable lagi.
+await admin.query("delete from public.gem_transactions where user_id = any($1)", [allUsers]);
 await admin.query("alter table public.wallet_transactions enable trigger trg_wtx_immutable");
+await admin.query("alter table public.gem_transactions enable trigger trg_gem_tx_immutable");
 await admin.query("delete from public.creators where user_id = any($1)", [allUsers]);
 await admin.query("delete from public.wallets where user_id = any($1)", [allUsers]);
 await admin.query("delete from public.users where id = any($1)", [allUsers]);

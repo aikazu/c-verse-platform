@@ -73,6 +73,11 @@ async function balance(userId) {
   const { rows } = await admin.query("select balance_ccoin::int as b from public.wallets where user_id = $1", [userId]);
   return rows[0]?.b;
 }
+// Dual-token 2026-09-03: settlement seller/royalty masuk balance_gems.
+async function gemsBalance(userId) {
+  const { rows } = await admin.query("select balance_gems::int as g from public.wallets where user_id = $1", [userId]);
+  return rows[0]?.g;
+}
 
 // ── Fixture ────────────────────────────────────────────────────────────────
 const POST_DRAW = "now() - interval '25 hours', now() - interval '24 hours'";
@@ -195,11 +200,11 @@ await admin.query("commit");
   await admin.query("select public.award_badge_if_eligible($1, 'first_drop')", [U.a]);
   const xpBefore = await admin.query("select total_xp::int as xp from public.users where id = $1", [U.a]);
   await a.query("select public.place_bid('cov-card-s1', 100)");
-  const sellerBefore = await balance(U.seller);
-  const creatorBefore = await balance(U.creator);
+  const sellerBefore = await gemsBalance(U.seller);
+  const creatorBefore = await gemsBalance(U.creator);
   await s.query("select public.accept_bid('cov-card-s1')"); // settle non-seed: tanpa alamat
-  const sellerAfter = await balance(U.seller);
-  const creatorAfter = await balance(U.creator);
+  const sellerAfter = await gemsBalance(U.seller);
+  const creatorAfter = await gemsBalance(U.creator);
   const xpAfter = await admin.query("select total_xp::int as xp from public.users where id = $1", [U.a]);
   const card = await admin.query(
     "select owner_id, buyout_price_ccoin, status::text as st, location::text as loc from public.cards where id = 'cov-card-s1'",
@@ -207,7 +212,8 @@ await admin.query("commit");
   const history = await admin.query(
     "select count(*)::int as n from public.ownership_history where card_id = 'cov-card-s1' and acquired_via = 'secondary_bid'",
   );
-  // fee = round(100 * 0.075) = 8 -> seller 100 - 16 = 84, royalty 8, buyer XP +100
+  // fee = round(100 * 0.075) = 8 -> seller 100 - 16 = 84 GEMS, royalty 8 GEMS,
+  // buyer XP +100 (spend C-Coin; dual-token 2026-09-03)
   const c = card.rows[0];
   report(
     "S4",
@@ -219,7 +225,7 @@ await admin.query("commit");
       c.loc === "platform_vault" &&
       xpAfter.rows[0].xp - xpBefore.rows[0].xp === 100 &&
       history.rows[0].n === 1,
-    `seller+=${sellerAfter - sellerBefore} royalty+=${creatorAfter - creatorBefore} owner_ok=${c.owner_id === U.a} xp+=${xpAfter.rows[0].xp - xpBefore.rows[0].xp} history=${history.rows[0].n}`,
+    `seller_gems+=${sellerAfter - sellerBefore} royalty_gems+=${creatorAfter - creatorBefore} owner_ok=${c.owner_id === U.a} xp+=${xpAfter.rows[0].xp - xpBefore.rows[0].xp} history=${history.rows[0].n}`,
   );
   await a.end();
   await s.end();
@@ -282,13 +288,13 @@ await admin.query("commit");
   const b2 = await userClient(U.b2);
   await s.query("select public.set_buyout('cov-card-m3', 50)");
   await b2.query("select public.place_bid('cov-card-m3', 30)");
-  const sellerBefore = await balance(U.seller);
-  const creatorBefore = await balance(U.creator);
+  const sellerBefore = await gemsBalance(U.seller);
+  const creatorBefore = await gemsBalance(U.creator);
   const b1Before = await balance(U.b1);
   const b2Before = await balance(U.b2);
   await b1.query("select public.buyout_card('cov-card-m3')");
-  const sellerAfter = await balance(U.seller);
-  const creatorAfter = await balance(U.creator);
+  const sellerAfter = await gemsBalance(U.seller);
+  const creatorAfter = await gemsBalance(U.creator);
   const b1After = await balance(U.b1);
   const b2After = await balance(U.b2);
   const card = await admin.query("select owner_id, buyout_price_ccoin, status::text as st from public.cards where id = 'cov-card-m3'");
@@ -296,7 +302,8 @@ await admin.query("commit");
   const history = await admin.query(
     "select count(*)::int as n from public.ownership_history where card_id = 'cov-card-m3' and acquired_via = 'secondary_buyout'",
   );
-  // price 50: fee = round(50*0.075) = 4 -> seller 42, royalty 4; bid 30 direlease
+  // price 50: fee = round(50*0.075) = 4 -> seller 42 GEMS, royalty 4 GEMS;
+  // bid 30 direlease ke C-Coin b2 (dual-token 2026-09-03)
   const c = card.rows[0];
   report(
     "M2",
@@ -309,7 +316,7 @@ await admin.query("commit");
       c.st === "sold" &&
       bidStatus.rows[0].status === "outbid" &&
       history.rows[0].n === 1,
-    `buyer_debit=${b1Before - b1After} seller+=${sellerAfter - sellerBefore} royalty+=${creatorAfter - creatorBefore} bid_release=${b2After - b2Before} bid=${bidStatus.rows[0].status}`,
+    `buyer_debit=${b1Before - b1After} seller_gems+=${sellerAfter - sellerBefore} royalty_gems+=${creatorAfter - creatorBefore} bid_release=${b2After - b2Before} bid=${bidStatus.rows[0].status}`,
   );
   await s.end();
   await b1.end();
@@ -385,25 +392,29 @@ await admin.query("commit");
   await s.query("select public.set_buyout('cov-card-m7', 20)");
   await b1.query("select public.buyout_card('cov-card-m7')"); // b1 owner ke-1
   await b1.query("select public.set_buyout('cov-card-m7', 25)");
-  const b1Before2 = await balance(U.b1);
+  const b1GemsBefore2 = await gemsBalance(U.b1);
   await b2.query("select public.buyout_card('cov-card-m7')"); // b2 beli dari b1
-  const b1After2 = await balance(U.b1);
+  const b1GemsAfter2 = await gemsBalance(U.b1);
   await b2.query("select public.set_buyout('cov-card-m7', 30)");
   // lewati cooling period 24 jam
   await admin.query("update public.ownership_history set transferred_at = now() - interval '15 days' where card_id = 'cov-card-m7'");
   const b1Before3 = await balance(U.b1);
-  const b2Before3 = await balance(U.b2);
+  const b2GemsBefore3 = await gemsBalance(U.b2);
   await b1.query("select public.buyout_card('cov-card-m7')"); // b1 beli LAGI
   const b1After3 = await balance(U.b1);
-  const b2After3 = await balance(U.b2);
+  const b2GemsAfter3 = await gemsBalance(U.b2);
   const owner = await admin.query("select owner_id from public.cards where id = 'cov-card-m7'");
-  // sale ke-2 (harga 25): b1 harus terima 25 - 2*ceil(1.875)=21
-  // sale ke-3 (harga 30): b1 harus debet 30, b2 terima 30 - 2*ceil(2.25)=24
-  // (Lane D 2026-08-31: split secondary CEIL — round lama 26 menguapkan fee)
+  // sale ke-2 (harga 25): b1 harus terima 25 - 2*ceil(1.875)=21 GEMS
+  // sale ke-3 (harga 30): b1 debet 30 C-COIN, b2 terima 30 - 2*ceil(2.25)=24 GEMS
+  // (Lane D 2026-08-31: split secondary CEIL — round lama 26 menguapkan fee;
+  //  dual-token 2026-09-03: seller proceed = gems, buyer debit = ccoin)
   report(
     "M5",
-    b1After2 - b1Before2 === 21 && b1Before3 - b1After3 === 30 && b2After3 - b2Before3 === 24 && owner.rows[0].owner_id === U.b1,
-    `sale2_seller+=${b1After2 - b1Before2} (harus 21) sale3_buyer_debit=${b1Before3 - b1After3} (harus 30) sale3_seller+=${b2After3 - b2Before3} (harus 24)`,
+    b1GemsAfter2 - b1GemsBefore2 === 21 &&
+      b1Before3 - b1After3 === 30 &&
+      b2GemsAfter3 - b2GemsBefore3 === 24 &&
+      owner.rows[0].owner_id === U.b1,
+    `sale2_seller_gems+=${b1GemsAfter2 - b1GemsBefore2} (harus 21) sale3_buyer_debit=${b1Before3 - b1After3} (harus 30) sale3_seller_gems+=${b2GemsAfter3 - b2GemsBefore3} (harus 24)`,
   );
   await s.end();
   await b1.end();
@@ -850,7 +861,12 @@ await admin.query("begin");
 // owner role for the trigger toggles only.
 await admin.query("reset role; alter table public.wallet_transactions disable trigger trg_wtx_immutable");
 await admin.query("delete from public.wallet_transactions where user_id = any($1)", [Object.values(U)]);
+// Dual-token 2026-09-03: settlement gems meninggalkan gem_transactions —
+// cascade DELETE users kena guard append-only; buang eksplisit dulu.
+await admin.query("reset role; alter table public.gem_transactions disable trigger trg_gem_tx_immutable");
+await admin.query("delete from public.gem_transactions where user_id = any($1)", [Object.values(U)]);
 await admin.query("reset role; alter table public.wallet_transactions enable trigger trg_wtx_immutable");
+await admin.query("reset role; alter table public.gem_transactions enable trigger trg_gem_tx_immutable");
 await admin.query("delete from public.kyc_records where id like 'cov-kyc-%'");
 await admin.query("delete from public.payouts where id like 'cov-pay-%'");
 if (c3BatchId) await admin.query("delete from public.payout_batches where id = $1", [c3BatchId]);

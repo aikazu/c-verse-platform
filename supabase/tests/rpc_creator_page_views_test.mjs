@@ -40,8 +40,13 @@ const allUsers = [creatorA, creatorB, suspended, viewer].map((u) => u.id);
 
 await admin.query("begin");
 for (const u of [creatorA, creatorB, suspended, viewer]) {
+  // Upsert (bukan do nothing): notification_email_queue_test memakai UUID
+  // c3000000-... yang sama TANPA cleanup — tanpa upsert, username fixture
+  // hilang dan record_creator_page_view gagal resolve (silent no-op).
   await admin.query(
-    "insert into public.users (id, email, display_name, username, flag_reason) values ($1, $2, 'PV', $3, $4) on conflict (id) do nothing",
+    `insert into public.users (id, email, display_name, username, flag_reason) values ($1, $2, 'PV', $3, $4)
+     on conflict (id) do update set email = excluded.email, username = excluded.username,
+       display_name = excluded.display_name, flag_reason = excluded.flag_reason, is_anonymous = false`,
     [u.id, u.email, u.username ?? null, u === suspended ? "test_suspended" : null],
   );
 }

@@ -109,6 +109,13 @@ async function walletBalance(userId) {
   return r.rows[0]?.balance_ccoin ?? 0;
 }
 
+// Dual-token 2026-09-03: pendapatan settlement (royalty/seller/support) masuk
+// balance_gems — helper terpisah agar asersi tidak menuang keduanya.
+async function gemsBalance(userId) {
+  const r = await admin.query("select balance_gems from public.wallets where user_id = $1", [userId]);
+  return r.rows[0]?.balance_gems ?? 0;
+}
+
 try {
   // ── Fixture dasar ──────────────────────────────────────────────────────────
   await mkUser(U.creator, "Flow Creator", 0);
@@ -149,7 +156,7 @@ try {
       "select gross_ccoin, platform_ccoin, royalty_ccoin, fee_snapshot->>'platform_pct' as pct from public.platform_revenue where ref_type = 'order' and ref_id in (select id from public.orders where drop_id = $1)",
       [drop],
     );
-    const creatorBal = await walletBalance(U.creator);
+    const creatorBal = await gemsBalance(U.creator);
     const treasuryDelta = (await walletBalance(TREASURY)) - treasuryBefore;
     const vaultOk =
       order.rows.length === 1 &&
@@ -170,7 +177,7 @@ try {
       creatorBal === 30 &&
       treasuryDelta === 70;
     report(
-      "T1 checkout revenue 70/30 (vault-only)",
+      "T1 checkout revenue 70/30 (vault-only, royalty -> gems)",
       ok,
       `pool_guard=${invalidPool} order=${order.rows[0]?.s}/${order.rows[0]?.e}/${order.rows[0]?.d} loc=${cardLoc.rows[0]?.l} rev=${JSON.stringify(rev.rows[0] ?? {})} creator=${creatorBal} treasuryΔ=${treasuryDelta}`,
     );
@@ -250,7 +257,7 @@ try {
     report("T4 topup cap 500 (KYC-gated)", capped && kycOk, `capped=${capped} kycNoCap=${kycOk}`);
   }
 
-  // ══ T5: payout_request gate + happy path ══════════════════════════════════
+  // ══ T5: payout_request gate + happy path (dual-token: debit gems matured) ═
   {
     const p5 = uuid(5);
     await mkUser(p5, "T5 Payout", 100);
@@ -271,6 +278,14 @@ try {
     } catch (e) {
       minPayout = errCode(e) === "MIN_PAYOUT";
     }
+    // Dual-token: payout debit GEMS matured — fixture 60 gems lalu lot di-
+    // backdate supaya matured (payout_request(50) sah, sisa 10 gems).
+    await admin.query("select public.wallet_credit_gems($1, 60, 'settlement', 'test', $2, $3)", [
+      p5,
+      `t5-lot-${stamp}`,
+      `t5-gems-${stamp}`,
+    ]);
+    await admin.query("update public.gem_lots set mature_at = now() - interval '1 hour' where ref_id = $1", [`t5-lot-${stamp}`]);
     await c.query("select public.payout_request(50)");
     // Node-postgres mengembalikan composite type sebagai string "(...)" —
     // baca status langsung dari tabel (admin role) untuk asersi.
@@ -288,10 +303,11 @@ try {
     await c.end();
     const row = payout.rows[0];
     const bal = await walletBalance(p5);
+    const gems = await gemsBalance(p5);
     report(
-      "T5 payout_request",
-      kycRequired && minPayout && held && row?.status === "pending" && Number(row?.ccoin_amount) === 50 && bal === 50,
-      `kycReq=${kycRequired} min=${minPayout} held=${held} status=${row?.status} bal=${bal}`,
+      "T5 payout_request (debit gems matured)",
+      kycRequired && minPayout && held && row?.status === "pending" && Number(row?.ccoin_amount) === 50 && bal === 100 && gems === 10,
+      `kycReq=${kycRequired} min=${minPayout} held=${held} status=${row?.status} ccoin=${bal} gems=${gems}`,
     );
   }
 
@@ -315,7 +331,7 @@ try {
       "select platform_ccoin, royalty_ccoin, seller_ccoin from public.platform_revenue where ref_type = 'buyout' and ref_id in (select id from public.wallet_transactions where ref_id = $1 and type = 'platform_buy')",
       [card],
     );
-    const sellerBal = await walletBalance(seller);
+    const sellerBal = await gemsBalance(seller);
     const treasuryDelta = (await walletBalance(TREASURY)) - before;
     const ok =
       ship.rows[0].n === 0 &&
@@ -324,7 +340,7 @@ try {
       sellerBal === 84 &&
       treasuryDelta === 8;
     report(
-      "T6 buyout vault-only + split 8/8/84",
+      "T6 buyout vault-only + split 8/8/84 (seller -> gems)",
       ok,
       `ship_n=${ship.rows[0].n} loc=${cardRow.rows[0].l} seller=${sellerBal} treasuryΔ=${treasuryDelta} rev=${JSON.stringify(rev.rows[0] ?? {})}`,
     );
@@ -348,9 +364,9 @@ try {
     await cs.end();
     const ship = await admin.query("select count(*)::int as n from public.shipments where card_id = $1", [card]);
     const cardRow = await admin.query("select location::text as l from public.cards where id = $1", [card]);
-    const sellerBal = await walletBalance(seller);
+    const sellerBal = await gemsBalance(seller);
     report(
-      "T7 accept_bid vault-only (tanpa shipment)",
+      "T7 accept_bid vault-only (tanpa shipment, seller -> gems)",
       ship.rows[0].n === 0 && cardRow.rows[0].l === "platform_vault" && sellerBal === 50,
       `ship_n=${ship.rows[0].n} loc=${cardRow.rows[0].l} seller=${sellerBal} (ekspektasi 50)`,
     );
@@ -475,7 +491,7 @@ try {
     });
     const c = await asUser(buyer);
     const treasuryBefore = await walletBalance(TREASURY);
-    const creatorBefore = await walletBalance(U.creator);
+    const creatorBefore = await gemsBalance(U.creator);
     await c.query("select public.checkout($1, 'premium')", [drop]);
     await c.end();
     const order = await admin.query(
@@ -490,7 +506,7 @@ try {
       "select gross_ccoin, platform_ccoin, royalty_ccoin, fee_snapshot->>'platform_pct' as pct from public.platform_revenue where ref_type = 'order' and ref_id in (select id from public.orders where drop_id = $1)",
       [drop],
     );
-    const creatorDelta = (await walletBalance(U.creator)) - creatorBefore;
+    const creatorDelta = (await gemsBalance(U.creator)) - creatorBefore;
     const buyerBal = await walletBalance(buyer);
     const treasuryDelta = (await walletBalance(TREASURY)) - treasuryBefore;
     // RPC membaca price_signed_ccoin apa adanya (premium fee TIDAK diarahkan ke
@@ -544,13 +560,17 @@ try {
       "select platform_ccoin, royalty_ccoin, seller_ccoin from public.platform_revenue where ref_type = 'bid' and ref_id in (select id from public.bids where card_id = $1)",
       [card],
     );
-    const sellerBal = await walletBalance(seller);
+    const sellerBal = await gemsBalance(seller);
     const ok =
       Number(rev.rows[0]?.platform_ccoin) === 1 &&
       Number(rev.rows[0]?.royalty_ccoin) === 1 &&
       Number(rev.rows[0]?.seller_ccoin) === 4 &&
       sellerBal === 4;
-    report("T11 accept_bid ceil split 1/1/4 @ price 6", ok, `rev=${JSON.stringify(rev.rows[0] ?? {})} seller=${sellerBal} (ekspektasi 4)`);
+    report(
+      "T11 accept_bid ceil split 1/1/4 @ price 6 (seller -> gems)",
+      ok,
+      `rev=${JSON.stringify(rev.rows[0] ?? {})} seller=${sellerBal} (ekspektasi 4)`,
+    );
   }
 
   // ══ T12: accept_bid harga kecil — guard SECONDARY_PRICE_TOO_SMALL ═════════
@@ -585,7 +605,7 @@ try {
         raised = errCode(e);
       }
       await cs.end();
-      results12[price] = { raised, sellerBal: await walletBalance(seller) };
+      results12[price] = { raised, sellerBal: await gemsBalance(seller) };
     }
     const okT12 =
       results12[1].raised === "SECONDARY_PRICE_TOO_SMALL" &&
@@ -637,7 +657,7 @@ try {
         raised = errCode(e);
       }
       await c.end();
-      results13[price] = { raised, sellerBal: await walletBalance(seller) };
+      results13[price] = { raised, sellerBal: await gemsBalance(seller) };
     }
     const revT13 = await admin.query(
       "select platform_ccoin, royalty_ccoin, seller_ccoin from public.platform_revenue where ref_type = 'buyout' and ref_id in (select id from public.wallet_transactions where ref_id in (select id from public.cards where drop_id = $1) and type = 'platform_buy')",

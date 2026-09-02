@@ -127,6 +127,12 @@ async function walletBalance(userId) {
   return r.rows[0]?.balance_ccoin ?? 0;
 }
 
+// Dual-token 2026-09-03: settle seller/royalty seed sale masuk balance_gems.
+async function gemsBalance(userId) {
+  const r = await admin.query("select balance_gems from public.wallets where user_id = $1", [userId]);
+  return r.rows[0]?.balance_gems ?? 0;
+}
+
 // ── Fixture dasar ──────────────────────────────────────────────────────────
 await mkUser(U.creator, "Seed Creator", 0);
 await mkUser(U.buyer, "Seed Buyer", 5000);
@@ -212,7 +218,7 @@ const BID_AMOUNT = 150; // split: ceil(7,5%)=12 platform + 12 royalti + 126 sell
   const drop = `seed-t2-${stamp}`;
   const card = `seed-card-t2-${stamp}`;
   await mkSeedDrop(drop, card);
-  const creatorBalBase = await walletBalance(U.creator);
+  const creatorBalBase = await gemsBalance(U.creator);
   const buyerXpBefore = (await admin.query("select total_xp from public.users where id = $1", [U.buyer])).rows[0].total_xp;
   const cBuyer = await asUser(U.buyer);
   await cBuyer.query("select public.place_bid($1, $2)", [card, BID_AMOUNT]);
@@ -238,7 +244,7 @@ const BID_AMOUNT = 150; // split: ceil(7,5%)=12 platform + 12 royalti + 126 sell
   } catch (e) {
     preVaultBlocked = errCode(e) === "SEED_VAULT_IN_REQUIRED";
   }
-  const creatorBalBefore = await walletBalance(U.creator);
+  const creatorBalBefore = await gemsBalance(U.creator);
   const creatorSettled = creatorBalBefore - creatorBalBase; // 0 — belum settle
 
   // (c) vault-in (lokasi saja — meniru admin PATCH vault-in) + tap NFC
@@ -247,7 +253,7 @@ const BID_AMOUNT = 150; // split: ceil(7,5%)=12 platform + 12 royalti + 126 sell
 
   // (d) release -> settle SUKSES
   await admin.query("select public.release_seed_sale($1)", [card]);
-  const creatorBal = await walletBalance(U.creator); // 126 seller + 12 royalti sama akun
+  const creatorBal = await gemsBalance(U.creator); // 126 seller + 12 royalti sama akun (gems)
   const rev = await admin.query(
     "select platform_ccoin, royalty_ccoin, seller_ccoin from public.platform_revenue where ref_type = 'bid' and ref_id = (select id from public.bids where card_id = $1 and status = 'accepted' order by accepted_at desc limit 1)",
     [card],
@@ -274,7 +280,7 @@ const BID_AMOUNT = 150; // split: ceil(7,5%)=12 platform + 12 royalti + 126 sell
     userReleaseDenied &&
     preVaultBlocked &&
     creatorSettled === 0 && // seller BELUM dibayar sebelum release
-    creatorBal - creatorBalBase === 138 && // 126 seller (85%) + 12 royalti kreator (7,5% ceil) — kreator-owner efektif 92,5%
+    creatorBal - creatorBalBase === 138 && // 126 seller (85%) + 12 royalti (7,5% ceil) GEMS — kreator-owner efektif 92,5%
     Number(rev.rows[0]?.platform_ccoin) === 12 &&
     Number(rev.rows[0]?.royalty_ccoin) === 12 &&
     Number(rev.rows[0]?.seller_ccoin) === 126 &&
@@ -288,7 +294,7 @@ const BID_AMOUNT = 150; // split: ceil(7,5%)=12 platform + 12 royalti + 126 sell
     buyerXpDelta >= BID_AMOUNT && // spend = amount, plus badge XP (first_drop +100 via ownership trigger)
     secondReleaseBlocked;
   report(
-    "T-SEED-2 vault-in+verified -> release 85/7,5/7,5 (idempotent, service_role only)",
+    "T-SEED-2 vault-in+verified -> release 85/7,5/7,5 gems (idempotent, service_role only)",
     ok,
     `userDenied=${userReleaseDenied} preVault=${preVaultBlocked} creatorDelta=${creatorBal - creatorBalBase} rev=${JSON.stringify(rev.rows[0] ?? {})} shipFrom=${ship.rows[0]?.from_location} loc=${cardRow?.location} xpDelta=${buyerXpDelta} secondRelease=${secondReleaseBlocked}`,
   );
@@ -299,7 +305,7 @@ const BID_AMOUNT = 150; // split: ceil(7,5%)=12 platform + 12 royalti + 126 sell
   const drop = `seed-t3-${stamp}`;
   const card = `seed-card-t3-${stamp}`;
   await mkNormalCard(drop, card);
-  const sellerBalBase = await walletBalance(U.normalSeller);
+  const sellerBalBase = await gemsBalance(U.normalSeller);
   const cBuyer = await asUser(U.buyer);
   await cBuyer.query("select public.place_bid($1, 100)", [card]);
   await cBuyer.end();
@@ -312,13 +318,13 @@ const BID_AMOUNT = 150; // split: ceil(7,5%)=12 platform + 12 royalti + 126 sell
     console.log(`T-SEED-3 unexpected error: ${errCode(e)}`);
   }
   await cSeller.end();
-  const sellerBal = await walletBalance(U.normalSeller);
+  const sellerBal = await gemsBalance(U.normalSeller);
   const cardRow = (await admin.query("select owner_id, status from public.cards where id = $1", [card])).rows[0];
-  // split 100 -> round(7,5)=8 platform + 8 royalti + 84 seller (round half up)
+  // split 100 -> round(7,5)=8 platform + 8 royalti + 84 seller GEMS (round half up)
   const sellerDelta = sellerBal - sellerBalBase;
   const ok = settled && sellerDelta === 84 && cardRow?.owner_id === U.buyer && cardRow?.status === "sold";
   report(
-    "T-SEED-3 non-seed tanpa gate (accept langsung settle)",
+    "T-SEED-3 non-seed tanpa gate (accept langsung settle, seller gems)",
     ok,
     `settled=${settled} sellerDelta=${sellerDelta} owner=${cardRow?.owner_id ?? null}`,
   );
@@ -397,7 +403,7 @@ const BID_AMOUNT = 150; // split: ceil(7,5%)=12 platform + 12 royalti + 126 sell
   const drop = `seed-t6-${stamp}`;
   const card = `seed-card-t6-${stamp}`;
   await mkSeedDrop(drop, card);
-  const creatorBalBase = await walletBalance(U.creator);
+  const creatorBalBase = await gemsBalance(U.creator);
   const buyerBalBefore = await walletBalance(U.buyer);
   await admin.query("update public.cards set buyout_price_ccoin = 200 where id = $1", [card]);
   const c = await asUser(U.buyer);
@@ -416,9 +422,9 @@ const BID_AMOUNT = 150; // split: ceil(7,5%)=12 platform + 12 royalti + 126 sell
     )
   ).rows[0];
   const cardPhase1 = (await admin.query("select status, owner_id, buyout_price_ccoin from public.cards where id = $1", [card])).rows[0];
-  const creatorBeforeRelease = await walletBalance(U.creator);
+  const creatorBeforeRelease = await gemsBalance(U.creator);
   const buyerAfterPhase1 = await walletBalance(U.buyer);
-  const buyerDebit = buyerBalBefore - buyerAfterPhase1; // 200 — debit PHASE-1
+  const buyerDebit = buyerBalBefore - buyerAfterPhase1; // 200 — debit PHASE-1 (ccoin)
 
   // SALE_IN_PROGRESS juga berlaku saat order buyout pending
   let bidBlocked = false;
@@ -442,7 +448,7 @@ const BID_AMOUNT = 150; // split: ceil(7,5%)=12 platform + 12 royalti + 126 sell
   await admin.query("update public.cards set verify_status = 'verified' where id = $1", [card]);
   await admin.query("select public.release_seed_sale($1)", [card]);
 
-  const creatorBal = await walletBalance(U.creator); // 170 seller + 15 royalti
+  const creatorBal = await gemsBalance(U.creator); // 170 seller + 15 royalti (gems)
   const rev = await admin.query(
     "select platform_ccoin, royalty_ccoin, seller_ccoin from public.platform_revenue where ref_type = 'order' and ref_id = $1",
     [orderRow?.id],
@@ -472,7 +478,7 @@ const BID_AMOUNT = 150; // split: ceil(7,5%)=12 platform + 12 royalti + 126 sell
     creatorBeforeRelease - creatorBalBase === 0 && // seller BELUM dibayar
     bidBlocked &&
     preVaultBlocked &&
-    creatorBal - creatorBalBase === 185 && // 170 (85%) + 15 (7,5%)
+    creatorBal - creatorBalBase === 185 && // 170 (85%) + 15 (7,5%) GEMS
     Number(rev.rows[0]?.platform_ccoin) === 15 &&
     Number(rev.rows[0]?.royalty_ccoin) === 15 &&
     Number(rev.rows[0]?.seller_ccoin) === 170 &&

@@ -173,20 +173,35 @@ await admin.query("commit");
   const auditBefore = (await admin.query("select count(*)::int as n from public.admin_audit_log where target_id = $1", [payoutId])).rows[0]
     .n;
   const refunded = (await admin.query("select status::text as st from public.payout_refund($1) as p", [payoutId])).rows[0].st;
+  // Dual-token 2026-09-03: refund payout kredit balik GEMS (lot langsung
+  // matured), bukan wallet_transactions C-Coin.
   const credit = (
     await admin.query(
-      "select amount_ccoin::int as amt from public.wallet_transactions where user_id = $1 and type = 'payout_refund' and metadata->>'idempotency_key' = $2",
+      "select amount::int as amt from public.gem_transactions where user_id = $1 and ref_type = 'payout_refund' and idem_key = $2",
       [payoutUserId, `payout-refund-${payoutId}`],
+    )
+  ).rows[0];
+  const gemWallet = (await admin.query("select balance_gems::int as g from public.wallets where user_id = $1", [payoutUserId])).rows[0];
+  const refundLot = (
+    await admin.query(
+      "select mature_at <= now() as matured from public.gem_lots where user_id = $1 and ref_type = 'payout_refund' and ref_id = $2",
+      [payoutUserId, payoutId],
     )
   ).rows[0];
   const auditAfter = (await admin.query("select count(*)::int as n from public.admin_audit_log where target_id = $1", [payoutId])).rows[0]
     .n;
 
-  const ok = auditBefore === 0 && refunded === "refunded" && credit?.amt === 100 && auditAfter === 0;
+  const ok =
+    auditBefore === 0 &&
+    refunded === "refunded" &&
+    credit?.amt === 100 &&
+    gemWallet?.g === 100 &&
+    refundLot?.matured === true &&
+    auditAfter === 0;
   report(
-    "A3 payout_refund sukses (refund 100C, status refunded) TANPA leg admin_audit_log (TEMUAN: audit hanya di API layer)",
+    "A3 payout_refund sukses (refund 100 -> gems lot matured, status refunded) TANPA leg admin_audit_log (TEMUAN: audit hanya di API layer)",
     ok,
-    `auditBefore=${auditBefore} payoutStatus=${refunded} credit=${credit?.amt} auditAfter=${auditAfter}`,
+    `auditBefore=${auditBefore} payoutStatus=${refunded} gemsCredit=${credit?.amt} gemsBalance=${gemWallet?.g} lotMatured=${refundLot?.matured} auditAfter=${auditAfter}`,
   );
 }
 
