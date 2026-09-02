@@ -50,7 +50,6 @@ export default function CreatorPage() {
     isError,
     error,
     refetch: refetchCreator,
-    isFetching,
   } = useQuery<ApiCreatorPublicResponse>({
     queryKey: ["creator-pub", username],
     queryFn: () => api.creatorPublic(username!),

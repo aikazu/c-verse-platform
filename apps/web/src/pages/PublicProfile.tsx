@@ -17,7 +17,7 @@ function getSigil(displayName: string, username: string | null | undefined): str
 
 export default function PublicProfile() {
   const { username } = useParams();
-  const { data, isLoading, isError, error, refetch, isFetching } = useQuery<ApiPublicProfileResponse>({
+  const { data, isLoading, isError, error, refetch } = useQuery<ApiPublicProfileResponse>({
     queryKey: ["public-profile", username],
     queryFn: () => api.publicProfile(username!),
     enabled: !!username,
