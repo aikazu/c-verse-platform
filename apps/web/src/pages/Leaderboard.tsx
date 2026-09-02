@@ -112,7 +112,7 @@ export default function Leaderboard() {
       return [
         { key: "LV TERTINGGI", value: String(topLevel) },
         { key: "XP TERTINGGI", value: topXp.toLocaleString("id-ID") },
-        { key: "PEMAIN", value: String(board.length) },
+        { key: "KOLEKTOR", value: String(board.length) },
       ];
     }
     if (activeType === "cards") {
