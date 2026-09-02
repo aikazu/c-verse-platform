@@ -45,13 +45,6 @@
 	color: var(--text-muted);
 }
 
-.wa-balance-idr {
-	font-family: var(--font-mono);
-	font-size: 11px;
-	color: var(--text-muted);
-	margin-top: 6px;
-}
-
 .wa-hr {
 	border: none;
 	border-top: 1px solid var(--border);

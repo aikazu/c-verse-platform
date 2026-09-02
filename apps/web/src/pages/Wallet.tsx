@@ -1,4 +1,4 @@
-import { BALANCE_CAP_CCOIN, C_COIN_RATE_IDR, walletTxTypeLabel } from "@c-verse/shared";
+import { BALANCE_CAP_CCOIN, walletTxTypeLabel } from "@c-verse/shared";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -12,8 +12,6 @@ import { ErrorState, LoadingState } from "../lib/QueryStates";
 import { useToast } from "../lib/toast";
 import "./wallet.css";
 
-// Rate tampilan dari konstanta shared — tidak ada salinan "Rp 10.000" manual.
-const RATE_LABEL = `1 C = ${formatIdr(C_COIN_RATE_IDR)}`;
 // Fallback terakhir untuk error tanpa code-map — jangan render teks server mentah.
 const GENERIC_ERROR = "Terjadi kesalahan, coba lagi";
 
@@ -122,7 +120,7 @@ function WalletInner() {
   const payoutHoldUntil: string | null = data.payoutHoldUntil ?? null;
   return (
     <div className="page-stack">
-      <PageHero heroVisual={<DompetVisual />} channel="08" channelLabel="DOMPET" title="Dompet" desc={RATE_LABEL} />
+      <PageHero heroVisual={<DompetVisual />} channel="08" channelLabel="DOMPET" title="Dompet" />
 
       {payoutHeld && (
         <div className="card card-pad wa-alert">
@@ -139,7 +137,6 @@ function WalletInner() {
             <span className="wa-balance-value">{w.balanceCCoin}</span>
             <span className="wa-balance-unit">C-Coin</span>
           </div>
-          <div className="wa-balance-idr">≈ {formatIdr(w.balanceIdrEquiv ?? w.balanceCCoin * rate)}</div>
           <hr className="wa-hr" />
           <div className="wa-balance-stats">
             <span className="wa-balance-stat">Total isi {w.totalTopupCCoin ?? 0} C</span>
@@ -151,7 +148,7 @@ function WalletInner() {
         <div className="card card-pad wa-actions">
           <div>
             <div className="wa-block-title">Isi Saldo</div>
-            <div className="muted wa-sub">Pilih metode dan nominal — {RATE_LABEL}</div>
+            <div className="muted wa-sub">Pilih metode dan nominal</div>
           </div>
           <div className="wa-note wa-note-gold">
             Saldo C-Coin <strong className="wa-note-strong">tidak dapat diuangkan</strong>.
