@@ -337,7 +337,7 @@ button, a, [role="button"] { touch-action: manipulation; }
 table { width: 100%; border-collapse: collapse; font-size: 13px; }
 th {
   text-align: left; font-family: var(--font-mono); font-size: 12px; font-weight: 400;
-  letter-spacing: 0.1em; text-transform: uppercase; color: var(--info);
+  letter-spacing: 0.08em; text-transform: uppercase; color: var(--info);
   padding: 10px 12px; border-bottom: 1px solid var(--border-strong);
 }
 td { padding: 12px; border-bottom: 1px solid var(--border); }
@@ -935,14 +935,20 @@ tbody tr:hover { background: rgba(91, 230, 255, 0.05); }
 
 /* ── Chip bar — phase filter (Drops) ───────────────────────────────────────── */
 .chip-bar {
-  display: flex; gap: 8px; flex-wrap: wrap;
+  display: flex; gap: 8px; flex-wrap: nowrap;
   padding: 6px;
   background: rgba(11, 18, 36, 0.6);
   border: 1px solid var(--border);
   border-radius: 999px;
   backdrop-filter: blur(8px);
-  align-self: flex-start;
+  align-self: stretch;
+  width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
 }
+.chip-bar::-webkit-scrollbar { display: none; }
 .chip {
   display: inline-flex; align-items: center; gap: 6px;
   padding: 8px 14px;
@@ -950,7 +956,7 @@ tbody tr:hover { background: rgba(91, 230, 255, 0.05); }
   text-transform: uppercase; font-weight: 500;
   background: transparent; color: var(--text-muted);
   border: 1px solid transparent; border-radius: 999px;
-  cursor: pointer; user-select: none;
+  cursor: pointer; user-select: none; white-space: nowrap; flex-shrink: 0;
   transition: color var(--motion-fast), background var(--motion-fast), border-color var(--motion-fast), box-shadow var(--motion-fast);
 }
 .chip:hover { color: var(--text); background: rgba(91, 230, 255, 0.06); }
@@ -970,9 +976,10 @@ tbody tr:hover { background: rgba(91, 230, 255, 0.05); }
 .chip.upcoming .chip-dot { background: var(--info); }
 .chip.ended .chip-dot { background: var(--text-dim); }
 .chip.fcfs .chip-dot { background: var(--gold); }
+.chip.active .chip-count { background: rgba(0,0,0,0.22); }
 .chip .chip-count {
   font-family: var(--font-mono); font-size: 10px; padding: 1px 6px;
-  background: rgba(0, 0, 0, 0.25); border-radius: 999px;
+  background: rgba(0, 0, 0, 0.35); border-radius: 999px; font-variant-numeric: tabular-nums;
 }
 
 /* ── Sort + search row ─────────────────────────────────────────────────────── */
@@ -1590,7 +1597,7 @@ tbody tr:hover { background: rgba(91, 230, 255, 0.05); }
 .empty-arcade .empty-icon {
   font-family: var(--font-crt); font-size: 36px; line-height: 1;
   color: var(--info); text-shadow: 0 0 18px rgba(91, 230, 255, 0.45);
-  letter-spacing: 0.1em;
+  letter-spacing: 0.08em;
 }
 .empty-arcade .empty-title {
   margin-top: 14px;
