@@ -144,13 +144,13 @@ Then C-Coin di-hold (escrow): reguler = harga unsigned (30),
    premium/keduanya = harga signed (50)
 And entry tercatat — limit 1 entry/user/drop, tidak bisa
    dibatalkan (dana otomatis kembali saat draw jika kalah)
-And notifikasi email konfirmasi entry terkirim
+And notifikasi in-app konfirmasi entry terkirim (email hanya untuk hasil menang — lane low volume)
 ```
 
 ### US-USR-001a — Hasil draw raffle (fase 2)
 ```
 Given window raffle tutup dan draw selesai (otomatis, batch)
-When hasil diumumkan (notif email/FCM)
+When hasil diumumkan (winner: in-app + email; peserta lain: in-app)
 Then winner: order dibuat (PAID, default vault), hold
    dikonversi menjadi pembayaran — winner reguler dari pool
    "keduanya" mendapat kembali selisih (mis. 20)

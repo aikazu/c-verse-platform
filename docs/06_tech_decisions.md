@@ -19,7 +19,7 @@ repo-root (pnpm workspace)
 Infra pendukung:
   Supabase (Postgres + Auth + Realtime + Supavisor)
   Cloudflare R2 (artwork, 3D, KYC private) + Queues (email, payout) + Cron Triggers (raffle draw, payout batch — settlement pembelian langsung di RPC, founder 2026-08-28; badge murni event-driven tanpa cron, lihat `05_data_model.md`)
-  Cloudflare Email Service (binding `send_email` — email transaksional API), FCM (push, post-MVP), Midtrans (top-up + disbursement)
+  Cloudflare Email Service (binding `send_email` — email transaksional API: akses kreator + queue notifikasi uang/pemenuhan `lib/emailQueue.ts` via cron 1 menit; lane LOW VOLUME HIGH VALUE — outbid, bid masuk, dan kalah raffle tetap in-app saja, 2026-09-02), FCM (push, post-MVP), Midtrans (top-up + disbursement)
   Domain FINAL: c-verse.co (primary), c-verse.id → 301 redirect
   NDEF URL final: https://c-verse.co/cards/{shortId}/3d (LOCK sebelum provisioning)
 ```

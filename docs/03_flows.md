@@ -62,7 +62,8 @@ raffle_end_at tercapai -> cron 5-menit trigger RPC draw_drop()
    3. Winners -> order dibuat (PAID, DEFAULT vault), kartu dialokasi
       random per pool, hold dikonversi menjadi pembayaran
    4. Losers -> hold di-release penuh otomatis
-   5. Notifikasi hasil (email/FCM) ke semua entrants
+   5. Notifikasi hasil: winner dapat in-app + EMAIL; peserta lain
+      in-app saja (email lane low volume, high value — 2026-09-02)
 
 Phase 3 — FCFS SISA UNIT (setelah draw s/d drop_end_at / sold out)
 unit tersisa per pool (peminat < stok) -> checkout biasa
