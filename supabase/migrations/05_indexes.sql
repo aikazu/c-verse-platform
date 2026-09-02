@@ -51,6 +51,11 @@ create index if not exists idx_notifications_unread
   on public.notifications(user_id, read_at)
   where channel = 'in_app' and status = 'sent';
 
+-- notifications queue: drain email transaksional (lib/emailQueue.ts via cron 1 menit)
+create index if not exists idx_notifications_email_queue
+  on public.notifications(created_at)
+  where channel = 'email' and status = 'pending';
+
 -- ══════════════════════════════════════════════════════════════════════════
 -- Leaderboard (get_leaderboard, keputusan 2026-08-27): TIDAK ada index baru.
 -- Audit access-path vs index existing di 01_schema/05_indexes:

@@ -31,6 +31,8 @@
 --   - admin_fulfill_shipment:   20260823040000_admin_fulfill_tracking_trim.sql (+ guard + trim tracking)
 --   - payout_refund:            20260823030000_release_seed_grant_lock.sql (+ guard)
 --   - send_support:             BARU 2026-08-31 (A1: fan dukungan 100% ke kreator; XP 1:1 pengirim)
+--   - notify_user:              BARU 2026-09-02 (queue email transaksional; revoke
+--    anon+authenticated — hanya trigger/security definer yang memanggil)
 --
 -- Defense-in-depth: 4 service-only RPC (release_seed_sale, admin_fulfill_shipment,
 -- payout_refund, payout_batch_run) + cancel_seed_sale SEMUA punya in-body
@@ -136,6 +138,19 @@ begin
   values (gen_random_uuid()::text, p_user, p_type::wallet_tx_type, p_amount, v_wallet.balance_ccoin, p_ref_type, p_ref_id,
           null, jsonb_build_object('idempotency_key', coalesce(p_idem, gen_random_uuid()::text)))
   returning * into v_tx;
+
+  -- Top-up berhasil = uang nyata masuk (Midtrans settle) -> in_app + email ✉.
+  -- Jalur non-top_up (royalty/refund/credit internal) TIDAK menimbulkan notif.
+  -- Letaknya setelah insert wallet_transactions: replay idempotent early-return
+  -- di atas tidak pernah menduplikasi notifikasi.
+  if p_type = 'top_up' then
+    perform public.notify_user(
+      p_user,
+      'topup_settled',
+      jsonb_build_object('amount', p_amount, 'balance', v_wallet.balance_ccoin, 'refId', p_ref_id),
+      true
+    );
+  end if;
   return v_tx;
 end $$;
 
@@ -529,6 +544,12 @@ begin
       perform public.record_platform_revenue('primary', 'order', v_order.id, v_price, v_price - v_royalty, v_royalty, 0);
 
       update drop_entries set status = 'won_premium' where id = v_entry.id;
+      perform public.notify_user(
+        v_entry.user_id,
+        'drop_won',
+        jsonb_build_object('dropId', p_drop_id, 'dropTitle', v_drop.title, 'variant', 'signed', 'amount', v_price),
+        true
+      );
       v_winners := v_winners + 1;
     end loop;
   end if;
@@ -578,15 +599,28 @@ begin
     end if;
 
     update drop_entries set status = 'won_regular' where id = v_entry.id;
+    perform public.notify_user(
+      v_entry.user_id,
+      'drop_won',
+      jsonb_build_object('dropId', p_drop_id, 'dropTitle', v_drop.title, 'variant', 'unsigned', 'amount', v_price),
+      true
+    );
     v_winners := v_winners + 1;
   end loop;
 
-  -- 3. Sisanya -> lost + refund hold penuh
+  -- 3. Sisanya -> lost + refund hold penuh. Notif pecundang raffle = in-app
+  -- SAJA (bisa ratusan per draw — email massal 12:00 WIB = anti-pattern).
   update drop_entries e set status = 'lost'
   where e.drop_id = p_drop_id and e.status = 'held';
   for v_entry in select * from drop_entries where drop_id = p_drop_id and status = 'lost' loop
     perform public.wallet_credit(v_entry.user_id, v_entry.hold_ccoin, 'refund', 'drop_entry', v_entry.id,
             'refund-' || v_entry.id);
+    perform public.notify_user(
+      v_entry.user_id,
+      'drop_lost',
+      jsonb_build_object('dropId', p_drop_id, 'dropTitle', v_drop.title, 'refund', v_entry.hold_ccoin),
+      false
+    );
     update drop_entries set status = 'refunded' where id = v_entry.id;
   end loop;
 
@@ -1798,20 +1832,54 @@ grant execute on function public.get_leaderboard(text, uuid, integer) to authent
 grant execute on function public.get_leaderboard(text, uuid, integer) to service_role;
 
 -- ══════════════════════════════════════════════════════════════════════════
--- Notification triggers (P0-3 audit 2026-08-24). Event-driven INSERT ke
--- `notifications` untuk event-event penting tanpa menunggu perubahan manual
--- dari RPC. Status='sent' langsung dari trigger; worker push/email filter
--- `where status='sent' and channel<>'in_app'` (konsistensi).
+-- Notification triggers (P0-3 audit 2026-08-24) + email queue lane
+-- (keputusan owner 2026-09-02: email transaksional LOW VOLUME HIGH VALUE).
+-- Setiap event menulis baris in_app (status='sent', dibaca inbox) dan — hanya
+-- untuk event uang/pemenuhan bernilai tinggi — baris channel='email'
+-- (status='pending') yang dipanen worker drainEmailQueue (lib/emailQueue.ts,
+-- cron 1 menit) lalu dikirim via lib/email.ts. Event berkala (outbid,
+-- bid_received) dan seluruh pecundang raffle TETAP in_app saja — anti-spam.
 --
--- Pemberitahuan yang dicakup:
---   - bids     : outbid + accepted + received (INSERT)
---   - cards    : ownership transfer
---   - payouts  : status transitions
---   - shipments: shipped + delivered
+-- Pemberitahuan yang dicakup (✉ = ikut queue email):
+--   - bids     : outbid; accepted ✉; received (INSERT)
+--   - cards    : ownership transfer (card_bought) ✉
+--   - payouts  : paid ✉ / failed-refunded ✉
+--   - shipments: shipped ✉ + delivered ✉
+--   - kyc      : approved ✉ / rejected ✉
+--   - top-up   : wallet_credit p_type='top_up' ✉
+--   - raffle   : drop_won ✉ (pemenang); drop_lost (in-app saja)
 --
 -- Idempotent: semua trigger dibuat drop-if-exists dulu agar migration bisa
 -- diulang tanpa error saat development. Tables sudah ada di 01_schema.
 -- ══════════════════════════════════════════════════════════════════════════
+
+-- ══════════════════════════════════════════════════════════════════════════
+-- notify_user: satu pintu tulis notifikasi — SELALU in_app ('sent'), opsional
+-- email ('pending' = queue kerja worker email). Revoke anon+authenticated:
+-- hanya trigger/security definer yang boleh memanggil (anti-spam inbox orang).
+-- ══════════════════════════════════════════════════════════════════════════
+create or replace function public.notify_user(
+  p_user uuid,
+  p_template text,
+  p_payload jsonb,
+  p_email boolean
+) returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  insert into public.notifications(id, user_id, channel, template_key, payload, status)
+  values ('nfy-' || gen_random_uuid()::text, p_user, 'in_app', p_template, p_payload, 'sent');
+  if p_email then
+    insert into public.notifications(id, user_id, channel, template_key, payload, status, attempts)
+    values ('nfy-' || gen_random_uuid()::text, p_user, 'email', p_template, p_payload, 'pending', 0);
+  end if;
+end;
+$$;
+revoke execute on function public.notify_user(uuid, text, jsonb, boolean) from public;
+revoke execute on function public.notify_user(uuid, text, jsonb, boolean) from anon;
+revoke execute on function public.notify_user(uuid, text, jsonb, boolean) from authenticated;
 
 -- ══════════════════════════════════════════════════════════════════════════
 -- fn_drop_id_for_card DIHAPUS (Lane D 2026-08-31): dead code dengan EXECUTE
@@ -1835,30 +1903,25 @@ declare
   v_creator text;
 begin
   -- Arahkan bidder lama (status transisi dari 'active' ke 'outbid') bahwa
-  -- bid mereka sudah disalip.
+  -- bid mereka sudah disalip. In-app SAJA — high frequency, bukan email.
   if tg_op = 'UPDATE' and old.status = 'active' and new.status = 'outbid' then
-    insert into public.notifications(id, user_id, channel, template_key, payload, status)
-    values (
-      'nfb-'|| new.id || '-outbid-' || gen_random_uuid()::text,
+    perform public.notify_user(
       old.bidder_id,
-      'in_app',
       'bid_outbid',
       jsonb_build_object('cardId', new.card_id, 'newBid', new.amount_ccoin, 'yourBid', old.amount_ccoin),
-      'sent'
+      false
     );
   end if;
 
-  -- Bila bid baru di-accept owner: notif ke bidder + notif ke pemilik kartu
+  -- Bila bid baru di-accept owner: notif ✉ ke bidder + notif ke pemilik kartu
   -- bahwa kartu terjual (cards.owner_id diupdate dengan trigger terpisah).
+  -- Uang pindah antar-user, irreversible -> masuk queue email.
   if tg_op = 'UPDATE' and new.status = 'accepted' and old.status is distinct from 'accepted' then
-    insert into public.notifications(id, user_id, channel, template_key, payload, status)
-    values (
-      'nfb-' || new.id || '-accept-' || gen_random_uuid()::text,
+    perform public.notify_user(
       new.bidder_id,
-      'in_app',
       'bid_accepted',
       jsonb_build_object('cardId', new.card_id, 'amount', new.amount_ccoin),
-      'sent'
+      true
     );
   end if;
   return new;
@@ -1882,15 +1945,13 @@ declare
   v_owner uuid;
 begin
   select owner_id into v_owner from public.cards where id = new.card_id;
+  -- Info bid masuk = in-app saja (bisa sering; bukan perpindahan uang).
   if v_owner is not null and v_owner <> new.bidder_id then
-    insert into public.notifications(id, user_id, channel, template_key, payload, status)
-    values (
-      'nfb-' || new.id || '-new-' || gen_random_uuid()::text,
+    perform public.notify_user(
       v_owner,
-      'in_app',
       'bid_received',
       jsonb_build_object('cardId', new.card_id, 'bidderName', new.bidder_name, 'amount', new.amount_ccoin),
-      'sent'
+      false
     );
   end if;
   return new;
@@ -1915,19 +1976,19 @@ create or replace function public.fn_notify_card_owner_change() returns trigger
 as $$
 declare
   v_amount integer;
+  v_title text;
 begin
   if tg_op = 'UPDATE' and old.owner_id is distinct from new.owner_id
      and old.owner_id is not null and new.owner_id is not null then
     v_amount := new.buyout_price_ccoin;
+    select d.title into v_title from public.drops d where d.id = new.drop_id;
 
-    insert into public.notifications(id, user_id, channel, template_key, payload, status)
-    values (
-      'nfc-' || new.id || '-sold-' || gen_random_uuid()::text,
+    -- Kartu terjual = uang masuk ke seller -> email ✉.
+    perform public.notify_user(
       old.owner_id,
-      'in_app',
       'card_bought',
-      jsonb_build_object('cardId', new.id, 'amount', v_amount),
-      'sent'
+      jsonb_build_object('cardId', new.id, 'amount', v_amount, 'dropTitle', v_title),
+      true
     );
   end if;
   return new;
@@ -1949,25 +2010,23 @@ create or replace function public.fn_notify_payout_status() returns trigger
 as $$
 begin
   if tg_op = 'UPDATE' and old.status is distinct from new.status then
-    if new.status = 'paid' then
-      insert into public.notifications(id, user_id, channel, template_key, payload, status)
-      values (
-        'nfp-' || new.id || '-paid-' || gen_random_uuid()::text,
+    -- FIX 2026-09-02 (ditemukan test queue email): status terminal payout
+    -- adalah 'disbursed' (constraint payouts_status_check TIDAK punya 'paid') —
+    -- branch 'paid' lama tidak pernah aktif.
+    if new.status = 'disbursed' then
+      -- Dana payout benar-benar berpindah -> email ✉.
+      perform public.notify_user(
         new.user_id,
-        'in_app',
         'payout_disbursed',
         jsonb_build_object('payoutId', new.id, 'amount', new.ccoin_amount),
-        'sent'
+        true
       );
     elsif new.status = 'failed' or new.status = 'refunded' then
-      insert into public.notifications(id, user_id, channel, template_key, payload, status)
-      values (
-        'nfp-' || new.id || '-fail-' || gen_random_uuid()::text,
+      perform public.notify_user(
         new.user_id,
-        'in_app',
         'payout_failed',
         jsonb_build_object('payoutId', new.id, 'amount', new.ccoin_amount, 'status', new.status),
-        'sent'
+        true
       );
     end if;
   end if;
@@ -1997,24 +2056,19 @@ begin
       return new;
     end if;
     if new.status = 'shipped' then
-      insert into public.notifications(id, user_id, channel, template_key, payload, status)
-      values (
-        'nfs-' || new.id || '-ship-' || gen_random_uuid()::text,
+      -- C.Card fisik dalam perjalanan (resi) -> email ✉.
+      perform public.notify_user(
         v_buyer,
-        'in_app',
         'shipment_shipped',
         jsonb_build_object('cardId', new.card_id, 'trackingNumber', new.tracking_number),
-        'sent'
+        true
       );
     elsif new.status = 'delivered' then
-      insert into public.notifications(id, user_id, channel, template_key, payload, status)
-      values (
-        'nfs-' || new.id || '-deliv-' || gen_random_uuid()::text,
+      perform public.notify_user(
         v_buyer,
-        'in_app',
         'shipment_delivered',
         jsonb_build_object('cardId', new.card_id),
-        'sent'
+        true
       );
     end if;
   end if;
@@ -2026,6 +2080,32 @@ drop trigger if exists trg_shipments_status on public.shipments;
 create trigger trg_shipments_status
   after update on public.shipments
   for each row execute function public.fn_notify_shipment_status();
+
+-- ══════════════════════════════════════════════════════════════════════════
+-- 5. kyc_records: approved (payout terbuka, cap top-up lepas) / rejected.
+--    Keputusan atas dokumen identitas user -> email ✉.
+-- ══════════════════════════════════════════════════════════════════════════
+create or replace function public.fn_notify_kyc_status() returns trigger
+  language plpgsql
+  security definer
+  set search_path = public
+as $$
+begin
+  if tg_op = 'UPDATE' and old.status is distinct from new.status then
+    if new.status = 'approved' then
+      perform public.notify_user(new.user_id, 'kyc_approved', jsonb_build_object('status', new.status), true);
+    elsif new.status = 'rejected' then
+      perform public.notify_user(new.user_id, 'kyc_rejected', jsonb_build_object('status', new.status), true);
+    end if;
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_kyc_notify on public.kyc_records;
+create trigger trg_kyc_notify
+  after update on public.kyc_records
+  for each row execute function public.fn_notify_kyc_status();
 
 -- ══════════════════════════════════════════════════════════════════════════
 -- record_creator_page_view: analytics untuk /c/:username (docs 09 §2.8 +

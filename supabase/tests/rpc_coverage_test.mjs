@@ -763,6 +763,8 @@ await admin.query("commit");
   const shippedOrder = (
     await admin.query("select status::text as st, shipped_at is not null as at from public.orders where id = 'cov-order-ship-1'")
   ).rows[0];
+  // Queue email (2026-09-02): tiap transisi menulis 2 baris — in_app ('sent')
+  // + channel email ('pending' untuk worker drainEmailQueue).
   const notifShip = (
     await admin.query(
       "select count(*)::int as n from public.notifications where template_key = 'shipment_shipped' and payload->>'cardId' = 'cov-card-ship-1'",
@@ -820,12 +822,12 @@ await admin.query("commit");
     shippedCard === "platform_vault" && // location baru berubah saat delivered
     shippedOrder.st === "shipped" &&
     shippedOrder.at && // shipped_at terisi
-    notifShip === 1 && // trigger notifikasi shipped
+    notifShip === 2 && // trigger notifikasi shipped (in_app + queue email)
     delivered === "delivered" &&
     deliveredCard === "with_owner" && // delivered: card ke owner
     deliveredOrder.st === "delivered" &&
     deliveredOrder.at && // delivered_at terisi
-    notifDeliv === 1 && // trigger notifikasi delivered
+    notifDeliv === 2 && // trigger notifikasi delivered (in_app + queue email)
     terminal.startsWith("INVALID_TRANSITION") && // delivered = terminal
     cancelledSt === "cancelled" &&
     aBalBefore - aBalAfter === SHIPMENT_FEE && // vault_shipout: debit fee tepat sekali

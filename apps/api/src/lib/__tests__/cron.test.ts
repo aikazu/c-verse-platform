@@ -5,6 +5,8 @@ const control = vi.hoisted(() => ({
   rpcResults: new Map<string, { data: unknown; error: { message: string; code?: string } | null }>(),
   sendEmailCalls: [] as Array<{ to: string; subject: string; text: string; html: string }>,
   sendEmailError: undefined as unknown,
+  drainCalls: [] as string[],
+  drainError: undefined as unknown,
 }));
 
 vi.mock("../supabase.js", () => ({
@@ -24,7 +26,15 @@ vi.mock("../email.js", () => ({
   },
 }));
 
-const { CRON_EVERY_5_MIN, CRON_PAYOUT_BATCH, runCron } = await import("../cron.js");
+vi.mock("../emailQueue.js", () => ({
+  drainEmailQueue: () => {
+    control.drainCalls.push("drain");
+    if (control.drainError !== undefined) return Promise.reject(control.drainError);
+    return Promise.resolve({ disabled: false, sent: 0, failed: 0, retried: 0, stopped: false });
+  },
+}));
+
+const { CRON_EVERY_5_MIN, CRON_EVERY_MINUTE, CRON_PAYOUT_BATCH, runCron } = await import("../cron.js");
 
 function rpcFailure(fn: string, message: string): void {
   control.rpcResults.set(fn, { data: null, error: { message, code: "P0001" } });
@@ -95,5 +105,35 @@ describe("cron — admin alert digest on job failures", () => {
     control.sendEmailError = new Error("transport exploded");
     await expect(runCron(CRON_PAYOUT_BATCH, { ADMIN_ALERT_EMAIL: "admin@cverse.id" })).resolves.toBeUndefined();
     expect(control.sendEmailCalls).toHaveLength(1);
+  });
+});
+
+describe("cron — email queue drain lane (setiap menit)", () => {
+  beforeEach(() => {
+    control.rpcCalls = [];
+    control.rpcResults.clear();
+    control.sendEmailCalls = [];
+    control.sendEmailError = undefined;
+    control.drainCalls = [];
+    control.drainError = undefined;
+  });
+
+  it("every-minute: drainEmailQueue jalan, TANPA RPC drop/payout", async () => {
+    await runCron(CRON_EVERY_MINUTE, {});
+    expect(control.drainCalls).toEqual(["drain"]);
+    expect(control.rpcCalls).toHaveLength(0);
+  });
+
+  it("lane lain TIDAK memanggil drain", async () => {
+    await runCron(CRON_EVERY_5_MIN, {});
+    await runCron(CRON_PAYOUT_BATCH, {});
+    expect(control.drainCalls).toHaveLength(0);
+  });
+
+  it("drain gagal (DB down) -> failure digest terkirim seperti job lain", async () => {
+    control.drainError = new Error("DB down");
+    await runCron(CRON_EVERY_MINUTE, { ADMIN_ALERT_EMAIL: "admin@cverse.id" });
+    expect(control.sendEmailCalls).toHaveLength(1);
+    expect(control.sendEmailCalls[0].text).toContain("email_queue_drain");
   });
 });

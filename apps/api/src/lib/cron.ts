@@ -1,9 +1,11 @@
 import { type EmailBindings, type SendEmailBinding, sendEmail } from "./email.js";
+import { drainEmailQueue } from "./emailQueue.js";
 import { getSupabase } from "./supabase.js";
 
 // Cron handlers (docs/08 §3.3) — logika bisnis ada di SQL security-definer,
 // Workers hanya trigger. Badge & housekeeping tanpa cron: event-driven (docs/06).
 
+export const CRON_EVERY_MINUTE = "* * * * *"; // drain queue email transaksional (lib/emailQueue.ts)
 export const CRON_EVERY_5_MIN = "*/5 * * * *"; // scheduled drops activation + raffle draw
 export const CRON_PAYOUT_BATCH = "0 23 * * 1"; // Tue 06:00 WIB = Mon 23:00 UTC
 
@@ -87,7 +89,22 @@ async function sendFailureAlert(env: EnvLike, failures: CronJobFailure[]): Promi
 
 export async function runCron(cron: string, env: EnvLike): Promise<void> {
   const failures: CronJobFailure[] = [];
-  if (cron === CRON_EVERY_5_MIN) {
+  if (cron === CRON_EVERY_MINUTE) {
+    // Queue email transaksional (trigger SQL -> lib/emailQueue.ts). EMAIL_ENABLED
+    // off = no-op tanpa sentuh DB (dev). Kegagalan infrastruktur masuk digest
+    // seperti job lain.
+    try {
+      const result = await drainEmailQueue(env);
+      if (!result.disabled) {
+        console.log(
+          `[cron] email_queue_drain sent=${result.sent} retried=${result.retried} failed=${result.failed}${result.stopped ? " stopped=1" : ""}`,
+        );
+      }
+    } catch (err) {
+      console.error("[cron] email_queue_drain failed:", err instanceof Error ? err.message : err);
+      failures.push({ job: "email_queue_drain", message: err instanceof Error ? err.message : String(err) });
+    }
+  } else if (cron === CRON_EVERY_5_MIN) {
     // Founder 2026-08-28: escrow_auto_release dihapus — semua pembelian settle
     // langsung ke vault; shipping pasca-vault tidak pakai escrow.
     const activated = await rpcOrNull(env, failures, "activate_scheduled_drops");

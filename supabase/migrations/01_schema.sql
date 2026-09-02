@@ -361,6 +361,9 @@ create table public.notifications (
   template_key text not null,
   payload jsonb,
   status text not null default 'pending' check (status in ('pending','sent','failed')),
+  -- attempts: worker drain email (lib/emailQueue.ts) cap 3 percobaan -> 'failed'
+  -- (transient transport error di-retry tick berikutnya; permanen gagal setelah 3x).
+  attempts integer not null default 0,
   created_at timestamptz not null default now()
 );
 
