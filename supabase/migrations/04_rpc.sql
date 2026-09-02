@@ -33,6 +33,9 @@
 --   - send_support:             BARU 2026-08-31 (A1: fan dukungan 100% ke kreator; XP 1:1 pengirim)
 --   - notify_user:              BARU 2026-09-02 (queue email transaksional; revoke
 --    anon+authenticated — hanya trigger/security definer yang memanggil)
+--   - wallet_credit_gems /      BARU 2026-09-03 (dual-token C-Coin/C-Gems:
+--    wallet_debit_gems /          settlement income = gems + lot lock 24h;
+--    convert_gems                 payout debit matured FIFO; convert 1:1 no-XP)
 --
 -- Defense-in-depth: 4 service-only RPC (release_seed_sale, admin_fulfill_shipment,
 -- payout_refund, payout_batch_run) + cancel_seed_sale SEMUA punya in-body
@@ -152,6 +155,140 @@ begin
     );
   end if;
   return v_tx;
+end $$;
+
+-- ══════════════════════════════════════════════════════════════════════════
+-- C-Gems kernel (dual-token, keputusan owner 2026-09-03):
+--   - Pendapatan settlement USER (creator royalty drop, seller settlement
+--     accept_bid/buyout_card/release_seed_sale, support diterima) dikredit
+--     sebagai GEMS dengan lot terkunci 24 jam per-lot.
+--   - REFUND & escrow-release TETAP C-Coin (uang belanja yang dikembalikan);
+--     treasury/system user tetap C-Coin via record_platform_revenue.
+--   - payout_request debit HANYA lot matured (FIFO oldest-first);
+--     konversi Gems→C-Coin (convert_gems) boleh debit lot segala usia.
+--   - Semua kolom integer; tidak ada XP di jalur gems (XP = spend C-Coin).
+-- Helper internal: revoke eksplisit public/anon/authenticated, grant
+-- service_role saja (lesson audit 2026-08-30 — default privileges Supabase
+-- memberi EXECUTE public saat CREATE FUNCTION).
+-- Catatan p_matured: lot refund payout dibuat langsung matured (payout_refund);
+-- param ke-7 dengan default false — deviasi minimal dari kontrak 6-param
+-- supaya payout_refund tidak menduplikasi logika ledger. INTERNAL only.
+-- ══════════════════════════════════════════════════════════════════════════
+create or replace function public.wallet_credit_gems(
+  p_user uuid,
+  p_amount integer,
+  p_ref_type text,
+  p_ref_table text,
+  p_ref_id text,
+  p_idem text,
+  p_matured boolean default false
+) returns void
+language plpgsql security definer set search_path = public as $$
+declare
+  v_balance integer;
+begin
+  if p_amount is null or p_amount < 1 then raise exception 'INVALID_AMOUNT'; end if;
+  if p_idem is not null then
+    if exists (select 1 from gem_transactions where idem_key = p_idem) then
+      return; -- idempotent replay
+    end if;
+  end if;
+
+  insert into wallets (user_id) values (p_user) on conflict (user_id) do nothing;
+  select balance_gems into v_balance from wallets where user_id = p_user for update;
+
+  update wallets set balance_gems = balance_gems + p_amount
+  where user_id = p_user
+  returning balance_gems into v_balance;
+
+  -- Lot normal terkunci 24 jam; lot payout-refund langsung matured.
+  insert into gem_lots (user_id, amount, remaining, ref_type, ref_id, created_at, mature_at)
+  values (p_user, p_amount, p_amount, p_ref_type, p_ref_id, now(),
+          case when coalesce(p_matured, false) then now() else now() + interval '24 hours' end);
+
+  insert into gem_transactions (user_id, amount, balance_after_gems, ref_type, ref_table, ref_id, idem_key)
+  values (p_user, p_amount, v_balance, p_ref_type, p_ref_table, p_ref_id,
+          coalesce(p_idem, gen_random_uuid()::text));
+end $$;
+
+-- wallet_debit_gems: FIFO oldest-first (mature_at asc, lalu created_at asc).
+-- p_require_matured=true (payout): saldo total cukup tapi lot belum matured ->
+-- PAYOUT_GEMS_LOCKED; saldo benar-benar kurang -> INSUFFICIENT_GEMS.
+create or replace function public.wallet_debit_gems(
+  p_user uuid,
+  p_amount integer,
+  p_ref_type text,
+  p_ref_table text,
+  p_ref_id text,
+  p_idem text,
+  p_require_matured boolean
+) returns void
+language plpgsql security definer set search_path = public as $$
+declare
+  v_balance integer;
+  v_lot record;
+  v_remaining integer;
+begin
+  if p_amount is null or p_amount < 1 then raise exception 'INVALID_AMOUNT'; end if;
+  if p_idem is not null then
+    if exists (select 1 from gem_transactions where idem_key = p_idem) then
+      return; -- idempotent replay
+    end if;
+  end if;
+
+  insert into wallets (user_id) values (p_user) on conflict (user_id) do nothing;
+  select balance_gems into v_balance from wallets where user_id = p_user for update;
+  if v_balance < p_amount then raise exception 'INSUFFICIENT_GEMS'; end if;
+
+  if coalesce(p_require_matured, false) then
+    if coalesce((
+      select sum(remaining) from gem_lots
+      where user_id = p_user and remaining > 0 and mature_at <= now()
+    ), 0) < p_amount then
+      raise exception 'PAYOUT_GEMS_LOCKED';
+    end if;
+  end if;
+
+  v_remaining := p_amount;
+  for v_lot in
+    select id, remaining from gem_lots
+    where user_id = p_user and remaining > 0
+      and (not coalesce(p_require_matured, false) or mature_at <= now())
+    order by mature_at asc, created_at asc, id asc
+    for update
+  loop
+    exit when v_remaining <= 0;
+    update gem_lots
+    set remaining = remaining - least(remaining, v_remaining)
+    where id = v_lot.id;
+    v_remaining := v_remaining - least(v_lot.remaining, v_remaining);
+  end loop;
+
+  update wallets set balance_gems = balance_gems - p_amount
+  where user_id = p_user
+  returning balance_gems into v_balance;
+
+  insert into gem_transactions (user_id, amount, balance_after_gems, ref_type, ref_table, ref_id, idem_key)
+  values (p_user, -p_amount, v_balance, p_ref_type, p_ref_table, p_ref_id,
+          coalesce(p_idem, gen_random_uuid()::text));
+end $$;
+
+-- convert_gems: user-facing Gems→C-Coin 1:1 integer (min 1). Debit lot segala
+-- usia (p_require_matured=false — C-Coin tidak bisa dicairkan, tanpa risiko
+-- wash), lalu kredit C-Coin via wallet_credit type 'convert'. TANPA XP
+-- (kredit bukan spend; 'convert' di luar daftar XP wallet_debit).
+create or replace function public.convert_gems(p_amount integer) returns void
+language plpgsql security definer set search_path = public as $$
+declare
+  v_user uuid := auth.uid();
+begin
+  if v_user is null then raise exception 'AUTH_REQUIRED'; end if;
+  if p_amount is null or p_amount < 1 then raise exception 'INVALID_AMOUNT'; end if;
+
+  perform public.wallet_debit_gems(v_user, p_amount, 'convert', 'user', v_user::text,
+          'gems-convert-' || v_user || '-' || gen_random_uuid()::text, false);
+  perform public.wallet_credit(v_user, p_amount, 'convert', 'user', v_user::text,
+          'cc-convert-' || v_user || '-' || gen_random_uuid()::text);
 end $$;
 
 -- ══════════════════════════════════════════════════════════════════════════
@@ -353,10 +490,11 @@ begin
   insert into ownership_history (id, card_id, owner_id, acquired_via, order_id)
   values (gen_random_uuid()::text, v_card.id, v_user, 'primary', v_order.id);
 
-  -- Revenue share platform-produced 70/30 -> creator + ledger platform
+  -- Revenue share platform-produced 70/30 -> creator (GEMS, dual-token
+  -- 2026-09-03: penghasilan settlement user = gems, lot 24h) + ledger platform
   v_creator_share := floor(v_price * 0.3);
   if v_creator_share >= 1 and v_drop.creator_id is distinct from v_user then
-    perform public.wallet_credit(v_drop.creator_id, v_creator_share, 'royalty', 'order', v_order.id,
+    perform public.wallet_credit_gems(v_drop.creator_id, v_creator_share, 'royalty', 'order', v_order.id,
             'royalty-' || v_order.id);
     v_royalty_credited := v_creator_share;
   end if;
@@ -539,7 +677,7 @@ begin
 
       v_royalty := (floor(v_price * 0.3))::integer;
       if v_royalty >= 1 then
-        perform public.wallet_credit(v_drop.creator_id, v_royalty, 'royalty', 'order', v_order.id, 'royalty-' || v_order.id);
+        perform public.wallet_credit_gems(v_drop.creator_id, v_royalty, 'royalty', 'order', v_order.id, 'royalty-' || v_order.id);
       end if;
       perform public.record_platform_revenue('primary', 'order', v_order.id, v_price, v_price - v_royalty, v_royalty, 0);
 
@@ -587,7 +725,7 @@ begin
 
     v_royalty := (floor(v_price * 0.3))::integer;
     if v_royalty >= 1 then
-      perform public.wallet_credit(v_drop.creator_id, v_royalty, 'royalty', 'order', v_order.id, 'royalty-' || v_order.id);
+      perform public.wallet_credit_gems(v_drop.creator_id, v_royalty, 'royalty', 'order', v_order.id, 'royalty-' || v_order.id);
     end if;
     perform public.record_platform_revenue('primary', 'order', v_order.id, v_price, v_price - v_royalty, v_royalty, 0);
 
@@ -836,9 +974,9 @@ begin
   v_royalty_ccoin := ceil(v_bid.amount_ccoin * 0.075);
   v_seller_ccoin := v_bid.amount_ccoin - v_platform_ccoin - v_royalty_ccoin;
 
-  perform public.wallet_credit(v_user, v_seller_ccoin, 'settlement', 'bid', v_bid.id, 'settle-' || v_bid.id);
+  perform public.wallet_credit_gems(v_user, v_seller_ccoin, 'settlement', 'bid', v_bid.id, 'settle-' || v_bid.id);
   if v_royalty_ccoin >= 1 then
-    perform public.wallet_credit((select creator_id from drops where id = v_card.drop_id), v_royalty_ccoin,
+    perform public.wallet_credit_gems((select creator_id from drops where id = v_card.drop_id), v_royalty_ccoin,
             'royalty', 'bid', v_bid.id, 'royalty-' || v_bid.id);
     v_royalty_credited := v_royalty_ccoin;
   end if;
@@ -1023,9 +1161,9 @@ begin
   -- Ref revenue = id tx debit (unik per transaksi; kartu bisa terjual berulang)
   v_debit_tx := public.wallet_debit(v_user, v_price, 'platform_buy', 'card', p_card_id,
           'buyout-' || gen_random_uuid()::text);
-  perform public.wallet_credit(v_seller, v_seller_ccoin, 'settlement', 'card', p_card_id, 'settle-' || gen_random_uuid()::text);
+  perform public.wallet_credit_gems(v_seller, v_seller_ccoin, 'settlement', 'card', p_card_id, 'settle-' || gen_random_uuid()::text);
   if v_royalty_ccoin >= 1 then
-    perform public.wallet_credit((select creator_id from drops where id = v_card.drop_id), v_royalty_ccoin,
+    perform public.wallet_credit_gems((select creator_id from drops where id = v_card.drop_id), v_royalty_ccoin,
             'royalty', 'card', p_card_id, 'royalty-' || gen_random_uuid()::text);
     v_royalty_credited := v_royalty_ccoin;
   end if;
@@ -1086,7 +1224,9 @@ begin
 
   v_debit_tx := public.wallet_debit(v_user, p_amount, 'support', 'user', p_creator::text,
           'support-debit-' || gen_random_uuid()::text);
-  perform public.wallet_credit(p_creator, p_amount, 'support', 'user', v_user::text,
+  -- Dual-token 2026-09-03: dukungan yang DITERIMA kreator = gems (lot 24h);
+  -- sender debit + XP C-Coin tidak berubah.
+  perform public.wallet_credit_gems(p_creator, p_amount, 'support', 'user', v_user::text,
           'support-credit-' || gen_random_uuid()::text);
 
   return jsonb_build_object(
@@ -1097,6 +1237,9 @@ end $$;
 
 -- ══════════════════════════════════════════════════════════════════════════
 -- payout_request: creator minta disbursement (KYC + min 10 + hold check).
+-- Dual-token 2026-09-03: debit balance_gems HANYA dari lot matured (FIFO);
+-- saldo cukup tapi masih terkunci lot-nya -> PAYOUT_GEMS_LOCKED. Fee 1%,
+-- min 10, KYC gate, hold_payout_until — semua tidak berubah.
 -- ══════════════════════════════════════════════════════════════════════════
 create or replace function public.payout_request(p_amount integer) returns public.payouts
 language plpgsql security definer set search_path = public as $$
@@ -1116,9 +1259,10 @@ begin
     raise exception 'PAYOUT_HELD';
   end if;
 
-  -- Dana dikunci (debit) sampai batch disbursed; gagal batch -> refund manual via adjustment.
-  perform public.wallet_debit(v_user, p_amount, 'payout', 'payout_request', null,
-          'payout-req-' || v_user || '-' || gen_random_uuid()::text);
+  -- Dana dikunci (debit GEMS matured saja) sampai batch disbursed; gagal batch
+  -- -> payout_refund kredit balik gems sebagai lot langsung matured.
+  perform public.wallet_debit_gems(v_user, p_amount, 'payout', 'payout_request', null,
+          'payout-req-' || v_user || '-' || gen_random_uuid()::text, true);
 
   -- idr_amount diisi payout_batch_run (net setelah fee 1%); 0 = placeholder.
   insert into payouts (id, user_id, type, ccoin_amount, idr_amount, status, requested_at)
@@ -1269,9 +1413,9 @@ begin
     v_royalty_ccoin := ceil(v_price * 0.075);
     v_seller_ccoin := v_price - v_platform_ccoin - v_royalty_ccoin;
 
-    perform public.wallet_credit(v_seller, v_seller_ccoin, 'settlement', 'bid', v_bid.id, 'settle-' || v_bid.id);
+    perform public.wallet_credit_gems(v_seller, v_seller_ccoin, 'settlement', 'bid', v_bid.id, 'settle-' || v_bid.id);
     if v_royalty_ccoin >= 1 then
-      perform public.wallet_credit((select creator_id from drops where id = v_card.drop_id), v_royalty_ccoin,
+      perform public.wallet_credit_gems((select creator_id from drops where id = v_card.drop_id), v_royalty_ccoin,
               'royalty', 'bid', v_bid.id, 'royalty-' || v_bid.id);
       v_royalty_credited := v_royalty_ccoin;
     end if;
@@ -1323,9 +1467,9 @@ begin
   v_royalty_ccoin := ceil(v_price * 0.075);
   v_seller_ccoin := v_price - v_platform_ccoin - v_royalty_ccoin;
 
-  perform public.wallet_credit(v_seller, v_seller_ccoin, 'settlement', 'order', v_order.id, 'settle-' || v_order.id);
+  perform public.wallet_credit_gems(v_seller, v_seller_ccoin, 'settlement', 'order', v_order.id, 'settle-' || v_order.id);
   if v_royalty_ccoin >= 1 then
-    perform public.wallet_credit((select creator_id from drops where id = v_card.drop_id), v_royalty_ccoin,
+    perform public.wallet_credit_gems((select creator_id from drops where id = v_card.drop_id), v_royalty_ccoin,
             'royalty', 'order', v_order.id, 'royalty-' || v_order.id);
     v_royalty_credited := v_royalty_ccoin;
   end if;
@@ -1564,13 +1708,16 @@ begin
     raise exception 'INVALID_STATE: payout status % tidak bisa di-refund', v_payout.status;
   end if;
 
-  perform public.wallet_credit(
+  -- Dual-token 2026-09-03: refund payout kredit balik GEMS sebagai lot yang
+  -- LANGSUNG matured (p_matured=true) — dana bisa langsung di-payout ulang.
+  perform public.wallet_credit_gems(
     v_payout.user_id,
     v_payout.ccoin_amount,
     'payout_refund',
     'payout',
     v_payout.id,
-    'payout-refund-' || v_payout.id
+    'payout-refund-' || v_payout.id,
+    true
   );
 
   update payouts set status = 'refunded' where id = v_payout.id returning * into v_payout;
@@ -1711,6 +1858,25 @@ revoke execute on function public.wallet_credit(uuid, integer, text, text, text,
 revoke execute on function public.wallet_credit(uuid, integer, text, text, text, text) from anon;
 revoke execute on function public.wallet_credit(uuid, integer, text, text, text, text) from authenticated;
 grant execute on function public.wallet_credit(uuid, integer, text, text, text, text) to service_role;
+
+-- C-Gems kernel (dual-token 2026-09-03) — internal only: dipanggil RPC
+-- SECURITY DEFINER lain (checkout/draw_drop/accept_bid/buyout_card/
+-- release_seed_sale/send_support/payout_request/payout_refund/convert_gems).
+-- Lesson audit 2026-08-30: revoke eksplisit per-role (bukan cuma public).
+revoke execute on function public.wallet_credit_gems(uuid, integer, text, text, text, text, boolean) from public;
+revoke execute on function public.wallet_credit_gems(uuid, integer, text, text, text, text, boolean) from anon;
+revoke execute on function public.wallet_credit_gems(uuid, integer, text, text, text, text, boolean) from authenticated;
+grant execute on function public.wallet_credit_gems(uuid, integer, text, text, text, text, boolean) to service_role;
+
+revoke execute on function public.wallet_debit_gems(uuid, integer, text, text, text, text, boolean) from public;
+revoke execute on function public.wallet_debit_gems(uuid, integer, text, text, text, text, boolean) from anon;
+revoke execute on function public.wallet_debit_gems(uuid, integer, text, text, text, text, boolean) from authenticated;
+grant execute on function public.wallet_debit_gems(uuid, integer, text, text, text, text, boolean) to service_role;
+
+-- convert_gems — user-facing (authenticated): Gems→C-Coin 1:1.
+revoke execute on function public.convert_gems(integer) from public;
+revoke execute on function public.convert_gems(integer) from anon;
+grant execute on function public.convert_gems(integer) to authenticated;
 
 -- Checkout / bid / marketplace — user-facing.
 -- Lane D (2026-08-31): revoke EKSPLISIT anon pada SEMUA RPC user-facing

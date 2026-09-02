@@ -25,6 +25,9 @@ alter table public.drops enable row level security;
 alter table public.cards enable row level security;
 alter table public.cards force row level security;
 alter table public.wallet_transactions enable row level security;
+-- C-Gems (dual-token 2026-09-03): default-deny, read owner-only via policy di bawah.
+alter table public.gem_lots enable row level security;
+alter table public.gem_transactions enable row level security;
 alter table public.orders enable row level security;
 alter table public.bids enable row level security;
 alter table public.badges enable row level security;
@@ -168,6 +171,25 @@ begin
 end $$;
 create trigger trg_wtx_immutable before update or delete on public.wallet_transactions
   for each row execute function public.wallet_tx_immutable_guard();
+
+-- ══════════════════════════════════════════════════════════════════════════
+-- C-Gems (dual-token 2026-09-03): read owner-only; tulis HANYA via RPC
+-- SECURITY DEFINER (wallet_credit_gems/wallet_debit_gems — tidak ada
+-- INSERT/UPDATE/DELETE grant untuk client di 01_schema). Ledger gems
+-- append-only (guard parity wallet_tx_immutable_guard).
+-- ══════════════════════════════════════════════════════════════════════════
+create policy gem_lots_select_own on public.gem_lots for select
+  using (user_id = auth.uid());
+create policy gem_tx_select_own on public.gem_transactions for select
+  using (user_id = auth.uid());
+
+create or replace function public.gem_tx_immutable_guard() returns trigger
+language plpgsql as $$
+begin
+  raise exception 'gem_transactions is append-only';
+end $$;
+create trigger trg_gem_tx_immutable before update or delete on public.gem_transactions
+  for each row execute function public.gem_tx_immutable_guard();
 
 -- ══════════════════════════════════════════════════════════════════════════
 -- orders / shipments

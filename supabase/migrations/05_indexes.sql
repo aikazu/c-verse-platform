@@ -56,6 +56,14 @@ create index if not exists idx_notifications_email_queue
   on public.notifications(created_at)
   where channel = 'email' and status = 'pending';
 
+-- C-Gems (dual-token 2026-09-03): FIFO payout scan lot matured per user +
+-- riwayat ledger gems per user (owner read via RLS). Idempotency gem RPC
+-- sudah unique constraint (gem_transactions.idem_key) di 01_schema.
+create index if not exists idx_gem_lots_user_mature
+  on public.gem_lots(user_id, mature_at);
+create index if not exists idx_gem_tx_user_created
+  on public.gem_transactions(user_id, created_at);
+
 -- ══════════════════════════════════════════════════════════════════════════
 -- Leaderboard (get_leaderboard, keputusan 2026-08-27): TIDAK ada index baru.
 -- Audit access-path vs index existing di 01_schema/05_indexes:

@@ -505,7 +505,7 @@ insert into public.orders (
    array['card-nova-past-01'], 20, 200000,'settled','vault', null,'released',
    null, null, null, null, now() - interval '29 days','fcfs'),
 
-  -- primary vault — settled (B1 remediation: matches wtx-d-07 + wtx-h-04 legs; royalty +8 exists, this row
+  -- primary vault — settled (B1 remediation: matches wtx-d-07 + gtx-h-02 gems-royalty legs; royalty +8 exists, this row
   -- adds the platform_revenue counterpart pr-genesis-demo-05 so ledger closure stays equal via treasury rollup)
   ('ord-genesis-demo-05','00000000-0000-4000-8000-000000000001','drop-genesis-live','card-genesis-live-05',
    array['card-genesis-live-05'], 25, 250000,'settled','vault', null,'released',
@@ -844,40 +844,16 @@ insert into public.wallet_transactions (
   -- t-30m escrow_hold seed-karina-01 buyout PHASE-1 -60 → 286
   ('wtx-r-10','00000000-0000-4000-8000-000000000006','escrow_hold', -60, 286, 'card', 'card-seed-karina-01', 'buyout PHASE-1 escrow', now() - interval '30 minutes'),
   -- ── KARINA (user 03) ─────────────────────────────────────────────────────
-  -- t-90d gift seed-02 (no tx, but royalty from raffle wins gets tx)
-  -- t-60d topup 0 (creator gets royalty credits not topup)
+  -- Dual-token 2026-09-03: royalty = penghasilan settlement kreator → GEMS
+  -- (ledger gems + lot matured di bawah), BUKAN ccoin. Payout debit gems —
+  -- fixture ledger payout lama (wtx-k-07/08) dihapus dari lane ccoin
+  -- (payouts table fixtures TIDAK berubah).
   -- t-60d topup (creator first topup to get KYC approved): +500
   ('wtx-k-01','00000000-0000-4000-8000-000000000003','top_up',  500, 500, 'topup', 'top-k-1', 'Top-up awal creator', now() - interval '60 days'),
-  -- t-60d topup other creator 500 (total in: 500)
-  -- royalty credits from drop-aespa-signed premium raffle winner (1 signed * 30 = 30 ccoin * 0.3 = 9)
-  -- royalty from aespa-live primary shipments (4 cards × 30 × 0.3 = 36) — but only 1 to Karina via primary? aespa-live-01..13 are Karina's drop; primary sales by users → 30% to Karina
-  -- 4 primary sales of aespa-live (3 by demo at 30 + 1 by rival at 30) = royalty 36 (each 30*0.3=9 → integer 9, ok since check>=1)
-  -- But seed bypasses RPC, so we record these as ROYALTY rows directly:
-  ('wtx-k-02','00000000-0000-4000-8000-000000000003','royalty',  9, 509, 'order', 'ord-demo-shipping-paid', 'primary royalty 30%', now() - interval '12 days'),
-  ('wtx-k-03','00000000-0000-4000-8000-000000000003','royalty',  9, 518, 'order', 'ord-demo-shipping-deliv3', 'primary royalty 30%', now() - interval '10 days'),
-  ('wtx-k-04','00000000-0000-4000-8000-000000000003','royalty',  9, 527, 'order', 'ord-rival-shipping-deliv10', 'primary royalty 30%', now() - interval '22 days'),
-  ('wtx-k-05','00000000-0000-4000-8000-000000000003','royalty',  9, 536, 'order', 'ord-demo-shipping-shipped', 'primary royalty 30%', now() - interval '5 hours'),
-  -- royalty from raffle (draw_drop): 4 cards × 30 × 0.3 = 36, but only 1 premium goes to Karina as creator? all are Karina's drop so ALL primary royalty → Karina
-  ('wtx-k-06','00000000-0000-4000-8000-000000000003','royalty',  9, 545, 'order', 'ord-rival-raffle-settled', 'raffle royalty 30%', now() - interval '6 days'),
-  -- secondary sale royalty on aespa-signed-10 (future marketplace — not in this seed)
-  -- NO royalty on seed-01 because not yet released
-  -- payout request:
-  ('wtx-k-07','00000000-0000-4000-8000-000000000003','payout',   -200, 345, 'payout_request', 'po-k-1', 'creator payout request', now() - interval '40 days'),
-  -- payout refund (failed batch) -200 refund back
-  ('wtx-k-08','00000000-0000-4000-8000-000000000003','payout_refund',  200, 545, 'payout', 'po-k-1', 'payout failed refund', now() - interval '38 days'),
   -- ── HYPE (user 04) ───────────────────────────────────────────────────────
-  -- royalty from genesis-live primary sales (8 cards × 25 × 0.3 = 60)
   ('wtx-h-01','00000000-0000-4000-8000-000000000004','top_up', 200, 200, 'topup', 'top-h-1', 'Top-up awal creator', now() - interval '50 days'),
-  ('wtx-h-02','00000000-0000-4000-8000-000000000004','royalty',  8, 208, 'order', 'ord-hype-qc', 'primary royalty 30%', now() - interval '2 days'),
-  ('wtx-h-03','00000000-0000-4000-8000-000000000004','royalty',  8, 216, 'order', 'ord-ghost-disputed', 'primary royalty 30%', now() - interval '10 days'),
-  ('wtx-h-04','00000000-0000-4000-8000-000000000004','royalty',  8, 224, 'order', 'ord-genesis-demo-05', 'primary royalty 30%', now() - interval '8 days'),
-  ('wtx-h-05','00000000-0000-4000-8000-000000000004','royalty',  8, 232, 'order', 'ord-demo-vault-settled', 'primary royalty 30%', now() - interval '5 days'),
   -- ── NOVA (user 05) ───────────────────────────────────────────────────────
-  -- royalty from nova-past 7 sold × 20 × 0.3 = 42
   ('wtx-n-01','00000000-0000-4000-8000-000000000005','top_up', 150, 150, 'topup', 'top-n-1', 'Top-up awal creator', now() - interval '45 days'),
-  ('wtx-n-02','00000000-0000-4000-8000-000000000005','royalty',  6, 156, 'order', 'ord-karina-nova-past', 'primary royalty 30%', now() - interval '29 days'),
-  -- payout request nova
-  ('wtx-n-03','00000000-0000-4000-8000-000000000005','payout',   -50, 106, 'payout_request', 'po-n-1', 'creator payout request', now() - interval '20 days'),
   -- ── ADMIN (user 02) ──────────────────────────────────────────────────────
   -- No activity; placeholder top-up for ledger closure
   ('wtx-a-01','00000000-0000-4000-8000-000000000002','top_up',  100, 100, 'topup', 'top-a-1', 'Admin top-up', now() - interval '90 days'),
@@ -906,14 +882,15 @@ on conflict (id) do nothing;
 -- Final wallet balances from ledger (per-user last balance_after_ccoin):
 --   demo: 343 (after wtx-d-15)
 --   rival: 286 (after wtx-r-10)
---   karina: 545 (after wtx-k-08)
---   hype: 232 (after wtx-h-05)
---   nova: 106 (after wtx-n-03)
+--   karina: 500 (topup saja — royalty kini GEMS, lihat ledger gems bawah)
+--   hype: 200 (topup saja — royalty kini GEMS)
+--   nova: 150 (topup saja — royalty kini GEMS)
 --   admin: 100 (after wtx-a-05)
 --   ghost: 23 (after wtx-g-02)
 --   marked: 100 (after wtx-m-03)
 --   treasury: closing balance = SUM(platform_revenue.platform_ccoin) (auto-absorbed via INSERT..SELECT below)
--- Sum ledger closure per user enforced via DO block E3.
+-- C-Gems (dual-token 2026-09-03): karina 45, hype 32, nova 6 (royalty matured).
+-- Sum ledger closure per user enforced via DO block E3 (ccoin + gems).
 
 -- Update wallets to match ledger closure.
 update public.wallets w set
@@ -926,6 +903,55 @@ from (
          sum(case when type = 'top_up' then amount_ccoin else 0 end)::int as topup,
          sum(case when type in ('checkout','platform_buy','escrow_hold','payout') then abs(amount_ccoin) else 0 end)::int as spent
   from public.wallet_transactions
+  group by user_id
+) sub
+where w.user_id = sub.user_id;
+
+-- ══════════════════════════════════════════════════════════════════════════
+-- C-GEMS LEDGER (dual-token, keputusan owner 2026-09-03) — penghasilan
+-- settlement kreator (royalty) kini GEMS, bukan ccoin. Satu lot per kredit;
+-- SEMUA lot seed dibuat MATURED (mature_at = created_at + 24 jam, backdated)
+-- agar demo payout/convert langsung jalan. Closure: SUM(gem txs) =
+-- SUM(lots.remaining) = wallets.balance_gems (di-assert di E3).
+-- ══════════════════════════════════════════════════════════════════════════
+insert into public.gem_transactions (id, user_id, amount, balance_after_gems, ref_type, ref_table, ref_id, idem_key, created_at) values
+  -- KARINA: 5 royalty 30% primary/raffle drop miliknya (9 each = 45 gems)
+  ('00000000-0000-4000-8000-00000000a001','00000000-0000-4000-8000-000000000003',  9,  9, 'royalty', 'order', 'ord-rival-shipping-deliv10', 'seed-gems-royalty-ord-rival-shipping-deliv10', now() - interval '22 days'),
+  ('00000000-0000-4000-8000-00000000a002','00000000-0000-4000-8000-000000000003',  9, 18, 'royalty', 'order', 'ord-demo-shipping-paid',     'seed-gems-royalty-ord-demo-shipping-paid',     now() - interval '12 days'),
+  ('00000000-0000-4000-8000-00000000a003','00000000-0000-4000-8000-000000000003',  9, 27, 'royalty', 'order', 'ord-demo-shipping-deliv3',   'seed-gems-royalty-ord-demo-shipping-deliv3',   now() - interval '10 days'),
+  ('00000000-0000-4000-8000-00000000a004','00000000-0000-4000-8000-000000000003',  9, 36, 'royalty', 'order', 'ord-rival-raffle-settled',   'seed-gems-royalty-ord-rival-raffle-settled',   now() - interval '6 days'),
+  ('00000000-0000-4000-8000-00000000a005','00000000-0000-4000-8000-000000000003',  9, 45, 'royalty', 'order', 'ord-demo-shipping-shipped',  'seed-gems-royalty-ord-demo-shipping-shipped',  now() - interval '2 days'),
+  -- HYPE: 4 royalty 30% primary genesis-live (8 each = 32 gems)
+  ('00000000-0000-4000-8000-00000000a006','00000000-0000-4000-8000-000000000004',  8,  8, 'royalty', 'order', 'ord-ghost-disputed',         'seed-gems-royalty-ord-ghost-disputed',         now() - interval '10 days'),
+  ('00000000-0000-4000-8000-00000000a007','00000000-0000-4000-8000-000000000004',  8, 16, 'royalty', 'order', 'ord-genesis-demo-05',        'seed-gems-royalty-ord-genesis-demo-05',        now() - interval '8 days'),
+  ('00000000-0000-4000-8000-00000000a008','00000000-0000-4000-8000-000000000004',  8, 24, 'royalty', 'order', 'ord-demo-vault-settled',     'seed-gems-royalty-ord-demo-vault-settled',     now() - interval '5 days'),
+  ('00000000-0000-4000-8000-00000000a009','00000000-0000-4000-8000-000000000004',  8, 32, 'royalty', 'order', 'ord-hype-qc',                'seed-gems-royalty-ord-hype-qc',                now() - interval '2 days'),
+  -- NOVA: 1 royalty 30% nova-past (6 gems)
+  ('00000000-0000-4000-8000-00000000a010','00000000-0000-4000-8000-000000000005',  6,  6, 'royalty', 'order', 'ord-karina-nova-past',       'seed-gems-royalty-ord-karina-nova-past',       now() - interval '29 days')
+on conflict (id) do nothing;
+
+-- Satu lot per kredit — mature_at backdated (created_at + 24h) => semua MATURED.
+insert into public.gem_lots (id, user_id, amount, remaining, ref_type, ref_id, created_at, mature_at) values
+  ('00000000-0000-4000-8000-00000000b001','00000000-0000-4000-8000-000000000003', 9, 9, 'royalty', 'ord-rival-shipping-deliv10', now() - interval '22 days', now() - interval '22 days' + interval '24 hours'),
+  ('00000000-0000-4000-8000-00000000b002','00000000-0000-4000-8000-000000000003', 9, 9, 'royalty', 'ord-demo-shipping-paid',     now() - interval '12 days', now() - interval '12 days' + interval '24 hours'),
+  ('00000000-0000-4000-8000-00000000b003','00000000-0000-4000-8000-000000000003', 9, 9, 'royalty', 'ord-demo-shipping-deliv3',   now() - interval '10 days', now() - interval '10 days' + interval '24 hours'),
+  ('00000000-0000-4000-8000-00000000b004','00000000-0000-4000-8000-000000000003', 9, 9, 'royalty', 'ord-rival-raffle-settled',   now() - interval '6 days',  now() - interval '6 days' + interval '24 hours'),
+  ('00000000-0000-4000-8000-00000000b005','00000000-0000-4000-8000-000000000003', 9, 9, 'royalty', 'ord-demo-shipping-shipped',  now() - interval '2 days',  now() - interval '2 days' + interval '24 hours'),
+  ('00000000-0000-4000-8000-00000000b006','00000000-0000-4000-8000-000000000004', 8, 8, 'royalty', 'ord-ghost-disputed',         now() - interval '10 days', now() - interval '10 days' + interval '24 hours'),
+  ('00000000-0000-4000-8000-00000000b007','00000000-0000-4000-8000-000000000004', 8, 8, 'royalty', 'ord-genesis-demo-05',        now() - interval '8 days',  now() - interval '8 days' + interval '24 hours'),
+  ('00000000-0000-4000-8000-00000000b008','00000000-0000-4000-8000-000000000004', 8, 8, 'royalty', 'ord-demo-vault-settled',     now() - interval '5 days',  now() - interval '5 days' + interval '24 hours'),
+  ('00000000-0000-4000-8000-00000000b009','00000000-0000-4000-8000-000000000004', 8, 8, 'royalty', 'ord-hype-qc',                now() - interval '2 days',  now() - interval '2 days' + interval '24 hours'),
+  ('00000000-0000-4000-8000-00000000b010','00000000-0000-4000-8000-000000000005', 6, 6, 'royalty', 'ord-karina-nova-past',       now() - interval '29 days', now() - interval '29 days' + interval '24 hours')
+on conflict (id) do nothing;
+
+-- C-Gems closure: balance_gems = SUM(gem txs) per user (SUM lots.remaining
+-- identik by construction — satu lot per kredit, belum ada debit seed).
+update public.wallets w set
+  balance_gems = sub.bal,
+  updated_at = now()
+from (
+  select user_id, sum(amount)::int as bal
+  from public.gem_transactions
   group by user_id
 ) sub
 where w.user_id = sub.user_id;
@@ -962,7 +988,7 @@ insert into public.platform_revenue (
   ('pr-demo-vault-1','primary','order','ord-demo-vault-settled', 25, 17, 8, 0,
    '{"platform_pct":0.7,"royalty_pct":0.3,"rate_idr":10000,"event":"checkout_vault"}'::jsonb,
    now() - interval '5 days'),
-  -- ord-genesis-demo-05 (B1 remediation): completes the gross→platform+royalty split for wtx-d-07 (-25) + wtx-h-04 (+8)
+  -- ord-genesis-demo-05 (B1 remediation): completes the gross→platform+royalty split for wtx-d-07 (-25) + gtx-h-02 gems royalty (+8)
   ('pr-genesis-demo-05','primary','order','ord-genesis-demo-05', 25, 17, 8, 0,
    '{"platform_pct":0.7,"royalty_pct":0.3,"rate_idr":10000,"event":"checkout_vault"}'::jsonb,
    now() - interval '8 days'),
@@ -1313,6 +1339,43 @@ begin
   -- Assertion 1 (SUM(amount) = wallet.balance) verifies end-state closure;
   -- in production each RPC event has a unique timestamp via now() and
   -- ledger contiguity is naturally enforced. Documented in report.
+
+  -- ── ASSERTION 11 (dual-token 2026-09-03): gems ledger closure ──
+  --   SUM(gem_transactions.amount) = wallets.balance_gems per user
+  select count(*) into v_count from (
+    select g.user_id
+    from (
+      select user_id, sum(amount) as b
+      from public.gem_transactions
+      group by user_id
+    ) g
+    join public.wallets w on w.user_id = g.user_id
+    where g.b is distinct from w.balance_gems
+  ) z;
+  if v_count > 0 then
+    raise exception 'GEMS_LEDGER_CLOSURE_FAIL: % users where SUM(gem_transactions.amount) != wallets.balance_gems', v_count;
+  end if;
+
+  --   SUM(gem_lots.remaining) = wallets.balance_gems per user
+  select count(*) into v_count from (
+    select l.user_id
+    from (
+      select user_id, sum(remaining) as b
+      from public.gem_lots
+      group by user_id
+    ) l
+    join public.wallets w on w.user_id = l.user_id
+    where l.b is distinct from w.balance_gems
+  ) z;
+  if v_count > 0 then
+    raise exception 'GEMS_LOTS_CLOSURE_FAIL: % users where SUM(gem_lots.remaining) != wallets.balance_gems', v_count;
+  end if;
+
+  --   semua lot seed MATURED (demo payout/convert langsung jalan)
+  select count(*) into v_count from public.gem_lots where mature_at > now();
+  if v_count > 0 then
+    raise exception 'GEMS_LOTS_IMMATURE_FAIL: % seed lots are not matured', v_count;
+  end if;
 
   raise notice 'SEED_SELF_TEST: ALL ASSERTIONS PASSED';
 end $$;

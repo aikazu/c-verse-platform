@@ -30,6 +30,8 @@ create type public.wallet_tx_type as enum ('top_up','checkout','escrow_hold','es
 alter type public.wallet_tx_type add value if not exists 'vault_shipout';
 -- A1 2026-08-31: fan dukungan C-Coin ke kreator (RPC send_support, 04_rpc).
 alter type public.wallet_tx_type add value if not exists 'support';
+-- Dual-token 2026-09-03: konversi Gems→C-Coin 1:1 (RPC convert_gems, 04_rpc).
+alter type public.wallet_tx_type add value if not exists 'convert';
 create type public.verify_status as enum ('verified','tamper_detected','registered','unknown');
 create type public.kyc_status as enum ('pending','approved','rejected');
 create type public.card_variant as enum ('unsigned','signed');
@@ -124,6 +126,10 @@ create table public.users (
 create table public.wallets (
   user_id uuid primary key references public.users(id) on delete cascade,
   balance_ccoin integer not null default 0 check (balance_ccoin >= 0),
+  -- C-Gems (dual-token, keputusan owner 2026-09-03): saldo penghasilan
+  -- settlement (royalty drop, seller settlement, support diterima) — bisa
+  -- dicairkan via payout, TIDAK bisa di-top-up. Integer murni (parity C-Coin).
+  balance_gems integer not null default 0 check (balance_gems >= 0),
   total_topup_ccoin integer not null default 0,
   total_spent_ccoin integer not null default 0,
   updated_at timestamptz not null default now(),
@@ -195,6 +201,36 @@ create table public.wallet_transactions (
   note text,
   created_at timestamptz not null default now(),
   metadata jsonb
+);
+
+-- C-Gems (dual-token, keputusan owner 2026-09-03): lot pendapatan settlement
+-- dengan kunci 24 jam PER-LOT. Payout hanya boleh debit lot matured (FIFO
+-- oldest-first, gate di payout_request); konversi Gems→C-Coin boleh debit lot
+-- segala usia (aman — C-Coin tidak bisa dicairkan). Lot refund payout dibuat
+-- langsung matured (mature_at = now()).
+create table public.gem_lots (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references public.users(id) on delete cascade,
+  amount integer not null check (amount > 0),
+  remaining integer not null check (remaining >= 0),
+  ref_type text not null,
+  ref_id text,
+  created_at timestamptz not null default now(),
+  mature_at timestamptz not null
+);
+
+-- Ledger C-Gems (append-only, mirror wallet_transactions): amount positif =
+-- kredit, negatif = debit. Idempotency RPC via idem_key (unique).
+create table public.gem_transactions (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references public.users(id) on delete cascade,
+  amount integer not null,
+  balance_after_gems integer not null,
+  ref_type text not null,
+  ref_table text,
+  ref_id text,
+  idem_key text not null unique,
+  created_at timestamptz not null default now()
 );
 
 create table public.orders (
@@ -582,7 +618,14 @@ grant select on
   public.users, public.creators, public.drops, public.cards, public.orders,
   public.wallets, public.wallet_transactions, public.bids, public.shipments,
   public.ownership_history, public.badges, public.user_badges, public.kyc_records,
-  public.payouts, public.notifications, public.disputes, public.creator_page_views
+  public.payouts, public.notifications, public.disputes, public.creator_page_views,
+  public.gem_lots, public.gem_transactions
 to authenticated;
 grant insert on public.bids, public.kyc_records, public.disputes to authenticated;
 grant update on public.users, public.cards, public.notifications to authenticated;
+
+-- C-Gems tables (dual-token 2026-09-03): anon DITUTUP total (lesson audit
+-- 2026-08-30 — default privileges Supabase memberi ALL ke anon pada tabel
+-- baru; revoke eksplisit wajib). Tulis HANYA via RPC SECURITY DEFINER
+-- (wallet_credit_gems/wallet_debit_gems); read owner-only via RLS (03_rls).
+revoke all on public.gem_lots, public.gem_transactions from anon;
