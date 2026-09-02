@@ -139,6 +139,15 @@ async function readBalance(rest: { base: string; headers: Record<string, string>
   return rows[0].balance_ccoin;
 }
 
+/** Dual-token (docs/07): saldo C-Gems — seller share secondary dibayar gems. */
+async function readGemsBalance(rest: { base: string; headers: Record<string, string> }, userId: string): Promise<number> {
+  const rows = (await restRows(rest, "wallets", `user_id=eq.${userId}&select=user_id,balance_gems`)) as Array<{
+    balance_gems: number;
+  }>;
+  if (rows.length !== 1) throw new Error(`Wallet ${userId} tidak tepat 1 baris (${rows.length})`);
+  return rows[0].balance_gems;
+}
+
 /**
  * Fixture top-up terkontrol: bench e2e dipakai beberapa lane — saldo demo bisa
  * sudah 0 saat test ini jalan. Kredit saldo via ledger (wallet_transactions
@@ -224,6 +233,7 @@ test.describe("Secondary transfer — accept-bid & buyout (F6/F7)", () => {
     // Benchmark bersama: pastikan saldo demo cukup untuk bid (biasanya sudah).
     const demoBalanceBefore = await ensureBalance(rest, DEMO_ID, BID_AMOUNT + 2);
     const rivalBalanceBefore = await readBalance(rest, RIVAL_ID);
+    const rivalGemsBefore = await readGemsBalance(rest, RIVAL_ID);
     // Nominal bid mengikuti saldo saat ini; biasanya tetap 7 C. Seller share eksak:
     // platform = royalty = round(amount*0.075) (Postgres round half-up; JS
     // Math.round bernilai sama untuk hasil positif termasuk kasus tepat .5).
@@ -285,11 +295,15 @@ test.describe("Secondary transfer — accept-bid & buyout (F6/F7)", () => {
     await rivalPage.goto("/me/manage");
     await expect(rivalEntry).toHaveCount(0, { timeout: 10000 });
 
-    // Saldo rival via UI: +seller share persis (seller share eksak: amount - round(amount*0.075)*2).
+    // Saldo rival via UI: seller share masuk sebagai C-GEMS (dual-token docs/07 —
+    // penghasilan secondary = gems, terkunci 24 jam), C-Coin rival tak berubah.
     await rivalPage.goto("/wallet");
-    const rivalBalanceValue = rivalPage.locator(".wa-balance-value");
-    await expect(rivalBalanceValue).toBeVisible({ timeout: 10000 });
-    await expect(rivalBalanceValue).toHaveText(String(rivalBalanceBefore + bidSellerCredit));
+    const rivalGemsValue = rivalPage.locator(".wa-balance", { hasText: "Saldo C-Gems" }).locator(".wa-balance-value");
+    await expect(rivalGemsValue).toBeVisible({ timeout: 10000 });
+    await expect(rivalGemsValue).toHaveText(String(rivalGemsBefore + bidSellerCredit));
+    await expect(rivalPage.locator(".wa-balance", { hasText: "Saldo C-Coin" }).locator(".wa-balance-value")).toHaveText(
+      String(rivalBalanceBefore),
+    );
     await rivalContext.close();
 
     // ── demo: kartu kini miliknya (koleksi + label pemilik) ──
@@ -307,7 +321,8 @@ test.describe("Secondary transfer — accept-bid & buyout (F6/F7)", () => {
     expect(cardRow.buyout_price_ccoin).toBeNull();
 
     const rivalBalanceAfter = await readBalance(rest, RIVAL_ID);
-    expect(rivalBalanceAfter).toBe(rivalBalanceBefore + bidSellerCredit);
+    expect(rivalBalanceAfter).toBe(rivalBalanceBefore);
+    expect(await readGemsBalance(rest, RIVAL_ID)).toBe(rivalGemsBefore + bidSellerCredit);
     const demoBalanceAfter = await readBalance(rest, DEMO_ID);
     expect(demoBalanceAfter).toBe(demoBalanceBefore - bidAmount);
 
@@ -329,6 +344,7 @@ test.describe("Secondary transfer — accept-bid & buyout (F6/F7)", () => {
     // Benchmark bersama: pastikan saldo demo cukup untuk buyout (biasanya sudah).
     const demoBalanceBefore = await ensureBalance(rest, DEMO_ID, BUYOUT_PRICE + 5);
     const rivalBalanceBefore = await readBalance(rest, RIVAL_ID);
+    const rivalGemsBefore = await readGemsBalance(rest, RIVAL_ID);
     // Harga buyout mengikuti saldo saat ini; biasanya tetap 25 C.
     // demo saat ini (biasanya tetap 25 C). Seller share eksak: price - round*2.
     const buyoutPrice = Math.min(BUYOUT_PRICE, Math.max(1, demoBalanceBefore - 5));
@@ -380,7 +396,7 @@ test.describe("Secondary transfer — accept-bid & buyout (F6/F7)", () => {
 
     // Saldo demo via UI: -harga buyout persis.
     await page.goto("/wallet");
-    const demoBalanceValue = page.locator(".wa-balance-value");
+    const demoBalanceValue = page.locator(".wa-balance", { hasText: "Saldo C-Coin" }).locator(".wa-balance-value");
     await expect(demoBalanceValue).toBeVisible({ timeout: 10000 });
     await expect(demoBalanceValue).toHaveText(String(demoBalanceBefore - buyoutPrice));
 
@@ -400,7 +416,8 @@ test.describe("Secondary transfer — accept-bid & buyout (F6/F7)", () => {
     const demoBalanceAfter = await readBalance(rest, DEMO_ID);
     expect(demoBalanceAfter).toBe(demoBalanceBefore - buyoutPrice);
     const rivalBalanceAfter = await readBalance(rest, RIVAL_ID);
-    expect(rivalBalanceAfter).toBe(rivalBalanceBefore + buyoutSellerCredit);
+    expect(rivalBalanceAfter).toBe(rivalBalanceBefore);
+    expect(await readGemsBalance(rest, RIVAL_ID)).toBe(rivalGemsBefore + buyoutSellerCredit);
 
     const history = (await restRows(
       rest,

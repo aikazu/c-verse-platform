@@ -1,5 +1,36 @@
-import { expect, test } from "@playwright/test";
+import { expect, type Page, test } from "@playwright/test";
 import { clearMailbox, loginAs } from "../helpers";
+import { creditLockedGemsFixture, isDbFixtureAvailable, restoreGemsBalance } from "../helpers/db";
+
+const KARINA_EMAIL = "karina@creator.id";
+// UUID fixed seed.sql (pola 13-support-winners) — karina, KYC approved.
+const KARINA_USER_ID = "00000000-0000-4000-8000-000000000003";
+// Dual-token (docs/07): seed karina = 45 C-Gems, SEMUA lot matured
+// (5 royalty x 9 gems, mature_at backdated) → gemsLocked = 0.
+const SEED_GEMS_MATURED = 45;
+
+/** Kartu saldo spesifik di /wallet — Wallet.tsx grid-2 (C-Coin lalu C-Gems). */
+function balanceCard(page: Page, token: "C-Coin" | "C-Gems") {
+  return page.locator(".wa-balance", { hasText: `Saldo ${token}` });
+}
+
+/** Parse angka saldo dari kartu (`.wa-balance-value`). */
+async function readCardValue(page: Page, token: "C-Coin" | "C-Gems"): Promise<number> {
+  const value = balanceCard(page, token).locator(".wa-balance-value");
+  await expect(value).toBeVisible({ timeout: 10000 });
+  const parsed = Number.parseInt((await value.textContent())?.trim() ?? "", 10);
+  if (!Number.isFinite(parsed)) throw new Error(`Saldo ${token} tidak terbaca: "${await value.textContent()}"`);
+  return parsed;
+}
+
+/** Parse angka chip "Bisa dicair · N" (= gemsMatured, Wallet.tsx). */
+async function readMaturedChip(page: Page): Promise<number> {
+  const chip = balanceCard(page, "C-Gems").locator(".pill-success");
+  await expect(chip).toBeVisible({ timeout: 10000 });
+  const match = (await chip.textContent())?.match(/Bisa dicair\s*·\s*(\d+)/);
+  if (!match) throw new Error(`Chip "Bisa dicair" tidak terbaca: "${await chip.textContent()}"`);
+  return Number.parseInt(match[1], 10);
+}
 
 test.describe("Wallet", () => {
   test.beforeEach(async () => {
@@ -25,7 +56,7 @@ test.describe("Wallet", () => {
   });
 
   test("payout gate: user non-kreator melihat pesan gate, bukan kontrol payout", async ({ page }) => {
-    // Wallet.tsx:216-254 — blok payout ("Tarik ke Rekening" + tombol "Tarik")
+    // Wallet.tsx — blok payout ("Tarik ke Rekening" + tombol "Tarik")
     // HANYA render untuk role creator; untuk role lain selalu render pesan gate
     // "Penarikan hanya untuk kreator — KYC wajib." → bisa di-hard assert
     // (demo@cverse.id role user + KYC pending di seed.sql — deterministik).
@@ -44,5 +75,142 @@ test.describe("Wallet", () => {
     // Messaging gate non-KYC (demo KYC-nya pending): cap saldo 500 C-Coin tampil.
     await expect(page.locator("text=Cap saldo non-KYC").first()).toBeVisible();
     await expect(page.locator("text=500 C-Coin").first()).toBeVisible();
+
+    // Dual-token: kartu C-Gems tetap tampil untuk user biasa, tapi demo 0 gems →
+    // blok konversi tidak dirender (gate `balanceGems > 0` di Wallet.tsx).
+    await expect(page.locator("text=Saldo C-Gems").first()).toBeVisible();
+    await expect(page.locator("text=Konversi ke C-Coin")).toHaveCount(0);
+  });
+});
+
+test.describe("Wallet dual-token (C-Gems)", () => {
+  test.beforeEach(async () => {
+    await clearMailbox(KARINA_EMAIL);
+  });
+
+  test("dual saldo C-Coin + C-Gems dengan breakdown matured/locked (seed karina)", async ({ page }) => {
+    await loginAs(page, KARINA_EMAIL);
+    await page.goto("/wallet");
+
+    // Dua kartu saldo berdampingan (grid-2 Wallet.tsx).
+    await expect(page.locator("text=Saldo C-Coin").first()).toBeVisible({ timeout: 10000 });
+    await expect(page.locator("text=Saldo C-Gems").first()).toBeVisible();
+
+    const gemsCard = balanceCard(page, "C-Gems");
+    await expect(gemsCard.locator(".wa-balance-value")).toHaveText(String(SEED_GEMS_MATURED));
+    // Seed: semua lot matured → chip bisa-cair 45, chip terkunci absen.
+    await expect(gemsCard.locator(".pill-success")).toHaveText(/Bisa dicair\s*·\s*45$/);
+    await expect(gemsCard.locator(".pill-warn", { hasText: "Terkunci" })).toHaveCount(0);
+
+    // Blok konversi tampil (balanceGems > 0) + hint rate 1:1 + batas MAKS.
+    await expect(page.locator("text=Konversi ke C-Coin").first()).toBeVisible();
+    await expect(page.locator("text=1 C-Gems = 1 C-Coin")).toBeVisible();
+    await expect(page.locator(".wa-min-label", { hasText: `MAKS ${SEED_GEMS_MATURED}` })).toBeVisible();
+    await expect(page.locator('input[aria-label="Jumlah konversi C-Gems"]')).toBeVisible();
+
+    // Kreator: blok payout beroperasi pada C-Gems (dual-token), bukan C-Coin.
+    await expect(page.locator("text=Tarik ke Rekening").first()).toBeVisible();
+    await expect(page.locator('input[aria-label="Jumlah penarikan C-Gems"]')).toBeVisible();
+    await expect(page.locator(".wa-min-label", { hasText: "MIN 10 C" })).toBeVisible();
+  });
+
+  test("payout sukses dari gems matured: gems -10 persis, C-Coin tak tersentuh", async ({ page }) => {
+    await loginAs(page, KARINA_EMAIL);
+    await page.goto("/wallet");
+
+    const gemsBefore = await readCardValue(page, "C-Gems");
+    const ccoinBefore = await readCardValue(page, "C-Coin");
+    // Seed fresh = 45 matured ≥ min payout 10 — jalur e2e standar.
+    expect(gemsBefore).toBeGreaterThanOrEqual(SEED_GEMS_MATURED);
+
+    await page.fill('input[aria-label="Jumlah penarikan C-Gems"]', "10");
+    await page.getByRole("button", { name: "Tarik", exact: true }).click();
+
+    // Modal konfirmasi payout milik Wallet.tsx (P1-12) — ringkasan sebelum kunci dana.
+    const payoutModal = page.getByRole("dialog");
+    await expect(payoutModal.locator("#payout-confirm-title")).toHaveText("Konfirmasi Payout");
+    await payoutModal.getByRole("button", { name: "Kunci Dana" }).click();
+
+    await expect(page.locator(".toast-success", { hasText: "Permintaan payout dibuat" })).toBeVisible({
+      timeout: 15000,
+    });
+
+    // Payout debit GEMS matured (docs/07) — saldo bisa-cair turun persis 10,
+    // kartu C-Coin tidak berubah.
+    await expect(balanceCard(page, "C-Gems").locator(".wa-balance-value")).toHaveText(String(gemsBefore - 10), {
+      timeout: 15000,
+    });
+    await expect(balanceCard(page, "C-Gems").locator(".pill-success")).toHaveText(new RegExp(`Bisa dicair\\s*·\\s*${gemsBefore - 10}$`));
+    await expect(balanceCard(page, "C-Coin").locator(".wa-balance-value")).toHaveText(String(ccoinBefore));
+  });
+
+  test("konversi Gems→C-Coin 1:1: confirm modal muncul, gems turun, C-Coin naik", async ({ page }) => {
+    await loginAs(page, KARINA_EMAIL);
+    await page.goto("/wallet");
+
+    const gemsBefore = await readCardValue(page, "C-Gems");
+    const ccoinBefore = await readCardValue(page, "C-Coin");
+
+    await page.fill('input[aria-label="Jumlah konversi C-Gems"]', "5");
+    await page.getByRole("button", { name: "Konversi", exact: true }).click();
+
+    // Konversi satu arah — wajib modal useConfirm (D8), bukan native confirm.
+    const confirmModal = page.locator(".cfm-card");
+    await expect(confirmModal).toBeVisible();
+    await expect(confirmModal.locator("#cfm-title")).toHaveText("Konversi 5 Gems?");
+    await expect(confirmModal).toContainText("Jadi 5 C-Coin — satu arah, tidak dapat dibalik.");
+    await confirmModal.getByRole("button", { name: "Konversi" }).click();
+
+    await expect(page.locator(".toast-success", { hasText: "Konversi berhasil" })).toBeVisible({ timeout: 15000 });
+
+    // Rate 1:1 (docs/07): C-Coin +5, C-Gems -5.
+    await expect(balanceCard(page, "C-Coin").locator(".wa-balance-value")).toHaveText(String(ccoinBefore + 5), {
+      timeout: 15000,
+    });
+    await expect(balanceCard(page, "C-Gems").locator(".wa-balance-value")).toHaveText(String(gemsBefore - 5), {
+      timeout: 15000,
+    });
+  });
+
+  test("guard payout: minta lebih dari bisa-cair ditolak di UI tanpa modal", async ({ page }) => {
+    await loginAs(page, KARINA_EMAIL);
+    await page.goto("/wallet");
+
+    const matured = await readMaturedChip(page);
+    await page.fill('input[aria-label="Jumlah penarikan C-Gems"]', String(matured + 1));
+    await page.getByRole("button", { name: "Tarik", exact: true }).click();
+
+    // Guard client Wallet.tsx (payoutAmt > gemsMatured) → toast info, TIDAK
+    // membuka modal konfirmasi payout.
+    await expect(page.locator(".toast-info", { hasText: "Saldo bisa cair tidak cukup" })).toBeVisible();
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+  });
+
+  test("gems terkunci: chip Terkunci 24 jam muncul, matured tak bergeser (fixture DB)", async ({ page }) => {
+    test.skip(!isDbFixtureAvailable(), "Fixture DB butuh SUPABASE_URL + service role di apps/api/.dev.vars");
+    await loginAs(page, KARINA_EMAIL);
+    await page.goto("/wallet");
+
+    const maturedBefore = await readMaturedChip(page);
+    const totalBefore = await readCardValue(page, "C-Gems");
+
+    // Lot terkunci +7 lewat RPC produksi wallet_credit_gems (p_matured=false →
+    // mature_at now + 24 jam; chip copy pakai GEMS_LOCK_HOURS dari shared).
+    const LOCKED_GEMS = 7;
+    const REF_ID = `e2e-wallet-locked-${Date.now()}`;
+    const balanceFromDb = await creditLockedGemsFixture(KARINA_USER_ID, LOCKED_GEMS, REF_ID);
+    try {
+      await page.reload();
+      const gemsCard = balanceCard(page, "C-Gems");
+      // Total naik 7, matured tetap — lot baru terkunci.
+      await expect(gemsCard.locator(".wa-balance-value")).toHaveText(String(totalBefore + LOCKED_GEMS), {
+        timeout: 15000,
+      });
+      await expect(gemsCard.locator(".pill-success")).toHaveText(new RegExp(`Bisa dicair\\s*·\\s*${maturedBefore}$`));
+      const lockedChip = gemsCard.locator(".pill-warn", { hasText: "Terkunci" });
+      await expect(lockedChip).toHaveText(new RegExp(`Terkunci\\s+\\d+ jam\\s*·\\s*${LOCKED_GEMS}$`));
+    } finally {
+      await restoreGemsBalance(KARINA_USER_ID, balanceFromDb, REF_ID);
+    }
   });
 });

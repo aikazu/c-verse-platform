@@ -28,9 +28,11 @@ test.describe("Primary checkout", () => {
     await firstDrop.waitFor({ state: "visible", timeout: 10000 });
     await firstDrop.click();
 
-    // Cari tombol checkout/beli
-    const beliBtn = page.locator("text=Beli").or(page.locator("text=Checkout")).first();
-    const isBeliVisible = await beliBtn.isVisible();
+    // Cari CTA beli — link "Beli Sekarang →" (a.btn-gold.cm-cta, DropDetail.tsx).
+    // Locator lama text=Beli match badge fase "BELI LANGSUNG" (hidden) → klik
+    // mendarat di elemen yang salah.
+    const beliBtn = page.locator("a.cm-cta", { hasText: "Beli Sekarang" }).first();
+    const isBeliVisible = await beliBtn.isVisible().catch(() => false);
     // Seed punya drop live ber-stok (drop-aespa-live/drop-genesis-live), tapi TIDAK
     // menjamin posisi PERTAMA /drops adalah drop live yang bisa dibeli (urutan
     // listing tidak deterministik) → fixture yang hilang: jaminan urutan /drops.

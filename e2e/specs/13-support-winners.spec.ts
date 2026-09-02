@@ -71,6 +71,13 @@ async function readBalance(rest: { base: string; headers: Record<string, string>
   return rows[0].balance_ccoin;
 }
 
+/** Dual-token (docs/07): saldo C-Gems kreator (dukungan mengalir sebagai gems). */
+async function readGemsBalance(rest: { base: string; headers: Record<string, string> }, userId: string): Promise<number> {
+  const rows = await restSelect<{ balance_gems: number }>(rest, "wallets", `user_id=eq.${userId}&select=user_id,balance_gems`);
+  if (rows.length !== 1) throw new Error(`Wallet ${userId} tidak tepat 1 baris (${rows.length})`);
+  return rows[0].balance_gems;
+}
+
 async function readTotalXp(rest: { base: string; headers: Record<string, string> }, userId: string): Promise<number> {
   const rows = await restSelect<UserRow>(rest, "users", `id=eq.${userId}&select=total_xp`);
   if (rows.length !== 1) throw new Error(`User ${userId} tidak tepat 1 baris (${rows.length})`);
@@ -132,6 +139,7 @@ test.describe("Dukungan kreator & daftar pemenang drop", () => {
 
     const demoBalanceBefore = await ensureBalance(rest, DEMO_ID, 2);
     const creatorBalanceBefore = await readBalance(rest, CREATOR_ID);
+    const creatorGemsBefore = await readGemsBalance(rest, CREATOR_ID);
     const demoXpBefore = await readTotalXp(rest, DEMO_ID);
 
     await loginWithRetry(page, "demo@cverse.id");
@@ -153,9 +161,11 @@ test.describe("Dukungan kreator & daftar pemenang drop", () => {
 
     await expect(page.locator(".toast-success").filter({ hasText: "Dukungan 1 C terkirim" })).toBeVisible();
 
-    // DB truth: 100% ke kreator (tanpa potongan), saldo demo -1 persis, XP +1.
+    // DB truth dual-token (docs/07): pengirim -1 C-Coin; kreator +1 C-GEMS
+    // (send_support → wallet_credit_gems, ccoin kreator tidak berubah); XP +1.
     expect(await readBalance(rest, DEMO_ID)).toBe(demoBalanceBefore - 1);
-    expect(await readBalance(rest, CREATOR_ID)).toBe(creatorBalanceBefore + 1);
+    expect(await readGemsBalance(rest, CREATOR_ID)).toBe(creatorGemsBefore + 1);
+    expect(await readBalance(rest, CREATOR_ID)).toBe(creatorBalanceBefore);
     expect(await readTotalXp(rest, DEMO_ID)).toBe(demoXpBefore + 1);
   });
 

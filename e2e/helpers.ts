@@ -1,4 +1,8 @@
 import { expect, type Page } from "@playwright/test";
+import { readDevVar } from "./helpers/db";
+
+/** API lokal (playwright.config webServer) — demo-login + health. */
+const API_BASE = "http://127.0.0.1:8787";
 
 /**
  * Mailpit (email UI dari Supabase stack lokal, port 54324) — API v1.
@@ -79,6 +83,11 @@ export function userMenuLocator(page: Page) {
  * 4. Kunjungi link (GoTrue verify → redirect ke app dengan sesi di fragment →
  *    supabase-js detectSessionInUrl menyimpan sesi → profil dimuat)
  * 5. Tunggu UserMenu terlihat
+ *
+ * Fallback demo-login (DEV ONLY): bila tombol kirim OTP disabled, berarti web
+ * yang di-REUSE (bukan yang Playwright start) berjalan dengan Turnstile aktif —
+ * widget tak pernah issue token tanpa interaksi. Jalur "DEMO — ONE-CLICK LOGIN
+ * (LOKAL)" (AuthForm, butuh ENABLE_DEMO_LOGIN=1 di API) tidak butuh captcha.
  */
 export async function loginAs(page: Page, email: string): Promise<void> {
   await clearMailbox(email);
@@ -86,12 +95,85 @@ export async function loginAs(page: Page, email: string): Promise<void> {
   await page.waitForSelector('input[type="email"]', { timeout: 10000 });
 
   await page.fill('input[type="email"]', email);
-  await page.click('button:has-text("Kirim")');
+  const sendButton = page.locator('button:has-text("Kirim")');
+  const isSendEnabled = await sendButton.isEnabled({ timeout: 3000 }).catch(() => false);
+  if (isSendEnabled) {
+    await sendButton.click();
 
-  const magicLink = await getMagicLinkFromMailpit(email);
-  await page.goto(toLocalOrigin(magicLink));
+    const magicLink = await getMagicLinkFromMailpit(email);
+    await page.goto(toLocalOrigin(magicLink));
+  } else if (await tryDemoLoginButton(page, email)) {
+    // Tombol DEMO — ONE-CLICK LOGIN tersedia untuk email ini.
+  } else {
+    await demoLoginViaApi(page, email);
+  }
 
   await expect(userMenuLocator(page)).toBeVisible({ timeout: 15000 });
+}
+
+/**
+ * True bila tombol kirim OTP bisa diaktifkan di UI (Turnstile menerbitkan token
+ * di browser bench). Di bench tanpa token Turnstile (site key terikat domain /
+ * widget gagal dimuat), tombol tetap disabled → jalur OTP UI tidak dapat
+ * dieksekusi dan spek yang butuh OTP harus skip kondisional.
+ */
+export async function isOtpPathAvailable(page: Page): Promise<boolean> {
+  await page.goto("/login");
+  await page.waitForSelector('input[type="email"]', { timeout: 10000 });
+  await page.fill('input[type="email"]', "demo@cverse.id");
+  return page
+    .locator('button:has-text("Kirim")')
+    .isEnabled({ timeout: 4000 })
+    .catch(() => false);
+}
+
+/** Klik tombol demo-login AuthForm bila tersedia untuk email ini. */
+async function tryDemoLoginButton(page: Page, email: string): Promise<boolean> {
+  const demoButton = page.getByRole("button", { name: new RegExp(`Masuk sebagai.*${email}`) });
+  if ((await demoButton.count()) === 0) return false;
+  await demoButton.click();
+  return true;
+}
+
+/**
+ * Demo-login langsung via API (whitelist email seed, auth/routes.ts) lalu
+ * simpan sesi ke localStorage browser — REPLIKA persis verifyOtp auth-js:
+ * POST /auth/v1/verify {token_hash, type:"magiclink"} (GoTrueClient.js — GET
+ * verify tidak menerima token_hash). localStorage key = sb-<host>-auth-token
+ * (turunan supabase-js dari VITE_SUPABASE_URL web, tanpa custom storageKey).
+ */
+async function demoLoginViaApi(page: Page, email: string): Promise<void> {
+  const supabaseUrl = (readDevVar("SUPABASE_URL") ?? "http://127.0.0.1:54321").replace(/\/+$/, "");
+  const anonKey = readDevVar("SUPABASE_ANON_KEY");
+  if (!anonKey) throw new Error("SUPABASE_ANON_KEY tidak ada di apps/api/.dev.vars");
+
+  const loginRes = await fetch(`${API_BASE}/api/auth/demo-login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email }),
+  });
+  if (!loginRes.ok) throw new Error(`demo-login ${email} ditolak API (HTTP ${loginRes.status}) — butuh ENABLE_DEMO_LOGIN=1 + email seed`);
+  const { tokenHash } = (await loginRes.json()) as { tokenHash: string };
+
+  const verifyRes = await fetch(`${supabaseUrl}/auth/v1/verify`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", apikey: anonKey },
+    body: JSON.stringify({ token_hash: tokenHash, type: "magiclink" }),
+  });
+  if (!verifyRes.ok) throw new Error(`GoTrue verify untuk ${email} gagal: HTTP ${verifyRes.status}`);
+  // Respons verify = objek sesi FLAT (access_token top-level) — xform
+  // _sessionResponse auth-js menyimpan objek ini apa adanya ke localStorage.
+  const session = (await verifyRes.json()) as { access_token?: string };
+  if (!session?.access_token) throw new Error(`GoTrue verify untuk ${email} tidak mengembalikan sesi`);
+
+  const storageKey = `sb-${new URL(supabaseUrl).hostname.split(".")[0]}-auth-token`;
+  await page.addInitScript(
+    ([key, sessionJson]) => {
+      globalThis.localStorage.setItem(key, sessionJson);
+    },
+    [storageKey, JSON.stringify(session)],
+  );
+  await page.goto("http://localhost:5173/");
 }
 
 /** Hapus email milik alamat tertentu antar test (cleanup best-effort). */

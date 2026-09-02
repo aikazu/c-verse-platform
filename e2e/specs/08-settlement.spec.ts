@@ -20,10 +20,11 @@ import { clearMailbox, loginAs } from "../helpers";
  * fixture drawn drop tidak ada; itu ketersediaan fixture, bukan bug produk.
  */
 
-/** Baca saldo C-Coin dari /wallet (.wa-balance-value — Wallet.tsx). */
+/** Baca saldo C-Coin dari /wallet (kartu "Saldo C-Coin" — Wallet.tsx grid-2;
+ * dual-token: kartu C-Gems memakai class yang sama, tanpa scope → strict violation). */
 async function readBalance(page: Page): Promise<number> {
   await page.goto("/wallet");
-  const value = page.locator(".wa-balance-value");
+  const value = page.locator(".wa-balance", { hasText: "Saldo C-Coin" }).locator(".wa-balance-value");
   await expect(value).toBeVisible({ timeout: 10000 });
   const parsed = Number.parseInt((await value.textContent())?.trim() ?? "", 10);
   if (!Number.isFinite(parsed)) throw new Error(`Saldo tidak terbaca dari .wa-balance-value: "${await value.textContent()}"`);

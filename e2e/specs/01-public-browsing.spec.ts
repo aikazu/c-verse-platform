@@ -11,7 +11,9 @@ test.describe("Public browsing (unauthenticated)", () => {
     await page.goto("/drops");
     // Halaman harus render tanpa error
     await expect(page.locator("body")).not.toContainText("Error");
-    await expect(page.locator("[class*=drop]").or(page.locator("table")).first()).toBeVisible({ timeout: 10000 });
+    // Tile drop = link detail (locator [class*=drop] rapuh — match kata
+    // "backdrop" di nav-drawer-backdrop yang hidden).
+    await expect(page.locator("a[href*='/drops/']").first()).toBeVisible({ timeout: 10000 });
   });
 
   test("halaman browse menampilkan grid tile per-drop tanpa login", async ({ page }) => {
@@ -32,8 +34,9 @@ test.describe("Public browsing (unauthenticated)", () => {
     await firstDrop.waitFor({ state: "visible", timeout: 10000 });
     await firstDrop.click();
     await expect(page).toHaveURL(/\/drops\//);
-    // Tombol beli seharusnya mengarah ke login
-    await expect(page.locator("text=Masuk").or(page.locator("button:has-text('Beli')"))).toBeVisible();
+    // Jalur beli/masuk tampak untuk unauthenticated (.first(): "Masuk / Daftar"
+    // dirender 2× — nav + drawer — dan tab "Beli Langsung" juga match "Beli").
+    await expect(page.locator("text=Masuk").or(page.locator("button:has-text('Beli')")).first()).toBeVisible();
   });
 
   test("halaman 404 menampilkan error page", async ({ page }) => {

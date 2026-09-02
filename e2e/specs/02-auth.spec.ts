@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { clearMailbox, getMagicLinkFromMailpit, loginAs, toLocalOrigin, userMenuLocator } from "../helpers";
+import { clearMailbox, getMagicLinkFromMailpit, isOtpPathAvailable, loginAs, toLocalOrigin, userMenuLocator } from "../helpers";
 
 const TEST_EMAIL = `e2e-${Date.now()}@test.cverse.id`;
 
@@ -9,6 +9,10 @@ test.describe("Authentication", () => {
   });
 
   test("register user baru via email OTP", async ({ page }) => {
+    test.skip(
+      !(await isOtpPathAvailable(page)),
+      "Turnstile tidak menerbitkan token di bench ini (tombol kirim OTP selamanya disabled) — jalur OTP butuh server web dengan site key valid untuk localhost",
+    );
     await page.goto("/register");
     await page.waitForSelector('input[type="email"]', { timeout: 10000 });
     await page.fill('input[type="email"]', TEST_EMAIL);
@@ -47,6 +51,10 @@ test.describe("Authentication", () => {
   });
 
   test("magic link bekas (single-use) tidak membuat sesi di context baru", async ({ page }) => {
+    test.skip(
+      !(await isOtpPathAvailable(page)),
+      "Turnstile tidak menerbitkan token di bench ini (tombol kirim OTP selamanya disabled) — jalur OTP butuh server web dengan site key valid untuk localhost",
+    );
     // Jalani flow login manual untuk MENAHAN magic link yang sudah dipakai.
     await clearMailbox(TEST_EMAIL);
     await page.goto("/login");
