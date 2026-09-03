@@ -195,7 +195,7 @@ Dok di folder ini meng-override dokumen sumber workspace:
 8. **Leaderboard (F019) punya halaman sendiri** (PG-LB-01) — multi-type:
    tab `Level` (`xp` default) \| `Kolektor` (`cards`) \| `Lencana`
    (`badges`) + papan per-kreator (`?tab=` sinkron). Privasi & tie-break
-   deterministik dijamin RPC `get_leaderboard` (`04_rpc` (04a–04k)); chip tier
+   deterministik dijamin RPC `get_leaderboard` (RPC `07`–`17`); chip tier
    berwarna hanya di papan Level.
 9. **Top-up di area USER** (PG-USR-05, bukan halaman publik);
    **Q026 RESOLVED 2026-08-13** — bukan gate go-live. Top-up

@@ -109,7 +109,7 @@ drops
                                   -- dijual di secondary normal (BUKAN raffle).
                                   -- TWO-PHASE (2026-08-21, sebelumnya
                                  -- 20260821020000_seed_two_phase.sql,
-                                 -- sekarang di 04a–04k RPC files): bid/accept
+                                 -- sekarang di 07–17 RPC files): bid/accept
                                   -- BUKAN lagi di-gate; RELEASE (release_seed_sale,
                                   -- service_role) menolak settle dgn
                                   -- SEED_VAULT_IN_REQUIRED selama location <>

@@ -177,7 +177,7 @@ Belum diimplementasi: notifikasi in-app/push (F010, F013). Email transaksional A
 ├── packages/shared/         # single source: schemas + C_COIN_RATE_IDR + fee
 ├── supabase/
 │   ├── migrations/          # 18 file SQL bernomor (≤300 LoC): 01 schema →
-│   │                        # 02 auth → 03 RLS → 04a–04k RPC → 05 indexes
+│   │                        # 04 auth → 05–06 RLS → 07–17 RPC → 18 indexes
 │   ├── seed.sql
 │   ├── tests/               # rls_test.sql, rpc_*.mjs, revenue_flow_test.mjs
 │   └── config.toml

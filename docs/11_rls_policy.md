@@ -53,7 +53,7 @@ Helper: `create policy ... for select using (...)`, dst.
 | `admin_audit_log` | - | - | service | **TIDAK ADA** | **TIDAK ADA** | append-only, tidak ada update/delete |
 
 `creator_page_views`: INSERT langsung DITOLAK untuk semua role non-service —
-tulis HANYA via SECURITY DEFINER RPC `record_creator_page_view` (`04_rpc` (04a–04k),
+tulis HANYA via SECURITY DEFINER RPC `record_creator_page_view` (RPC `07`–`17`,
 di-grant ke anon+authenticated; berjalan sebagai table owner sehingga tidak
 terkena RLS; guard suspended/unknown/no-creator). Policy INSERT terbuka
 `with check (true)` dihapus (audit 2026-08-29 — anon bisa inject baris
@@ -132,6 +132,6 @@ SQL test per kombinasi (jalankan sebagai `anon`, `authenticated` dgn
 - `dev-strategy/05_data_model.md` section RLS (matriks asli).
 - Audit Platform 2026-08-15: kebocoran allow-all pada migration lama di-squash;
   kini dijaga di `03_rls.sql` (sebelumnya fase 3
-  `20260817020000_rls_policies.sql`) + EXECUTE lockdown di `04k_rpc_grants`
+  `20260817020000_rls_policies.sql`) + EXECUTE lockdown di `17_rpc_grants`
   (sebelumnya fase 5 `20260817040000_grants_payout.sql`).
 - Supabase docs: Row Level Security, `auth.uid()`, JWT claims.
