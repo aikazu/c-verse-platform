@@ -98,7 +98,7 @@ begin
      or new.total_xp is distinct from old.total_xp or new.level is distinct from old.level
      or new.xp_reached_at is distinct from old.xp_reached_at
      or new.cumulative_spend_ccoin is distinct from old.cumulative_spend_ccoin then
-    raise exception 'users.role/flag_reason/xp hanya boleh diubah service-role';
+    raise exception 'users.role/flag_reason/total_xp/level hanya boleh diubah service-role';
   end if;
   return new;
 end $$;

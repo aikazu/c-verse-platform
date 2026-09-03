@@ -53,6 +53,15 @@ app.post(
     if (card.status && ["tampered", "defect", "lost"].includes(card.status)) {
       return c.json({ error: "Kartu non-tradable — tidak eligible untuk dijual" }, 400);
     }
+    // Tolak kartu yang terikat transaksi aktif (paritas SALE_IN_PROGRESS di
+    // RPC accept_bid/buyout_card/set_buyout): listed_buyout (live di
+    // marketplace) dan bid_pending (ada bid aktif / seed PHASE-1 lock).
+    // Tanpa ini seller bisa mengantrekan kartu yang sedang dilisting —
+    // buyer buyout mid-transit lalu kepemilikan pindah sementara fisiknya
+    // dikirim atas nama seller lama.
+    if (card.status && ["listed_buyout", "bid_pending"].includes(card.status)) {
+      return c.json({ error: "Kartu sedang dalam transaksi aktif — selesaikan dulu sebelum kirim ke vault" }, 409);
+    }
     // Cegah antrean ganda sebelum insert: satu kartu = satu shipment aktif
     // (paritas partial unique index uq_shipments_active_per_card — terminal
     // delivered/cancelled boleh kirim ulang).

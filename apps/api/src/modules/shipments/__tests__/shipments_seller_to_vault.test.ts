@@ -120,6 +120,15 @@ describe("POST /api/shipments/seller-to-vault (P0-6)", () => {
     }
   });
 
+  it("kartu listed_buyout/bid_pending → 409 (paritas SALE_IN_PROGRESS di RPC)", async () => {
+    for (const status of ["listed_buyout", "bid_pending"]) {
+      control.card = { id: "card-1", location: "with_owner", status, ownerId: "u-1" };
+      const res = await post(BASE);
+      expect(res.status, `status ${status}`).toBe(409);
+      expect(control.inserted, `status ${status}`).toBeNull();
+    }
+  });
+
   it("sudah ada shipment aktif → 409 sebelum insert", async () => {
     control.card = { id: "card-1", location: "with_owner", status: "sold", ownerId: "u-1" };
     control.activeShipment = { id: "ship-active" };
