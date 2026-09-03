@@ -285,7 +285,7 @@ app.get("/cards/:cardId", async (c) => {
           artwork3dUrl: drop.artwork3dUrl ?? null,
           creatorId: drop.creatorId,
           creatorName: drop.creatorName,
-          dropAt: drop.dropStartAt ?? drop.dropAt,
+          dropStartAt: drop.dropStartAt,
           status: drop.status,
           isSeed: drop.isSeed,
         }
@@ -355,7 +355,7 @@ app.get("/cards/:cardId/3d", async (c) => {
       ? { id: drop.creatorId, name: drop.creatorName, link: `/c/${(await getUserById(drop.creatorId))?.username ?? drop.creatorId}` }
       : null,
     owner: ownerRef,
-    releaseDate: drop?.dropStartAt ?? drop?.dropAt ?? null,
+    releaseDate: drop?.dropStartAt ?? null,
     verifiedBadge: verified ? "Verified Card" : verifyStatus === "tamper_detected" ? "Tamper Detected" : null,
     hint: verified ? null : "Verifikasi via tap NFC untuk badge Verified Card (QR = Registered, lebih lemah).",
   });

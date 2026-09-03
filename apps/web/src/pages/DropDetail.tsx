@@ -31,7 +31,7 @@ type Phase = "upcoming" | "raffle" | "drawing" | "fcfs" | "ended";
 
 function derivePhase(d: ApiDrop, now: number): Phase {
   const remaining = d.totalUnits - d.soldCount;
-  const dropStart = d.dropStartAt ?? d.dropAt ?? null;
+  const dropStart = d.dropStartAt ?? null;
   if (dropStart && new Date(dropStart).getTime() > now) return "upcoming";
   if (d.drawnAt) {
     return remaining <= 0 || d.status === "sold_out" || d.status === "closed" || d.status === "cancelled" ? "ended" : "fcfs";
@@ -78,7 +78,7 @@ export default function DropDetail() {
     return () => clearInterval(t);
   }, []);
   // Countdown target sesuai fase — dihitung sebelum early-return agar hooks order konsisten.
-  const dropStartRaw = data?.dropStartAt ?? data?.dropAt ?? null;
+  const dropStartRaw = data?.dropStartAt ?? null;
   const raffleEndRaw = data?.raffleEndAt ?? null;
   const countdownTarget = useMemo(() => {
     if (!data) return null;

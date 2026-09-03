@@ -161,7 +161,6 @@ export const createDropSchema = z.object({
   priceSignedCCoin: z.number().int().min(1).optional(),
   dropStartAt: z.iso.datetime().optional(),
   dropEndAt: z.iso.datetime().optional(),
-  dropAt: z.iso.datetime().optional(), // legacy alias for dropStartAt
   creatorId: z.string().optional(),
 });
 export type CreateDropInput = z.infer<typeof createDropSchema>;
@@ -311,8 +310,7 @@ export interface Drop {
   priceUnsignedCCoin: number; // kept for UI backwards compat
   priceSignedCCoin: number;
   status: DropStatus;
-  dropAt: string | null; // alias to dropStartAt
-  dropStartAt?: string | null;
+  dropStartAt: string | null;
   dropEndAt?: string | null;
   creatorId: string;
   creatorName: string;
@@ -364,8 +362,7 @@ export interface Order {
   id: string;
   userId: string;
   dropId: string;
-  cardIds: string[];
-  cardId?: string; // canonical 1 card = 1 order
+  cardId?: string; // 1 card = 1 order
   totalCCoin: number;
   totalIdr: number;
   status: OrderStatus;

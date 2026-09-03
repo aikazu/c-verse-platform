@@ -33,8 +33,7 @@ export interface ApiDrop {
   priceUnsignedCCoin: number;
   priceSignedCCoin: number;
   status: string;
-  dropAt: string | null;
-  dropStartAt?: string | null;
+  dropStartAt: string | null;
   dropEndAt?: string | null;
   raffleEndAt?: string | null;
   drawnAt?: string | null;
@@ -64,7 +63,6 @@ export interface ApiUser {
   usernameIsAuto?: boolean;
   role: "user" | "creator" | "admin";
   avatarUrl?: string | null;
-  xp?: number;
   totalXp?: number;
   level?: number;
   cumulativeSpendCcoin?: number;
@@ -374,7 +372,6 @@ export interface ApiCreatorPublicResponse {
     username: string | null;
     handle: string | null;
     totalFollowersCombined: number | null;
-    xp?: number;
   };
   // GET /api/creators/:id returns drops/stats as siblings of `creator`.
   drops?: ApiDrop[];

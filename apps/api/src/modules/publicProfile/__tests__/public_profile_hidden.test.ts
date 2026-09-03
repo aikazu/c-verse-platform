@@ -31,7 +31,6 @@ const ANON_USER = {
   username: "rahasia",
   role: "user" as const,
   avatarUrl: null,
-  xp: 0,
   totalXp: 42,
   level: 5,
   cumulativeSpendCcoin: 0,

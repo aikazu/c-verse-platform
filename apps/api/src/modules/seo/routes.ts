@@ -105,7 +105,7 @@ app.get("/meta", async (c) => {
         "@type": "Event",
         name: drop.title,
         image: drop.artworkUrl,
-        startDate: drop.dropStartAt ?? drop.dropAt ?? undefined,
+        startDate: drop.dropStartAt ?? undefined,
       },
     });
   }

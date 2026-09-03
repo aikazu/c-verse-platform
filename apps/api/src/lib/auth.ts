@@ -64,7 +64,6 @@ function dbUserToStoreUser(row: Record<string, unknown>): User {
     usernameIsAuto: Boolean(row.username_is_auto ?? false),
     role: (row.role as User["role"]) ?? "user",
     avatarUrl: (row.avatar_url as string | null) ?? null,
-    xp: Number(row.total_xp ?? 0),
     totalXp: Number(row.total_xp ?? 0),
     level: Number(row.level ?? 1),
     cumulativeSpendCcoin: Number(row.cumulative_spend_ccoin ?? 0),

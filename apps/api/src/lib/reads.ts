@@ -33,7 +33,6 @@ export function mapDropRow(r: Row): Drop {
     priceSignedCCoin: num(r.price_signed_ccoin),
     priceCcoin: num(r.price_ccoin),
     status: str(r.status) as Drop["status"],
-    dropAt: nstr(r.drop_at),
     dropStartAt: nstr(r.drop_start_at),
     dropEndAt: nstr(r.drop_end_at),
     raffleEndAt: nstr(r.raffle_end_at),
@@ -76,7 +75,6 @@ export function mapUserRow(r: Row): User {
     usernameIsAuto: bool(r.username_is_auto),
     role: str(r.role) as User["role"],
     avatarUrl: nstr(r.avatar_url),
-    xp: num(r.total_xp), // canonical total_xp (docs/05) — legacy users.xp ignored
     totalXp: num(r.total_xp),
     level: num(r.level),
     cumulativeSpendCcoin: num(r.cumulative_spend_ccoin),
@@ -121,7 +119,6 @@ export function mapOrderRow(r: Row): Order {
     id: str(r.id),
     userId: str(r.user_id),
     dropId: str(r.drop_id),
-    cardIds: Array.isArray(r.card_ids) ? (r.card_ids as string[]) : [],
     cardId: nstr(r.card_id),
     totalCCoin: num(r.total_ccoin),
     totalIdr: num(r.total_idr),

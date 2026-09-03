@@ -41,7 +41,6 @@ export interface User {
   usernameIsAuto?: boolean;
   role: UserRole;
   avatarUrl: string | null;
-  xp: number; // total_xp dari DB (canonical)
   totalXp: number;
   level: number;
   cumulativeSpendCcoin: number;
@@ -77,7 +76,6 @@ export interface Drop {
   priceSignedCCoin: number;
   priceCcoin: number;
   status: DropStatus;
-  dropAt: string | null; // legacy DB column — fallback jika dropStartAt null
   dropStartAt: string | null;
   dropEndAt: string | null;
   raffleEndAt?: string | null;
@@ -143,7 +141,6 @@ export interface Order {
   id: string;
   userId: string;
   dropId: string;
-  cardIds: string[]; // legacy DB column — multi-card support
   cardId: string | null;
   totalCCoin: number;
   totalIdr: number;

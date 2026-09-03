@@ -52,8 +52,8 @@ app.get("/:id", async (c) => {
   if (o.userId !== user.id && (user.role as string) !== "admin") return c.json({ error: "Forbidden" }, 403);
   const [drop, cards, shipments] = await Promise.all([
     getDropById(o.dropId),
-    listCardsByIds(o.cardIds ?? []),
-    listShipmentsByCards(o.cardIds ?? []),
+    listCardsByIds(o.cardId ? [o.cardId] : []),
+    listShipmentsByCards(o.cardId ? [o.cardId] : []),
   ]);
   return c.json({ order: o, drop: drop ?? undefined, cards, shipments });
 });

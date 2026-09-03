@@ -43,7 +43,6 @@ function userFixture(over: Record<string, unknown> = {}): Record<string, unknown
     username: "bidder1",
     role: "user",
     avatarUrl: null,
-    xp: 0,
     totalXp: 0,
     level: 1,
     cumulativeSpendCcoin: 0,

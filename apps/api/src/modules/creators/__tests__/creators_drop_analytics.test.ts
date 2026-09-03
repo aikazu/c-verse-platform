@@ -23,7 +23,6 @@ vi.mock("../../../lib/auth.js", () => ({
         role: "creator",
         username: null,
         usernameIsAuto: true,
-        xp: 0,
         totalXp: 0,
         level: 1,
         cumulativeSpendCcoin: 0,

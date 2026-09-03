@@ -23,7 +23,7 @@ type Phase = "upcoming" | "raffle" | "drawing" | "fcfs" | "ended";
 
 function phase(d: ApiDrop, now: number): Phase {
   const remaining = d.totalUnits - d.soldCount;
-  const dropStart = d.dropStartAt ?? d.dropAt ?? null;
+  const dropStart = d.dropStartAt ?? null;
   if (dropStart && new Date(dropStart).getTime() > now) return "upcoming";
   if (d.drawnAt) {
     return remaining <= 0 || d.status === "sold_out" || d.status === "closed" || d.status === "cancelled" ? "ended" : "fcfs";
@@ -158,8 +158,8 @@ export default function Drops() {
     const upcoming = allDrops.filter((d) => phase(d, now) === "upcoming");
     if (upcoming.length) {
       return [...upcoming].sort((a, b) => {
-        const aStart = a.dropStartAt ?? a.dropAt ?? "";
-        const bStart = b.dropStartAt ?? b.dropAt ?? "";
+        const aStart = a.dropStartAt ?? "";
+        const bStart = b.dropStartAt ?? "";
         return new Date(aStart).getTime() - new Date(bStart).getTime();
       })[0];
     }
@@ -185,8 +185,8 @@ export default function Drops() {
       arr.sort((a, b) => (a.priceCcoin ?? a.priceUnsignedCCoin ?? 0) - (b.priceCcoin ?? b.priceUnsignedCCoin ?? 0));
     } else {
       arr.sort((a, b) => {
-        const ad = a.dropStartAt ?? a.dropAt ?? a.createdAt ?? "";
-        const bd = b.dropStartAt ?? b.dropAt ?? b.createdAt ?? "";
+        const ad = a.dropStartAt ?? a.createdAt ?? "";
+        const bd = b.dropStartAt ?? b.createdAt ?? "";
         return new Date(bd).getTime() - new Date(ad).getTime();
       });
     }
@@ -371,7 +371,7 @@ export default function Drops() {
             const ph = phase(d, now);
             const remaining = Math.max(0, d.remainingUnits ?? d.totalUnits - d.soldCount);
             const pct = d.totalUnits > 0 ? Math.round((d.soldCount / d.totalUnits) * 100) : 0;
-            const countdownTarget = ph === "upcoming" ? (d.dropStartAt ?? d.dropAt) : d.raffleEndAt;
+            const countdownTarget = ph === "upcoming" ? d.dropStartAt : d.raffleEndAt;
             const isPulse = ph === "raffle";
             const priceReg = d.priceCcoin ?? d.priceUnsignedCCoin;
             return (
@@ -442,7 +442,7 @@ function NextLaunchConsole({ d, now }: { d: ApiDrop; now: number }) {
   const remaining = Math.max(0, d.remainingUnits ?? d.totalUnits - d.soldCount);
   const pct = d.totalUnits > 0 ? Math.min(100, Math.round((d.soldCount / d.totalUnits) * 100)) : 0;
   const isLive = ph === "raffle";
-  const countdownTarget = ph === "upcoming" ? (d.dropStartAt ?? d.dropAt) : d.raffleEndAt;
+  const countdownTarget = ph === "upcoming" ? d.dropStartAt : d.raffleEndAt;
   const priceReg = d.priceCcoin ?? d.priceUnsignedCCoin;
   const idrReg = d.idrPrice ?? d.idrUnsigned ?? 0;
   const hasSigned = d.priceSignedCCoin !== undefined || d.idrSigned !== undefined || d.signedCount > 0;

@@ -126,7 +126,7 @@ app.get("/:id", async (c) => {
   return c.json({
     ...d,
     myEntry,
-    dropStartAt: d.dropStartAt ?? d.dropAt,
+    dropStartAt: d.dropStartAt,
     priceCcoin: d.priceCcoin ?? d.priceUnsignedCCoin,
     remainingUnits: d.totalUnits - d.soldCount,
     idrPrice: (d.priceCcoin ?? d.priceUnsignedCCoin) * C_COIN_RATE_IDR,
@@ -192,7 +192,6 @@ app.post(
       priceCcoin: z.number().int().min(1).optional(),
       priceUnsignedCCoin: z.number().int().min(1).optional(),
       priceSignedCCoin: z.number().int().min(1).optional(),
-      dropAt: z.string().optional(),
       dropStartAt: z.string().optional(),
       dropEndAt: z.string().optional(),
       // M9 (audit 2026-08-24): drop the misleading `creatorId` field — the route
@@ -217,7 +216,7 @@ app.post(
     const priceUnsigned = body.priceUnsignedCCoin ?? priceCcoin;
     // Founder 2026-08-16: signed = unsigned + 20 C-Coin flat (20/40, 40/60, 50/70)
     const priceSigned = body.priceSignedCCoin ?? calcSignedPrice(priceCcoin);
-    const dropStartAt = resolveDropStartAt(body.dropStartAt ?? body.dropAt);
+    const dropStartAt = resolveDropStartAt(body.dropStartAt);
     if (!dropStartAt) return c.json({ error: "dropStartAt tidak valid" }, 400);
     // Drop selalu raffle: window entry 24 jam sejak rilis, draw otomatis via cron (docs 03 Flow 5)
     const raffleEndAt = new Date(new Date(dropStartAt).getTime() + 24 * 3600 * 1000).toISOString();
@@ -237,7 +236,6 @@ app.post(
       price_signed_ccoin: priceSigned,
       price_ccoin: priceCcoin,
       status: "draft",
-      drop_at: dropStartAt,
       drop_start_at: dropStartAt,
       raffle_end_at: raffleEndAt,
       drop_end_at: body.dropEndAt ?? null,

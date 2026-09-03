@@ -183,7 +183,6 @@ vi.mock("../lib/reads/drops.js", async (importOriginal) => {
           priceSignedCCoin: 0,
           priceCcoin: 0,
           status: d.status as never,
-          dropAt: null,
           dropStartAt: null,
           creatorId: "",
           creatorName: "",

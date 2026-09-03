@@ -20,7 +20,6 @@ function authUser(v: NonNullable<typeof control.viewer>) {
     role: v.role,
     username: null,
     usernameIsAuto: true,
-    xp: 0,
     totalXp: 0,
     level: 1,
     cumulativeSpendCcoin: 0,

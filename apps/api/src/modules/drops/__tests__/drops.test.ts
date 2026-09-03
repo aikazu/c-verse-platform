@@ -33,7 +33,6 @@ function dropFixture(over: Record<string, unknown> = {}): Record<string, unknown
     priceSignedCCoin: 50,
     priceCcoin: 30,
     status: "live",
-    dropAt: "2026-08-01T05:00:00.000Z",
     dropStartAt: "2026-08-01T05:00:00.000Z",
     dropEndAt: null,
     creatorId: "creator-1",

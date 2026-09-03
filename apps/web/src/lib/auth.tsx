@@ -34,7 +34,7 @@ export function friendlyAuthError(error: unknown): string {
   return message || "Terjadi kesalahan";
 }
 
-type User = Pick<ApiUser, "id" | "email" | "displayName" | "role" | "username" | "usernameIsAuto" | "xp"> | null;
+type User = Pick<ApiUser, "id" | "email" | "displayName" | "role" | "username" | "usernameIsAuto"> | null;
 
 interface AuthContextValue {
   user: User;
@@ -77,7 +77,6 @@ async function loadProfile(setUser: (u: User) => void, token: string | null) {
       role: u.role,
       username: u.username ?? null,
       usernameIsAuto: u.usernameIsAuto ?? false,
-      xp: u.xp,
     });
   } catch {
     setUser(null);
