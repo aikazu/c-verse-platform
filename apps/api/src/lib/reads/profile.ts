@@ -1,7 +1,8 @@
-import { mapBadgeRow, mapKycRow, mapUserBadgeRow, mapWalletRow, type Row, readDb } from "../reads.js";
-import type { BadgeDef, KycRecord, UserBadge, Wallet } from "../store.js";
+import { mapBadgeRow, mapUserBadgeRow, mapWalletRow, type Row, readDb } from "../reads.js";
+import type { BadgeDef, UserBadge, Wallet } from "../store.js";
 
 // Domain reads: profile aggregation (docs/13 §3 Wave 3 — public select, no RPC needed).
+// KYC lookup lives canonically in reads/kyc.ts — this module keeps wallet + badges only.
 
 export async function getWalletByUser(userId: string): Promise<Wallet> {
   const db = readDb();
@@ -33,11 +34,4 @@ export async function listUserBadges(userId: string): Promise<UserBadgeWithDef[]
     }
   }
   return earned.map((ub) => ({ ...ub, badge: defById.get(ub.badgeId) }));
-}
-
-export async function getKycByUser(userId: string): Promise<KycRecord | null> {
-  const db = readDb();
-  const { data, error } = await db.from("kyc_records").select("*").eq("user_id", userId).maybeSingle();
-  if (error) throw new Error(error.message);
-  return data ? mapKycRow(data as Row) : null;
 }

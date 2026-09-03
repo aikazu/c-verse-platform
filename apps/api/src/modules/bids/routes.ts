@@ -4,7 +4,7 @@ import { Hono } from "hono";
 import { z } from "zod";
 import { requireUser } from "../../lib/auth.js";
 import { RpcError, rpcAcceptBid, rpcCancelBid, rpcPlaceBid, userDb } from "../../lib/db.js";
-import { listBidsByCard } from "../../lib/reads/bids.js";
+import { listBids } from "../../lib/reads/bids.js";
 import { listUsersByIds } from "../../lib/reads/users.js";
 import { isPubliclyMasked, toPublicBid } from "../../lib/reads.js";
 import type { Bid } from "../../lib/store.js";
@@ -41,7 +41,7 @@ function resolveWindowDays(query: Record<string, string>): number {
 // GET bids for a card
 app.get("/:id", async (c) => {
   const cutoff = Date.now() - resolveWindowDays(c.req.query()) * 86400000;
-  const bids = await listBidsByCard(c.req.param("id"));
+  const bids = await listBids({ cardId: c.req.param("id") });
   const filtered = bids.filter((b) => b.status === "accepted" || new Date(b.createdAt).getTime() >= cutoff);
   const sorted = [...filtered].sort(
     (a, b) => b.amountCCoin - a.amountCCoin || new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
@@ -54,7 +54,7 @@ app.get("/:id", async (c) => {
 app.get("/card/:cardId", async (c) => {
   const cardId = c.req.param("cardId");
   const cutoff = Date.now() - resolveWindowDays(c.req.query()) * 86400000;
-  const bids = await listBidsByCard(cardId);
+  const bids = await listBids({ cardId });
   const filtered = bids
     .filter((b) => b.status === "accepted" || new Date(b.createdAt).getTime() >= cutoff)
     .sort((a, b) => b.amountCCoin - a.amountCCoin || new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());

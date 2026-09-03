@@ -2,13 +2,7 @@ import { mapBidRow, readDb } from "../reads.js";
 import type { Bid } from "../store.js";
 
 // Domain reads: bids (docs 07 — 1 active per card, history 90 hari).
-
-export async function listBidsByCard(cardId: string): Promise<Bid[]> {
-  const db = readDb();
-  const { data, error } = await db.from("bids").select("*").eq("card_id", cardId).order("created_at", { ascending: false });
-  if (error) throw new Error(error.message);
-  return (data ?? []).map((r) => mapBidRow(r as Record<string, unknown>));
-}
+// Single selector: filter by card/bidder/status — no per-field duplicate wrappers.
 
 export interface BidQuery {
   cardId?: string;

@@ -37,8 +37,10 @@ vi.mock("../../../lib/auth.js", () => ({
   tokenFingerprint: () => Promise.resolve("sha256:test"),
 }));
 
-vi.mock("../../../lib/reads/profile.js", () => ({
+vi.mock("../../../lib/reads/kyc.js", () => ({
   getKycByUser: vi.fn(() => Promise.resolve(control.kyc)),
+}));
+vi.mock("../../../lib/reads/profile.js", () => ({
   getWalletByUser: vi.fn(() =>
     Promise.resolve({ userId: "u-1", balanceCCoin: 100, totalTopupCCoin: 100, totalSpentCCoin: 0, holdPayoutUntil: null }),
   ),

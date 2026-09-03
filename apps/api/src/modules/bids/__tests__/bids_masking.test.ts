@@ -10,7 +10,7 @@ const control = vi.hoisted(() => ({
 }));
 
 const readsBids = vi.hoisted(() => ({
-  listBidsByCard: vi.fn(() => Promise.resolve(control.bids)),
+  listBids: vi.fn(() => Promise.resolve(control.bids)),
 }));
 
 const readsUsers = vi.hoisted(() => ({

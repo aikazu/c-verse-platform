@@ -42,7 +42,7 @@ vi.mock("../../../lib/db.js", async (importOriginal) => {
 });
 
 vi.mock("../../../lib/reads/bids.js", () => ({
-  listBidsByCard: () => Promise.resolve([]),
+  listBids: () => Promise.resolve([]),
 }));
 
 const { app } = await import("../../../index.js");

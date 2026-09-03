@@ -38,12 +38,6 @@ vi.mock("../../../lib/reads/orders.js", () => ({
   getShipmentById: () => Promise.resolve(null),
 }));
 
-vi.mock("../../../lib/reads/profile.js", () => ({
-  getKycByUser: () => Promise.resolve(null),
-  getWalletByUser: () => Promise.resolve({ balanceCCoin: 100, holdPayoutUntil: null }),
-  listUserBadges: () => Promise.resolve([]),
-}));
-
 vi.mock("../../../lib/reads/kyc.js", () => ({
   logAuditDb: (...args: unknown[]) => {
     control.auditCalls.push({ args });

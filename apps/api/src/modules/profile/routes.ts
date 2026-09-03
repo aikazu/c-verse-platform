@@ -5,8 +5,9 @@ import { z } from "zod";
 import { requireUser } from "../../lib/auth.js";
 import { listBids } from "../../lib/reads/bids.js";
 import { listCards, listDrops } from "../../lib/reads/drops.js";
+import { getKycByUser } from "../../lib/reads/kyc.js";
 import { listOrdersByUser, listShipmentsByRequester } from "../../lib/reads/orders.js";
-import { getKycByUser, getWalletByUser, listUserBadges } from "../../lib/reads/profile.js";
+import { getWalletByUser, listUserBadges } from "../../lib/reads/profile.js";
 import { getUserByUsername } from "../../lib/reads/users.js";
 import { readDb } from "../../lib/reads.js";
 import { redactKycForOwner } from "../../lib/redact.js";
@@ -71,7 +72,6 @@ app.get("/", async (c) => {
     orders: myOrders,
     shipments: myShipments,
     bids: myBids,
-    listings: [],
     badges,
     // Audit batch 2 F6: row KYC di endpoint ini dulu membeberkan NIK penuh +
     // address. Paritas dengan GET /api/kyc — PII lewat redactKycForOwner.
