@@ -95,6 +95,10 @@ test.describe("Wallet", () => {
     // "Belum ada transaksi" (satu baris colSpan=4), bukan tabel tanpa tbody.
     await expect(gemsLedger.locator("td.wa-td-empty")).toHaveText("Belum ada transaksi");
     await expect(gemsLedger.locator("tbody tr")).toHaveCount(1);
+
+    // Payout terbuka untuk SEMUA user (docs/07 dual-token) — bukan hanya kreator.
+    await expect(page.locator("text=Tarik ke Rekening").first()).toBeVisible();
+    await expect(page.getByText("hanya untuk kreator")).toHaveCount(0);
   });
 });
 
@@ -126,7 +130,7 @@ test.describe("Wallet dual-token (C-Gems)", () => {
     // Kreator: blok payout beroperasi pada C-Gems (dual-token), bukan C-Coin.
     await expect(page.locator("text=Tarik ke Rekening").first()).toBeVisible();
     await expect(page.locator('input[aria-label="Jumlah penarikan C-Gems"]')).toBeVisible();
-    await expect(page.locator(".wa-min-label", { hasText: "MIN 10 C" })).toBeVisible();
+    await expect(page.locator(".wa-min-label", { hasText: "MIN 10 C-Gems" })).toBeVisible();
   });
 
   test("riwayat C-Gems karina: 5 baris seed royalty, amount bertanda + saldo eksak", async ({ page }) => {

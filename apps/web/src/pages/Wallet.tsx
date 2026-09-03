@@ -41,7 +41,7 @@ function WalletInner() {
   const { data, refetch, isLoading, isError } = useQuery({ queryKey: ["wallet"], queryFn: () => api.wallet(), enabled: !!user });
   const { data: kycData } = useQuery({ queryKey: ["kyc"], queryFn: () => api.kyc(), enabled: !!user });
   const kycApproved = kycData?.kyc?.status === "approved";
-  const isCreator = user?.role === "creator"; // payout self-service hanya untuk kreator
+  // payout self-service untuk semua user — server yang enforce KYC + gems matured
 
   // Kembali dari Midtrans: ?order_id=...&status_code=... — saldo dikredit webhook, bukan redirect.
   useEffect(() => {
@@ -98,7 +98,7 @@ function WalletInner() {
         setPayoutConfirmOpen(false);
         nav("/me/kyc");
       } else if (err?.status === 400 && err.code === "MIN_PAYOUT") {
-        push("Payout minimum 10 C", "error");
+        push("Payout minimum 10 C-Gems", "error");
       } else if (err?.code === "PAYOUT_GEMS_LOCKED") {
         // Dual-token (docs/07): server sudah kirim copy Indonesia dengan angka jam dari shared.
         push(err.message, "error");
@@ -253,7 +253,7 @@ function WalletInner() {
                 value={convertAmt}
                 onChange={(e) => setConvertAmt(Number(e.target.value))}
                 aria-label="Jumlah konversi C-Gems"
-                placeholder="Jumlah Gems"
+                placeholder="Jumlah C-Gems"
               />
               <button
                 className="btn-ghost"
@@ -288,52 +288,46 @@ function WalletInner() {
           </>
         )}
 
-        {isCreator ? (
-          <>
-            <div className="wa-row-between">
-              <span className="wa-row-title">Tarik ke Rekening</span>
-              <span className="wa-min-label">MIN 10 C</span>
-            </div>
-            <div className="wa-input-row">
-              <input
-                className="input wa-input-flex"
-                type="number"
-                min={10}
-                value={payoutAmt}
-                onChange={(e) => setPayoutAmt(Number(e.target.value))}
-                aria-label="Jumlah penarikan C-Gems"
-                placeholder="Jumlah C"
-              />
-              <button
-                className="btn-ghost"
-                onClick={() => {
-                  // Pattern CreatorPage: integer >= 1 wajib — tolak desimal/Infinity.
-                  if (!Number.isInteger(payoutAmt) || payoutAmt < 10) {
-                    push("Payout minimum 10 C", "info");
-                    return;
-                  }
-                  // Payout hanya dari Gems matured — lot terkunci tidak terhitung (docs/07).
-                  if (payoutAmt > w.gemsMatured) {
-                    push("Saldo bisa cair tidak cukup", "info");
-                    return;
-                  }
-                  setPayoutConfirmOpen(true);
-                }}
-                disabled={busyPayout}
-              >
-                {busyPayout ? "Memproses…" : "Tarik"}
-              </button>
-            </div>
-            {w.gemsLocked > 0 && (
-              <div className="wa-hint">
-                {w.gemsLocked} C-Gems terkunci {GEMS_LOCK_HOURS} jam
-              </div>
-            )}
-            <div className="wa-hint">Dana dikunci sampai batch mingguan · minimal 10 C</div>
-          </>
-        ) : (
-          <div className="muted wa-sub">Penarikan hanya untuk kreator — KYC wajib.</div>
+        <div className="wa-row-between">
+          <span className="wa-row-title">Tarik ke Rekening</span>
+          <span className="wa-min-label">MIN 10 C-Gems</span>
+        </div>
+        <div className="wa-input-row">
+          <input
+            className="input wa-input-flex"
+            type="number"
+            min={10}
+            value={payoutAmt}
+            onChange={(e) => setPayoutAmt(Number(e.target.value))}
+            aria-label="Jumlah penarikan C-Gems"
+            placeholder="Jumlah C-Gems"
+          />
+          <button
+            className="btn-ghost"
+            onClick={() => {
+              // Pattern CreatorPage: integer >= 1 wajib — tolak desimal/Infinity.
+              if (!Number.isInteger(payoutAmt) || payoutAmt < 10) {
+                push("Payout minimum 10 C-Gems", "info");
+                return;
+              }
+              // Payout hanya dari Gems matured — lot terkunci tidak terhitung (docs/07).
+              if (payoutAmt > w.gemsMatured) {
+                push("Saldo bisa cair tidak cukup", "info");
+                return;
+              }
+              setPayoutConfirmOpen(true);
+            }}
+            disabled={busyPayout}
+          >
+            {busyPayout ? "Memproses…" : "Tarik"}
+          </button>
+        </div>
+        {w.gemsLocked > 0 && (
+          <div className="wa-hint">
+            {w.gemsLocked} C-Gems terkunci {GEMS_LOCK_HOURS} jam
+          </div>
         )}
+        <div className="wa-hint">Dana dikunci sampai batch mingguan · minimal 10 C-Gems</div>
       </div>
 
       {/* Ledger — monitor surface */}
@@ -450,12 +444,12 @@ function WalletInner() {
               <div className="wa-modal-row">
                 <span className="muted">Jumlah</span>
                 <span className="wa-mono wa-strong">
-                  {payoutAmt} C · {formatIdr(payoutAmt * rate)}
+                  {payoutAmt} C-Gems · {formatIdr(payoutAmt * rate)}
                 </span>
               </div>
               <div className="wa-modal-row">
                 <span className="muted">Saldo tersisa</span>
-                <span className="wa-mono">{w.gemsMatured - payoutAmt} C</span>
+                <span className="wa-mono">{w.gemsMatured - payoutAmt} C-Gems</span>
               </div>
               <div className="muted wa-modal-note">Dana dikunci setelah konfirmasi — dicairkan batch mingguan (Selasa 06:00 WIB).</div>
             </div>
