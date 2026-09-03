@@ -14,6 +14,7 @@ import "./wallet.css";
 
 // Fallback terakhir untuk error tanpa code-map — jangan render teks server mentah.
 const GENERIC_ERROR = "Terjadi kesalahan, coba lagi";
+const LEDGER_PAGE_SIZE = 10; // paginasi riwayat — tampil per 10 terbaru
 
 export default function Wallet() {
   return (
@@ -35,6 +36,8 @@ function WalletInner() {
   const [payoutConfirmOpen, setPayoutConfirmOpen] = useState(false); // P1-12 modal konfirmasi payout
   const [convertAmt, setConvertAmt] = useState(1); // konversi Gems → C-Coin (docs/07)
   const [busyConvert, setBusyConvert] = useState(false);
+  const [txPage, setTxPage] = useState(0); // halaman riwayat C-Coin
+  const [gemPage, setGemPage] = useState(0); // halaman riwayat C-Gems
   // Midtrans Snap instruction untuk pembayaran yang tidak melempar redirect (fallback tampilkan token)
   const [snapPanel, setSnapPanel] = useState<{ snapToken: string; amountCcoin: number; expiresLabel: string } | null>(null);
 
@@ -139,6 +142,13 @@ function WalletInner() {
   const w = data.wallet;
   const txs = data.transactions;
   const gemTxs = data.gemTxs;
+  // Paginasi client-side — fetch tetap limit 100, tampil per halaman LEDGER_PAGE_SIZE.
+  const txPageCount = Math.max(1, Math.ceil(txs.length / LEDGER_PAGE_SIZE));
+  const gemPageCount = Math.max(1, Math.ceil(gemTxs.length / LEDGER_PAGE_SIZE));
+  const txPageSafe = Math.min(txPage, txPageCount - 1);
+  const gemPageSafe = Math.min(gemPage, gemPageCount - 1);
+  const txRows = txs.slice(txPageSafe * LEDGER_PAGE_SIZE, (txPageSafe + 1) * LEDGER_PAGE_SIZE);
+  const gemRows = gemTxs.slice(gemPageSafe * LEDGER_PAGE_SIZE, (gemPageSafe + 1) * LEDGER_PAGE_SIZE);
   const rate = data.rate;
   const topupCapNoKyc = data.topupCapNoKyc ?? BALANCE_CAP_CCOIN;
   const payoutHeld = data.payoutHeld ?? false;
@@ -350,14 +360,14 @@ function WalletInner() {
               </tr>
             </thead>
             <tbody>
-              {txs.length === 0 ? (
+              {txRows.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="wa-td-empty">
                     Belum ada transaksi
                   </td>
                 </tr>
               ) : (
-                txs.map((t) => (
+                txRows.map((t) => (
                   <tr key={t.id}>
                     <td className="wa-td-time">{new Date(t.createdAt).toLocaleString("id-ID")}</td>
                     <td>
@@ -381,6 +391,7 @@ function WalletInner() {
             </tbody>
           </table>
         </div>
+        {txPageCount > 1 && <LedgerPager page={txPageSafe} pageCount={txPageCount} onPage={setTxPage} />}
       </div>
 
       {/* C-Gems ledger — penghasilan (kredit) & pemakaian (debit), docs/07 */}
@@ -399,14 +410,14 @@ function WalletInner() {
               </tr>
             </thead>
             <tbody>
-              {gemTxs.length === 0 ? (
+              {gemRows.length === 0 ? (
                 <tr>
                   <td colSpan={4} className="wa-td-empty">
                     Belum ada transaksi
                   </td>
                 </tr>
               ) : (
-                gemTxs.map((t) => (
+                gemRows.map((t) => (
                   <tr key={`${t.createdAt}-${t.amount}-${t.balanceAfterGems}`}>
                     <td className="wa-td-time">{new Date(t.createdAt).toLocaleString("id-ID")}</td>
                     <td>
@@ -425,6 +436,7 @@ function WalletInner() {
             </tbody>
           </table>
         </div>
+        {gemPageCount > 1 && <LedgerPager page={gemPageSafe} pageCount={gemPageCount} onPage={setGemPage} />}
       </div>
 
       {/* P1-12: Payout confirmation modal — tampilkan ringkasan sebelum kunci dana */}
@@ -464,6 +476,22 @@ function WalletInner() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function LedgerPager({ page, pageCount, onPage }: { page: number; pageCount: number; onPage: (next: number) => void }) {
+  return (
+    <div className="wa-row-between">
+      <button className="btn-ghost" onClick={() => onPage(page - 1)} disabled={page === 0}>
+        ‹ Sebelumnya
+      </button>
+      <span className="muted wa-hint">
+        Halaman {page + 1}/{pageCount}
+      </span>
+      <button className="btn-ghost" onClick={() => onPage(page + 1)} disabled={page >= pageCount - 1}>
+        Berikutnya ›
+      </button>
     </div>
   );
 }
