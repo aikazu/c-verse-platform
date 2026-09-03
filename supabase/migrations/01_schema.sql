@@ -1,6 +1,6 @@
 -- ══════════════════════════════════════════════════════════════════════════
--- C.Verse — 01_schema: All DDL (extensions, enums, tables, base indexes,
--- updated_at triggers, table-level grants). Setiap objek ditulis satu kali.
+-- C.Verse — 01_schema: extensions, enums (FINAL), helper trigger functions,
+-- core tables (users → bids). Setiap objek ditulis satu kali.
 --
 -- Sumber (semua FINAL, tanpa patch intermediate):
 --   - 20260817000000_foundation.sql         — DDL lengkap
@@ -10,10 +10,13 @@
 --   - 20260821020000_seed_two_phase.sql     — bids.destination/shipping_address, orders.source check
 --   - 20260823000000_payout_refund.sql      — payouts.status check (add 'processing','refunded')
 --   - 20260824000000_shipment_active_unique.sql — partial unique index shipments active per card
+--   - 06_seller_to_vault.sql (di-fold)      — shipment_type/shipment_from_location
+--     FINAL (incl. 'secondary_seller_to_vault', 'with_owner') + shipments.fee_ccoin
+--     check >= 0 (seller-to-vault gratis)
 --
--- Perubahan dari versi asli (konsolidasi saja — tidak ada logic change):
---   - ALTER TABLE add column/constraint setelah CREATE TABLE (idempotent)
---   - Sequence + grants dikumpulkan di akhir file
+-- Pecahan schema (urutan leksikal: 01_ < 01b_ < 01c_ < 02_):
+--   - 01b_schema_tables.sql  — tabel badges → platform_revenue + treasury + triggers
+--   - 01c_indexes_grants.sql — index + grants/revokes
 -- ══════════════════════════════════════════════════════════════════════════
 
 create extension if not exists "pgcrypto";
@@ -39,9 +42,15 @@ create type public.card_status as enum ('inventory','bound','listed_buyout','bid
 create type public.card_location as enum ('platform_stock','with_owner','platform_vault');
 create type public.delivery_option as enum ('shipping','vault');
 create type public.escrow_status as enum ('held','released');
-create type public.shipment_type as enum ('primary_shipping','primary_vault','secondary_buyout','secondary_bid','vault_shipout');
+-- shipment_type FINAL (fold 06_seller_to_vault): 'secondary_seller_to_vault' =
+-- seller kirim kartu with_owner ke platform vault untuk verifikasi (P0-6 audit
+-- 2026-08-24; sinkron shipmentTypeSchema di packages/shared/src/index.ts).
+create type public.shipment_type as enum ('primary_shipping','primary_vault','secondary_buyout','secondary_bid','vault_shipout','secondary_seller_to_vault');
 create type public.shipment_to_dest as enum ('buyer_address','platform_vault');
-create type public.shipment_from_location as enum ('platform','seller');
+-- shipment_from_location FINAL (fold 06_seller_to_vault): 'with_owner' = sumber
+-- aktual kartu seller; 'seller' generik dipertahankan untuk kompatibilitas
+-- baris lama.
+create type public.shipment_from_location as enum ('platform','seller','with_owner');
 create type public.shipment_status as enum ('requested','packed','shipped','delivered','cancelled');
 create type public.bid_status as enum ('active','outbid','cancelled','accepted');
 create type public.creator_status as enum ('active','suspended','inactive');
@@ -248,7 +257,10 @@ create table public.orders (
   escrow_status escrow_status not null default 'held',
   card_id text references public.cards(id) on delete set null,
   shipped_at timestamptz,
-  source text not null default 'fcfs'
+  source text not null default 'fcfs',
+  -- orders.source: seed buyout PHASE-1 (20260821020000) menulis 'secondary_buyout'
+  -- (ditulis FINAL inline — fold dari alter add constraint di 01 yang lama).
+  constraint orders_source_check check (source in ('fcfs','raffle','secondary_buyout'))
 );
 
 create table public.bids (
@@ -268,365 +280,3 @@ create table public.bids (
   shipping_address text,
   constraint chk_amount_ccoin check (amount_ccoin >= 1)
 );
-
-create table public.badges (
-  id text primary key,
-  code text not null unique,
-  name text not null,
-  description text not null,
-  icon text not null,
-  xp integer not null default 0,
-  criteria jsonb,
-  icon_url text,
-  xp_reward integer not null default 0,
-  is_active boolean not null default true,
-  created_by uuid references public.users(id) on delete set null,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
-);
-
-create table public.user_badges (
-  user_id uuid not null references public.users(id) on delete cascade,
-  badge_id text not null references public.badges(id) on delete cascade,
-  earned_at timestamptz not null default now(),
-  awarded_at timestamptz not null default now(),
-  xp_reward_snapshot integer not null default 0,
-  primary key (user_id, badge_id)
-);
-
--- Kolom dob/ktp_url/npwp_url/selfie_url = kelengkapan KYC US-USR-011 (P0-5 audit
--- 2026-08-24): DOB + foto KTP + selfie wajib, NPWP opsional — ditulis
--- upsertKycSubmission (apps/api/src/lib/reads/kyc.ts), dibaca ulang via mapKycRow.
--- dob memakai tipe date karena UI (<input type="date">) dan API selalu
--- mengirim ISO yyyy-mm-dd. Semua nullable (npwp opsional + resubmit parsial).
-create table public.kyc_records (
-  id text primary key,
-  user_id uuid not null references public.users(id) on delete cascade,
-  full_name text not null,
-  nik text not null check (char_length(nik)=16),
-  address text not null,
-  dob date,
-  ktp_url text,
-  npwp_url text,
-  selfie_url text,
-  status kyc_status not null default 'pending',
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now(),
-  unique(user_id)
-);
-
-create table public.creators (
-  id text primary key,
-  user_id uuid references public.users(id) on delete set null,
-  handle text unique,
-  total_followers_combined integer not null default 0 check (total_followers_combined >= 0),
-  status creator_status not null default 'active',
-  bank_account jsonb,
-  kyc_completed boolean not null default false,
-  notes text,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
-);
-
-create table public.shipments (
-  id text primary key,
-  card_id text not null references public.cards(id) on delete cascade,
-  requester_id uuid not null references public.users(id) on delete cascade,
-  type shipment_type not null,
-  from_location shipment_from_location not null default 'platform',
-  to_dest shipment_to_dest not null,
-  address jsonb,
-  fee_ccoin integer check (fee_ccoin is null or fee_ccoin >= 1),
-  status shipment_status not null default 'requested',
-  tracking_number text,
-  platform_check jsonb,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
-);
-
-create table public.ownership_history (
-  id text primary key,
-  card_id text not null references public.cards(id) on delete cascade,
-  owner_id uuid not null references public.users(id) on delete cascade,
-  acquired_via text not null check (acquired_via in ('primary','secondary_buyout','secondary_bid','gift')),
-  order_id text references public.orders(id) on delete set null,
-  bid_id text references public.bids(id) on delete set null,
-  transferred_at timestamptz not null default now()
-);
-
-create table public.nfc_batches (
-  id text primary key,
-  batch_code text not null unique,
-  vendor text,
-  qty integer not null check (qty >= 1),
-  status nfc_batch_status not null default 'received',
-  created_at timestamptz not null default now()
-);
-
-create table public.disputes (
-  id text primary key,
-  order_id text references public.orders(id) on delete set null,
-  card_id text references public.cards(id) on delete set null,
-  reporter_id uuid not null references public.users(id) on delete cascade,
-  reason text not null,
-  status dispute_status not null default 'open',
-  decision_notes text,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
-);
-
-create table public.admin_audit_log (
-  id text primary key,
-  admin_user_id uuid not null references public.users(id) on delete cascade,
-  action audit_action not null,
-  target_table text not null,
-  target_id text,
-  payload_summary jsonb,
-  ip text,
-  session_id text,
-  created_at timestamptz not null default now()
-);
-
-create table public.notifications (
-  id text primary key,
-  user_id uuid not null references public.users(id) on delete cascade,
-  channel text not null check (channel in ('email','push','in_app')),
-  template_key text not null,
-  payload jsonb,
-  status text not null default 'pending' check (status in ('pending','sent','failed')),
-  -- attempts: worker drain email (lib/emailQueue.ts) cap 3 percobaan -> 'failed'
-  -- (transient transport error di-retry tick berikutnya; permanen gagal setelah 3x).
-  attempts integer not null default 0,
-  created_at timestamptz not null default now()
-);
-
--- P0-3 (audit 2026-08-24): inbox kolom read_at di notifications (nullable,
--- diisi user saat klik notifikasi). Index unread-count di 05_indexes.sql.
-alter table public.notifications
-  add column if not exists read_at timestamptz;
-
-create table public.payout_batches (
-  id text primary key,
-  batch_code text not null unique,
-  status text not null default 'draft' check (status in ('draft','processing','paid','failed')),
-  total_ccoin bigint not null default 0,
-  total_idr bigint not null default 0,
-  fee_1pct_idr bigint not null default 0,
-  created_at timestamptz not null default now()
-);
-
-create table public.payouts (
-  id text primary key,
-  batch_id text references public.payout_batches(id) on delete set null,
-  user_id uuid not null references public.users(id) on delete cascade,
-  type text not null check (type in ('creator_share','seller_proceeds','royalty')),
-  ccoin_amount integer not null check (ccoin_amount >= 1),
-  idr_amount bigint not null,
-  withholding_tax jsonb,
-  status text not null default 'pending',
-  -- payouts.requested_at: waktu user request disbursement (founder 2026-08-23).
-  requested_at timestamptz not null default now()
-);
-
-create table public.creator_page_views (
-  id text primary key,
-  creator_id text not null references public.creators(id) on delete cascade,
-  viewed_at timestamptz not null default now(),
-  referrer text,
-  city text,
-  user_id uuid references public.users(id) on delete set null
-);
-
-create table public.qc_defects (
-  id text primary key,
-  card_id text not null references public.cards(id) on delete cascade,
-  defect_type defect_type not null,
-  severity defect_severity not null default 'minor',
-  notes text,
-  resolution defect_resolution,
-  redistribute_discount_pct integer check (redistribute_discount_pct is null or (redistribute_discount_pct between 10 and 30)),
-  created_at timestamptz not null default now()
-);
-
-create table public.drop_entries (
-  id text primary key default gen_random_uuid()::text,
-  drop_id text not null references public.drops(id) on delete cascade,
-  user_id uuid not null references public.users(id) on delete cascade,
-  pool text not null check (pool in ('regular','premium','both')),
-  hold_ccoin integer not null check (hold_ccoin >= 1),
-  status text not null default 'held' check (status in ('held','won_premium','won_regular','lost','refunded')),
-  created_at timestamptz not null default now()
-);
-
--- platform_revenue: ledger pendapatan platform per event settlement.
--- Snapshot fee rate per transaksi (docs/05 I6/I11).
-create table public.platform_revenue (
-  id text primary key default gen_random_uuid()::text,
-  -- 'shipment': vault_shipout ship fee (founder 2026-08-28, full fee to treasury).
-  source text not null check (source in ('primary','secondary_buyout','secondary_bid','shipment')),
-  ref_type text not null,
-  ref_id text not null,
-  gross_ccoin integer not null check (gross_ccoin >= 1),
-  platform_ccoin integer not null default 0,
-  royalty_ccoin integer not null default 0,
-  seller_ccoin integer not null default 0,
-  fee_snapshot jsonb not null default '{}'::jsonb,
-  created_at timestamptz not null default now()
-);
-comment on table public.platform_revenue is
-  'Ledger pendapatan platform (per event settlement) — snapshot fee rate per transaksi (docs 05 I6/I11).';
-
--- ══════════════════════════════════════════════════════════════════════════
--- Constraint extensions (idempotent alter; sumber: 21xx/23xx migrations)
--- ══════════════════════════════════════════════════════════════════════════
-
--- orders.source: seed buyout PHASE-1 (20260821020000) menulis 'secondary_buyout'.
-alter table public.orders drop constraint if exists orders_source_check;
-alter table public.orders add constraint orders_source_check
-  check (source in ('fcfs','raffle','secondary_buyout'));
-
--- payouts.status: tambah 'processing' (batch run) + 'refunded' (admin refund).
--- Webhook IRIS sudah menulis 'disbursed'/'failed'.
-alter table public.payouts
-  drop constraint if exists payouts_status_check;
-alter table public.payouts
-  add constraint payouts_status_check
-    check (status in ('pending','processing','disbursed','failed','refunded'));
-
--- ══════════════════════════════════════════════════════════════════════════
--- Treasury user (system account, is_anonymous=true agar tidak muncul publik).
--- Fixed UUID yang dipakai semua ledger fees.
--- ══════════════════════════════════════════════════════════════════════════
-insert into public.users (id, email, display_name, username, role, is_anonymous)
-values ('00000000-0000-4000-8000-0000000000c0', 'treasury@c-verse.co', 'C.Verse Treasury', 'cverse_treasury', 'user', true)
-on conflict (id) do nothing;
-insert into public.wallets (user_id) values ('00000000-0000-4000-8000-0000000000c0')
-on conflict (user_id) do nothing;
-
--- ══════════════════════════════════════════════════════════════════════════
--- Trigger updated_at (semua tabel berkepemilikan updated_at)
--- ══════════════════════════════════════════════════════════════════════════
-create trigger trg_users_updated_at before update on public.users for each row execute function set_updated_at();
-create trigger trg_wallets_updated_at before update on public.wallets for each row execute function set_updated_at();
-create trigger trg_drops_updated_at before update on public.drops for each row execute function set_updated_at();
-create trigger trg_cards_updated_at before update on public.cards for each row execute function set_updated_at();
-create trigger trg_orders_updated_at before update on public.orders for each row execute function set_updated_at();
-create trigger trg_badges_updated_at before update on public.badges for each row execute function set_updated_at();
-create trigger trg_kyc_updated_at before update on public.kyc_records for each row execute function set_updated_at();
-create trigger trg_creators_updated_at before update on public.creators for each row execute function set_updated_at();
-create trigger trg_shipments_updated_at before update on public.shipments for each row execute function set_updated_at();
-create trigger trg_disputes_updated_at before update on public.disputes for each row execute function set_updated_at();
-
--- ══════════════════════════════════════════════════════════════════════════
--- Trigger tie-break timestamps (leaderboard, keputusan 2026-08-27).
--- Lihat helper function di atas (set_users_xp_reached_at / set_cards_owner_since).
--- ══════════════════════════════════════════════════════════════════════════
-create trigger trg_users_xp_reached_at
-  before insert or update on public.users
-  for each row execute function public.set_users_xp_reached_at();
-
-create trigger trg_cards_owner_since
-  before insert or update on public.cards
-  for each row execute function public.set_cards_owner_since();
-
--- ══════════════════════════════════════════════════════════════════════════
--- Index basis (access-path + uniqueness) — sumber: foundation.sql
--- ══════════════════════════════════════════════════════════════════════════
-create index if not exists idx_drops_status on public.drops(status);
-create index if not exists idx_drops_creator on public.drops(creator_id);
-create index if not exists idx_cards_drop on public.cards(drop_id);
-create index if not exists idx_cards_owner on public.cards(owner_id);
-create index if not exists idx_cards_nfc_uid on public.cards(nfc_uid);
-create index if not exists idx_cards_nfc_short on public.cards(nfc_short_id);
-create index if not exists idx_cards_location on public.cards(location);
-create index if not exists idx_cards_buyout on public.cards(buyout_price_ccoin) where buyout_price_ccoin is not null;
-create index if not exists idx_cards_unit on public.cards(drop_id, unit_number);
-create index if not exists idx_wtx_user_created on public.wallet_transactions(user_id, created_at desc);
-create index if not exists idx_wtx_ref on public.wallet_transactions(ref_type, ref_id);
-create index if not exists idx_orders_user on public.orders(user_id, created_at desc);
-create index if not exists idx_orders_drop on public.orders(drop_id);
-create index if not exists idx_bids_bidder on public.bids(bidder_id);
-create index if not exists idx_bids_card on public.bids(card_id, status, amount_ccoin desc);
-create unique index if not exists idx_bids_one_active_per_card on public.bids(card_id) where status = 'active';
-create index if not exists idx_kyc_status on public.kyc_records(status);
-create index if not exists idx_creators_user on public.creators(user_id);
-create index if not exists idx_shipments_card on public.shipments(card_id);
-create index if not exists idx_shipments_requester on public.shipments(requester_id);
-create index if not exists idx_ownership_card on public.ownership_history(card_id, transferred_at desc);
-create index if not exists idx_ownership_owner_card on public.ownership_history(owner_id, card_id);
-create index if not exists idx_disputes_reporter on public.disputes(reporter_id);
-create index if not exists idx_audit_admin on public.admin_audit_log(admin_user_id, created_at desc);
-create index if not exists idx_audit_action on public.admin_audit_log(action);
-create index if not exists idx_audit_target on public.admin_audit_log(target_table, target_id);
-create index if not exists idx_notifications_user on public.notifications(user_id, created_at desc);
-create index if not exists idx_payouts_user on public.payouts(user_id);
-create index if not exists idx_payouts_batch on public.payouts(batch_id);
-create index if not exists idx_cpv_creator on public.creator_page_views(creator_id, viewed_at desc);
-create index if not exists idx_cpv_viewed on public.creator_page_views(viewed_at desc);
-create index if not exists idx_qc_card on public.qc_defects(card_id);
-create unique index if not exists idx_drop_entries_unique on public.drop_entries(drop_id, user_id);
-create index if not exists idx_drop_entries_drop on public.drop_entries(drop_id, status);
-
--- ══════════════════════════════════════════════════════════════════════════
--- Constraint indexes (unique/partial-unique untuk integritas data)
--- ══════════════════════════════════════════════════════════════════════════
--- Idempotency ledger untuk wallet_debit/credit (RPC atomic layer).
-create unique index if not exists uq_wtx_idempotency_key
-  on public.wallet_transactions((metadata->>'idempotency_key'))
-  where metadata->>'idempotency_key' is not null;
-
--- platform_revenue idempotent per (ref_type, ref_id).
-create unique index if not exists uq_platform_revenue_ref on public.platform_revenue(ref_type, ref_id);
-
--- M7 (audit 2026-08-24): vault-shipout duplicate-insert guard.
--- Final terminal statuses (delivered/cancelled) dikecualikan supaya kartu bisa
--- di-ship ulang setelah transaksi sebelumnya selesai.
-create unique index if not exists uq_shipments_active_per_card
-  on public.shipments (card_id)
-  where status not in ('delivered', 'cancelled');
-
--- ══════════════════════════════════════════════════════════════════════════
--- GRANT tabel (least-privilege — row tetap difilter RLS)
--- ══════════════════════════════════════════════════════════════════════════
-grant all on all tables in schema public to service_role;
-grant usage, select on all sequences in schema public to service_role;
-
--- anon: read publik. creator_page_views is write-via-RPC-only
--- (record_creator_page_view SECURITY DEFINER; RLS default-deny, no direct INSERT).
--- F4 (pentest 2026-08-30): public.users ditutup untuk anon — email terekspos
--- via policy `not is_anonymous` lama. revoke eksplisit WAJIB: default
--- privileges Supabase memberi ALL ke anon pada tabel baru, jadi cukup tidak
--- me-grant tidak menutup apa pun. Akses admin lewat grant authenticated +
--- policy users_select (public.is_admin) di 03_rls.
--- Lane D (2026-08-31): bids (bidder_name raw) + creators (bank_account/notes)
--- ditutup untuk anon — read publik hanya via API service-role / RPC
--- (buktinya: anon key bisa POSTGREST-read bank_account kreator sebelum revoke).
-revoke all on public.users from anon;
-revoke select on public.bids from anon;
-revoke select on public.creators from anon;
-grant select on public.drops, public.cards, public.ownership_history, public.badges to anon;
-
--- authenticated: read sesuai matriks RLS + write minimum (guard trigger).
--- creators TETAP di-grant ke authenticated (Lane D 2026-08-31): admin SPA
--- (Creators.tsx/Dashboard.tsx) membaca creators langsung via supabase-js —
--- revoke authenticated menunggu read tersebut pindah ke API.
-grant select on
-  public.users, public.creators, public.drops, public.cards, public.orders,
-  public.wallets, public.wallet_transactions, public.bids, public.shipments,
-  public.ownership_history, public.badges, public.user_badges, public.kyc_records,
-  public.payouts, public.notifications, public.disputes, public.creator_page_views,
-  public.gem_lots, public.gem_transactions
-to authenticated;
-grant insert on public.bids, public.kyc_records, public.disputes to authenticated;
-grant update on public.users, public.cards, public.notifications to authenticated;
-
--- C-Gems tables (dual-token 2026-09-03): anon DITUTUP total (lesson audit
--- 2026-08-30 — default privileges Supabase memberi ALL ke anon pada tabel
--- baru; revoke eksplisit wajib). Tulis HANYA via RPC SECURITY DEFINER
--- (wallet_credit_gems/wallet_debit_gems); read owner-only via RLS (03_rls).
--- Review 2026-09-02: authenticated juga menerima ALL dari default privileges —
--- write di-revoke eksplisit (SELECT di atas tetap; JANGAN revoke all —
--- getWallet membaca gem_lots via user-scoped client, dilindungi RLS own-row).
-revoke all on public.gem_lots, public.gem_transactions from anon;
-revoke insert, update, delete, truncate, references, trigger
-  on public.gem_lots, public.gem_transactions from authenticated;
