@@ -567,6 +567,7 @@ const WALLET_TX_TYPE_LABELS: Record<string, string> = {
   escrow_release: "Escrow lepas",
   settlement: "Settlement",
   payout: "Penarikan",
+  payout_refund: "Refund penarikan",
   royalty: "Royalti",
   refund: "Dana kembali",
   adjustment: "Penyesuaian",

@@ -102,9 +102,20 @@ export interface ApiWalletGems extends Wallet {
   gemsLocked: number;
 }
 
+// Baris gem_transactions (append-only): amount positif = kredit (royalti/
+// settlement/dukungan), negatif = debit (konversi/payout).
+export interface GemTransaction {
+  amount: number;
+  balanceAfterGems: number;
+  refType: string | null;
+  createdAt: string;
+}
+
 export interface ApiWalletResponse {
   wallet: ApiWalletGems;
   transactions: WalletTransaction[];
+  // Ledger C-Gems (dual-token docs/07) — label via walletTxTypeLabel(refType).
+  gemTxs: GemTransaction[];
   rate: number; // default 10_000 (IDR per C-Coin)
   topupCapNoKyc: number;
   minPayout: number;

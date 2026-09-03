@@ -58,6 +58,7 @@ const control = vi.hoisted(() => ({
 const reads = vi.hoisted(() => ({
   getWallet: vi.fn(() => Promise.resolve(control.wallet)),
   listWalletTxs: vi.fn(() => Promise.resolve(control.txs)),
+  listGemTxs: vi.fn(() => Promise.resolve([])),
   isPayoutHeld: vi.fn(() => Promise.resolve(control.payoutHeld)),
 }));
 

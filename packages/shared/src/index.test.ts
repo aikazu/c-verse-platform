@@ -216,6 +216,7 @@ describe("status label maps (snake_case/English enum → Indonesian UI copy)", (
   it("maps wallet transaction type", () => {
     expect(walletTxTypeLabel("top_up")).toBe("Top-up");
     expect(walletTxTypeLabel("payout")).toBe("Penarikan");
+    expect(walletTxTypeLabel("payout_refund")).toBe("Refund penarikan");
   });
 
   it("maps escrow status to Indonesian labels", () => {

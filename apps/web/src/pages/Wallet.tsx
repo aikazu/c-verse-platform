@@ -138,6 +138,7 @@ function WalletInner() {
   if (isError || !data) return <ErrorState onRetry={() => refetch()} label="Gagal memuat dompet" />;
   const w = data.wallet;
   const txs = data.transactions;
+  const gemTxs = data.gemTxs;
   const rate = data.rate;
   const topupCapNoKyc = data.topupCapNoKyc ?? BALANCE_CAP_CCOIN;
   const payoutHeld = data.payoutHeld ?? false;
@@ -380,6 +381,50 @@ function WalletInner() {
                     <td className="wa-td-note" title={t.note ?? undefined}>
                       {t.note}
                     </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* C-Gems ledger — penghasilan (kredit) & pemakaian (debit), docs/07 */}
+      <div className="card">
+        <div className="wa-toolbar">
+          <span className="wa-toolbar-title">Riwayat C-Gems</span>
+        </div>
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Waktu</th>
+                <th>Tipe</th>
+                <th>Jumlah</th>
+                <th>Saldo</th>
+              </tr>
+            </thead>
+            <tbody>
+              {gemTxs.length === 0 ? (
+                <tr>
+                  <td colSpan={4} className="wa-td-empty">
+                    Belum ada transaksi
+                  </td>
+                </tr>
+              ) : (
+                gemTxs.map((t) => (
+                  <tr key={`${t.createdAt}-${t.amount}-${t.balanceAfterGems}`}>
+                    <td className="wa-td-time">{new Date(t.createdAt).toLocaleString("id-ID")}</td>
+                    <td>
+                      <span className={`pill ${t.amount > 0 ? "pill-success" : "pill-warn"} wa-pill-sm`}>
+                        {walletTxTypeLabel(t.refType ?? "")}
+                      </span>
+                    </td>
+                    <td className={`wa-td-amount ${t.amount > 0 ? "wa-td-pos" : "wa-td-neg"}`}>
+                      {t.amount > 0 ? "+" : ""}
+                      {t.amount} Gems
+                    </td>
+                    <td className="wa-td-balance">{t.balanceAfterGems} Gems</td>
                   </tr>
                 ))
               )}

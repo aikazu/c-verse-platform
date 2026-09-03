@@ -41,6 +41,37 @@ export async function listWalletTxs(userId: string, limit = 100): Promise<Wallet
   return (data ?? []).map((r) => mapWalletTxRow(r as Record<string, unknown>));
 }
 
+// Dual-token (docs/07): ledger C-Gems — gem_transactions append-only. Query
+// lewat service-role client, jadi scope user dipaksa filter .eq(user_id)
+// (RLS gem_tx_select_own = lapisan kedua untuk akses non-service-role).
+// Shape dipin untuk UI Dompet; label via walletTxTypeLabel di web.
+export interface GemTx {
+  amount: number;
+  balanceAfterGems: number;
+  refType: string | null;
+  createdAt: string;
+}
+
+export async function listGemTxs(userId: string, limit = 100): Promise<GemTx[]> {
+  const db = readDb();
+  const { data, error } = await db
+    .from("gem_transactions")
+    .select("amount, balance_after_gems, ref_type, created_at")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (error) throw new Error(error.message);
+  return (data ?? []).map((r) => {
+    const row = r as Record<string, unknown>;
+    return {
+      amount: Number(row.amount ?? 0),
+      balanceAfterGems: Number(row.balance_after_gems ?? 0),
+      refType: row.ref_type == null ? null : String(row.ref_type),
+      createdAt: String(row.created_at ?? ""),
+    };
+  });
+}
+
 export async function isPayoutHeld(userId: string): Promise<{ held: boolean; until: string | null }> {
   // held only while hold date is in the future
   const w = await getWallet(userId);

@@ -5,7 +5,7 @@ import { z } from "zod";
 import { requireUser } from "../../lib/auth.js";
 import { RpcError, rpcSendSupport, userDb } from "../../lib/db.js";
 import { sanitizeDbError } from "../../lib/errors.js";
-import { getWallet, isPayoutHeld, listWalletTxs } from "./reads.js";
+import { getWallet, isPayoutHeld, listGemTxs, listWalletTxs } from "./reads.js";
 
 const app = new Hono();
 
@@ -15,10 +15,12 @@ app.get("/", async (c) => {
   const user = authRes.user;
   const w = await getWallet(user.id);
   const txs = await listWalletTxs(user.id, 100);
+  const gemTxs = await listGemTxs(user.id, 100);
   const held = await isPayoutHeld(user.id);
   return c.json({
     wallet: { ...w, balanceIdrEquiv: w.balanceCCoin * C_COIN_RATE_IDR },
     transactions: txs,
+    gemTxs,
     rate: C_COIN_RATE_IDR,
     topupCapNoKyc: BALANCE_CAP_CCOIN, // non-KYC cap 500; KYC approved = tanpa cap
     minPayout: MIN_PAYOUT_CCOIN,
