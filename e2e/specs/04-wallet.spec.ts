@@ -81,6 +81,21 @@ test.describe("Wallet", () => {
     await expect(page.locator("text=Saldo C-Gems").first()).toBeVisible();
     await expect(page.locator("text=Konversi ke C-Coin")).toHaveCount(0);
   });
+
+  test("riwayat C-Gems: demo user 0 gems → section tampil dengan state kosong", async ({ page }) => {
+    await loginAs(page, "demo@cverse.id");
+    await page.goto("/wallet");
+
+    // Section "Riwayat C-Gems" SELALU render (Wallet.tsx) — scope ke card-nya
+    // via judul toolbar supaya tidak nyasar ke ledger C-Coin di atasnya.
+    const gemsLedger = page.locator(".card").filter({ has: page.locator(".wa-toolbar-title", { hasText: "Riwayat C-Gems" }) });
+    await expect(gemsLedger).toHaveCount(1);
+
+    // Seed: demo user tidak punya gem_transactions → empty state eksplisit
+    // "Belum ada transaksi" (satu baris colSpan=4), bukan tabel tanpa tbody.
+    await expect(gemsLedger.locator("td.wa-td-empty")).toHaveText("Belum ada transaksi");
+    await expect(gemsLedger.locator("tbody tr")).toHaveCount(1);
+  });
 });
 
 test.describe("Wallet dual-token (C-Gems)", () => {
@@ -112,6 +127,40 @@ test.describe("Wallet dual-token (C-Gems)", () => {
     await expect(page.locator("text=Tarik ke Rekening").first()).toBeVisible();
     await expect(page.locator('input[aria-label="Jumlah penarikan C-Gems"]')).toBeVisible();
     await expect(page.locator(".wa-min-label", { hasText: "MIN 10 C" })).toBeVisible();
+  });
+
+  test("riwayat C-Gems karina: 5 baris seed royalty, amount bertanda + saldo eksak", async ({ page }) => {
+    await loginAs(page, KARINA_EMAIL);
+    await page.goto("/wallet");
+
+    const gemsLedger = page.locator(".card").filter({ has: page.locator(".wa-toolbar-title", { hasText: "Riwayat C-Gems" }) });
+    await expect(gemsLedger).toHaveCount(1);
+    await expect(gemsLedger.locator(".wa-toolbar-title")).toHaveText("Riwayat C-Gems");
+
+    // Seed: 5 gem_transactions 'royalty' @ +9 Gems (saldo kumulatif 9..45).
+    // Test ini dideklarasikan SEBELUM test payout/konversi (workers: 1,
+    // urutan deklarasi) agar ledger masih murni seed — debit payout/konversi
+    // menambah baris baru setelahnya.
+    const rows = gemsLedger.locator("tbody tr");
+    await expect(rows).toHaveCount(5);
+
+    // Ledger gems 4 kolom (tanpa "Catatan" milik ledger C-Coin).
+    await expect(gemsLedger.locator("thead th")).toHaveText(["Waktu", "Tipe", "Jumlah", "Saldo"]);
+
+    // created_at desc → baris atas = kredit terakhir (2 hari lalu, saldo 45).
+    const firstRow = rows.nth(0);
+    await expect(firstRow.locator(".pill")).toHaveText("Royalti");
+    await expect(firstRow.locator(".wa-td-amount")).toHaveText("+9 Gems");
+    await expect(firstRow.locator(".wa-td-balance")).toHaveText("45 Gems");
+
+    // Baris bawah = kredit pertama (22 hari lalu, saldo 9).
+    const lastRow = rows.nth(4);
+    await expect(lastRow.locator(".pill")).toHaveText("Royalti");
+    await expect(lastRow.locator(".wa-td-amount")).toHaveText("+9 Gems");
+    await expect(lastRow.locator(".wa-td-balance")).toHaveText("9 Gems");
+
+    // Kelima baris semuanya ref_type 'royalty' → label eksak "Royalti".
+    await expect(rows.locator(".pill")).toHaveText(["Royalti", "Royalti", "Royalti", "Royalti", "Royalti"]);
   });
 
   test("payout sukses dari gems matured: gems -10 persis, C-Coin tak tersentuh", async ({ page }) => {
