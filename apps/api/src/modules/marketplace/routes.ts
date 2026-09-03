@@ -76,7 +76,9 @@ app.get("/", async (c) => {
 
   const page = parsePageParams(c.req.query());
   const paged = slicePage(marketplace, page);
-  return c.json({ marketplace: paged, cards: paged, listings: [], enriched: paged, ...pageMeta(marketplace.length, page) });
+  // Satu shape kanonis `marketplace` — `cards`/`listings` hanya alias kompat
+  // (web Marketplace.tsx membaca marketplace ?? cards ?? listings).
+  return c.json({ marketplace: paged, cards: paged, listings: paged, ...pageMeta(marketplace.length, page) });
 });
 
 // POST / — pasang harga buyout di kartu milik sendiri (tanpa KYC — FINAL 2026-08-13)

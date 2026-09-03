@@ -112,11 +112,16 @@ export const walletTxTypeSchema = z.enum([
   "escrow_release",
   "settlement",
   "payout",
+  "payout_refund",
   "royalty",
   "refund",
   "adjustment",
   "platform_buy",
   "platform_revenue",
+  "seed_abort",
+  "vault_shipout",
+  "support",
+  "convert",
 ]);
 export type WalletTxType = z.infer<typeof walletTxTypeSchema>;
 
@@ -573,6 +578,8 @@ const WALLET_TX_TYPE_LABELS: Record<string, string> = {
   adjustment: "Penyesuaian",
   platform_buy: "Pembelian platform",
   platform_revenue: "Pendapatan platform",
+  seed_abort: "Refund seed",
+  vault_shipout: "Kirim dari vault",
   support: "Dukungan",
   convert: "Konversi ke C-Coin",
 };

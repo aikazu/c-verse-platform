@@ -55,22 +55,21 @@ test.describe("Wallet", () => {
     await expect(page.locator("button[class*=wa-btn-block]")).toBeVisible();
   });
 
-  test("payout gate: user non-kreator melihat pesan gate, bukan kontrol payout", async ({ page }) => {
-    // Wallet.tsx — blok payout ("Tarik ke Rekening" + tombol "Tarik")
-    // HANYA render untuk role creator; untuk role lain selalu render pesan gate
-    // "Penarikan hanya untuk kreator — KYC wajib." → bisa di-hard assert
+  test("payout terbuka untuk semua user: kontrol payout tampil, gate kreator hilang", async ({ page }) => {
+    // Wallet.tsx (commit 29ecc38, docs/07 dual-token) — blok payout
+    // ("Tarik ke Rekening" + tombol "Tarik") render untuk SEMUA role; pesan gate
+    // "Penarikan hanya untuk kreator" sudah dihapus. Guard KYC + gems matured
+    // tetap di-enforce server (RPC payout_request).
     // (demo@cverse.id role user + KYC pending di seed.sql — deterministik).
     await loginAs(page, "demo@cverse.id");
     await page.goto("/wallet");
 
-    // Pesan gate payout tampil (mengandung syarat KYC) — bukan `if (isVisible)`
-    // yang bisa lulus tanpa menegaskan apa pun.
-    await expect(page.locator("text=Penarikan hanya untuk kreator").first()).toBeVisible({ timeout: 10000 });
-    await expect(page.locator("text=KYC wajib").first()).toBeVisible();
+    // Kontrol payout tampil untuk non-kreator.
+    await expect(page.locator("text=Tarik ke Rekening").first()).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole("button", { name: "Tarik", exact: true })).toBeVisible();
 
-    // Kontrol payout TIDAK boleh tampil untuk non-kreator.
-    await expect(page.locator("text=Tarik ke Rekening")).toHaveCount(0);
-    await expect(page.getByRole("button", { name: "Tarik", exact: true })).toHaveCount(0);
+    // Pesan gate kreator TIDAK boleh tampil lagi.
+    await expect(page.getByText("hanya untuk kreator")).toHaveCount(0);
 
     // Messaging gate non-KYC (demo KYC-nya pending): cap saldo 500 C-Coin tampil.
     await expect(page.locator("text=Cap saldo non-KYC").first()).toBeVisible();

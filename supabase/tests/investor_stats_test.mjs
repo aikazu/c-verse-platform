@@ -53,14 +53,17 @@ try {
   ]);
   await admin.query("insert into public.wallets (user_id, balance_ccoin) values ($1, 0), ($2, 0)", [adminUid, userUid]);
   // GMV: checkout -30 + platform_buy -20 + escrow_hold(card) -10 = 60;
-  // secondary: payout +5 + royalty +3 = 8; top_up di luar keduanya. txCount = 6.
+  // secondary (dual-token: dari platform_revenue gross secondary_*): 40 + 20 = 60.
+  // payout/royalty di wallet_transactions BUKAN secondary (payout = dana keluar
+  // ke IDR, royalty tidak lagi ditulis ke ledger C-Coin). top_up/escrow_hold(bid)
+  // di luar keduanya. txCount = 6.
   const txs = [
     ["checkout", -30, "drop", "inv-drop-1"],
     ["platform_buy", -20, "card", "inv-card-1"],
     ["escrow_hold", -10, "card", "inv-card-2"],
     ["escrow_hold", -99, "bid", "inv-bid-1"], // escrow_hold ref bid -> BUKAN GMV
-    ["payout", 5, "payout", "inv-po-1"],
-    ["royalty", 3, "order", "inv-ord-1"],
+    ["refund", 30, "drop_entry", "inv-ref-1"],
+    ["refund", 12, "order", "inv-ref-2"],
   ];
   for (const [type, amount, refType, refId] of txs) {
     await admin.query(
@@ -69,6 +72,12 @@ try {
       [`inv-tx-${refId}`, userUid, type, amount, refType, refId],
     );
   }
+  // Secondary volume (dual-token): gross settlement di platform_revenue.
+  await admin.query(
+    `insert into public.platform_revenue (source, ref_type, ref_id, gross_ccoin, platform_ccoin, royalty_ccoin, seller_ccoin)
+     values ('secondary_buyout', 'buyout', 'inv-buyout-1', 40, 3, 3, 34),
+            ('secondary_bid', 'bid', 'inv-bid-2', 20, 2, 2, 16)`,
+  );
 
   // ══ i1: normal user -> PERMISSION_DENIED ═══════════════════════════════════
   {
@@ -100,8 +109,8 @@ try {
         (select count(*)::int from public.users) as users,
         (select coalesce(sum(abs(amount_ccoin)), 0)::int from public.wallet_transactions
           where type in ('checkout','platform_buy') or (type = 'escrow_hold' and ref_type = 'card')) as gmv,
-        (select coalesce(sum(abs(amount_ccoin)), 0)::int from public.wallet_transactions
-          where type in ('payout','royalty')) as secondary,
+        (select coalesce(sum(gross_ccoin), 0)::int from public.platform_revenue
+          where source in ('secondary_buyout','secondary_bid')) as secondary,
         (select count(*)::int from public.wallet_transactions) as tx_count
     `);
     const expected = truth.rows[0];
@@ -135,6 +144,7 @@ try {
     await admin.query("begin");
     await admin.query("alter table public.wallet_transactions disable trigger trg_wtx_immutable");
     await admin.query("delete from public.wallet_transactions where ref_id like 'inv-%'");
+    await admin.query("delete from public.platform_revenue where ref_id like 'inv-%'");
     await admin.query("alter table public.wallet_transactions enable trigger trg_wtx_immutable");
     await admin.query("delete from public.wallets where user_id = any($1)", [[adminUid, userUid]]);
     await admin.query("delete from public.users where id = any($1)", [[adminUid, userUid]]);
