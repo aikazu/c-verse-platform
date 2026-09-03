@@ -2409,7 +2409,12 @@ grant execute on function public.get_creator_page_stats(integer) to service_role
 -- undercount (wallet_transactions/users di-limit 1000 di sisi klien).
 --   users             = total akun terdaftar (count users)
 --   gmvCcoin          = GMV: checkout + platform_buy + escrow_hold ref 'card'
---   secondaryVolCcoin = volume secondary: payout + royalty (abs)
+--   secondaryVolCcoin = volume secondary dari ledger platform_revenue
+--                       (source secondary_buyout/secondary_bid, gross) — BUKAN
+--                       dari wallet_transactions type payout/royalty (dual-token
+--                       2026-09-03: settlement user = Gems, jadi ledger C-Coin
+--                       tidak lagi mencatat volume secondary; agregat lama selalu
+--                       mengembalikan 0 di data live).
 --   txCount           = total baris wallet_transactions
 -- SECURITY DEFINER + guard is_admin() di body: caller non-admin selalu
 -- PERMISSION_DENIED (data internal founder, bukan untuk role lain).
@@ -2434,9 +2439,9 @@ begin
          or (t.type = 'escrow_hold' and t.ref_type = 'card')
     ),
     'secondaryVolCcoin', (
-      select coalesce(sum(abs(t.amount_ccoin)), 0)::bigint
-      from public.wallet_transactions t
-      where t.type in ('payout', 'royalty')
+      select coalesce(sum(p.gross_ccoin), 0)::bigint
+      from public.platform_revenue p
+      where p.source in ('secondary_buyout', 'secondary_bid')
     ),
     'txCount', (select count(*)::bigint from public.wallet_transactions)
   );

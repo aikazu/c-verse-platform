@@ -3,9 +3,10 @@ import { Hono } from "hono";
 import { z } from "zod";
 import { adminGateError, clientIp, requireAdmin, requireUser, tokenFingerprint } from "../../lib/auth.js";
 import { RpcError, rpcAdminFulfillShipment } from "../../lib/db.js";
+import { sanitizeDbError } from "../../lib/errors.js";
 import { getDropById } from "../../lib/reads/drops.js";
 import { logAuditDb } from "../../lib/reads/kyc.js";
-import { getCardById, getShipmentById, listShipmentsByRequester } from "../../lib/reads/orders.js";
+import { getCardById, getShipmentByActiveCard, getShipmentById, listShipmentsByRequester } from "../../lib/reads/orders.js";
 import { mapShipmentRow, type Row, readDb } from "../../lib/reads.js";
 import { getSupabase } from "../../lib/supabase.js";
 
@@ -47,10 +48,20 @@ app.post(
       return c.json({ error: `Kartu lokasi ${card.location} — tidak perlu kirim ke vault dari sisi seller` }, 400);
     }
     // Tolak kartu non-tradable (tampered/defect/lost) — payout tidak eligible.
-    if (card.status && !["inventory", "vaulted"].includes(card.status)) {
+    // Sinkron dengan CARD_NOT_TRADABLE di RPC accept_bid/buyout_card/set_buyout
+    // + trigger unlist_card_if_non_tradable (03_rls): kartu cacat auto-unlist.
+    if (card.status && ["tampered", "defect", "lost"].includes(card.status)) {
       return c.json({ error: "Kartu non-tradable — tidak eligible untuk dijual" }, 400);
     }
+    // Cegah antrean ganda sebelum insert: satu kartu = satu shipment aktif
+    // (paritas partial unique index uq_shipments_active_per_card — terminal
+    // delivered/cancelled boleh kirim ulang).
+    const activeShipment = await getShipmentByActiveCard(body.cardId);
+    if (activeShipment) {
+      return c.json({ error: "Sudah ada pengiriman aktif untuk kartu ini" }, 409);
+    }
     // Insert shipment type='secondary_seller_to_vault' (queue admin via /api/admin/.../shipments).
+    // Seller-to-vault gratis (fee 0, tanpa debit wallet) — check shipments_fee_ccoin_check.
     const { uid } = await import("../../lib/store.js");
     const shipId = uid("ship-");
     const { data: shipRow, error: shipError } = await db
@@ -71,11 +82,14 @@ app.post(
       .select("*")
       .maybeSingle();
     if (shipError) {
-      // Idempotent: kalau sudah ada shipment aktif untuk kartu ini oleh user ini → 409.
-      if (/duplicate/i.test(shipError.message)) {
+      // Race precheck di atas vs insert: partial unique index
+      // uq_shipments_active_per_card menolak shipment aktif ganda → 409.
+      // Enum shipment_type / shipment_from_location yang belum kenal nilai baru
+      // (migrasi 06 belum di-apply) → 500 via sanitizer (tanpa echo skema).
+      if (/duplicate|uq_shipments_active_per_card/i.test(shipError.message)) {
         return c.json({ error: "Sudah ada pengiriman aktif untuk kartu ini" }, 409);
       }
-      throw new Error(shipError.message);
+      return c.json({ error: sanitizeDbError(shipError) }, 500);
     }
     if (!shipRow) throw new Error("Shipment insert returned no row");
     await logAuditDb(

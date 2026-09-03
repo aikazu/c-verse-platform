@@ -39,6 +39,22 @@ export async function getShipmentById(id: string): Promise<Shipment | null> {
   return data ? mapShipmentRow(data as Row) : null;
 }
 
+/** Shipment aktif untuk satu kartu (status non-terminal) — paritas partial
+ * unique index uq_shipments_active_per_card. Terminal delivered/cancelled
+ * dikecualikan agar kartu bisa dikirim ulang setelah selesai. */
+export async function getShipmentByActiveCard(cardId: string): Promise<Shipment | null> {
+  const db = readDb();
+  const { data, error } = await db
+    .from("shipments")
+    .select("*")
+    .eq("card_id", cardId)
+    .not("status", "in", "(delivered,cancelled)")
+    .limit(1)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  return data ? mapShipmentRow(data as Row) : null;
+}
+
 export async function listShipmentsByCards(cardIds: string[]): Promise<Shipment[]> {
   if (cardIds.length === 0) return [];
   const db = readDb();
