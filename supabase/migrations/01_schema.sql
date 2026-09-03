@@ -105,7 +105,6 @@ create table public.users (
   display_name text not null,
   role user_role not null default 'user',
   avatar_url text,
-  xp integer not null default 0,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   username text,
@@ -148,7 +147,6 @@ create table public.drops (
   price_unsigned_ccoin integer not null check (price_unsigned_ccoin >= 1),
   price_signed_ccoin integer not null check (price_signed_ccoin >= 1),
   status drop_status not null default 'draft',
-  drop_at timestamptz,
   creator_id uuid not null references public.users(id) on delete restrict,
   creator_name text not null,
   sold_count integer not null default 0 check (sold_count <= total_units),
@@ -237,7 +235,6 @@ create table public.orders (
   id text primary key,
   user_id uuid not null references public.users(id) on delete cascade,
   drop_id text not null references public.drops(id) on delete restrict,
-  card_ids text[] not null default '{}',
   total_ccoin integer not null check (total_ccoin >= 1),
   total_idr integer not null check (total_idr >= 0),
   status order_status not null default 'paid',
@@ -537,7 +534,6 @@ create trigger trg_cards_owner_since
 -- ══════════════════════════════════════════════════════════════════════════
 create index if not exists idx_drops_status on public.drops(status);
 create index if not exists idx_drops_creator on public.drops(creator_id);
-create index if not exists idx_drops_drop_at on public.drops(drop_at);
 create index if not exists idx_cards_drop on public.cards(drop_id);
 create index if not exists idx_cards_owner on public.cards(owner_id);
 create index if not exists idx_cards_nfc_uid on public.cards(nfc_uid);

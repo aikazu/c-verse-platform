@@ -485,9 +485,9 @@ begin
     status = (case when sold_count + 1 >= total_units then 'sold_out'::drop_status else status end)
   where id = p_drop_id;
 
-  insert into orders (id, user_id, drop_id, card_id, card_ids, total_ccoin, total_idr, status,
+  insert into orders (id, user_id, drop_id, card_id, total_ccoin, total_idr, status,
                       delivery_option, shipping_fee_ccoin, escrow_status, shipping_address, source)
-  values (gen_random_uuid()::text, v_user, p_drop_id, v_card.id, array[v_card.id], v_price, v_price * 10000,
+  values (gen_random_uuid()::text, v_user, p_drop_id, v_card.id, v_price, v_price * 10000,
           'settled'::order_status, 'vault'::delivery_option, null,
           'released'::escrow_status, null, 'fcfs')
   returning * into v_order;
@@ -669,9 +669,9 @@ begin
         status = (case when sold_count + 1 >= total_units then 'sold_out'::drop_status else status end)
       where id = p_drop_id;
 
-      insert into orders (id, user_id, drop_id, card_id, card_ids, total_ccoin, total_idr, status,
+      insert into orders (id, user_id, drop_id, card_id, total_ccoin, total_idr, status,
                           delivery_option, escrow_status, source)
-      values (gen_random_uuid()::text, v_entry.user_id, p_drop_id, v_card.id, array[v_card.id],
+      values (gen_random_uuid()::text, v_entry.user_id, p_drop_id, v_card.id,
               v_price, v_price * 10000, 'settled'::order_status, 'vault'::delivery_option, 'released'::escrow_status, 'raffle')
       returning * into v_order;
 
@@ -717,9 +717,9 @@ begin
       status = (case when sold_count + 1 >= total_units then 'sold_out'::drop_status else status end)
       where id = p_drop_id;
 
-    insert into orders (id, user_id, drop_id, card_id, card_ids, total_ccoin, total_idr, status,
+    insert into orders (id, user_id, drop_id, card_id, total_ccoin, total_idr, status,
                         delivery_option, escrow_status, source)
-    values (gen_random_uuid()::text, v_entry.user_id, p_drop_id, v_card.id, array[v_card.id],
+    values (gen_random_uuid()::text, v_entry.user_id, p_drop_id, v_card.id,
             v_price, v_price * 10000, 'settled'::order_status, 'vault'::delivery_option, 'released'::escrow_status, 'raffle')
       returning * into v_order;
 
@@ -830,7 +830,7 @@ begin
   -- C-13 creator self-dealing 30 hari (FINAL, paritas buyout_card 2026-08-29):
   -- kreator drop tidak boleh bid kartu drop-nya sendiri dalam 30 hari.
   if exists (select 1 from drops d where d.id = v_card.drop_id and d.creator_id = v_user
-             and coalesce(d.drop_start_at, d.drop_at, d.created_at) > now() - interval '30 days') then
+             and coalesce(d.drop_start_at, d.created_at) > now() - interval '30 days') then
     raise exception 'CREATOR_SELF_DEALING_30D';
   end if;
   -- C-13 EXTENSION untuk seed card (Flow 10, keputusan 2026-08-20):
@@ -1095,7 +1095,7 @@ begin
     raise exception 'COOLING_PERIOD_24H';
   end if;
   if exists (select 1 from drops d where d.id = v_card.drop_id and d.creator_id = v_user
-             and coalesce(d.drop_start_at, d.drop_at, d.created_at) > now() - interval '30 days') then
+             and coalesce(d.drop_start_at, d.created_at) > now() - interval '30 days') then
     raise exception 'CREATOR_SELF_DEALING_30D';
   end if;
   -- C-13 EXTENSION untuk seed card (Flow 10, keputusan 2026-08-20):
@@ -1138,9 +1138,9 @@ begin
     v_debit_tx := public.wallet_debit(v_user, v_price, 'escrow_hold', 'card', p_card_id,
             'buyout-seed-' || gen_random_uuid()::text);
     v_order_ref := gen_random_uuid()::text;
-    insert into orders (id, user_id, drop_id, card_id, card_ids, total_ccoin, total_idr, status,
+    insert into orders (id, user_id, drop_id, card_id, total_ccoin, total_idr, status,
                         delivery_option, escrow_status, shipping_address, source)
-    values (v_order_ref, v_user, v_card.drop_id, p_card_id, array[p_card_id], v_price, v_price * 10000,
+    values (v_order_ref, v_user, v_card.drop_id, p_card_id, v_price, v_price * 10000,
             'paid', (case when p_destination = 'platform_vault' then 'vault'::public.delivery_option else 'shipping'::public.delivery_option end),
             'held', p_address, 'secondary_buyout');
 

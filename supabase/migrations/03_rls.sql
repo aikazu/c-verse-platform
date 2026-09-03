@@ -92,13 +92,12 @@ language plpgsql as $$
 begin
   if public.is_service_role() then return new; end if;
   -- Lane D (2026-08-31): + cumulative_spend_ccoin (spend-derived XP mirror,
-  -- dasar leaderboard) + xp (kolom legacy) — wallet/uang tidak boleh di-PATCH
-  -- pemiliknya, hanya via RPC SECURITY DEFINER service-role.
+  -- dasar leaderboard) — wallet/uang tidak boleh di-PATCH pemiliknya, hanya
+  -- via RPC SECURITY DEFINER service-role.
   if new.role is distinct from old.role or new.flag_reason is distinct from old.flag_reason
      or new.total_xp is distinct from old.total_xp or new.level is distinct from old.level
      or new.xp_reached_at is distinct from old.xp_reached_at
-     or new.cumulative_spend_ccoin is distinct from old.cumulative_spend_ccoin
-     or new.xp is distinct from old.xp then
+     or new.cumulative_spend_ccoin is distinct from old.cumulative_spend_ccoin then
     raise exception 'users.role/flag_reason/xp hanya boleh diubah service-role';
   end if;
   return new;

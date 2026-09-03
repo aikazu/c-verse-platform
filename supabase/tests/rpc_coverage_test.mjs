@@ -719,8 +719,8 @@ await admin.query("commit");
     [U.a, `COV${stamp}S1`, `cv-${stamp}-s1`],
   );
   await admin.query(
-    `insert into public.orders (id, user_id, drop_id, card_id, card_ids, total_ccoin, total_idr, status, escrow_status, delivery_option, source, shipping_address)
-     values ('cov-order-ship-1', $1, 'cov-drop-main', 'cov-card-ship-1', array['cov-card-ship-1']::text[], 10, 0, 'paid', 'released', 'shipping', 'fcfs', 'Jl. Coverage Ship No. 1 Bandung')`,
+    `insert into public.orders (id, user_id, drop_id, card_id, total_ccoin, total_idr, status, escrow_status, delivery_option, source, shipping_address)
+     values ('cov-order-ship-1', $1, 'cov-drop-main', 'cov-card-ship-1', 10, 0, 'paid', 'released', 'shipping', 'fcfs', 'Jl. Coverage Ship No. 1 Bandung')`,
     [U.a],
   );
   // kartu 2: masih di vault, belum ada shipment — bahan vault_shipout

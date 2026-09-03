@@ -114,7 +114,7 @@ on conflict (id) do nothing;
 -- 7 drop_status + 2 seed = 9 drops. Karina-weighted flagship.
 insert into public.drops (
   id, title, series, narrative, artwork_url, total_units, signed_count, unsigned_count,
-  price_unsigned_ccoin, price_signed_ccoin, price_ccoin, status, drop_at,
+  price_unsigned_ccoin, price_signed_ccoin, price_ccoin, status,
   drop_start_at, drop_end_at, raffle_end_at, drawn_at, creator_id, creator_name, sold_count, is_seed
 ) values
   -- draft (rencana masa depan)
@@ -123,7 +123,7 @@ insert into public.drops (
    'HypeCreator X Aespa (2027 Concept)',
    'Konsep whisper untuk 2027 — masih draft, belum dijadwalkan.',
    '/textures/karina.jpg',
-   20, 2, 18, 35, 55, 35, 'draft', null, null, null, null, null,
+   20, 2, 18, 35, 55, 35, 'draft', null, null, null, null,
    '00000000-0000-4000-8000-000000000003','Karina Aespa', 0, false),
 
   -- scheduled (akan di-activate cron)
@@ -132,8 +132,7 @@ insert into public.drops (
    'Creator X — Beta Series',
    'Generasi kedua Creator X dengan foil upgrade.',
    '/textures/genesis.jpg',
-   18, 2, 16, 28, 48, 28, 'scheduled', now() + interval '3 days',
-   now() + interval '3 days', now() + interval '4 days', null, null,
+   18, 2, 16, 28, 48, 28, 'scheduled', now() + interval '3 days', now() + interval '4 days', null, null,
    '00000000-0000-4000-8000-000000000004','HypeCreator', 0, false),
 
   -- published (siap tapi belum live)
@@ -142,8 +141,7 @@ insert into public.drops (
    'Nova Studio — Aurora',
    'Edisi aurora — published, menunggu schedule release.',
    '/textures/aurora.jpg',
-   10, 1, 9, 22, 42, 22, 'published', now() + interval '6 days',
-   now() + interval '6 days', now() + interval '7 days', null, null,
+   10, 1, 9, 22, 42, 22, 'published',    now() + interval '6 days', now() + interval '7 days', null, null,
    '00000000-0000-4000-8000-000000000005','Nova Studio', 0, false),
 
   -- live (raffle sedang berjalan)
@@ -152,8 +150,7 @@ insert into public.drops (
    'HypeCreator X Aespa (2025 Limited Series)',
    'Kolaborasi eksklusif Karina Aespa dengan HypeCreator. Acrylic hardcase premium + NFC anti-tamper cryptographic. Hanya 15 unit di dunia.',
    '/textures/karina.jpg',
-   15, 2, 13, 30, 50, 30, 'live', now() - interval '1 hour',
-   now() - interval '1 hour', null, now() + interval '23 hours', null,
+   15, 2, 13, 30, 50, 30, 'live',    now() - interval '1 hour', null, now() + interval '23 hours', null,
    '00000000-0000-4000-8000-000000000003','Karina Aespa', 6, false),
 
   -- live kedua (untuk coverage cerita demo)
@@ -162,8 +159,7 @@ insert into public.drops (
    'Creator X — Alpha Series',
    'Genesis drop dari Creator X. Desain bold, holo foil, acrylic tebal 3mm.',
    '/textures/genesis.jpg',
-   20, 2, 18, 25, 45, 25, 'live', now() - interval '2 hours',
-   now() - interval '2 hours', null, now() + interval '22 hours', null,
+   20, 2, 18, 25, 45, 25, 'live',    now() - interval '2 hours', null, now() + interval '22 hours', null,
    '00000000-0000-4000-8000-000000000004','HypeCreator', 12, false),
 
   -- sold_out (semua terjual; status sold_count=total_units)
@@ -172,8 +168,7 @@ insert into public.drops (
    'HypeCreator X Aespa — Signed Vault',
    'Signed edition — sold out dari edisi sebelumnya.',
    '/textures/karina-signed.jpg',
-   10, 1, 9, 30, 50, 30, 'sold_out', now() - interval '7 days',
-   now() - interval '7 days', null, now() - interval '6 days', now() - interval '6 days',
+   10, 1, 9, 30, 50, 30, 'sold_out',    now() - interval '7 days', null, now() - interval '6 days', now() - interval '6 days',
    '00000000-0000-4000-8000-000000000003','Karina Aespa', 10, false),
 
   -- closed (sudah lewat tapi belum sold_out)
@@ -182,8 +177,7 @@ insert into public.drops (
    'Nova Studio — Neon Bloom',
    'Neon Bloom mengeksplor gradien neon & organic shapes.',
    '/textures/neon.jpg',
-   12, 2, 10, 20, 40, 20, 'closed', now() - interval '30 days',
-   now() - interval '30 days', null, now() - interval '29 days', now() - interval '29 days',
+   12, 2, 10, 20, 40, 20, 'closed',    now() - interval '30 days', null, now() - interval '29 days', now() - interval '29 days',
    '00000000-0000-4000-8000-000000000005','Nova Studio', 8, false),
 
   -- cancelled
@@ -192,8 +186,7 @@ insert into public.drops (
    'HypeCreator — Glitch Echo',
    'Drop dibatalkan setelah sched — refund window ditutup.',
    '/textures/glitch.jpg',
-   14, 1, 13, 26, 46, 26, 'cancelled', now() - interval '14 days',
-   now() - interval '14 days', null, now() - interval '13 days', null,
+   14, 1, 13, 26, 46, 26, 'cancelled',    now() - interval '14 days', null, now() - interval '13 days', null,
    '00000000-0000-4000-8000-000000000004','HypeCreator', 0, false),
 
   -- SEED 1 — PHASE-1 LOCK (bid accepted, mid-deal, NOT vaulted → untuk demo cancel/abort path)
@@ -202,8 +195,7 @@ insert into public.drops (
    'Creator Seed C.Card',
    'Seed 1-of-1 Karina (Flow 10). PHASE-1 LOCK — bid pending di kartu, menunggu vault-in + NFC verified untuk release.',
    '/textures/karina-seed.jpg',
-   1, 1, 0, 60, 60, 60, 'live', now() - interval '1 hour',
-   now() - interval '1 hour', null, null, null,
+   1, 1, 0, 60, 60, 60, 'live',    now() - interval '1 hour', null, null, null,
    '00000000-0000-4000-8000-000000000003','Karina Aespa', 0, true),
 
   -- SEED 2 — settled ke vault + verified (intentional fixture untuk admin release-gate demo;
@@ -213,8 +205,7 @@ insert into public.drops (
    'Creator Seed C.Card',
    'Seed founder — sudah released (vault + verified) untuk showcase.',
    '/textures/karina-founder.jpg',
-   1, 1, 0, 80, 80, 80, 'closed', now() - interval '90 days',
-   now() - interval '90 days', null, null, now() - interval '89 days',
+   1, 1, 0, 80, 80, 80, 'closed',    now() - interval '90 days', null, null, now() - interval '89 days',
    '00000000-0000-4000-8000-000000000003','Karina Aespa', 1, true)
 on conflict (id) do nothing;
 
@@ -443,72 +434,60 @@ on conflict (id) do nothing;
 -- id legacy dipertahankan. Satu-satunya order shipping yang sah = seed
 -- PHASE-1 secondary_buyout (ord-rival-buyout-phase1).
 -- C5: total_idr = total_ccoin * 10000.
--- C5: card_ids[] non-empty + contains card_id.
+
 insert into public.orders (
-  id, user_id, drop_id, card_id, card_ids, total_ccoin, total_idr,
+  id, user_id, drop_id, card_id, total_ccoin, total_idr,
   status, delivery_option, shipping_fee_ccoin, escrow_status,
   shipping_address, tracking_number, shipped_at, delivered_at, created_at, source
 ) values
   -- FCFS vault — settled (id legacy 'shipping')
-  ('ord-demo-shipping-paid','00000000-0000-4000-8000-000000000001','drop-aespa-live','card-aespa-live-01',
-   array['card-aespa-live-01'], 30, 300000,'settled','vault', null,'released',
+  ('ord-demo-shipping-paid','00000000-0000-4000-8000-000000000001','drop-aespa-live','card-aespa-live-01', 30, 300000,'settled','vault', null,'released',
    null, null, null, null, now() - interval '20 minutes','fcfs'),
 
   -- FCFS vault — settled (id legacy 'shipping')
-  ('ord-demo-shipping-shipped','00000000-0000-4000-8000-000000000006','drop-aespa-live','card-aespa-live-02',
-   array['card-aespa-live-02'], 30, 300000,'settled','vault', null,'released',
+  ('ord-demo-shipping-shipped','00000000-0000-4000-8000-000000000006','drop-aespa-live','card-aespa-live-02', 30, 300000,'settled','vault', null,'released',
    null, null, null, null, now() - interval '5 hours','fcfs'),
 
   -- FCFS vault — settled (id legacy 'shipping')
-  ('ord-demo-shipping-deliv3','00000000-0000-4000-8000-000000000001','drop-aespa-live','card-aespa-live-04',
-   array['card-aespa-live-04'], 30, 300000,'settled','vault', null,'released',
+  ('ord-demo-shipping-deliv3','00000000-0000-4000-8000-000000000001','drop-aespa-live','card-aespa-live-04', 30, 300000,'settled','vault', null,'released',
    null, null, null, null, now() - interval '8 days','fcfs'),
 
   -- FCFS vault — settled (id legacy 'shipping')
-  ('ord-rival-shipping-deliv10','00000000-0000-4000-8000-000000000006','drop-aespa-live','card-aespa-live-05',
-   array['card-aespa-live-05'], 30, 300000,'settled','vault', null,'released',
+  ('ord-rival-shipping-deliv10','00000000-0000-4000-8000-000000000006','drop-aespa-live','card-aespa-live-05', 30, 300000,'settled','vault', null,'released',
    null, null, null, null, now() - interval '22 days','fcfs'),
 
   -- primary vault — settled
-  ('ord-demo-vault-settled','00000000-0000-4000-8000-000000000001','drop-genesis-live','card-genesis-live-02',
-   array['card-genesis-live-02'], 25, 250000,'settled','vault', null,'released',
+  ('ord-demo-vault-settled','00000000-0000-4000-8000-000000000001','drop-genesis-live','card-genesis-live-02', 25, 250000,'settled','vault', null,'released',
    null, null, null, null, now() - interval '5 days','fcfs'),
 
   -- raffle primary — settled (vault default per draw_drop)
-  ('ord-rival-raffle-settled','00000000-0000-4000-8000-000000000006','drop-aespa-signed','card-aespa-signed-07',
-   array['card-aespa-signed-07'], 30, 300000,'settled','vault', null,'released',
+  ('ord-rival-raffle-settled','00000000-0000-4000-8000-000000000006','drop-aespa-signed','card-aespa-signed-07', 30, 300000,'settled','vault', null,'released',
    null, null, null, null, now() - interval '6 days','raffle'),
 
   -- secondary_buyout — paid (PHASE-1 seed escrow) — placed but pending release
-  ('ord-rival-buyout-phase1','00000000-0000-4000-8000-000000000006','drop-seed-karina-01','card-seed-karina-01',
-   array['card-seed-karina-01'], 60, 600000,'paid','shipping', 3,'held',
+  ('ord-rival-buyout-phase1','00000000-0000-4000-8000-000000000006','drop-seed-karina-01','card-seed-karina-01', 60, 600000,'paid','shipping', 3,'held',
    'Jl. Rival No. 99, Bandung', null, null, null, now() - interval '30 minutes','secondary_buyout'),
 
   -- qc — order paused in QC (W2 remediation; id legacy 'shipping' — kini vault,
   -- escrow released; total_idr=250000 = 25*10000)
-  ('ord-hype-qc','00000000-0000-4000-8000-000000000004','drop-genesis-live','card-genesis-live-06',
-   array['card-genesis-live-06'], 25, 250000,'qc','vault', null,'released',
+  ('ord-hype-qc','00000000-0000-4000-8000-000000000004','drop-genesis-live','card-genesis-live-06', 25, 250000,'qc','vault', null,'released',
    null, null, null, null, now() - interval '2 days','fcfs'),
 
   -- refunded — refunded order (buyer klaim rusak sebelum diproses; id legacy)
-  ('ord-marked-refunded','00000000-0000-4000-8000-000000000008','drop-aespa-live','card-aespa-live-08',
-   array['card-aespa-live-08'], 30, 300000,'refunded','vault', null,'released',
+  ('ord-marked-refunded','00000000-0000-4000-8000-000000000008','drop-aespa-live','card-aespa-live-08', 30, 300000,'refunded','vault', null,'released',
    null, null, null, null, now() - interval '3 days','fcfs'),
 
   -- disputed — order disputed (creator issue; dana tetap di-hold selama sengketa)
-  ('ord-ghost-disputed','00000000-0000-4000-8000-000000000007','drop-genesis-live','card-genesis-live-12',
-   array['card-genesis-live-12'], 25, 250000,'disputed','vault', null,'held',
+  ('ord-ghost-disputed','00000000-0000-4000-8000-000000000007','drop-genesis-live','card-genesis-live-12', 25, 250000,'disputed','vault', null,'held',
    null, null, null, null, now() - interval '10 days','fcfs'),
 
   -- additional past closed drop order
-  ('ord-karina-nova-past','00000000-0000-4000-8000-000000000003','drop-nova-past','card-nova-past-01',
-   array['card-nova-past-01'], 20, 200000,'settled','vault', null,'released',
+  ('ord-karina-nova-past','00000000-0000-4000-8000-000000000003','drop-nova-past','card-nova-past-01', 20, 200000,'settled','vault', null,'released',
    null, null, null, null, now() - interval '29 days','fcfs'),
 
   -- primary vault — settled (B1 remediation: matches wtx-d-07 + gtx-h-02 gems-royalty legs; royalty +8 exists, this row
   -- adds the platform_revenue counterpart pr-genesis-demo-05 so ledger closure stays equal via treasury rollup)
-  ('ord-genesis-demo-05','00000000-0000-4000-8000-000000000001','drop-genesis-live','card-genesis-live-05',
-   array['card-genesis-live-05'], 25, 250000,'settled','vault', null,'released',
+  ('ord-genesis-demo-05','00000000-0000-4000-8000-000000000001','drop-genesis-live','card-genesis-live-05', 25, 250000,'settled','vault', null,'released',
    null, null, null, null, now() - interval '8 days','fcfs')
 on conflict (id) do nothing;
 
@@ -1298,13 +1277,6 @@ begin
   ) x;
   if v_count > 0 then
     raise exception 'ONE_ACTIVE_BID_FAIL (C9): % cards have >1 active bid', v_count;
-  end if;
-
-  -- ── ASSERTION 6: orders.card_ids[] contains orders.card_id (C5) ──
-  select count(*) into v_count from public.orders o
-    where o.card_id is not null and not (o.card_id = any(o.card_ids));
-  if v_count > 0 then
-    raise exception 'CARD_IDS_CONTAINMENT_FAIL (C12): % orders violate card_id IN card_ids[]', v_count;
   end if;
 
   -- ── ASSERTION 7: bid boundary fixtures ──
