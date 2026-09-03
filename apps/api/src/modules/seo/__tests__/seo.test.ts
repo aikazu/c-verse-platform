@@ -244,6 +244,16 @@ describe("GET /api/seo/meta", () => {
     expect(missing.status).toBe(404);
   });
 
+  it("drop of non-public status → 404 (draft/cancelled/closed pre-announcement leak)", async () => {
+    control.dropById = dropFixture({ id: "drop-draft", status: "draft" });
+    const draft = await app.request("/api/seo/meta?path=/drops/drop-draft");
+    expect(draft.status).toBe(404);
+
+    control.dropById = dropFixture({ id: "drop-cancelled", status: "cancelled" });
+    const cancelled = await app.request("/api/seo/meta?path=/drops/drop-cancelled");
+    expect(cancelled.status).toBe(404);
+  });
+
   it("default path returns site-level og with null jsonLd", async () => {
     const res = await app.request("/api/seo/meta");
     expect(res.status).toBe(200);

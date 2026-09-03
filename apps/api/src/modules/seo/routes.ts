@@ -98,6 +98,9 @@ app.get("/meta", async (c) => {
     const id = path.split("/")[2];
     const drop = await getDropById(id);
     if (!drop) return c.json({ error: "Not found" }, 404);
+    // Paritas cabang /cards/ (F4) + sitemap: drop draft/cancelled/closed tidak
+    // publik — narrative/artwork pre-announcement tidak boleh ter-prerender.
+    if (!SEO_PUBLIC_DROP_STATUSES.includes(drop.status)) return c.json({ error: "Not found" }, 404);
     return c.json({
       og: { title: `${drop.title} — Drop C.Verse`, description: drop.narrative?.slice(0, 160) ?? "", image: drop.artworkUrl },
       jsonLd: {
