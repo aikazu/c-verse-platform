@@ -1,4 +1,4 @@
--- 04g: RPC payouts + admin shipment (send_support, payout_request, payout_batch_run, payout_refund, admin_fulfill_shipment) (part of consolidated RPC set; apply in lexical order).
+-- 13: RPC payouts + admin shipment (send_support, payout_request, payout_batch_run, payout_refund, admin_fulfill_shipment) (part of consolidated RPC set; apply in lexical order).
 create or replace function public.send_support(
   p_creator uuid,
   p_amount integer

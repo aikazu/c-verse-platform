@@ -1,4 +1,4 @@
--- 04h: RPC seed sale service (release_seed_sale, cancel_seed_sale) (part of consolidated RPC set; apply in lexical order).
+-- 14: RPC seed sale service (release_seed_sale, cancel_seed_sale) (part of consolidated RPC set; apply in lexical order).
 create or replace function public.release_seed_sale(p_card_id text) returns void
 language plpgsql security definer set search_path = public as $$
 declare

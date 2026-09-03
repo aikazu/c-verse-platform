@@ -1,4 +1,4 @@
--- 04d: RPC raffle draw (draw_drop, draw_pending_drops) (part of consolidated RPC set; apply in lexical order).
+-- 10: RPC raffle draw (draw_drop, draw_pending_drops) (part of consolidated RPC set; apply in lexical order).
 create or replace function public.draw_drop(p_drop_id text) returns integer
 language plpgsql security definer set search_path = public as $$
 declare

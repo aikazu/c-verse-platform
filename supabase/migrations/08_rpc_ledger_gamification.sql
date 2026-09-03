@@ -1,4 +1,4 @@
--- 04b: RPC ledger platform_revenue + gamifikasi badge (part of consolidated RPC set; apply in lexical order).
+-- 08: RPC ledger platform_revenue + gamifikasi badge (part of consolidated RPC set; apply in lexical order).
 create or replace function public.record_spend_conversion(
   p_user uuid,
   p_amount integer,

@@ -1,4 +1,4 @@
--- 04j: RPC read-only (get_leaderboard, creator page view/stats, investor stats) (part of consolidated RPC set; apply in lexical order).
+-- 16: RPC read-only (get_leaderboard, creator page view/stats, investor stats) (part of consolidated RPC set; apply in lexical order).
 create or replace function public.get_leaderboard(
   p_type text,
   p_creator_id uuid default null,

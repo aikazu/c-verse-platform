@@ -1,4 +1,4 @@
--- 04e: RPC bids (place_bid, cancel_bid) + set_buyout (part of consolidated RPC set; apply in lexical order).
+-- 11: RPC bids (place_bid, cancel_bid) + set_buyout (part of consolidated RPC set; apply in lexical order).
 create or replace function public.place_bid(
   p_card_id text,
   p_amount integer

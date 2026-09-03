@@ -1,4 +1,4 @@
--- 04a: RPC kernel wallet + gems + notify_user (part of consolidated RPC set; apply in lexical order).
+-- 07: RPC kernel wallet + gems + notify_user (part of consolidated RPC set; apply in lexical order).
 create or replace function public.wallet_debit(
   p_user uuid,
   p_amount integer,

@@ -1,4 +1,4 @@
--- 04k: EXECUTE grants per role + tombstone fn_drop_id_for_card (part of consolidated RPC set; apply in lexical order).
+-- 17: EXECUTE grants per role + tombstone fn_drop_id_for_card (part of consolidated RPC set; apply in lexical order).
 
 -- Wallet operations (X1 audit 2026-08-29: default privileges Supabase memberi
 -- EXECUTE ke anon/authenticated saat CREATE FUNCTION — revoke from public saja

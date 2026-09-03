@@ -1,4 +1,4 @@
--- 04f: RPC settle secondary (accept_bid, buyout_card + tombstone legacy) (part of consolidated RPC set; apply in lexical order).
+-- 12: RPC settle secondary (accept_bid, buyout_card + tombstone legacy) (part of consolidated RPC set; apply in lexical order).
 drop function if exists public.accept_bid(text, public.shipment_to_dest, text);
 create or replace function public.accept_bid(
   p_card_id text,

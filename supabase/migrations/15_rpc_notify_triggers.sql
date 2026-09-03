@@ -1,4 +1,4 @@
--- 04i: fungsi + trigger notifikasi (bids, cards, payouts, shipments, kyc) (part of consolidated RPC set; apply in lexical order).
+-- 15: fungsi + trigger notifikasi (bids, cards, payouts, shipments, kyc) (part of consolidated RPC set; apply in lexical order).
 create or replace function public.fn_notify_bid_change() returns trigger
   language plpgsql
   security definer
