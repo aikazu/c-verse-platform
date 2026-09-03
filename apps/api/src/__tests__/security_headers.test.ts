@@ -11,13 +11,17 @@ const { app } = await import("../index.js");
 // origin. The CSP is deny-by-default because this is a JSON/XML API.
 
 describe("security headers on every response (L6 audit 2026-08-24)", () => {
-  it("GET /health includes X-Frame-Options + CSP + nosniff + Referrer-Policy + Permissions-Policy", async () => {
+  it("GET /health includes X-Frame-Options + CSP + nosniff + Referrer-Policy + Permissions-Policy + HSTS", async () => {
     const res = await app.request("/health");
     expect(res.status).toBe(200);
     expect(res.headers.get("X-Frame-Options")).toBe("DENY");
     expect(res.headers.get("X-Content-Type-Options")).toBe("nosniff");
     expect(res.headers.get("Referrer-Policy")).toBe("strict-origin-when-cross-origin");
     expect(res.headers.get("Permissions-Policy")).toContain("camera=()");
+    // Audit 2026-09-04 M-7: HSTS menutup downgrade HTTP bila edge Cloudflare
+    // tidak menyetelnya (tanpa preload — aktifkan setelah max-age terbukti aman).
+    expect(res.headers.get("Strict-Transport-Security")).toContain("max-age=31536000");
+    expect(res.headers.get("Strict-Transport-Security")).toContain("includeSubDomains");
     const csp = res.headers.get("Content-Security-Policy") ?? "";
     expect(csp).toContain("default-src 'none'");
     expect(csp).toContain("frame-ancestors 'none'");
@@ -28,5 +32,6 @@ describe("security headers on every response (L6 audit 2026-08-24)", () => {
     expect(res.status).toBe(404);
     expect(res.headers.get("X-Frame-Options")).toBe("DENY");
     expect(res.headers.get("Content-Security-Policy")).toContain("default-src 'none'");
+    expect(res.headers.get("Strict-Transport-Security")).toContain("max-age=31536000");
   });
 });

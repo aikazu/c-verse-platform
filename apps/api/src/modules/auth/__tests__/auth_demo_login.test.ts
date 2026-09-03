@@ -56,6 +56,19 @@ describe("POST /api/auth/demo-login (dev-only one-click login akun seed)", () =>
     expect(control.generateLink).not.toHaveBeenCalled();
   });
 
+  it("403/404 + tidak menyentuh GoTrue ketika ENV=production (hard-stop prod)", async () => {
+    setDemoFlag("1");
+    const g = globalThis as unknown as Record<string, string | undefined>;
+    g.ENV = "production";
+    try {
+      const res = await postDemoLogin("demo@cverse.id");
+      expect([403, 404]).toContain(res.status);
+      expect(control.generateLink).not.toHaveBeenCalled();
+    } finally {
+      delete g.ENV;
+    }
+  });
+
   it("400 ketika email tidak valid", async () => {
     setDemoFlag("1");
     const res = await postDemoLogin("bukan-email");

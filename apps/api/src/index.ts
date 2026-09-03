@@ -70,6 +70,9 @@ app.use("*", async (c, next) => {
   c.header("X-Content-Type-Options", "nosniff");
   c.header("Referrer-Policy", "strict-origin-when-cross-origin");
   c.header("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+  // Audit 2026-09-04 M-7: HSTS (tanpa preload dulu) — menutup downgrade HTTP
+  // bila edge Cloudflare tidak menyetelnya. API hanya dilayani via HTTPS.
+  c.header("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
   // L6 (audit 2026-08-24): Content-Security-Policy. The API returns JSON or XML
   // (sitemap); nothing here needs to load scripts, so deny by default. The SPA
   // (apps/web) carries its own CSP meta tag via the SEO Worker; this is the

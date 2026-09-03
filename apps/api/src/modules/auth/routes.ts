@@ -55,6 +55,13 @@ app.post("/demo-login", zValidator("json", demoLoginSchema), async (c) => {
   const enabled = ["1", "true"].includes((envFlag("ENABLE_DEMO_LOGIN") ?? "").toLowerCase());
   if (!enabled) return c.json({ error: "Not found" }, 404);
 
+  // Hard-stop produksi (audit 2026-09-04): flag + whitelist saja tidak cukup —
+  // satu `wrangler secret put ENABLE_DEMO_LOGIN=1` yang keliru di prod membuka
+  // sesi aal1 akun seed (termasuk admin@). ENV=production (default wrangler.toml
+  // [vars]) menolak sebelum menyentuh GoTrue.
+  const env = (envFlag("ENV") ?? "").toLowerCase();
+  if (env === "production") return c.json({ error: "Not found" }, 404);
+
   const email = c.req.valid("json").email.trim().toLowerCase();
   if (!DEMO_EMAILS.has(email)) return c.json({ error: "Bukan akun demo" }, 403);
 
