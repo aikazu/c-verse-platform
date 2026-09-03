@@ -119,7 +119,7 @@
     dibangun di Sprint berikutnya. Retrofit data historis mahal.
 - **[Update 2026-08-29] Foundation TERIMPLEMENTASI**: tabel
   `creator_page_views` (`01_schema.sql`) + RPC
-  `record_creator_page_view` / `get_creator_page_stats` (`04_rpc.sql`);
+  `record_creator_page_view` / `get_creator_page_stats` (`04_rpc` (04a–04k));
   API `POST /api/public/:username/view` (beacon, anon allowed,
   referrer + city derivasi server-side) dan `GET
   /api/public/:username/views/stats` (owner-fenced); beacon web

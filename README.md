@@ -176,8 +176,8 @@ Belum diimplementasi: notifikasi in-app/push (F010, F013). Email transaksional A
 │   └── admin/               # VPS SPA — ADM-01..10 + Investor
 ├── packages/shared/         # single source: schemas + C_COIN_RATE_IDR + fee
 ├── supabase/
-│   ├── migrations/          # 5 file by domain: schema → auth → RLS → RPC →
-│   │                        # perf index
+│   ├── migrations/          # 18 file SQL bernomor (≤300 LoC): 01 schema →
+│   │                        # 02 auth → 03 RLS → 04a–04k RPC → 05 indexes
 │   ├── seed.sql
 │   ├── tests/               # rls_test.sql, rpc_*.mjs, revenue_flow_test.mjs
 │   └── config.toml

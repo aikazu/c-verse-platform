@@ -7,13 +7,13 @@
 > Previous: 2026-08-31 (C-10: fee ship-out = konstanta server
 > `SHIPMENT_FEE_CCOIN`; email = Cloudflare Email Service)
 > Previous: 2026-08-23 (C-17 → admin abort path PHASE-1 stuck seed
-> sale: RPC `cancel_seed_sale` di `04_rpc.sql` (sebelumnya
+> sale: RPC `cancel_seed_sale` di `04_rpc` (04a–04k) (sebelumnya
 > `20260823050000_seed_sale_abort.sql`), service_role only,
 > refund penuh buyer tanpa fees/XP)
 > Previous: 2026-08-21 (C-17 → two-phase settlement: bid/accept
 > BUKAN lagi di-gate; release yang wajib menunggu vault-in + NFC
 > verified — SEED_VAULT_IN_REQUIRED pindah ke release_seed_sale
-> di `04_rpc.sql` (sebelumnya `20260821020000_seed_two_phase.sql`),
+> di `04_rpc` (04a–04k) (sebelumnya `20260821020000_seed_two_phase.sql`),
 > keputusan 2026-08-21)
 > Previous: 2026-08-20 (C-13 enforceable via akun kreator
 > admin-provisioned + C-17 Creator Seed C.Card — keputusan 2026-08-20;
@@ -128,7 +128,7 @@
 - Badge: definisi (kriteria + ikon + XP reward) dikonfigurasi
   admin (ADM-07); evaluasi otomatis event-driven via trigger
   SQL (ownership/bid/KYC) — termasuk `creator_cards` evaluator
-  aktif di `trg_badge_ownership` (`04_rpc.sql`). "exp" =
+  aktif di `trg_badge_ownership` (`04_rpc` (04a–04k)). "exp" =
   EXPERIENCE, bukan expiry.
 
 ### C-05d Privasi profil
@@ -142,7 +142,7 @@
 - Bid bisa dibatalkan 24 jam setelah dipasang (BID_CANCEL_COOLDOWN);
   setelah cancel, C-12 rebuy cooldown tetap berlaku.
   Angka 24 jam terkunci di DUA tempat: `interval '24 hours'` di `cancel_bid`
-  (04_rpc.sql) dan `BID_CANCEL_COOLDOWN_HOURS` di shared — dipin literal test
+  (04a–04k RPC files) dan `BID_CANCEL_COOLDOWN_HOURS` di shared — dipin literal test
   di kedua sisi; ubah berarti ubah keduanya.
 - Bid lebih tinggi → bid lama `outbid`, C-Coin balik otomatis
   ke bidder lama.
@@ -250,7 +250,7 @@
   kreator pemilik seed card dilarang membeli kembali kartu seed
   miliknya dalam 30 hari pertama.
 - **PERLUASAN SEED (TERIMPLEMENTASI 2026-08-21, sebelumnya
-  `20260821000000_seed_card.sql` — sekarang di `04_rpc.sql`)**:
+  `20260821000000_seed_card.sql` — sekarang di `04_rpc` (04a–04k))**:
   untuk kartu dari seed drop
   (`drops.is_seed = true`), guard 30 hari TIDAK lagi bergantung
   `drop_start_at`/`drop_at`/`created_at` (seed BUKAN raffle — drop
@@ -340,7 +340,7 @@
   ATAU `verify_status <> 'verified'` -> raise `SEED_VAULT_IN_REQUIRED`
   (gate SEED_VAULT_IN_REQUIRED lama di `accept_bid`/`buyout_card`
   dihapus — sebelumnya `20260821020000_seed_two_phase.sql`,
-  sekarang di `04_rpc.sql`). **verified hanya
+  sekarang di `04_rpc` (04a–04k)). **verified hanya
   bisa dicapai via tap NFC** (SUN/CMAC crypto — `nfc.ts`); admin path
   vault-in `PATCH /api/admin/cards/:id/vault-in` HANYA menandai
   kedatangan fisik (`location='platform_vault'`) + audit pemeriksaan
@@ -362,7 +362,7 @@
   hilang / dispute / tidak pernah di-vault-in sehingga release
   tidak mungkin, admin memicu `POST /api/admin/cards/:id/cancel-seed-sale`
   → RPC `cancel_seed_sale` (service_role ONLY, mirror guard pattern
-  release_seed_sale di `04_rpc.sql` — sebelumnya
+  release_seed_sale di `04_rpc` (04a–04k) — sebelumnya
   `20260823030000_release_seed_grant_lock.sql`). Buyer di-refund FULL — tanpa fees,
   tanpa XP (XP granted TEPAT SEKALI di PHASE-2 release per invariant
   founder 2026-08-23, PHASE-1 tidak grant XP). Path A: bid
@@ -370,7 +370,7 @@
   `paid` → `refunded` + `wallet_credit` buyer. Kartu kembali ke
   `inventory`. Idempotent (`p_idem='seed-abort-'||card_id`).
   Tidak touch treasury/platform_revenue — PHASE-1 menulis tidak ada
-  revenue leg. RPC `cancel_seed_sale` di `04_rpc.sql` (sebelumnya
+  revenue leg. RPC `cancel_seed_sale` di `04_rpc` (04a–04k) (sebelumnya
   `20260823050000_seed_sale_abort.sql`).
 - Split penjualan pertama: **85% owner + 7,5% royalti kreator
   lifetime + 7,5% platform** (secondary normal) — kreator-owner
@@ -417,7 +417,7 @@
 | Secondary = Marketplace + Browse (bukan auction) | FINAL (2026-08-12) |
 | Tidak ada halaman verifikasi terpisah (melekat di halaman kartu) | FINAL (2026-08-12) |
 | Primary = platform-produced SAJA (70/30), kreator-produced defer | FINAL (2026-08-12) |
-| Leaderboard punya halaman sendiri (PG-LB-01) — multi-type: `xp` (default), `cards`, `badges`, `creator` (papan per-kreator via `?tab=`); privasi dijamin RPC `get_leaderboard` (`04_rpc.sql`) | FINAL (2026-08-12; expanded 2026-08-27) |
+| Leaderboard punya halaman sendiri (PG-LB-01) — multi-type: `xp` (default), `cards`, `badges`, `creator` (papan per-kreator via `?tab=`); privasi dijamin RPC `get_leaderboard` (`04_rpc` (04a–04k)) | FINAL (2026-08-12; expanded 2026-08-27) |
 | Top-up di area user; **bisa diterima setelah T&C final + cap saldo** (Q026 resolved 2026-08-13) | FINAL (2026-08-13) |
 | KYC trigger: payout/disbursement ke IDR + akumulasi top-up besar (TIDAK untuk pasang buyout/accept bid) | FINAL (2026-08-13, validasi lawyer) |
 | Profil publik + privacy anonymous | FINAL (2026-08-12) |

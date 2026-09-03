@@ -75,7 +75,7 @@ loyalty (semua post-MVP).
 | F016 | Creator dashboard (analitik) | 70 | Traffic, pendapatan + insight kolektor anonim (visitor, repeat rate, avg spending, cross-creator buying, numbering analytics). BUKAN admin |
 | F017 | Gamifikasi: level | 80 | **Naik via XP**: spend 1 C-Coin = 1 XP; 10 XP = 1 level (top-up TIDAK menambah XP) |
 | F018 | Gamifikasi: badge | 80 | **Kriteria + logo/ikon + XP reward dikonfigurasi di admin page** (ADM-07); XP badge berkontribusi naik level (bukan masa berlaku) |
-| F019 | Leaderboard | 50 | **Halaman sendiri** (PG-LB-01) — multi-type: `xp` (default) \| `cards` \| `badges` \| `creator` (top 10 kolektor per-kreator); RPC `get_leaderboard` di `04_rpc.sql` (privasi + tie-break deterministik) |
+| F019 | Leaderboard | 50 | **Halaman sendiri** (PG-LB-01) — multi-type: `xp` (default) \| `cards` \| `badges` \| `creator` (top 10 kolektor per-kreator); RPC `get_leaderboard` di `04_rpc` (04a–04k) (privasi + tie-break deterministik) |
 | F020 | Minimum payout 10 C-Coin | 20 | Should |
 | F037 | Dispute resolution | 60 | MVP: manual (email/WA) + status di admin |
 

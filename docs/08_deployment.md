@@ -145,7 +145,8 @@ tidak membacanya (env email API hanya `EMAIL_ENABLED`/`EMAIL_FROM`/
    (prod: `https://c-verse.co`, preview: `https://*.pages.dev`).
 4. Migrasi: `npx supabase db push` (atau `npx supabase db reset`
    untuk lokal) — file SQL murni di `supabase/migrations/*.sql`
-   (5 file konsolidasi: schema → auth → RLS → RPC → indexes).
+   (18 file SQL bernomor, masing-masing ≤300 LoC: 01 schema → 02 auth →
+   03 RLS → 04a–04k RPC → 05 indexes).
    Cek `npx supabase db lint` untuk drift.
 5. RLS: apply policy per tabel (lihat `05_data_model.md` RLS) —
    verifikasi dengan `supabase/rls` test setelah deploy.

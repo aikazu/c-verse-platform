@@ -2,7 +2,7 @@
 
 Monorepo (`pnpm` workspaces): React 19/Vite SPA (`apps/web` → Cloudflare Pages), Hono 4 API (`apps/api` → Cloudflare Workers; Node for local dev), React 19 admin SPA (`apps/admin` → VPS behind Cloudflare Tunnel + Access), shared Zod schemas & constants (`packages/shared`). C.Card MVP — 11 flows. Supabase Postgres + Cloudflare R2.
 
-Architecture: **fat database, thin API**. All money/stock mutations run inside Postgres SECURITY DEFINER RPCs (`supabase/migrations/04_rpc.sql`) through the `apps/api/src/lib/db.ts` facade — single-transaction by construction. Routes only verify auth → validate (zValidator) → call RPC → map errors. Reads go through selector modules. The browser holds only the anon key — RLS is the real enforcement layer.
+Architecture: **fat database, thin API**. All money/stock mutations run inside Postgres SECURITY DEFINER RPCs (`supabase/migrations/04a`–`04k` RPC files) through the `apps/api/src/lib/db.ts` facade — single-transaction by construction. Routes only verify auth → validate (zValidator) → call RPC → map errors. Reads go through selector modules. The browser holds only the anon key — RLS is the real enforcement layer.
 
 ## Docs
 
@@ -23,7 +23,7 @@ Architecture: **fat database, thin API**. All money/stock mutations run inside P
 
 ## Supabase (local stack = standard test bench)
 
-- `supabase/migrations/`: 5 consolidated files, every object written ONCE in final form (no `create or replace` chains): `01_schema` (DDL/enums/tables), `02_auth` (auth mirror + canonical email), `03_rls` (policies + guard triggers), `04_rpc` (all SECURITY DEFINER RPCs + grants), `05_indexes` (performance). Never edit an applied migration; `db push` never re-applies edits to applied files — changes land via a reset.
+- `supabase/migrations/`: 18 numbered SQL files (lexical order = execution order, each ≤300 LoC), every object written ONCE in final form (no `create or replace` chains): `01_schema` + `01b_schema_tables` + `01c_indexes_grants` (DDL/enums/tables, indexes, grants), `02_auth` (auth mirror + canonical email), `03_rls` + `03b_rls_policies` (policies + guard triggers), `04a_rpc_wallet_kernel` … `04k_rpc_grants` (all SECURITY DEFINER RPCs + grants), `05_indexes` (performance). Never edit an applied migration; `db push` never re-applies edits to applied files — changes land via a reset.
 - LOCAL stack is the standard test bench: `npx supabase start` (needs Docker), then `npx supabase db reset` (local) applies migrations + seed.sql. Integration tests in `supabase/tests/` run against the local DB (`postgresql://postgres:postgres@127.0.0.1:54322/postgres`) via `node <test>.mjs <url>` or plain `db query`; a local `db reset` clears fixtures. Local auth emails are magic links (not OTP codes), visible in Mailpit :54324. Local reset is routine — no confirmation needed.
 
 ## Quality gates
