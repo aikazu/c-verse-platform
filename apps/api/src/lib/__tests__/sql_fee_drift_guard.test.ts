@@ -51,7 +51,7 @@ describe("SQL fee drift guard — shared constants vs migration literals", () =>
     expect(SHIPMENT_FEE_CCOIN).toBe(2);
   });
 
-  it("every migration with record_platform_revenue emits derived fee literals", () => {
+  it("settlement call-sites and the revenue definition stay in sync with shared fee literals", () => {
     const platformStr = String(SECONDARY_PLATFORM_PCT); // "0.075"
     const royaltyStr = String(SECONDARY_ROYALTY_PCT); // "0.075"
     const sellerStr = String(SECONDARY_SELLER_PCT); // "0.85"
@@ -60,60 +60,43 @@ describe("SQL fee drift guard — shared constants vs migration literals", () =>
 
     const migrations = readMigrations();
 
-    // Kumpulan migration yang diketahui berisi record_platform_revenue
-    // settlement. Audit 2026-08-23: 5 file.
-    const settlerFiles = migrations.filter((m) => m.content.includes("record_platform_revenue"));
-    expect(settlerFiles.length).toBeGreaterThanOrEqual(1);
+    // Definisi revenue — TEPAT 1 file (04b_rpc_ledger_gamification.sql pasca-split
+    // 04_rpc.sql → 04a–04k). Body definisi memuat SEMUA literal fee: split primary
+    // 0.7/0.3 + secondary 0.075/0.075/0.85 via jsonb key seller_pct.
+    const definitionFiles = migrations.filter((m) => m.content.includes("create or replace function public.record_platform_revenue("));
+    expect(definitionFiles.length, "definisi record_platform_revenue harus tepat 1 file").toBe(1);
+    const definition = definitionFiles[0];
+    expect(definition.content, `${definition.file} harus memuat SECONDARY_PLATFORM_PCT = ${platformStr}`).toContain(platformStr);
+    expect(definition.content, `${definition.file} harus memuat SECONDARY_ROYALTY_PCT = ${royaltyStr}`).toContain(royaltyStr);
+    expect(definition.content, `${definition.file} harus memuat SECONDARY_SELLER_PCT = ${sellerStr}`).toContain(sellerStr);
+    expect(definition.content, `${definition.file} harus memuat platform share ${primaryPlatformStr}`).toContain(primaryPlatformStr);
+    expect(definition.content, `${definition.file} harus memuat creator share ${primaryCreatorStr}`).toContain(primaryCreatorStr);
+    expect(definition.content, `${definition.file} harus memuat jsonb key seller_pct`).toContain("seller_pct");
 
-    for (const { file, content } of settlerFiles) {
-      // Settler wajib punya fee literal secondary 0.075 (platform) — minimal salah satu
-      // ekspresi muncul (e.g. "round(v_xxx * 0.075)" atau "0.075, 'royalty_pct', 0.075").
-      expect(content, `${file} harus memuat SECONDARY_PLATFORM_PCT = ${platformStr}`).toContain(platformStr);
+    // Call-site settlement: perform public.record_platform_revenue(...) — tersebar
+    // per-domain pasca-split: 04c (purchase/shipout), 04d (raffle draw), 04f
+    // (secondary settle), 04h (seed service).
+    const callerFiles = migrations.filter((m) => m.content.includes("perform public.record_platform_revenue("));
+    expect(callerFiles.length, "minimal 1 call-site settlement harus ada").toBeGreaterThanOrEqual(1);
+
+    // Secondary callers (04f/04h): fee platform+royalty wajib ceil — audit
+    // 2026-08-31: round() bisa menghasilkan fee 0 di harga kecil (revenue
+    // evaporation); seller = remainder (tidak di-round/ceil).
+    const secondaryCallers = callerFiles.filter((m) => m.content.includes("'secondary"));
+    expect(secondaryCallers.length, "minimal 1 secondary caller harus ada").toBeGreaterThanOrEqual(1);
+    for (const { file, content } of secondaryCallers) {
+      expect(contentIncludesRounded(content, platformStr), `${file} harus pakai ceil(* ${platformStr}) untuk platform fee`).toBe(true);
+      expect(contentIncludesRounded(content, royaltyStr), `${file} harus pakai ceil(* ${royaltyStr}) untuk royalty fee`).toBe(true);
+      expect(contentIncludesRoundFn(content, platformStr), `${file} tidak boleh memakai round(* ${platformStr}) — wajib ceil`).toBe(false);
     }
 
-    // Magnet: migration yang berisi split primary 70/30 (record_platform_revenue
-    // 'primary' + jsonb fee_snapshot). Audit: 04_rpc.sql (sebelumnya
-    // 20260817060000_revenue_flow_hardening.sql, dilebur saat konsolidasi).
-    // Filter ketat: file harus punya record_platform_revenue DAN explicit 'primary'
-    // SEBAGAI source argumen (bukan sebagai bagian acquired_via text di ownership).
-    const primarySplit = migrations.filter(
-      (m) => m.content.includes("record_platform_revenue") && (m.content.includes("'primary', ") || m.content.includes("'primary',")),
-    );
-    expect(primarySplit.length, "primary split harus ada di revenue_flow_hardening").toBeGreaterThanOrEqual(1);
-    for (const { file, content } of primarySplit) {
-      expect(content, `${file} harus memuat platform_pct ${primaryPlatformStr}`).toContain(primaryPlatformStr);
-      expect(content, `${file} harus memuat royalty_pct ${primaryCreatorStr}`).toContain(primaryCreatorStr);
+    // Primary callers (04c/04d): creator share 0.3 eksplisit di call-site;
+    // platform = remainder sehingga literal 0.7 memang tidak muncul di sini.
+    const primaryCallers = callerFiles.filter((m) => m.content.includes("'primary'"));
+    expect(primaryCallers.length, "minimal 1 primary caller harus ada").toBeGreaterThanOrEqual(1);
+    for (const { file, content } of primaryCallers) {
+      expect(content, `${file} harus memuat creator share ${primaryCreatorStr}`).toContain(primaryCreatorStr);
     }
-
-    // Fee snapshot secondary: 04_rpc.sql memuat 0.85 seller_pct di jsonb
-    // (sebelumnya 20260817060000_revenue_flow_hardening.sql, dilebur saat konsolidasi).
-    // Filter ketat: harus punya seller_pct di context fee_snapshot (record_platform_revenue
-    // body). Matcher sederhana: substring 'seller_pct' cukup unik untuk jsonb key ini.
-    const secondarySnapshot = migrations.filter((m) => m.content.includes("seller_pct") && m.content.includes("record_platform_revenue"));
-    expect(secondarySnapshot.length).toBeGreaterThanOrEqual(1);
-    for (const { file, content } of secondarySnapshot) {
-      expect(content, `${file} harus memuat SECONDARY_SELLER_PCT = ${sellerStr}`).toContain(sellerStr);
-    }
-
-    // Settlement eksplisit ceil(* 0.075) — cek per file secondary settle agar
-    // masing-masing independently sinkron. Setelah konsolidasi: minimal 1 settler
-    // pattern (semua secondary settle sekarang di 04_rpc.sql). Audit 2026-08-31:
-    // round() bisa menghasilkan fee 0 di harga kecil (revenue evaporation) —
-    // invarian wajib ceil untuk platform+royalty, seller = remainder.
-    const roundedSecondary = settlerFiles.filter((m) => contentIncludesRounded(m.content, platformStr));
-    expect(roundedSecondary.length, `setidaknya 1 settler harus pakai ceil(* ${platformStr})`).toBeGreaterThanOrEqual(1);
-
-    // Redundant royalty literal muncul dalam settler (ceil atau jsonb).
-    expect(
-      settlerFiles.some((m) => contentIncludesRounded(m.content, royaltyStr)),
-      `royalty literal ${royaltyStr} harus muncul sebagai ceil(* ...) di setidaknya 1 settler`,
-    ).toBe(true);
-
-    // round(* 0.075) tidak boleh lagi ada di settler — regression guard ceil.
-    expect(
-      settlerFiles.some((m) => contentIncludesRoundFn(m.content, platformStr)),
-      `settler tidak boleh memakai round(* ${platformStr}) — wajib ceil`,
-    ).toBe(false);
   });
 
   it("MAX_BUYOUT guard muncul di semua file yang aktifkan buyout listing", () => {
