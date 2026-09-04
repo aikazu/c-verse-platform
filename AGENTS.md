@@ -1,6 +1,6 @@
 # C.Verse Platform — AGENTS.md
 
-Monorepo (`pnpm` workspaces): React 19/Vite SPA (`apps/web` → Cloudflare Pages), Hono 4 API (`apps/api` → Cloudflare Workers; Node for local dev), React 19 admin SPA (`apps/admin` → VPS behind Cloudflare Tunnel + Access), shared Zod schemas & constants (`packages/shared`). C.Card MVP — 11 flows. Supabase Postgres + Cloudflare R2.
+Monorepo (`pnpm` workspaces): React 19/Vite SPA (`apps/web` → Cloudflare Workers Static Assets di `dev.c-verse.co`), Hono 4 API privat (`apps/api` → Cloudflare Worker via Service Binding; Node untuk local dev), React 19 admin SPA (`apps/admin` → Cloudflare Worker + Access/WARP), shared Zod schemas & constants (`packages/shared`). C.Card MVP — 11 flows. Supabase Postgres + Cloudflare R2.
 
 Architecture: **fat database, thin API**. All money/stock mutations run inside Postgres SECURITY DEFINER RPCs (`supabase/migrations/07`–`17` RPC files) through the `apps/api/src/lib/db.ts` facade — single-transaction by construction. Routes only verify auth → validate (zValidator) → call RPC → map errors. Reads go through selector modules. The browser holds only the anon key — RLS is the real enforcement layer.
 
@@ -32,7 +32,7 @@ Architecture: **fat database, thin API**. All money/stock mutations run inside P
 - `pnpm test` — Vitest (shared + api + admin).
 - `pnpm test:e2e` — Playwright from repo root (`playwright.config.ts`): webServer auto-starts/reuses API :8787, web :5173, admin :3000 (Turnstile suppressed on servers it starts); needs the local Supabase stack.
 - `pnpm run lint` — Biome, 0 errors / 0 warnings hard gate. Auto-fix: `pnpm run lint:fix`, `pnpm run format`.
-- `pnpm run build` — all workspaces. Note: api build = `tsc --noEmit` only; deploy = `pnpm --filter @c-verse/api deploy`.
+- `pnpm run build` — all workspaces. Note: api build = `tsc --noEmit` only; deploy = `pnpm --filter @c-verse/api run deploy`.
 - Module boundaries: `pnpm --filter @c-verse/api lint:boundaries` (see Layout).
 - CI (`.github/workflows/ci.yml`, PR + main): install → typecheck → lint → lint:boundaries → test → build, plus PR-only `supabase db lint` and Playwright e2e (webServer auto-start/reuse) on PRs.
 - Integration tests: run `supabase/tests/*` against the LOCAL stack (`.mjs` via `node <test>.mjs postgresql://postgres:postgres@127.0.0.1:54322/postgres`; SQL via plain `db query "$(cat file.sql)"`), then a local `db reset` to clear fixtures. `rpc_nfc_replay_test.mjs` needs `NFC_MASTER_KEY` in env (from `apps/api/.dev.vars`, generate: `openssl rand -hex 16`) or it skips.

@@ -1,7 +1,10 @@
 # 06 — Tech Decisions (Keputusan Arsitektur)
 
 > Status: [VALIDATED]
-> Last updated: 2026-09-04 (KYC private storage dipindah penuh ke
+> Last updated: 2026-09-05 (D1/D9: web development dan admin pindah
+> ke Cloudflare Workers Static Assets; API privat melalui Service
+> Binding; Access mewajibkan identitas founder + posture WARP)
+> Previous: 2026-09-04 (KYC private storage dipindah penuh ke
 > Cloudflare R2 melalui Worker binding)
 > Previous: 2026-09-03 (D3b: dual-token C-Coin/C-Gems — saldo
 > penghasilan, lock 24 jam, payout/conversi)
@@ -15,39 +18,38 @@
 
 ```
 repo-root (pnpm workspace)
-├── apps/web/      → Cloudflare Pages (SPA publik, statik) — anon key + RLS
-├── apps/admin/    → LOKAL / VPS + Cloudflare Tunnel + Access — service-role key (bypass RLS)
-├── apps/api/      → Cloudflare Workers (Hono) — verify JWT via Supabase JWKS
+├── apps/web/      → Worker + Static Assets (`dev.c-verse.co`) — Access/WARP + anon key/RLS
+├── apps/admin/    → Worker + Static Assets (`admin.c-verse.co`) — Access/WARP + anon key/RLS
+├── apps/api/      → private Cloudflare Worker (Hono) — Service Binding + verify JWT via Supabase JWKS
 └── packages/shared → Zod schema (DTO dipakai web + admin + api)
 
 Infra pendukung:
   Supabase (Postgres + Auth + Realtime + Supavisor)
   Cloudflare R2 (artwork, 3D, KYC private) + Queues (email, payout) + Cron Triggers (raffle draw, payout batch — settlement pembelian langsung di RPC, founder 2026-08-28; badge murni event-driven tanpa cron, lihat `05_data_model.md`)
   Cloudflare Email Service (binding `send_email` — email transaksional API: akses kreator + queue notifikasi uang/pemenuhan `lib/emailQueue.ts` via cron 1 menit; lane LOW VOLUME HIGH VALUE — outbid, bid masuk, dan kalah raffle tetap in-app saja, 2026-09-02), FCM (push, post-MVP), Midtrans (top-up + disbursement)
-  Domain FINAL: c-verse.co (primary), c-verse.id → 301 redirect
+  Domain FINAL: c-verse.co (primary; Coming Soon selama development), c-verse.id → 301 redirect
   NDEF URL final: https://c-verse.co/cards/{shortId}/3d (LOCK sebelum provisioning)
 ```
 
 ```
-Request flow (public):
-  User ──► Wrangler WORKER ──► Supabase (RLS + RPC) ──► R2 / Queues
-              │                    ▲
-              │  verify JWT         │ Realtime broadcast
-              └────────────────────┘ (drop_countdown, bid_events)
+Development web flow:
+  WARP device ──► Access ──► Web gateway ──Service Binding──► API privat
+                                │                                │
+                                └─ Static Assets                 └─ Supabase / R2 / Email
 
 Admin flow (terpisah):
-  Founder ──► Cloudflare Access ──► Admin app (localhost/VPS) ──► Supabase (service-role)
-                                        │
-                                        └─ direct: NFC tool → Supabase REST
+  Founder + WARP ──► Access ──► Admin gateway ──Service Binding──► API privat
+                                      │
+                                      └─ read: Supabase anon key + RLS
 ```
 
 | Layer | Pilihan |
 |-------|---------|
-| Frontend | React 19 + Vite SPA (apps/web) di Cloudflare Pages |
-| Admin app | React 19 + Vite SPA (apps/admin) — **LOKAL/VPS, bukan Pages** |
+| Frontend | React 19 + Vite SPA (apps/web) di Cloudflare Workers Static Assets; host development WARP-only |
+| Admin app | React 19 + Vite SPA (apps/admin) di Cloudflare Workers Static Assets + Access/WARP |
 | Styling | Tailwind CSS 4 + shadcn/ui + Radix |
 | Data fetching | TanStack Query |
-| Backend | Hono di Cloudflare Workers (apps/api) |
+| Backend | Hono di private Cloudflare Worker (apps/api), hanya melalui Service Binding |
 | Database | Supabase Postgres (region SG) + Supavisor |
 | ORM | — (query via Supabase client langsung — tidak pakai ORM) |
 | Auth | Supabase Auth (Google OAuth + email OTP, **email OTP wajib captcha anti-spam** — Cloudflare Turnstile), JWKS di Hono |
@@ -66,31 +68,33 @@ Admin flow (terpisah):
 
 ## 2. Keputusan Arsitektur Kunci
 
-### D1 — Admin App TERPISAH, TIDAK di Edge [baru 2026-08-12]
+### D1 — Admin App TERPISAH di Edge, WARP-Only [revisi 2026-09-05]
 
-- `apps/admin` dijalankan **lokal** (mesin founder) atau VPS
-  kecil + **Cloudflare Access** (Zero Trust). TIDAK di-upload
-  ke Cloudflare Pages publik.
+- `apps/admin` disajikan oleh Worker `c-verse-admin` melalui Static
+  Assets di `admin.c-verse.co`; tidak ada origin VPS atau Tunnel.
+- **Cloudflare Access + posture WARP** menjadi perimeter wajib:
+  identitas founder harus diizinkan dan device harus terhubung WARP.
 - Admin app login melalui Supabase Auth memakai anon key; seluruh
   operasi sensitif melalui route Worker `/api/admin/*` atau route
   admin per-modul, dengan gate role admin + AAL2 dan audit log.
 - `SUPABASE_SERVICE_ROLE_KEY` hanya berada di Worker, tidak pernah
   dibundle ke admin SPA. Cloudflare Access tetap menjadi perimeter
   tambahan untuk host admin.
-- Public app = anon key + RLS. Service-role = admin only.
+- Web/admin browser = anon key + RLS. Service-role hanya berada di
+  Worker API dan tidak pernah masuk bundle frontend.
 - **Catatan (dev shortcut)**: `lib/supabase.ts` di API server saat ini
-  prefer `serviceKey ?? anonKey` — service-role dipakai di API publik
+  prefer `serviceKey ?? anonKey` — service-role dipakai backend privat
   sebagai shortcut MVP (bypass RLS selama migrasi). Rencana: transisi
   ke anon key + RLS penuh setelah semua RPC dan RLS tervalidasi.
-- Konsekuensi: operasi berhenti jika mesin admin mati →
-  rekomendasi VPS kecil + Cloudflare Access (Rp 100-200rb/bln)
-  untuk always-on.
+- Konsekuensi: admin tidak dapat digunakan saat WARP/Access tidak
+  tersedia; ini fail-closed yang diterima selama development.
 - NFC provisioning (tulis key ke tag) = **tool desktop
   terpisah**, bukan bagian dari admin web app.
 
 Rasional keamanan (jujur):
-- "Lokal" menghilangkan endpoint admin dari internet (tidak
-  bisa brute-force/crawl).
+- Access + posture WARP menghentikan request unmanaged sebelum
+  Worker admin menerima traffic; Service Binding menghilangkan
+  origin API yang dapat dipanggil langsung dari internet.
 - TAPI crown jewel = database + service-role key + payment
   credential + NFC master key. Proteksi utama = key management
   + RLS + Cloudflare Access, bukan sekadar lokasi app.
@@ -99,8 +103,8 @@ Rasional keamanan (jujur):
 
 **2FA (ADM-09)** — Supabase Auth MFA (TOTP) wajib untuk semua
 akun admin, dua lapis:
-- **Lapis 1 (jaringan)**: Cloudflare Access — gate jaringan
-  (email OTP/push ke device founder) sebelum app admin terbuka.
+- **Lapis 1 (jaringan)**: Cloudflare Access — identitas founder dan
+  posture WARP wajib sebelum app admin terbuka.
 - **Lapis 2 (aplikasi)**: Supabase MFA TOTP — enrollment scan
   QR authenticator (Google Auth/dll) + simpan **recovery codes**
   saat pertama login; tiap login berikutnya: login biasa = sesi
@@ -110,10 +114,9 @@ akun admin, dua lapis:
   sesi ke **aal2**.
 - **Break-glass**: admin lain (sudah aal2) bisa reset enrollment
   yang hilang — semua langkah tercatat di audit log.
-- Catatan D1: admin app akses Supabase via service-role
-  (lewati RLS), jadi penegakan aal2 dilakukan DI APP (guard
-  route/UI) + Cloudflare Access di jaringan. Deklarasikan
-  ekspektasi ini di runbook.
+- Catatan D1: admin browser memakai anon key + RLS. Mutasi privileged
+  diteruskan ke Worker API yang memverifikasi role + aal2; guard UI
+  bukan satu-satunya kontrol.
 
 **Audit log (ADM-08)** — setiap mutasi admin di-log
 append-only (tidak bisa edit/hapus): siapa (user_id), aksi
@@ -256,6 +259,24 @@ Retensi: minimum 1 tahun (UU PDP + forensik fraud).
   rgba; komponen berulang diekstrak (`StatusBadge`, `LevelBar`); IDR
   via `formatIdr` + kurs dari `C_COIN_RATE_IDR` (jangan `* 10000`).
 
+### D9 — API Privat via Service Binding [baru 2026-09-05]
+
+- Worker `c-verse-api` tidak memiliki custom domain, route publik,
+  `workers.dev`, atau preview URL. Scheduled triggers tetap berjalan
+  langsung pada Worker.
+- Gateway `c-verse-web-dev` dan `c-verse-admin` menyajikan SPA serta
+  meneruskan `/api/*` secara same-origin melalui Service Binding
+  `API`; frontend tidak lagi bergantung pada `api.c-verse.co`.
+- Gateway menghapus `Cookie` dan `Cf-Access-Jwt-Assertion` sebelum
+  request internal diteruskan. API hanya menerima credential aplikasi
+  yang memang dibutuhkan, bukan credential perimeter Zero Trust.
+- `dev.c-verse.co`, `admin.c-verse.co`, dan aplikasi dana internal
+  berada di satu Access app dengan allowlist founder + posture WARP.
+  Root `c-verse.co` tetap Coming Soon selama development.
+- Pola aplikasi dana dipisah lebih jauh: gateway `c-verse-funds`
+  memanggil `c-verse-funds-api` privat yang memiliki binding D1;
+  gateway tidak memegang binding database.
+
 ## 3. Yang BELUM Diputuskan (Open Items)
 
 | Kode | Item | Status |
@@ -273,7 +294,7 @@ Retensi: minimum 1 tahun (UU PDP + forensik fraud).
 
 - 01_tech_stack (full-edge, konsolidasi 2026-08-11).
 - 20_tech_stack_decision (keputusan full-edge 2026-08-05/2026-08-11:
-  React/Vite + Hono di Cloudflare Pages/Workers, Supabase, R2;
+  React/Vite + Hono di Cloudflare Workers, Supabase, R2;
   monorepo; free tier cukup Y1).
 - 18_nfc_decision (N5 arsitektur verifikasi — SUN/SDM: ISO 7816-4
   file system, SDM mirror UID+counter+CMAC ke NDEF, server-side CMAC
@@ -284,3 +305,6 @@ Retensi: minimum 1 tahun (UU PDP + forensik fraud).
 - Diskusi founder 2026-08-12 (D1, D2).
 - Brainstorm + riset regulasi dual-token 2026-09-02 (keputusan
   owner terkunci 2026-09-03) — D3b.
+- Keputusan founder 2026-09-05: web development, admin, dan aplikasi
+  dana dipindah ke Workers; Access wajib WARP; backend privat lewat
+  Service Binding; root domain tetap Coming Soon selama development.

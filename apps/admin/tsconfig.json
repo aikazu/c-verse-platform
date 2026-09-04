@@ -13,5 +13,5 @@
     "baseUrl": ".",
     "paths": { "@c-verse/shared": ["../../packages/shared/src/index.ts"] }
   },
-  "include": ["src", "vite.config.ts"]
+  "include": ["src", "vite.config.ts", "worker.ts", "worker-configuration.d.ts"]
 }

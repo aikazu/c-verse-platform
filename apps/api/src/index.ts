@@ -59,8 +59,7 @@ app.use(
       // Parse hostname (not substring) to avoid bypass like https://localhost.evil.com.
       const isDev = host === "localhost" || host === "127.0.0.1";
       const isProd = host === "c-verse.co" || host === "c-verse.id" || host.endsWith(".c-verse.co") || host.endsWith(".c-verse.id");
-      const isPreview = host.endsWith(".pages.dev");
-      return isDev || isProd || isPreview ? origin : fallback;
+      return isDev || isProd ? origin : fallback;
     },
     allowHeaders: ["Content-Type", "Authorization"],
     allowMethods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],

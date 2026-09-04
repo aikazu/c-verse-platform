@@ -1,7 +1,10 @@
 # 07 — Constraints, Gates & Open Items
 
 > Status: [VALIDATED] (C-01/C-02 resolved 2026-08-13)
-> Last updated: 2026-09-04 (C-01 amended: owner mencabut refresh
+> Last updated: 2026-09-05 (T-5: admin/funds dipindah ke Cloudflare
+> Workers dan dibuat fail-closed melalui Access + posture WARP;
+> backend hanya melalui Service Binding)
+> Previous: 2026-09-04 (C-01 amended: owner mencabut refresh
 > opini lawyer dual-token sebagai release gate; residual risk
 > diterima dengan guardrail produk dan monitoring regulasi)
 > Previous: 2026-08-31 (C-10: fee ship-out = konstanta server
@@ -393,7 +396,7 @@
 | T-2 | CF Workers free tier + Supabase cukup Y1 (margin 5-10x) | Upgrade ~Rp 500rb/bln worst case. **Burn sejati infra pasca-launch = Rp 0 (free tier) s.d. Rp 500rb/bln (worst) — lihat A029** |
 | T-3 | Web NFC tidak ada di iOS | Jalur verify universal (SUN URL) + fallback QR |
 | T-4 | 3D viewer (F008) effort 4-5 PW | Cut line #1 |
-| T-5 | Admin app lokal = operasi berhenti jika mesin mati | Mitigasi: VPS + Cloudflare Access |
+| T-5 | Admin dan aplikasi dana hanya dapat dipakai dari device founder dengan WARP aktif | Fail-closed diterima selama development; tidak ada origin VPS atau API publik, recovery melalui policy Access/rollback Worker |
 
 ## 5. Open Items (Sprint 0 Checklist)
 
@@ -416,7 +419,7 @@
 | C-Coin closed-loop non-cashable; C-Gems hanya dari settlement sendiri; KYC untuk payout C-Gems ke IDR | FINAL (basis lawyer 2026-08-13; dual-token 2026-09-03; owner menerima residual risk dan mencabut refresh lawyer sebagai gate 2026-09-04) |
 | Threshold kreator 100rb+ combined | FINAL (2026-08-12) |
 | Onboarding off-platform tanpa approval in-platform | FINAL (2026-08-12) |
-| Admin app terpisah, tidak di edge | FINAL (2026-08-12) |
+| Admin app terpisah di Worker edge, hanya Access + posture WARP | FINAL (revisi 2026-09-05; pemisahan app tetap) |
 | Secondary = Marketplace + Browse (bukan auction) | FINAL (2026-08-12) |
 | Tidak ada halaman verifikasi terpisah (melekat di halaman kartu) | FINAL (2026-08-12) |
 | Primary = platform-produced SAJA (70/30), kreator-produced defer | FINAL (2026-08-12) |
@@ -471,3 +474,5 @@
   release admin (PHASE-2: settle 85/7,5/7,5); C-13 enforceable.
 - Akun kreator admin-provisioned + passwordless (keputusan
   2026-08-20) — dasar C-13 enforceable.
+- Keputusan founder 2026-09-05: admin dan aplikasi dana memakai
+  Worker gateway + Access/WARP; backend privat via Service Binding.

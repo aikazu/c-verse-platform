@@ -87,7 +87,7 @@ export function authHeaderToToken(authHeader: string | undefined): string | unde
 /**
  * Resolve the client IP for audit/rate-limit, preferring Cloudflare-rendered headers.
  * cf-connecting-ip is set by the CF edge and cannot be forged by clients behind the
- * tunnel; x-forwarded-for is client-spoofable, so it is the last resort (matches the
+ * Worker gateway; x-forwarded-for is client-spoofable, so it is the last resort (matches the
  * rate-limiter's logic at apps/api/src/index.ts:80-82 — keep these in sync).
  * Returns null when no IP header is present so callers can store SQL NULL.
  */

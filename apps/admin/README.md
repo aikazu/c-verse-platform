@@ -1,32 +1,34 @@
 # C.Verse Admin — `apps/admin`
 
-Admin adalah React/Vite SPA terpisah yang disajikan statik dari VPS dan tidak
-dideploy ke Pages. Browser hanya menerima Supabase publishable/anon key;
-`service-role` tetap menjadi secret Worker dan tidak boleh berada di bundle,
-VPS, atau file environment admin.
+Admin adalah React/Vite SPA terpisah yang disajikan oleh Cloudflare Worker
+`c-verse-admin`. Browser hanya menerima Supabase publishable/anon key;
+`service-role` tetap menjadi secret Worker API dan tidak boleh berada di bundle
+atau file environment admin.
 
 ## Arsitektur produksi
 
 ```text
-Internet
-  -> Cloudflare Access (allowlist founder)
-  -> Cloudflare Tunnel
-  -> cloudflared
-  -> Nginx 127.0.0.1:8080
-  -> apps/admin/dist
+Founder dengan WARP aktif
+  -> Cloudflare Access (allowlist founder + device posture WARP)
+  -> c-verse-admin (Worker + Static Assets)
+  -> /api/* melalui Service Binding
+  -> c-verse-api (Worker privat)
 ```
 
 - URL: `https://admin.c-verse.co`.
 - Cloudflare Access adalah gerbang pertama. Aplikasi disembunyikan dari App
   Launcher, cookie Access memakai `HttpOnly` dan binding cookie, serta sesi
-  aplikasi dibatasi 6 jam.
+  dibatasi 6 jam.
+- Policy mewajibkan identitas founder dan device yang terhubung melalui WARP.
+  Request dari internet tanpa posture WARP ditolak sebelum mencapai Worker.
 - Login aplikasi memakai Supabase email OTP, lalu MFA TOTP wajib sampai sesi
   mencapai `aal2`.
-- Read mengikuti RLS. Semua mutasi privileged lewat API role-gated
-  `https://api.c-verse.co`; API menegakkan role admin + `aal2` dan menulis
-  `admin_audit_log`.
-- Nginx hanya listen di loopback. Port publik VPS hanya SSH key-only; HTTP/HTTPS
-  tidak dibuka langsung.
+- Read mengikuti RLS. Semua mutasi privileged memakai route same-origin
+  `/api/admin/*`; gateway meneruskannya ke `c-verse-api` melalui Service
+  Binding. API menegakkan role admin + `aal2` dan menulis `admin_audit_log`.
+- `c-verse-api` tidak mempunyai custom domain, `workers.dev`, atau preview URL.
+  Gateway menghapus cookie dan assertion Access sebelum meneruskan request agar
+  credential perimeter tidak bocor ke backend aplikasi.
 
 ## Menjalankan lokal
 
@@ -38,18 +40,22 @@ VITE_SUPABASE_ANON_KEY=sb_publishable_xxx
 VITE_API_URL=http://localhost:8787
 VITE_TURNSTILE_SITE_KEY=0x...
 
-pnpm --filter @c-verse/admin dev   # 127.0.0.1:3000
-pnpm --filter @c-verse/admin build # apps/admin/dist
+pnpm --filter @c-verse/admin dev       # 127.0.0.1:3000
+pnpm --filter @c-verse/admin dev:edge  # build + gateway Worker lokal
 ```
 
-## Deploy ke VPS
+`VITE_API_URL` hanya override untuk development lokal. Build yang dideploy
+memakai `/api` same-origin.
 
-Build dilakukan lokal dengan `VITE_*` production, lalu isi `dist/` dikirim ke
-direktori release versioned di `/var/www/cverse-admin/releases/`. Symlink
-`/var/www/cverse-admin/current` diarahkan ke release baru setelah upload lolos
-checksum. Nginx menyajikan `current` di `127.0.0.1:8080`; tunnel
-`cverse-admin` meneruskan `admin.c-verse.co` ke origin tersebut.
+## Deploy ke Cloudflare Workers
 
-VPS tidak memerlukan Node.js atau secret aplikasi. Rollback dilakukan dengan
-mengembalikan symlink `current` ke release sebelumnya lalu menjalankan
-`nginx -t` dan reload Nginx.
+```bash
+pnpm --filter @c-verse/admin cf-typegen
+pnpm --filter @c-verse/admin run deploy
+```
+
+Konfigurasi ada di `wrangler.jsonc`: Static Assets, custom domain
+`admin.c-verse.co`, binding `API` ke `c-verse-api`, observability, serta
+`workers_dev=false` dan `preview_urls=false`. Deploy manual harus dilakukan
+setelah quality gates monorepo hijau. Rollback memakai versi Worker sebelumnya
+di Cloudflare; tidak ada lagi origin VPS atau Cloudflare Tunnel.

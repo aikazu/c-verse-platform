@@ -98,7 +98,7 @@ describe("supabaseIssuerFromUrl", () => {
 
 describe("clientIp", () => {
   // Reused by logAuditDb call sites (H1 forensic integrity): prefer CF-Connecting-IP first
-  // because x-forwarded-for is client-spoofable when the request bypasses the tunnel.
+  // because x-forwarded-for is client-spoofable outside the Cloudflare Worker gateway.
   it("prefers cf-connecting-ip (Cloudflare-rendered, trusted)", async () => {
     const { clientIp } = await import("./auth");
     expect(

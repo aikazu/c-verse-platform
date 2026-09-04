@@ -31,12 +31,9 @@ import type {
   ApiWalletResponse,
 } from "./api-types";
 
-// Empty in local development so Vite proxies /api to Wrangler. Production
-// defaults to the Worker custom domain and can still be overridden per deploy.
-const API_BASE = ((import.meta.env.VITE_API_URL as string | undefined) ?? (import.meta.env.PROD ? "https://api.c-verse.co" : "")).replace(
-  /\/$/,
-  "",
-);
+// Empty by default so both the local Vite proxy and the production gateway use
+// the same-origin /api route. A deploy may still override it explicitly.
+const API_BASE = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, "") ?? "";
 
 // metadata pagination dari endpoint list server-side (lihat apps/api reads.ts PageMeta)
 export interface PagedMeta {

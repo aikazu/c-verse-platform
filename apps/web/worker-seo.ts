@@ -1,61 +1,103 @@
-// C.Verse — SEO Edge Worker (HTMLRewriter) — docs 02 s.8
-// Runs in front of apps/web SPA on Cloudflare. Intercepts public SEO routes and injects OG + JSON-LD.
-// Build 2-3d effort; runtime free tier. Update wrangler.toml routes to put this worker in front of Pages if deployed.
-// For SPA preview, also served via API /api/seo/meta by the Hono worker — this file is the edge proxy layer.
+/// <reference path="./worker-configuration.d.ts" />
 
-interface Env {
-  API_ORIGIN: string;
-}
+const API_PREFIX = "/api";
+const SEO_PATHS = ["/c/", "/drops/"];
+
+type SeoMeta = {
+  og?: { title?: string; description?: string; image?: string | null };
+  jsonLd?: unknown;
+};
 
 export default {
-  async fetch(req: Request, env: Env): Promise<Response> {
-    const url = new URL(req.url);
-    const path = url.pathname;
+  async fetch(request, env): Promise<Response> {
+    const url = new URL(request.url);
+    const isApi = url.pathname === API_PREFIX || url.pathname.startsWith(`${API_PREFIX}/`);
 
-    // Only SEO routes go through HTMLRewriter; others passthrough to Pages origin.
-    const isSeo =
-      path === "/sitemap.xml" ||
-      path.startsWith("/c/") ||
-      (path.startsWith("/cards/") && path.endsWith("/3d")) ||
-      path.startsWith("/drops/");
-
-    if (path === "/sitemap.xml") {
-      // proxy to API sitemap generator
-      const api = env.API_ORIGIN ?? "https://api.c-verse.co";
-      return fetch(`${api}/sitemap.xml`, { headers: { Accept: "application/xml" } });
+    if (isApi) {
+      return secureResponse(await env.API.fetch(privateApiRequest(request)), true);
     }
 
-    // Fetch SPA shell from Pages origin (default)
-    const originRes = await fetch(req);
-    if (!isSeo || !originRes.headers.get("content-type")?.includes("text/html")) return originRes;
+    if (url.pathname === "/sitemap.xml") {
+      const sitemapRequest = new Request(request);
+      sitemapRequest.headers.set("Accept", "application/xml");
+      return secureResponse(await env.API.fetch(privateApiRequest(sitemapRequest)), false);
+    }
 
-    // Fetch meta from API (OG + JSON-LD) then inject via HTMLRewriter
-    const api = env.API_ORIGIN ?? "https://api.c-verse.co";
-    let meta: { og?: { title?: string; description?: string; image?: string | null }; jsonLd?: unknown } | null = null;
-    try {
-      const r = await fetch(`${api}/api/seo/meta?path=${encodeURIComponent(path)}`);
-      if (r.ok) meta = (await r.json()) as never;
-    } catch {}
+    const assetResponse = await env.ASSETS.fetch(request);
+    if (!isSeoRoute(url.pathname) || !assetResponse.headers.get("content-type")?.includes("text/html")) {
+      return secureResponse(assetResponse, false);
+    }
 
-    if (!meta?.og && !meta?.jsonLd) return originRes;
+    const meta = await fetchSeoMeta(env, url);
+    if (!meta?.og && !meta?.jsonLd) return secureResponse(assetResponse, false);
 
-    const rewriter = new HTMLRewriter().on("head", {
-      element(el) {
-        if (meta?.og?.title) el.append(`<meta property="og:title" content="${esc(meta.og.title)}" />`, { html: true });
-        if (meta?.og?.description) el.append(`<meta property="og:description" content="${esc(meta.og.description)}" />`, { html: true });
-        if (meta?.og?.image) el.append(`<meta property="og:image" content="${esc(meta.og.image)}" />`, { html: true });
-        if (meta?.jsonLd) el.append(`<script type="application/ld+json">${escapeJsonLd(meta.jsonLd)}</script>`, { html: true });
-      },
-    });
-    return rewriter.transform(originRes);
+    const rewritten = new HTMLRewriter()
+      .on("head", {
+        element(element) {
+          if (meta.og?.title) {
+            element.append(`<meta property="og:title" content="${escapeHtml(meta.og.title)}" />`, { html: true });
+          }
+          if (meta.og?.description) {
+            element.append(`<meta property="og:description" content="${escapeHtml(meta.og.description)}" />`, { html: true });
+          }
+          if (meta.og?.image) {
+            element.append(`<meta property="og:image" content="${escapeHtml(meta.og.image)}" />`, { html: true });
+          }
+          if (meta.jsonLd) {
+            element.append(`<script type="application/ld+json">${escapeJsonLd(meta.jsonLd)}</script>`, { html: true });
+          }
+        },
+      })
+      .transform(assetResponse);
+
+    return secureResponse(rewritten, false);
   },
 } satisfies ExportedHandler<Env>;
 
-function esc(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+function isSeoRoute(path: string): boolean {
+  return SEO_PATHS.some((prefix) => path.startsWith(prefix)) || (path.startsWith("/cards/") && path.endsWith("/3d"));
 }
 
-/** JSON-LD anti-`</script>` injection: escape every `<` so the payload can never close the tag. */
+async function fetchSeoMeta(env: Env, url: URL): Promise<SeoMeta | null> {
+  const request = new Request(`${url.origin}/api/seo/meta?path=${encodeURIComponent(url.pathname)}`, {
+    headers: { Accept: "application/json" },
+  });
+  try {
+    const response = await env.API.fetch(request);
+    return response.ok ? ((await response.json()) as SeoMeta) : null;
+  } catch (error) {
+    console.warn("SEO metadata lookup failed", { path: url.pathname, error: String(error) });
+    return null;
+  }
+}
+
+function privateApiRequest(request: Request): Request {
+  const headers = new Headers(request.headers);
+  headers.delete("Cookie");
+  headers.delete("Cf-Access-Jwt-Assertion");
+  return new Request(request, { headers });
+}
+
+function secureResponse(response: Response, isApi: boolean): Response {
+  const headers = new Headers(response.headers);
+  headers.set("X-Content-Type-Options", "nosniff");
+  headers.set("X-Frame-Options", "DENY");
+  headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
+  headers.set("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=(), usb=()");
+  headers.set("Cross-Origin-Opener-Policy", "same-origin");
+  headers.set("Strict-Transport-Security", "max-age=63072000; includeSubDomains; preload");
+  if (isApi) headers.set("Cache-Control", "no-store");
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  });
+}
+
+function escapeHtml(value: string): string {
+  return value.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
 function escapeJsonLd(data: unknown): string {
   return JSON.stringify(data).replace(/</g, "\\u003c");
 }

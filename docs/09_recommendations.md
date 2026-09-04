@@ -1,7 +1,9 @@
 # 09 — Rekomendasi Development
 
 > Status: [VALIDATED]
-> Last updated: 2026-08-31 (§2.5: pool SIGNED dipilih EKSPLISIT —
+> Last updated: 2026-09-05 (admin/funds always-on di Cloudflare
+> Workers, fail-closed melalui Access + posture WARP)
+> Previous: 2026-08-31 (§2.5: pool SIGNED dipilih EKSPLISIT —
 > raffle hybrid C-15, bukan alokasi random)
 > Dok ini berisi rekomendasi teknis & operasional — termasuk
 > **build-time implications**: hal-hal yang harus diantisipasi
@@ -210,7 +212,7 @@ tetap manual:
 | Risiko | Mitigasi |
 |--------|----------|
 | Supabase Realtime broadcast < 50 concurrent bidder | Durable Objects tidak dipakai Y1 |
-| Admin app lokal mati | VPS + Cloudflare Access (Rp 100-200rb/bln) |
+| Access/WARP tidak tersedia | Fail-closed: admin/funds tidak dapat diakses; rollback policy/Worker melalui akun Cloudflare break-glass |
 | Web NFC tidak ada di iOS | SUN URL via background tag reading (perlu validasi C-03) |
 | NFC chip failure rate > 2% | Multi-vendor, triple test, QR fallback |
 | Webhook top-up gagal | Idempotency key + cron reconciliation |
@@ -244,3 +246,5 @@ tetap manual:
 - `02_pages.md` (halaman kreator & kartu — target SEO).
 - `07_constraints.md` C-05 (ER quality gate).
 - Diskusi user 2026-08-13 (domain final, vault default, min payout).
+- Keputusan founder 2026-09-05 (admin/funds di Workers, WARP wajib,
+  API privat melalui Service Binding).

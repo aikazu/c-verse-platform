@@ -1,7 +1,10 @@
 # 02 — Peta Halaman MVP
 
 > Status: [VALIDATED]
-> Last updated: 2026-09-04 (legal consent gate: checkbox wajib +
+> Last updated: 2026-09-05 (web development dan admin disajikan oleh
+> Cloudflare Workers Static Assets; Access + posture WARP di perimeter,
+> API privat dipanggil melalui Service Binding)
+> Previous: 2026-09-04 (legal consent gate: checkbox wajib +
 > deep-link dokumen sebelum aksi finansial, KYC, dispute, dan pengiriman)
 > Previous: 2026-09-04 (public legal center: /legal + 5
 > dokumen, route alias TOS/privacy, footer links, sitemap + OG)
@@ -27,11 +30,15 @@ Dua aplikasi terpisah (satu monorepo):
 
 | App | Lokasi | Audience | Auth |
 |-----|--------|----------|------|
-| `apps/web` | Cloudflare Pages (publik) | Visitor, kolektor, kreator | Supabase Auth (Google OAuth + email OTP) |
-| `apps/admin` | Lokal / VPS + Cloudflare Access (TIDAK publik) | Founder tim internal | Cloudflare Access + Supabase Auth + role check + **2FA TOTP wajib** |
+| `apps/web` | Worker `c-verse-web-dev` di `dev.c-verse.co` + Access/WARP | Tim development; calon visitor, kolektor, kreator | Cloudflare Access + Supabase Auth (Google OAuth + email OTP) |
+| `apps/admin` | Worker `c-verse-admin` di `admin.c-verse.co` + Access/WARP | Founder tim internal | Cloudflare Access + Supabase Auth + role check + **2FA TOTP wajib** |
 
-Tidak ada route admin di API publik. Admin app akses Supabase
-langsung via service-role key. Detail: `06_tech_decisions.md`.
+Tidak ada origin API publik. Kedua gateway meneruskan `/api/*` ke
+Worker `c-verse-api` melalui Service Binding; Worker backend tidak
+memiliki custom domain, `workers.dev`, atau preview URL. Browser admin
+memakai anon key + RLS untuk read, bukan service-role key. Mutasi admin
+tetap melalui API dengan gate role admin + AAL2 dan audit log. Detail:
+`06_tech_decisions.md`.
 
 Konvensi UI lintas-halaman (a11y baseline, state error + retry,
 konfirmasi aksi destruktif, `StatusBadge`/label status shared, token
@@ -164,9 +171,9 @@ Semua SEO ditangani oleh **1 Worker di depan SPA** tanpa perlu
 SSR framework:
 
 ```mermaid
-Request → Cloudflare Worker → HTMLRewriter inject meta tags →
-                                fetch SPA dari Pages →
-                                stream response ke crawler
+Request → Worker gateway → HTMLRewriter inject meta tags →
+                           Static Assets binding →
+                           stream response ke crawler
 ```
 
 Worker aktif hanya untuk halaman publik yang butuh SEO:
@@ -177,14 +184,15 @@ Worker aktif hanya untuk halaman publik yang butuh SEO:
 - `GET /legal*` — OG + WebPage JSON-LD untuk pusat legal dan
   lima dokumen; seluruh route legal masuk sitemap publik.
 
-Halaman login/dashboard/wallet — SPA murni, skip Worker.
+Halaman login/dashboard/wallet tetap SPA murni; gateway langsung
+menyajikan aset tanpa lookup metadata SEO.
 
 ### 8.3 Biaya & Effort
 - **Build**: 2-3 hari (Worker + HTMLRewriter + sitemap generator)
 - **Runtime**: Cloudflare Workers free tier (100k req/hari gratis;
   traffic SEO Y1 < 1k/hari)
-- **Tidak perlu ubah arsitektur**: SPA tetap murni, Worker di
-  depan sebagai proxy ringan
+- **Tidak perlu SSR framework**: SPA tetap murni; Worker menjadi
+  gateway aset, SEO, dan Service Binding API
 
 ## 9. Halaman PENTING yang Sengaja TIDAK Ada
 
@@ -195,7 +203,7 @@ Halaman login/dashboard/wallet — SPA murni, skip Worker.
 | Halaman verifikasi terpisah (/verify) | **Di-merge ke halaman kartu** (3D dari tap, info dari QR) |
 | Checkout IDR langsung | Medium tunggal = C-Coin |
 | Withdraw buyer | Struktur Opsi A closed-loop |
-| Admin (public) | Admin app terpisah, tidak di edge |
+| Admin publik | Admin app terpisah di Worker edge, tetapi hanya dapat diakses melalui Access + posture WARP |
 
 ## Sumber
 

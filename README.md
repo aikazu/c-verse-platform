@@ -29,9 +29,9 @@
 ```mermaid
 flowchart LR
   subgraph Edge["Cloudflare Edge"]
-    Pages["apps/web<br/>Pages (SPA)"]
-    WorkerSEO["worker-seo.ts<br/>HTMLRewriter<br/>(OG + JSON-LD)"]
-    Api["apps/api<br/>Hono Workers"]
+    Web["apps/web<br/>Worker + Static Assets<br/>dev.c-verse.co"]
+    Admin["apps/admin<br/>Worker + Static Assets<br/>admin.c-verse.co"]
+    Api["apps/api<br/>Hono Worker privat"]
   end
   subgraph Data["Supabase SG"]
     DB[("Postgres<br/>+ RLS")]
@@ -41,22 +41,18 @@ flowchart LR
   subgraph StorageBox["Cloudflare R2"]
     R2["cverse-assets / cverse-kyc / cverse-qr<br/>zero egress"]
   end
-  subgraph Ops["VPS + Tunnel"]
-    Admin["apps/admin<br/>Zero Trust + aal2"]
-  end
-
-  WorkerSEO -->|/c/* /cards/*/3d /drops/* /sitemap.xml| Pages
+  Web -->|Service Binding| Api
+  Admin -->|Service Binding| Api
   Api --> DB
   Api --> Auth
   Api --> R2
   Admin -->|read: anon + RLS| DB
   Admin -->|mutasi: /api/admin/* role-gated| Api
-  Pages -->|/api/*| Api
 ```
 
-- **Web publik** → Cloudflare Pages. SEO tanpa SSR: satu Worker di depan SPA inject `og:*` + `JSON-LD` dan mem-proxy `sitemap.xml` dari `apps/api/src/modules/seo/routes.ts`.
-- **API** → Hono di Workers (lokal via `@hono/node-server`). Supabase wajib — tanpa `SUPABASE_URL` API mati keras di startup (`src/index.ts:27`), tidak ada mode in-memory. Storage R2 disiapkan di `wrangler.toml` (binding masih dikomentari sampai bucket dibuat).
-- **Admin** → Vite SPA terpisah di VPS + Cloudflare Tunnel + Access. Baca lewat anon key + RLS policy admin; **semua mutasi** lewat `/api/admin/*` role-gated supaya ter-audit. 2FA TOTP (`aal2`) wajib, audit log append-only.
+- **Web development** → Worker `c-verse-web-dev` di `dev.c-verse.co`, dilindungi Access + posture WARP. Worker menyajikan Static Assets, menginjeksi `og:*` + `JSON-LD`, dan meneruskan `/api/*` ke API privat lewat Service Binding. Root `c-verse.co` tetap halaman Coming Soon.
+- **API** → Hono Worker `c-verse-api` tanpa custom domain, `workers.dev`, atau preview URL. Hanya gateway web/admin yang memanggilnya lewat Service Binding; cron tetap berjalan langsung pada Worker. Supabase wajib — tanpa `SUPABASE_URL` API mati keras di startup (`src/index.ts:27`), tidak ada mode in-memory.
+- **Admin** → Worker `c-verse-admin` di `admin.c-verse.co`, dilindungi Access + posture WARP. Baca lewat anon key + RLS policy admin; **semua mutasi** lewat `/api/admin/*` role-gated supaya ter-audit. 2FA TOTP (`aal2`) wajib, audit log append-only.
 
 ---
 
@@ -136,9 +132,9 @@ Login **tanpa password** — email OTP atau Google. UUID fixed di `supabase/seed
 
 | Layer | Pilihan |
 |-------|---------|
-| Web publik | React 19 + Vite + React Router + TanStack Query + three.js → Cloudflare Pages |
-| API | Hono 4 + Zod (`@hono/zod-validator`) → Cloudflare Workers |
-| Admin | React 19 + Vite → VPS + Cloudflare Tunnel + Access (Zero Trust) |
+| Web development | React 19 + Vite + React Router + TanStack Query + three.js → Cloudflare Workers Static Assets + Access/WARP |
+| API | Hono 4 + Zod (`@hono/zod-validator`) → private Cloudflare Worker via Service Binding |
+| Admin | React 19 + Vite → Cloudflare Workers Static Assets + Access/WARP |
 | DB / Auth / Realtime | Supabase Postgres (SG) + pgcrypto |
 | Storage | Cloudflare R2 — `cverse-kyc` private aktif via Worker binding; `cverse-assets` belum dibuat |
 | Shared | `packages/shared` — Zod schemas + constants canonical |
@@ -168,12 +164,12 @@ Belum diimplementasi: notifikasi in-app/push (F010, F013). Email transaksional A
 │   │   ├── src/lib/cmac.ts  # AES-CMAC RFC 4493 + SUN AN12196
 │   │   ├── src/lib/cron.ts  # scheduled handler (activate/escrow/draw/payout)
 │   │   └── src/lib/store.ts # type domain + helper murni (uid, nowIso) — bukan store
-│   ├── web/                 # Pages SPA — publik
+│   ├── web/                 # Worker SPA — dev WARP-only
 │   │   ├── src/App.tsx      # routes (lihat tabel di bawah)
 │   │   ├── src/pages/       # Landing, Drops, Checkout, CardInfo/3D, Wallet...
 │   │   ├── src/lib/api.ts   # fetch wrapper (same-origin /api) + patchConsent()
 │   │   └── worker-seo.ts    # HTMLRewriter edge worker
-│   └── admin/               # VPS SPA — ADM-01..10 + Investor
+│   └── admin/               # Worker SPA WARP-only — ADM-01..10 + Investor
 ├── packages/shared/         # single source: schemas + C_COIN_RATE_IDR + fee
 ├── supabase/
 │   ├── migrations/          # 18 file SQL bernomor (≤300 LoC): 01 schema →
@@ -308,15 +304,20 @@ Status implementasi per item (`[done]` = ada di code + test; `[spec NN]` = spec 
 
 | Target | Sumber | Cara |
 |--------|--------|------|
-| Web | `apps/web/dist` | Cloudflare Pages (`pnpm --filter @c-verse/web build`) |
-| API | `apps/api` | `wrangler deploy` (Workers) |
-| Admin | `apps/admin/dist` | VPS + `cloudflared tunnel` → `admin.c-verse.co` + Access *Allow founders* |
+| Web dev | `apps/web` | `pnpm --filter @c-verse/web run deploy` → `dev.c-verse.co` + Access/WARP |
+| API | `apps/api` | `pnpm --filter @c-verse/api run deploy` → private Worker, Service Binding only |
+| Admin | `apps/admin` | `pnpm --filter @c-verse/admin run deploy` → `admin.c-verse.co` + Access/WARP |
 | DB | `supabase/` | `npx supabase db reset` (migrasi + seed) · RLS default-deny (docs/11) |
 
-Cron Workers (`wrangler.toml` — hanya 2 trigger):
+Callback Midtrans belum dapat masuk ke host WARP-only. Pengujian top-up sandbox
+end-to-end membutuhkan ingress webhook khusus; API utama tetap privat.
+Lihat `docs/08_deployment.md` untuk batasan pengujian dan rancangan ingress.
+
+Cron Workers (`wrangler.toml` — 3 trigger):
 
 | Ekspresi | WIB | Aksi |
 |---|---|---|
+| `* * * * *` | tiap 1 menit | drain antrean email transaksional saat `EMAIL_ENABLED=true` |
 | `*/5 * * * *` | tiap 5 menit | `activate_scheduled_drops` → `draw_pending_drops` (settlement pembelian langsung di RPC, tanpa escrow cron — founder 2026-08-28) |
 | `0 23 * * 1` | Selasa 06:00 | `payout_batch_run` (fee 1%, KYC + hold + min 10 C) |
 
@@ -360,7 +361,7 @@ Angka kanonik ada di `docs/00_readme.md` §4 **dan** `packages/shared/src/index.
 - **Vault-first** — `platform_vault` adalah default; ship-from-vault kapan saja.
 - **No auction timer** di MVP (defer — 07 C-07).
 - **Passwordless** — Google OAuth + email OTP saja; jangan reintroduce login password.
-- **Admin app tidak di edge** — anon key + Access + `aal2`; mutasi lewat `/api/admin/*` (+ `/api/kyc/:id/approve`, `PATCH /api/drops/:id/status`, `PATCH /api/shipments/:id/status`) yang role-gated dan ter-audit `admin_audit_log`.
+- **Admin app terpisah dan WARP-only** — Worker gateway + Access, anon key + RLS, dan `aal2`; mutasi lewat Service Binding ke `/api/admin/*` (+ `/api/kyc/:id/approve`, `PATCH /api/drops/:id/status`, `PATCH /api/shipments/:id/status`) yang role-gated dan ter-audit `admin_audit_log`.
 - **Uang & stok wajib RPC** — tidak ada UPDATE saldo/stok langsung dari aplikasi.
 
 ---
