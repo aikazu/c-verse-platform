@@ -97,7 +97,7 @@ app.get("/:id", async (c) => {
     // Audit batch 2 F1: stats=1 menyajikan analitik PRIVAT (totalViews/
     // uniqueViewers/topReferrer) — fence identik dengan /:username/views/stats:
     // owner only (creator rec milik user yang login); admin lewat requireAdmin
-    // (role=admin + MFA aal2). Anon 401, user lain 403.
+    // (active role=admin). Anon 401, user lain 403.
     const authRes = await requireUser(c);
     if ("error" in authRes) return c.json({ error: authRes.error === 403 ? "Akun disuspend" : "Unauthorized" }, authRes.error);
     if (rec?.userId !== authRes.user.id) {
@@ -173,7 +173,7 @@ app.get("/handle/:handle", async (c) => {
 
 // POST /apply sengaja DITIADAKAN per docs/03_flows.md Flow 11: akun kreator
 // admin-provisioned + passwordless, TIDAK ada registrasi publik. Onboarding via
-// POST /api/admin/users/provision dari admin app (gate aal2).
+// POST /api/admin/users/provision dari admin app (active admin role gate).
 
 // P0-4 (audit 2026-08-24): daftar payout user saat ini + daftar drop kreator.
 // Endpoint untuk /creator/payouts (PG-CRT-04) dan /creator/drops/:id (PG-CRT-03).

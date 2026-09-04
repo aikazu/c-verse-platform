@@ -3,7 +3,7 @@ import { NavLink, useNavigate } from "react-router-dom";
 
 function Shell({
   email,
-  authLabel = "Supabase · aal2",
+  authLabel = "Supabase OTP · akses berbasis peran",
   onLogout,
   children,
 }: {

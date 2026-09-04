@@ -20,8 +20,7 @@ async function authorizedFetch(path: string, init: RequestInit): Promise<Respons
 async function throwApiError(res: Response): Promise<never> {
   const body = (await res.json().catch(() => null)) as { error?: string } | null;
   const message = body?.error;
-  const isMfaRequired = res.status === 403 && message === "MFA (aal2) wajib untuk aksi admin";
-  if (res.status === 401 || (isMfaRequired && import.meta.env.PROD)) {
+  if (res.status === 401) {
     await supabase.auth.signOut();
     throw new Error("Sesi berakhir — silakan masuk kembali.");
   }

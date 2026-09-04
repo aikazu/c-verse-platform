@@ -230,8 +230,8 @@ Per gelombang: jalankan typecheck + manual smoke flow + tambah vitest.
 
 ## 7. Sumber
 
-- `dev-strategy/05_data_model.md` (invariant I1-I14, RLS, ledger).
-- `dev-strategy/06_tech_decisions.md` D5 (checkout race: RPC + row lock),
+- `05_data_model.md` (invariant I1-I14, RLS, ledger).
+- `06_tech_decisions.md` D5 (checkout race: RPC + row lock),
   D6 (Realtime), stack Supavisor.
 - Audit Platform 2026-08-15: `orders.ts` read-check-write; store in-memory
   dipakai semua route.

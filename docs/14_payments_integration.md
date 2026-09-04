@@ -76,7 +76,7 @@ Tahun 2011 tentang Transfer Dana). Tidak ada auto-call
 Yang sudah jalan:
 
 - creator request via `POST /api/payments/payout` (RPC `payout_request`,
-  KYC-gated, min 10 C-Coin, hold-aware) — dana di-debit, row payouts
+  KYC-gated, min 10 C-Gems, hold-aware) — dana di-debit, row payouts
   status `pending`.
 - admin trigger batch via `POST /api/payments/admin/payout-run`
   (RPC `payout_batch_run`) — grup payout eligible ke satu batch (status
@@ -108,9 +108,9 @@ KYC approved):
 ### 3,2 Batch payout (cron Selasa 06:00 WIB + trigger admin ADM-05)
 ```
 RPC payout_batch_run():
-  - ambil semua payout pending (approved KYC, >= min 10 C-Coin,
+  - ambil semua payout pending (approved KYC, >= min 10 C-Gems,
     hold_payout_until is null)
-  - per payout: net_idr = (ccoin - ceil(ccoin x 0.01)) x 10.000
+  - per payout: net_idr = (gems - ceil(gems x 0.01)) x 10.000
     -> update payouts.batch_id + idr_amount, status tetap 'pending'
        (admin transfer MANUAL via IRIS dashboard).
   -> (opsional) webhook status disbursement:
@@ -123,7 +123,7 @@ RPC payout_batch_run():
        (RPC payout_refund — kredit wallet + status 'refunded',
         idempotent by 'payout-refund-<id>')
 ```
-- Gagal disbursement TIDAK mengembalikan ke saldo C-Coin otomatis —
+- Gagal disbursement TIDAK mengembalikan ke saldo C-Gems otomatis —
   admin harus eksekusi refund endpoint (ter-audit).
 - Log semua tahap ke `admin_audit_log` (`payout_trigger`,
   `payout_refund`).
@@ -182,12 +182,11 @@ apps/api/src/modules/payments/routes.ts
 
 ## 8. Sumber
 
-- 05_mvp_flow Flow 9 (top-up & payout Opsi A: C-Coin medium
-  tunggal, rate Rp 10.000/C-Coin, saldo buyer closed-loop TANPA
-  withdraw, disburse IDR kena payout fee 1%, siklus Selasa kreator /
-  otomatis seller secondary, rekonsiliasi harian via SOP 6,1).
-- `dev-strategy/07_constraints.md` C-08 (cap), C-09/C-09b (payout,
-  min 10 C-Coin).
+- Keputusan dual-token 2026-09-03: C-Coin adalah saldo belanja
+  closed-loop; payout IDR berasal dari C-Gems lot matured, dengan rate
+  Rp 10.000 per token dan fee 1%.
+- `07_constraints.md` C-08 (cap) dan C-09/C-09b (payout, minimum
+  10 C-Gems).
 - Kebijakan KYC (rekening atas nama KTP; wajib untuk payout/
   disbursement ke IDR + akumulasi top-up besar; verifikasi manual
   Y1 SLA 1x24 jam; [DRAFT]).

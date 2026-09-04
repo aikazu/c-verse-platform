@@ -180,12 +180,11 @@
   (defense in depth) + gate di `POST /api/payments/topup`.
 
 ### C-09 [DRAFT] Detail payout
-- Minimum payout, verifikasi rekening, SLA, mekanisme
-  disbursement final, perlakuan pajak — belum di-lock.
-  Payout teknis tetap dibangun dengan default yang wajar.
+- Verifikasi rekening, SLA, mekanisme disbursement final, dan perlakuan
+  pajak — belum di-lock. Minimum dan sumber saldo telah ditetapkan di C-09b.
 
 ### C-09b [FINAL] Minimum payout
-- Minimum payout: **10 C-Coin (Rp 100.000)**. Saldo seller/kreator
+- Minimum payout: **10 C-Gems (Rp 100.000)**. Saldo seller/kreator
   menumpuk sampai threshold terpenuhi. Payout fee 1% tetap
   dipotong dari total.
 - [2026-09-03] Sumber dana payout = **C-Gems** (lot matured > 24

@@ -18,9 +18,9 @@
 
 1. **Enable RLS di SEMUA tabel** + **default deny** (tabel tanpa policy =
    tidak bisa diakses role non-service).
-2. **service-role bypass otomatis** — admin app + provisioning tool pakai
-   `SUPABASE_SERVICE_ROLE_KEY` (di belakang Cloudflare Access), tidak perlu
-   policy.
+2. **service-role bypass otomatis** — hanya backend API dan provisioning
+   tool tepercaya memakai `SUPABASE_SERVICE_ROLE_KEY`. Browser admin tetap
+   memakai anon key dan user JWT dengan RLS, bukan service-role.
 3. Web pakai **anon key** (read publik) + **user JWT** (data milik sendiri).
    API Workers meneruskan user JWT untuk aksi tulis.
 4. Satu tabel boleh punya beberapa policy per operation — jangan satu
@@ -60,7 +60,7 @@ Helper: `create policy ... for select using (...)`, dst.
   dihapus; browser tidak memiliki jalur upload langsung.
 - Metadata KYC tetap default-deny di Postgres. Worker memverifikasi
   JWT user sebelum upload dan membentuk object key sendiri.
-- Download dokumen hanya melalui route admin role + AAL2. Object key
+- Download dokumen hanya melalui route admin role aktif dan tidak disuspend. Object key
   R2 tidak pernah dikirim ke browser, respons `no-store`, dan setiap
   akses dicatat sebagai `view_sensitive` di `admin_audit_log`.
 
@@ -141,7 +141,7 @@ SQL test per kombinasi (jalankan sebagai `anon`, `authenticated` dgn
 
 ## 7. Sumber
 
-- `dev-strategy/05_data_model.md` section RLS (matriks asli).
+- `05_data_model.md` section RLS (matriks asli).
 - Audit Platform 2026-08-15: kebocoran allow-all pada migration lama di-squash;
   kini dijaga di `03_rls.sql` (sebelumnya fase 3
   `20260817020000_rls_policies.sql`) + EXECUTE lockdown di `17_rpc_grants`

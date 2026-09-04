@@ -53,7 +53,7 @@ vi.mock("../../../lib/auth.js", () => ({
         createdAt: new Date().toISOString(),
       },
       token: "t",
-      aal: "aal2",
+      aal: "aal1",
     }),
   adminGateError: () => ({ body: { error: "Unauthorized" }, status: 401 }),
   tokenFingerprint: () => Promise.resolve("sha256:test"),

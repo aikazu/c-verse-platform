@@ -22,8 +22,9 @@
    pencatatan terpisah di ledger).
 3. **Ownership berbasis record**: `cards.current_owner_id` +
    `ownership_history` — TIDAK ada rewrite NFC.
-4. **Admin akses service-role**: app publik hanya anon key +
-   RLS; admin app pakai service-role (bypass RLS).
+4. **Service-role hanya di backend**: browser web/admin memakai anon key
+   dan user JWT dengan RLS. Operasi privileged melewati API yang memeriksa
+   role admin serta suspension sebelum memakai service-role.
 5. **Soft delete**: kolom `deleted_at` untuk recovery, jangan
    hard delete data transaksional.
 
@@ -75,7 +76,7 @@ creators
 > terisi saat akun kreator dibuat; kreator login OTP/OAuth passwordless.
 > **TERIMPLEMENTASI (2026-08-21)**: `creators.user_id` + row `users`
 > (role 'creator') kini diisi oleh endpoint provision
-> `POST /api/admin/users/provision` (gate admin aal2, service-role,
+> `POST /api/admin/users/provision` (gate role admin aktif, service-role,
 > ter-audit) — bukan RPC. Insert `creators` dilakukan endpoint tsb
 > langsung (id `cr-…`, `status='active'`, `total_followers_combined`
 > default 0); `users.id` tetap = `auth.users.id` (trigger).
@@ -514,13 +515,16 @@ admin_audit_log
   ip text, session_id text
   created_at timestamptz default now()
 ```
-> Penulisan: hook terpusat di admin app (semua mutasi lewat satu
-> service function → log otomatis). RLS: TIDAK ada RLS publik;
-> akses via service-role dari admin app. Retensi ≥ 1 tahun
+> Penulisan: hook terpusat melalui API backend (semua mutasi lewat satu
+> service function → log otomatis). Browser admin memakai anon key dan RLS;
+> service-role hanya di backend. Retensi ≥ 1 tahun
 > (UU PDP + forensik fraud).
-> 2FA: Supabase MFA TOTP (aal2) — bukan kolom di sini; akses
-> admin app dibatasi di level app + Cloudflare Access
-> (`06_tech_decisions.md` D1).
+> Nilai aksi `login_mfa`, `2fa_enroll`, dan `2fa_reset` dipertahankan untuk
+> kompatibilitas skema/audit historis; bukan bukti atau syarat MFA/TOTP wajib.
+> Akses admin: email OTP dan Cloudflare Access founder allowlist + WARP;
+> RLS membatasi read sesuai policy; helper `is_admin()` memeriksa role.
+> API memeriksa role dan suspension sebelum operasi privileged, sementara
+> audit log mencatat akses aplikasi (`06_tech_decisions.md` D1).
 
 ### notifications & payouts
 ```

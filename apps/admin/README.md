@@ -21,11 +21,13 @@ Founder dengan WARP aktif
   dibatasi 6 jam.
 - Policy mewajibkan identitas founder dan device yang terhubung melalui WARP.
   Request dari internet tanpa posture WARP ditolak sebelum mencapai Worker.
-- Login aplikasi memakai Supabase email OTP, lalu MFA TOTP wajib sampai sesi
-  mencapai `aal2`.
+- Login aplikasi memakai Supabase email OTP. MFA/TOTP aplikasi tidak diwajibkan.
+  Keputusan ini tidak menonaktifkan MFA secara global atau menghapus faktor yang
+  sudah terdaftar pada pengguna.
 - Read mengikuti RLS. Semua mutasi privileged memakai route same-origin
   `/api/admin/*`; gateway meneruskannya ke `c-verse-api` melalui Service
-  Binding. API menegakkan role admin + `aal2` dan menulis `admin_audit_log`.
+  Binding. API menegakkan role admin dan status akun tidak disuspend, lalu menulis
+  `admin_audit_log`.
 - `c-verse-api` tidak mempunyai custom domain, `workers.dev`, atau preview URL.
   Gateway menghapus cookie dan assertion Access sebelum meneruskan request agar
   credential perimeter tidak bocor ke backend aplikasi.

@@ -459,17 +459,15 @@ Then set kriteria (mis. koleksi N C.Card, punya C.Card kreator
 And user yang memenuhi kriteria otomatis mendapat badge + XP
 ```
 
-### US-ADM-008 — 2FA admin (TOTP wajib)
+### US-ADM-008 — Kontrol akses admin
 ```
-Given admin pertama kali login (Google OAuth / email OTP)
-When halaman enrollment 2FA tampil
-Then scan QR authenticator + simpan recovery codes
-And sesi dasar (aal1) TIDAK bisa buka UI privileged
-And setelah verifikasi kode TOTP, sesi upgrade ke aal2
-And login berikutnya: kode TOTP diminta tiap kali sebelum
-   UI privileged terbuka
-And recovery codes bisa dipakai jika HP hilang
-And reset enrollment (break-glass) hanya oleh admin lain
+Given founder telah lolos Cloudflare Access allowlist dan posture WARP
+When admin login dengan Supabase email OTP
+Then session membuka UI admin
+And pembacaan data mengikuti policy RLS
+And route privileged ditolak API bila role bukan admin atau akun disuspend
+And semua mutasi dan akses data sensitif dicatat di admin_audit_log
+And MFA/TOTP aplikasi tidak diminta sebagai syarat login
 ```
 
 ### US-ADM-009 — Audit log semua aksi admin

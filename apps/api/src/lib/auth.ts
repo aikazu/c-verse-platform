@@ -132,10 +132,7 @@ export async function requireUser(c: { req: { header: (k: string) => string | un
   return { user, token, aal: verified.aal };
 }
 
-export type RequireAdminResult =
-  | { user: User; token: string }
-  | { error: 401 }
-  | { error: 403; reason: "suspended" | "not_admin" | "mfa_required" };
+export type RequireAdminResult = { user: User; token: string } | { error: 401 } | { error: 403; reason: "suspended" | "not_admin" };
 
 /**
  * Soft variant of requireUser for public endpoints that personalize when a valid
@@ -157,21 +154,19 @@ export async function getOptionalUser(c: { req: { header: (k: string) => string 
 }
 
 /**
- * Admin gate: authenticated + role=admin + MFA aal2 (docs: admin behind MFA TOTP).
- * aal2 is enforced SERVER-SIDE here — the admin SPA guard is UX only and bypassable.
+ * Admin gate: verified session + active database user with role=admin.
+ * Access/WARP protects the deployed gateways; this role check remains server-side.
  */
 export async function requireAdmin(c: { req: { header: (k: string) => string | undefined } }): Promise<RequireAdminResult> {
   const res = await requireUser(c);
   if ("error" in res) return res;
   if (res.user.role !== "admin") return { error: 403, reason: "not_admin" };
-  if (res.aal !== "aal2") return { error: 403, reason: "mfa_required" };
   return { user: res.user, token: res.token };
 }
 
 /** Map a requireAdmin error result to a body + status for `c.json(body, status)`. */
 export function adminGateError(res: { error: 401 | 403; reason?: string }): { body: { error: string }; status: 401 | 403 } {
   if (res.error === 401) return { body: { error: "Unauthorized" }, status: 401 };
-  const msg =
-    res.reason === "mfa_required" ? "MFA (aal2) wajib untuk aksi admin" : res.reason === "suspended" ? "Akun disuspend" : "Hanya admin";
+  const msg = res.reason === "suspended" ? "Akun disuspend" : "Hanya admin";
   return { body: { error: msg }, status: 403 };
 }

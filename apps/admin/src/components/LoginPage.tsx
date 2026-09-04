@@ -52,7 +52,7 @@ export function LoginPage() {
     }
   }
 
-  // DEV ONLY — POST /api/auth/demo-login → token_hash → sesi aal1 (tanpa OTP/captcha/TOTP).
+  // DEV ONLY — POST /api/auth/demo-login → token_hash → sesi passwordless tanpa email OTP/captcha.
   // Butuh ENABLE_DEMO_LOGIN=1 di API; di production build tombol ini tidak pernah ikut bundle.
   async function onDemoLogin() {
     setBusy(true);
@@ -64,7 +64,7 @@ export function LoginPage() {
       });
       const { error } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type: "magiclink" });
       if (error) throw new Error(error.message);
-      setMsg("Sesi demo aktif — masuk tanpa TOTP (dev)…");
+      setMsg("Sesi demo aktif (dev)…");
     } catch (err: unknown) {
       setMsg(err instanceof Error ? err.message : "Demo login gagal");
     } finally {
@@ -83,7 +83,7 @@ export function LoginPage() {
         </div>
         <h1 className="admin-login-title">Masuk</h1>
         <p className="muted fs-12 align-center" style={{ marginBottom: 18 }}>
-          Hanya untuk pengelola platform — verifikasi TOTP diminta setelah login.
+          Hanya untuk pengelola platform — masuk dengan tautan OTP email. Akses mengikuti peran akun.
         </p>
 
         <form onSubmit={onLogin} className="flex-gap-8" style={{ flexDirection: "column" }}>

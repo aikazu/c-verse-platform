@@ -255,4 +255,35 @@ describe("requireUser suspension gate (P2-6: 401 invalid vs 403 suspended)", () 
     expect(res).toEqual({ error: 401 });
     expect(requireUserControl.dbLookups).toHaveLength(0);
   });
+
+  it.each(["aal1", "aal2", undefined])("allows an active database admin with assurance level %s", async (aal) => {
+    const { requireAdmin } = await import("./auth");
+    requireUserControl.userRow = { id: SUB, email: "admin@cverse.id", flag_reason: null, role: "admin" };
+    const token = await jwtKit.sign({ issuer: ENV_ISSUER, aal });
+    const result = await requireAdmin(callerFor(token));
+    expect(result).toMatchObject({ user: { id: SUB, role: "admin" }, token });
+    expect(requireUserControl.dbLookups).toEqual([{ table: "users.id", id: SUB }]);
+  });
+
+  it.each(["user", "creator"])("rejects database role %s even with an aal2 token", async (role) => {
+    const { requireAdmin } = await import("./auth");
+    requireUserControl.userRow = { id: SUB, flag_reason: null, role };
+    const token = await jwtKit.sign({ issuer: ENV_ISSUER, aal: "aal2" });
+    expect(await requireAdmin(callerFor(token))).toEqual({ error: 403, reason: "not_admin" });
+  });
+
+  it("still rejects a suspended admin with a valid aal1 token", async () => {
+    const { requireAdmin } = await import("./auth");
+    requireUserControl.userRow = { id: SUB, flag_reason: "suspended", role: "admin" };
+    const token = await jwtKit.sign({ issuer: ENV_ISSUER, aal: "aal1" });
+    expect(await requireAdmin(callerFor(token))).toEqual({ error: 403, reason: "suspended" });
+  });
+
+  it("rejects missing or invalid admin credentials without a database lookup", async () => {
+    const { requireAdmin } = await import("./auth");
+    requireUserControl.userRow = { id: SUB, flag_reason: null, role: "admin" };
+    expect(await requireAdmin(callerFor())).toEqual({ error: 401 });
+    expect(await requireAdmin(callerFor("invalid-token"))).toEqual({ error: 401 });
+    expect(requireUserControl.dbLookups).toHaveLength(0);
+  });
 });

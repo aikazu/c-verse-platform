@@ -76,7 +76,7 @@ Admin flow (terpisah):
   identitas founder harus diizinkan dan device harus terhubung WARP.
 - Admin app login melalui Supabase Auth memakai anon key; seluruh
   operasi sensitif melalui route Worker `/api/admin/*` atau route
-  admin per-modul, dengan gate role admin + AAL2 dan audit log.
+  admin per-modul, dengan gate server-side role admin aktif dan audit log.
 - `SUPABASE_SERVICE_ROLE_KEY` hanya berada di Worker, tidak pernah
   dibundle ke admin SPA. Cloudflare Access tetap menjadi perimeter
   tambahan untuk host admin.
@@ -99,23 +99,20 @@ Rasional keamanan (jujur):
   credential + NFC master key. Proteksi utama = key management
   + RLS + Cloudflare Access, bukan sekadar lokasi app.
 
-#### Keamanan admin: 2FA + audit log (ADM-08/09)
+#### Keamanan admin: akses berlapis + audit log (ADM-08/09)
 
-**2FA (ADM-09)** — Supabase Auth MFA (TOTP) wajib untuk semua
-akun admin, dua lapis:
+**Kontrol akses (ADM-09)** — tanpa MFA/TOTP aplikasi wajib, dengan
+pertahanan berlapis:
 - **Lapis 1 (jaringan)**: Cloudflare Access — identitas founder dan
   posture WARP wajib sebelum app admin terbuka.
-- **Lapis 2 (aplikasi)**: Supabase MFA TOTP — enrollment scan
-  QR authenticator (Google Auth/dll) + simpan **recovery codes**
-  saat pertama login; tiap login berikutnya: login biasa = sesi
-  aal1 (menu non-sensitive tetap bisa diakses, mis. dashboard
-  ringkas), UI privileged (semua CRUD ADM-01..10) terkunci
-  sampai `supabase.auth.mfa.challenge()` + `verify()` upgrade
-  sesi ke **aal2**.
-- **Break-glass**: admin lain (sudah aal2) bisa reset enrollment
-  yang hilang — semua langkah tercatat di audit log.
+- **Lapis 2 (aplikasi)**: Supabase email OTP, lalu role `admin` dan
+  `flag_reason` diperiksa server-side sebelum route privileged berjalan.
+- **Lapis 3 (data dan forensik)**: browser hanya memakai anon key dengan
+  RLS; setiap mutasi dan akses sensitif dicatat di audit log append-only.
+- Keputusan 2026-09-05 tidak menonaktifkan MFA secara global dan tidak
+  menghapus faktor yang sudah terdaftar pada pengguna.
 - Catatan D1: admin browser memakai anon key + RLS. Mutasi privileged
-  diteruskan ke Worker API yang memverifikasi role + aal2; guard UI
+  diteruskan ke Worker API yang memverifikasi role + suspension; guard UI
   bukan satu-satunya kontrol.
 
 **Audit log (ADM-08)** — setiap mutasi admin di-log
@@ -125,6 +122,10 @@ payload ringkas (bukan PII penuh), IP + session, created_at.
 View + filter di PG-ADM-09; kebocoran service-role terdeteksi
 dari anomali di log ini (mis. aksi di jam aneh / IP asing).
 Retensi: minimum 1 tahun (UU PDP + forensik fraud).
+
+> [SUPERSEDED — 2026-09-05] Rancangan ADM-09 sebelumnya mewajibkan
+> Supabase MFA TOTP dan AAL2. Rancangan itu tidak lagi menjadi syarat
+> aplikasi; catatan historis dipertahankan untuk jejak keputusan.
 
 ### D2 — NFC iOS: Koreksi Asumsi [baru 2026-08-12]
 
@@ -308,3 +309,5 @@ Retensi: minimum 1 tahun (UU PDP + forensik fraud).
 - Keputusan founder 2026-09-05: web development, admin, dan aplikasi
   dana dipindah ke Workers; Access wajib WARP; backend privat lewat
   Service Binding; root domain tetap Coming Soon selama development.
+- Keputusan founder 2026-09-05: hapus kewajiban MFA/TOTP aplikasi admin;
+  pertahankan login email OTP, otorisasi API, RLS, Access/WARP, dan audit log.

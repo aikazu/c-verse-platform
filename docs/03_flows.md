@@ -529,7 +529,7 @@ penjualan — tidak ada split/gateway/escrow.
 
 ```
 [ADMIN] admin app: "Buat akun kreator" — email dari deal memo
-   -> POST /api/admin/users/provision (gate admin aal2) — TERIMPLEMENTASI:
+   -> POST /api/admin/users/provision (gate role admin aktif) — TERIMPLEMENTASI:
         1. cek duplikat email -> 409 "Email sudah terdaftar"
         2. create auth user (TANPA password, email_confirm: true,
            user_metadata: { full_name, role: 'creator' }) — Supabase Auth
@@ -574,10 +574,10 @@ penjualan — tidak ada split/gateway/escrow.
          object versi lama dihapus
    -> response owner hanya status + PII termasking; object key tidak bocor
 
-[ADMIN AAL2] /kyc
+[ADMIN role aktif] /kyc
    -> GET /api/kyc/admin/all: identitas + flag ketersediaan dokumen
    -> GET /api/kyc/admin/:id/files/:kind
-      -> Worker cek role admin + AAL2 + ownership prefix
+      -> Worker cek role admin + suspension + ownership prefix
       -> stream object R2 dengan private/no-store
       -> append audit `view_sensitive` per dokumen
    -> approve enabled setelah KTP + selfie berhasil dimuat

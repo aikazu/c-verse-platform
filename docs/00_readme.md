@@ -1,7 +1,8 @@
 # 00 — README: Development Strategy C.Verse MVP
 
 > Status: [VALIDATED]
-> Last updated: 2026-09-03 (dual-token economy — C-Coin belanja + C-Gems penghasilan: settlement masuk Gems, lock 24 jam, payout debit Gems matured, konversi Gems→C-Coin 1:1; lihat `07_constraints.md` C-01 amend + `06_tech_decisions.md` D3b)
+> Last updated: 2026-09-05 (kontrol akses admin tanpa MFA/TOTP wajib;
+> email OTP + Access/WARP + role/suspension server-side; dual-token tetap)
 > Konteks: foundation code sudah ada di
 > `C:\Users\iqbal\Documents\C-Verse\Platform` (mulai 2026-08-12).
 > Folder ini = satu-satunya acuan eksekusi; dok ini = pintu masuk.
@@ -30,10 +31,10 @@
 | 9 | `09_recommendations.md` | Prioritas build, operasional manual, risiko | acuan umum |
 | 10 | `10_auth_migration.md` | Supabase Auth Google+OTP+Turnstile ganti auth plaintext | IMPLEMENTED |
 | 11 | `11_rls_policy.md` | Matriks RLS + test T1-T10 ganti allow-all | IMPLEMENTED |
-| 12 | `12_nfc_cmac_verify.md` | CMAC verify + anti-replay + TagTamper (SUN/SDM) | BLOCKER |
+| 12 | `12_nfc_cmac_verify.md` | CMAC verify + anti-replay + TagTamper (SUN/SDM) | kode terimplementasi; validasi perangkat fisik C-03 masih pending |
 | 13 | `13_atomic_checkout_rpc.md` | Store in-memory → Postgres, RPC checkout/wallet atomik | IMPLEMENTED |
 | 14 | `14_payments_integration.md` | Midtrans top-up webhook + payout disbursement (sandbox→prod) | IMPLEMENTED |
-| 15 | `15_quality_gates.md` | Vitest + Biome + CI + matriks test wajib + DoD per PR | 0 test |
+| 15 | `15_quality_gates.md` | Vitest + Biome + CI + matriks test wajib + DoD per PR | audit “0 test” adalah historis; suite/gate kini ada, hasilnya tetap dijalankan per perubahan |
 | 16 | `16_foundation_cleanup.md` | 10 quick fix (vault default, hapus legacy auction, dst) | terkumpul |
 
 ## 2. Sprint Map (target 2 bulan, 1 orang + AI, ~Rp 8 jt/bulan AI)
@@ -156,7 +157,7 @@ HARUS sinkron dengan tabel di atas (dua arah).
 | NFC & arsitektur verifikasi | 18_nfc_decision (N5 SUN/SDM: ISO 7816-4, SDM mirror UID+counter+CMAC ke NDEF, server-side CMAC verify; N5b iOS via SUN URL), 05_nfc_ux (tap flow Skenario A, edge cases E1-E5) |
 | Revenue split | 19_revenue_split (primary 70/30 platform-produced; secondary total 15% = 7,5% platform + 7,5% royalti kreator lifetime + 85% owner; keputusan 2026-07-27/2026-08-04) |
 | GTM off-platform | 17_mvp_off_platform_gtm (rekrut via personal relationship + 1-2 agency partner, 30-50 kreator; TANPA aplikasi/approval in-platform; keputusan 2026-08-12) |
-| Tech stack | 01_tech_stack (full-edge: React/Vite di CF Pages + Hono di CF Workers + Supabase + R2, konsolidasi 2026-08-11), 20_tech_stack_decision (monorepo, free tier cukup Y1) |
+| Tech stack | full-edge: React/Vite pada Cloudflare Workers Static Assets + Hono Worker + Supabase + R2; tidak ada VPS atau Tunnel untuk gateway aplikasi |
 | Flow MVP (orisinal) | 05_mvp_flow (Flow 1-10: primary raffle+C FCFS, fulfillment, payment/settlement, NFC tap, QR fallback, ownership transfer, secondary Marketplace+Browse, pendukung/onboarding, top-up & payout; Flow 10 seed card 2026-08-20) |
 | Legal & dual-token | C-Coin closed-loop telah divalidasi 2026-08-13; dual-token 2026-09-03 memisahkan saldo belanja C-Coin dari penghasilan C-Gems. Keputusan owner 2026-09-04: refresh opini lawyer dual-token bukan release gate; residual risk diterima dengan guardrail produk dan monitoring regulasi |
 | SOP operasional | 03_operations_playbook (SOP 1-6: produksi & QC, inventory, fulfillment/shipping, CS, trust & safety, finance & payout) |
@@ -219,10 +220,11 @@ Dok di folder ini meng-override dokumen sumber workspace:
     date, Owner — link) + verified badge "Verified Card" (HANYA
     lewat tap NFC). **Ownership history TIDAK di halaman 3D** —
     ada di halaman info kartu.
-15. **Keamanan admin (ADM-08/09)**: **2FA TOTP wajib** untuk
-    semua akun admin (Supabase MFA aal2 + Cloudflare Access)
-    dan **audit log append-only** untuk semua aksi admin
-    (`admin_audit_log`, retensi ≥ 1 tahun).
+15. **Keamanan admin (ADM-08/09)**: login email OTP, Cloudflare
+    Access founder allowlist + WARP, pemeriksaan server-side role admin
+    serta suspension, RLS, dan **audit log append-only** untuk semua aksi
+    admin (`admin_audit_log`, retensi ≥ 1 tahun). MFA/TOTP aplikasi tidak
+    wajib; tidak ada penonaktifan MFA global atau penghapusan faktor pengguna.
 16. **Pembelian → vault langsung** (founder 2026-08-28: purchase
     → vault only) — semua pembelian (drop/FCFS, buyout, bid
     accept) settle tanpa alamat/ongkir; fisik dipegang platform.

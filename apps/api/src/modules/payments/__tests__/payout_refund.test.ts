@@ -41,7 +41,7 @@ vi.mock("../../../lib/auth.js", () => ({
   },
   adminGateError: (res: { error: number; reason?: string }) => {
     if (res.error === 401) return { body: { error: "Unauthorized" }, status: 401 };
-    const msg = res.reason === "mfa_required" ? "MFA (aal2) wajib untuk aksi admin" : "Hanya admin";
+    const msg = res.reason === "suspended" ? "Akun disuspend" : "Hanya admin";
     return { body: { error: msg }, status: 403 };
   },
   tokenFingerprint: () => Promise.resolve("sha256:test"),

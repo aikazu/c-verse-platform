@@ -31,13 +31,13 @@ Dua aplikasi terpisah (satu monorepo):
 | App | Lokasi | Audience | Auth |
 |-----|--------|----------|------|
 | `apps/web` | Worker `c-verse-web-dev` di `dev.c-verse.co` + Access/WARP | Tim development; calon visitor, kolektor, kreator | Cloudflare Access + Supabase Auth (Google OAuth + email OTP) |
-| `apps/admin` | Worker `c-verse-admin` di `admin.c-verse.co` + Access/WARP | Founder tim internal | Cloudflare Access + Supabase Auth + role check + **2FA TOTP wajib** |
+| `apps/admin` | Worker `c-verse-admin` di `admin.c-verse.co` + Access/WARP | Founder tim internal | Cloudflare Access founder allowlist + Supabase email OTP; data/aksi dibatasi RLS dan API server-side |
 
 Tidak ada origin API publik. Kedua gateway meneruskan `/api/*` ke
 Worker `c-verse-api` melalui Service Binding; Worker backend tidak
 memiliki custom domain, `workers.dev`, atau preview URL. Browser admin
 memakai anon key + RLS untuk read, bukan service-role key. Mutasi admin
-tetap melalui API dengan gate role admin + AAL2 dan audit log. Detail:
+tetap melalui API dengan gate role admin + pemeriksaan suspension dan audit log. Detail:
 `06_tech_decisions.md`.
 
 Konvensi UI lintas-halaman (a11y baseline, state error + retry,
@@ -144,10 +144,11 @@ membatalkan komitmen yang sudah ada.
 | PG-ADM-11 | `/kyc` | Kelola KYC | F014 | Review dokumen private R2 via endpoint terproteksi; object key tidak diekspos; **approve hanya setelah KTP+selfie tersedia / reject (+ alasan), semua akses dan keputusan tercatat di audit log** |
 | PG-ADM-10 | `/investor` | Investor Data Pack | — | Ringkasan metrik kunci: GMV, user growth, drop performance, creator earnings, secondary volume — via RPC `get_investor_stats` (RPC `07`–`17`). Tabel + chart sederhana. **BUKAN untuk publik** |
 
-> **2FA admin (ADM-09)**: bukan halaman terpisah — flow
-> enrollment + challenge TOTP melekat di login admin (Supabase
-> MFA, sesi aal2). Semua UI privileged (ADM-01..10) terkunci
-> sampai sesi aal2 tercapai.
+> **Kontrol akses admin (ADM-09)**: bukan halaman terpisah. Login
+> memakai email OTP dan session membuka UI. Read mengikuti policy RLS;
+> route privileged memeriksa role admin dan suspension di API.
+> Host tetap dilindungi Access founder allowlist + WARP,
+> dengan audit log sebagai kontrol tambahan. MFA/TOTP aplikasi tidak wajib.
 
 ## 8. Halaman Kreator & Kartu — Target SEO
 

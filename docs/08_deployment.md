@@ -155,7 +155,7 @@ tidak membacanya (env email API hanya `EMAIL_ENABLED`/`EMAIL_FROM`/
   NPWP. Binding `KYC` memakai Workers API `put/get/head/delete`.
   Browser tidak memakai presigned URL dan tidak memerlukan CORS R2:
   upload multipart diproksi Worker (maks. 5 MiB/file), review admin
-  lewat endpoint streaming role admin + AAL2, `Cache-Control:
+  lewat endpoint streaming role admin aktif, `Cache-Control:
   private, no-store`, dan audit log per dokumen.
 - Bucket `cverse-qr` (opsional): fallback QR statik per kartu.
 
@@ -163,8 +163,8 @@ tidak membacanya (env email API hanya `EMAIL_ENABLED`/`EMAIL_FROM`/
 - Worker `c-verse-admin` menyajikan Static Assets di
   `admin.c-verse.co`; binding `API` menunjuk ke `c-verse-api`.
 - Browser memakai Supabase publishable/anon key + RLS. Service-role hanya
-  secret backend. Mutasi privileged tetap memerlukan role admin + AAL2 dan
-  menghasilkan audit log.
+  secret backend. Mutasi privileged memerlukan role admin aktif dan menghasilkan
+  audit log; host admin sendiri dibatasi Access founder allowlist + WARP.
 - Route API memakai `/api` same-origin. Gateway menghapus cookie dan
   assertion Access sebelum meneruskan request melalui Service Binding.
 - Tidak ada origin VPS, Nginx, atau Cloudflare Tunnel.

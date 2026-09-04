@@ -6,7 +6,7 @@ vi.hoisted(() => {
 
 // ?stats=1 serves PRIVATE analytics (totalViews/uniqueViewers/topReferrer) — must be
 // fenced exactly like GET /:username/views/stats: anon 401, other user 403, owner 200,
-// admin (aal2) 200.
+// active admin 200 regardless of assurance level.
 const control = vi.hoisted(() => ({
   viewer: null as null | { id: string; role: string; aal: string; flagReason?: string | null },
   pageViews: [] as Array<{ userId: string | null; referrer: string | null }>,
@@ -43,7 +43,6 @@ vi.mock("../../../lib/auth.js", () => ({
     if (!v) return Promise.resolve({ error: 401 });
     if (v.flagReason) return Promise.resolve({ error: 403, reason: "suspended" });
     if (v.role !== "admin") return Promise.resolve({ error: 403, reason: "not_admin" });
-    if (v.aal !== "aal2") return Promise.resolve({ error: 403, reason: "mfa_required" });
     return Promise.resolve({ user: authUser(v), token: "t" });
   },
   clientIp: () => "127.0.0.1",
@@ -142,10 +141,10 @@ describe("GET /api/creators/:id?stats=1 — private analytics fence (audit batch
     expect(res.status).toBe(200);
   });
 
-  it("admin tanpa aal2 → 403", async () => {
+  it("admin aal1 → 200", async () => {
     control.viewer = { id: "u-admin", role: "admin", aal: "aal1" };
     const res = await getStats();
-    expect(res.status).toBe(403);
+    expect(res.status).toBe(200);
   });
 
   it("tanpa stats=1 tetap publik (anon 200, tanpa stats di body)", async () => {

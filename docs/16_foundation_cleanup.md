@@ -47,9 +47,9 @@
 - Tunda implementasi `KYC_TRIGGER_THRESHOLD_CCOIN` & demo override
   sampai ada disbursement otomatis (Y2+). Tidak ada konstanta
   `KYC_TOPUP_THRESHOLD_DEMO` yang ditambahkan ke `packages/shared`.
-- Kapasitas saldo non-KYC 500 C-Coin (`BALANCE_CAP_CCOIN`) tetap
-  satu-satunya gate KYC yang dipakai MVP — lihat `07_constraints.md`
-  C-08.
+- Kapasitas saldo non-KYC 500 C-Coin (`BALANCE_CAP_CCOIN`) adalah
+  gate KYC MVP yang sudah final, bukan pekerjaan tertunda — lihat
+  `07_constraints.md` C-08.
 
 ### F-04 Tipe `WalletTransaction` tertinggal
 - `packages/shared/src/index.ts` interface `WalletTransaction`:

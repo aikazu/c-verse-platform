@@ -138,7 +138,9 @@ Deploy TIDAK otomatis — manual (`08_deployment.md` §7).
 
 - Global founder preference: TDD red-green-refactor; formatter+lint+
   test wajib sebelum commit.
-- `dev-strategy/01_scope.md` DoD (coverage >70%, review 2 reviewer).
-- `dev-strategy/08_deployment.md` CI/CD pipeline.
-- Audit Platform 2026-08-15: 0 test file, lint no-op, workflows
-  disabled.
+- `01_scope.md` DoD (coverage >70%, review 2 reviewer).
+- `08_deployment.md` CI/CD pipeline.
+- Audit Platform 2026-08-15: saat itu terdapat 0 test file, lint no-op,
+  dan workflow disabled. Ini catatan historis audit, bukan status implementasi
+  saat ini; suite test, lint, dan CI yang didokumentasikan di atas harus tetap
+  dijalankan untuk setiap perubahan terkait.

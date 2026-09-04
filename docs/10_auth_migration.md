@@ -6,14 +6,17 @@
 > Basis audit awal: `apps/api/src/modules/auth/routes.ts` (password plaintext, token
 > in-memory). Migration selesai: route auth.ts sudah clean (hanya `/me`),
 > JWT verify via `jose` + JWKS, tidak ada password/in-memory session.
-> Admin app MFA TOTP (aal2) via `TotpRequired.tsx`.
+> Keputusan 2026-09-05: admin memakai email OTP tanpa MFA/TOTP aplikasi wajib;
+> route privileged mengandalkan role admin aktif, suspension check, Access/WARP,
+> RLS, dan audit log.
 > Estimasi: 3-5 hari AI-assisted. Dependency: tidak ada (mulai duluan).
 > Blok: tidak ada — `11_rls_policy.md` & `13_atomic_checkout_rpc.md`
 > sudah terealisasi (RLS + RPC di `supabase/migrations/`).
 
 ## 1. Masalah
 
-Auth saat ini custom in-memory — tidak bisa dibawa ke produksi:
+Kondisi audit historis 2026-08-15, sebelum migrasi selesai: auth custom
+in-memory tidak dapat dibawa ke produksi. Tabel ini bukan status kode terkini.
 
 | Isu | Bukti | Risiko |
 |---|---|---|
@@ -29,13 +32,15 @@ Auth saat ini custom in-memory — tidak bisa dibawa ke produksi:
 - **Captcha Turnstile wajib** untuk register + email OTP request.
 - API Hono verifikasi **Supabase JWT** (JWKS), ambil `sub` sebagai user id.
 - `public.users.id` = UUID sama dengan `auth.users.id` (di-isi trigger `on_auth_user_created`, bukan FK constraint eksplisit); tidak ada kolom password.
-- Admin app tetap: service-role + Cloudflare Access + TOTP `aal2` (sudah ada).
+- Admin app tetap: Cloudflare Access founder allowlist + WARP, email OTP,
+  anon key + RLS, serta role admin aktif yang diperiksa server-side. Service-role
+  tetap hanya berada di backend.
 - **PASSWORDLESS (FINAL 2026-08-20)**: platform TANPA password sama
   sekali untuk SEMUA user (kolektor & kreator) — autentikasi hanya
   Google OAuth ATAU email OTP. Tidak ada register berbasis password
   di jalur manapun; OTP tetap wajib captcha Turnstile.
 - **Akun kreator ADMIN-PROVISIONED (FINAL 2026-08-20)**: kreator
-  TIDAK self-register. Admin app (service-role) create auth user
+  TIDAK self-register. Admin app memanggil API backend (service-role) untuk create auth user
   (tanpa password, `email_confirm: true`) → set
   `profiles.role = 'creator'` → isi `creators.user_id` → kirim email
   akses via Cloudflare Email Service (binding `send_email`, gate
@@ -110,7 +115,7 @@ Auth saat ini custom in-memory — tidak bisa dibawa ke produksi:
 
 ### 3,6 Provisioning akun kreator (admin-provisioned, FINAL 2026-08-20)
 - **STATUS: TERIMPLEMENTASI (2026-08-21)** — endpoint nyata
-  `POST /api/admin/users/provision` (gate admin + MFA aal2, service-role,
+  `POST /api/admin/users/provision` (gate role admin aktif, service-role,
   ter-audit) menggantikan rencana awal RPC `admin_provision_creator`:
   1. Cek duplikat email (409 "Email sudah terdaftar").
   2. `auth.admin.createUser({ email, email_confirm: true, user_metadata:
@@ -162,9 +167,9 @@ Auth saat ini custom in-memory — tidak bisa dibawa ke produksi:
 
 ## 6. Sumber
 
-- `dev-strategy/06_tech_decisions.md` D-so (Supabase Auth FINAL).
+- `06_tech_decisions.md` D-so (Supabase Auth FINAL).
 - Memory `mvp-product-rules-2026-08-13`: Google OAuth + email OTP + captcha Turnstile.
-- `dev-strategy/08_deployment.md` §Supabase setup (Auth Google+OTP+captcha).
+- `08_deployment.md` §Supabase setup (Auth Google+OTP+captcha).
 - Audit Platform 2026-08-15: `apps/api/src/modules/auth/routes.ts` (plaintext,
   in-memory session).
 - Keputusan akun kreator admin-provisioned + passwordless
@@ -188,7 +193,11 @@ tanpa OTP/email. **Tetap passwordless** — tidak ada password login.
   `verifyOtp({ token_hash, type: "magiclink" })`.
 - UI: tombol "DEMO — one-click login" hanya ikut bundle saat
   `import.meta.env.DEV` (web: user/creator; admin: admin).
-- **Admin dev build merelaksasi guard aal2** (login demo = aal1) —
-  badge "DEMO · aal1 tanpa TOTP"; production build tetap wajib aal2
-  server-side (`requireAdmin`).
+- Admin dev dan production menggunakan rule otorisasi yang sama: role admin
+  aktif dan tidak disuspend diperiksa server-side (`requireAdmin`). Demo login
+  tetap terbatas pada build development dan whitelist seed.
 - Test: `apps/api/src/modules/auth/__tests__/auth_demo_login.test.ts`.
+
+> [SUPERSEDED — 2026-09-05] Implementasi/rencana MFA TOTP dan AAL2 di dokumen
+> ini adalah keputusan lama. Tidak ada tindakan untuk menonaktifkan MFA global
+> atau mencabut faktor yang telah terdaftar.

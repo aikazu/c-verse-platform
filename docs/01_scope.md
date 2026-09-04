@@ -59,7 +59,7 @@ loyalty (semua post-MVP).
 | F004 | Drop scheduling & listing | 200 | Admin bikin drop (set `raffle_end_at`, default +24 jam); publik lihat di catalog. **Harga per tier kreator**: emerging (100-300k) = 20 C-Coin, established (300k-1jt) = 30 C-Coin, top (1jt+) = 50 C-Coin, hype = 40-60 C-Coin. Signed variant = unsigned + 20 C-Coin **FLAT** (founder 2026-08-16). Primary = flat price per pool |
 | F005 | Drop purchase: raffle hybrid + FCFS sisa | 250 | **Raffle 24 jam pertama**: pilih pool reguler/premium/keduanya + hold C-Coin (escrow) → draw otomatis idempotent; **sisa unit FCFS race-safe**; limit 1 entry + 1 kartu/user; **settle langsung ke vault — tanpa alamat/ongkir; kirim fisik hanya pasca-vault via ship-out** (C-15; founder 2026-08-28: purchase → vault only) |
 | F006 | Payment gateway top-up + disbursement | 200 | Midtrans/Xendit. **Top-up uang riil bisa diterima setelah T&C final + cap saldo diimplementasi** (legal resolved 2026-08-13) |
-| F036 | Wallet C-Coin: saldo closed-loop, ledger immutable, payout fee 1% | 200 | Tanpa withdraw buyer; seller/kreator auto-disburse IDR |
+| F036 | Wallet C-Coin + C-Gems: saldo/ledger immutable, payout fee 1% | 200 | C-Coin tanpa withdraw; payout seller/kreator ke IDR dari C-Gems |
 | F007 | NFC NTAG 424 tap & verify | 180 | CMAC server-side; fallback QR di dus |
 | F008 | Sertifikat digital + 3D viewer | 180 | **Cut line #1** — bisa turun ke sertifikat statis |
 | F009 | Order tracking | 120 | Status order + no resi |
@@ -78,7 +78,7 @@ loyalty (semua post-MVP).
 | F017 | Gamifikasi: level | 80 | **Naik via XP**: spend 1 C-Coin = 1 XP; 10 XP = 1 level (top-up TIDAK menambah XP) |
 | F018 | Gamifikasi: badge | 80 | **Kriteria + logo/ikon + XP reward dikonfigurasi di admin page** (ADM-07); XP badge berkontribusi naik level (bukan masa berlaku) |
 | F019 | Leaderboard | 50 | **Halaman sendiri** (PG-LB-01) — multi-type: `xp` (default) \| `cards` \| `badges` \| `creator` (top 10 kolektor per-kreator); RPC `get_leaderboard` di RPC `07`–`17` (privasi + tie-break deterministik) |
-| F020 | Minimum payout 10 C-Coin | 20 | Should |
+| F020 | Minimum payout 10 C-Gems | 20 | Should; payout ke IDR hanya dari C-Gems lot matured |
 | F037 | Dispute resolution | 60 | MVP: manual (email/WA) + status di admin |
 
 ### COULD — Blok 3 (7 fitur)
@@ -101,7 +101,7 @@ loyalty (semua post-MVP).
 
 | ID | Fitur | Deskripsi |
 |----|-------|-----------|
-| ADM-01 | Kelola kreator | CRUD data kreator hasil rekrutan off-platform (bukan approval). Set status akun, payment info, threshold terpenuhi. **2026-08-20: + "Buat akun kreator"** — provision akun login passwordless (Supabase Auth admin API create user TANPA password + `email_confirm=true`, `user_metadata.role='creator'`, set `profiles.role='creator'`, isi `creators.user_id`, kirim akses login via Cloudflare Email Service — binding `send_email`, gate `EMAIL_ENABLED`). **2026-08-21: TERIMPLEMENTASI** via endpoint `POST /api/admin/users/provision` (gate admin aal2, service-role, ter-audit) + form di admin app; akses login email ber-flag `EMAIL_ENABLED` (default OFF di dev) |
+| ADM-01 | Kelola kreator | CRUD data kreator hasil rekrutan off-platform (bukan approval). Set status akun, payment info, threshold terpenuhi. **2026-08-20: + "Buat akun kreator"** — provision akun login passwordless (Supabase Auth admin API create user TANPA password + `email_confirm=true`, `user_metadata.role='creator'`, set `profiles.role='creator'`, isi `creators.user_id`, kirim akses login via Cloudflare Email Service — binding `send_email`, gate `EMAIL_ENABLED`). Endpoint dan form admin ter-audit; aksesnya mensyaratkan role admin aktif di server, bukan AAL2. |
 | ADM-02 | Kelola drop | Buat drop (artwork final yang sudah di-approve off-platform, harga, unit, waktu), schedule, publish, tutup drop |
 | ADM-03 | Kelola order & fulfillment | Lihat semua order, update status (paid → QC → shipped → delivered), handle return, input no resi |
 | ADM-04 | NFC provisioning & QC | Register batch tag (assign UUID↔UID), konfigurasi NDEF/SDM, catat hasil QC + defect |
@@ -109,7 +109,7 @@ loyalty (semua post-MVP).
 | ADM-06 | Dispute resolution | Lihat dispute, mediasi, keputusan (refund / strike / suspend) |
 | ADM-07 | Kelola badge (definisi) | CRUD definisi badge: kriteria (mis. koleksi N C.Card, punya C.Card kreator A/B), logo/ikon, **XP reward** (experience untuk naik level) |
 | ADM-08 | Audit log admin | Catat SEMUA aksi admin (siapa, aksi, target, payload ringkas, IP/session, waktu) — **append-only, tidak bisa edit/hapus**; view + filter di admin app |
-| ADM-09 | 2FA admin | Supabase MFA **TOTP wajib** untuk SEMUA akun admin: enrollment (scan QR + recovery codes) saat pertama login, lalu challenge TOTP tiap login sebelum UI privileged terbuka (sesi aal2) |
+| ADM-09 | Kontrol akses admin | Login Supabase email OTP membuka UI; host dibatasi Cloudflare Access founder allowlist + WARP. Read mengikuti policy RLS; route privileged memeriksa role admin dan suspension di API. Audit log append-only tetap berlaku. MFA/TOTP aplikasi tidak wajib. |
 | ADM-10 | Investor Data Pack | Halaman `/investor` — ringkasan metrik kunci (GMV, user growth, drop performance, creator earnings, secondary volume) untuk founder tarik data cepat saat meeting fundraising. **BUKAN untuk publik** |
 
 ### WON'T (this release)

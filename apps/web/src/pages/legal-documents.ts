@@ -589,7 +589,7 @@ const kyc: LegalDocument = {
       title: "6. Keamanan dan Retensi",
       bullets: [
         "Dokumen KYC disimpan pada penyimpanan private dengan enkripsi saat transit dan kontrol akses terbatas.",
-        "Akses admin dilindungi autentikasi, MFA, Cloudflare Access, audit log, dan prinsip least privilege.",
+        "Akses admin dilindungi login email OTP, pemeriksaan role admin, Cloudflare Access dengan perangkat WARP, audit log, dan prinsip least privilege.",
         "Data disimpan selama diperlukan untuk tujuan KYC, sengketa, audit, dan kewajiban hukum, lalu dihapus atau dibatasi.",
       ],
     },

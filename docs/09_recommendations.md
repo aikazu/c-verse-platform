@@ -13,7 +13,7 @@
 
 | Priority | Area | Mengapa |
 |----------|------|---------|
-| P0 | **Domain + Cloudflare setup** (08_deployment.md) | NFC provisioning butuh domain final. Beli/transfer domain, setup zone, DNS, Pages, Workers |
+| P0 | **Domain + Cloudflare setup** (08_deployment.md) | NFC provisioning butuh domain final. Setup zone, DNS, Cloudflare Workers Static Assets, dan Service Binding |
 | P0 | **Auth + Wallet engine** (F001, F036) | Semua fitur bergantung pada auth (Google OAuth + email OTP) dan wallet C-Coin (ledger immutable, top-up, escrow) |
 | P0 | **SEO Worker + HTMLRewriter** | Halaman kreator `/c/:username` dan kartu `/cards/:shortId/3d` harus ter-index Google sejak launch. Build 2-3 hari, Worker di depan SPA inject OG meta + JSON-LD + sitemap |
 | P1 | **Drop + Checkout raffle hybrid** (F004, F005) | Core loop: admin bikin drop -> raffle entry 24 jam (pool + hold) -> draw otomatis -> FCFS sisa -> vault default, ship-out opsional |
@@ -34,7 +34,7 @@
   Semua pembelian release saat SETTLED (founder 2026-08-28:
   purchase → vault only — tanpa jalur shipping di checkout).
 - **Idempotency key**: wajib di semua webhook (top-up, payout callback).
-- **Minimum payout**: 10 C-Coin. Saldo menumpuk sampai threshold.
+- **Minimum payout**: 10 C-Gems. Saldo penghasilan menumpuk sampai threshold.
 
 ### 2.2 Vault-First Architecture
 - **Default semua transaksi**: kartu tetap di vault platform.

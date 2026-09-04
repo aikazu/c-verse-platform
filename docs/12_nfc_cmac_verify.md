@@ -1,11 +1,10 @@
 # 12 — NFC CMAC Verify (provenance sesungguhnya)
 
-> Status: [DRAFT — SPEC SIAP EKSEKUSI]
+> Status: [VALIDATED] — implementasi kode; validasi perangkat fisik C-03 masih pending.
 > Created: 2026-08-15
-> Basis audit: `apps/api/src/modules/nfc/routes.ts` — endpoint `verify-nfc` menerima
-> `cmac`+`counter` lalu MENGABAIKANNYA; verdict "verified" hanya dari lookup
-> UID. Badge "Verified Card" bisa dipalsukan siapa pun yang tahu UID.
-> Estimasi: 2-4 hari AI-assisted. Dependency: tidak ada (paralel dengan 10/11).
+> Basis audit historis 2026-08-15: endpoint pernah mengabaikan `cmac`+`counter`;
+> kerentanan itu telah ditangani oleh implementasi CMAC server-side dan counter
+> anti-replay. Validasi fisik tag/perangkat tetap merupakan gate terpisah.
 > Mengimplement: keputusan NFC N5 (SUN/SDM — ISO 7816-4 file
 > system, SDM mirror UID+counter+CMAC ke NDEF, server-side CMAC
 > verify; N5b iOS via SUN URL) + `06_tech_decisions.md`
@@ -120,6 +119,9 @@ Hasil C-03 dicatat di `07_constraints.md` (update status DRAFT → hasil).
 
 ## 4. Test Wajib (vitest)
 
+> Checkbox di bagian ini adalah bukti eksekusi/rekam validasi yang perlu
+> dipertahankan; status kosong bukan pernyataan bahwa kode kripto belum ada.
+
 - [ ] AES-CMAC RFC 4493 test vectors (publik) pass.
 - [ ] NXP AN12196 SUN sample vector pass (dari dokumen NXP).
 - [ ] `verifySun`: cmac salah 1 byte → invalid; ctr format aneh → bad_format.
@@ -138,6 +140,9 @@ Hasil C-03 dicatat di `07_constraints.md` (update status DRAFT → hasil).
 
 ## 6. Acceptance Criteria
 
+> Acceptance criteria perangkat fisik di bawah belum dinyatakan lulus sampai
+> C-03 selesai; implementasi route dan kriptografi tidak ditunda oleh checkbox ini.
+
 - [ ] Tap kartu fisik (Chrome Android) → URL SUN → server verified.
 - [ ] QLIP/clone URL dengan cmac ngawur → rejected + fraud signal tercatat.
 - [ ] Replay URL yang sama (ctr sama) → kedua kali ditolak.
@@ -151,7 +156,7 @@ Hasil C-03 dicatat di `07_constraints.md` (update status DRAFT → hasil).
   compare → parse TagTamper status), N5b (iOS SUN URL — Web NFC
   API TIDAK support di iOS, tapi tap-to-verify jalan via SUN URL,
   koreksi 2026-08-12).
-- `dev-strategy/06_tech_decisions.md` D2, D4 (CMAC < 1ms, master key di
+- `06_tech_decisions.md` D2, D4 (CMAC < 1ms, master key di
   Workers Secrets, O-1).
-- `dev-strategy/07_constraints.md` C-03, C-04.
+- `07_constraints.md` C-03, C-04.
 - NXP AN12196 (SUN), RFC 4493 (AES-CMAC).

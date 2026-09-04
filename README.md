@@ -52,7 +52,7 @@ flowchart LR
 
 - **Web development** → Worker `c-verse-web-dev` di `dev.c-verse.co`, dilindungi Access + posture WARP. Worker menyajikan Static Assets, menginjeksi `og:*` + `JSON-LD`, dan meneruskan `/api/*` ke API privat lewat Service Binding. Root `c-verse.co` tetap halaman Coming Soon.
 - **API** → Hono Worker `c-verse-api` tanpa custom domain, `workers.dev`, atau preview URL. Hanya gateway web/admin yang memanggilnya lewat Service Binding; cron tetap berjalan langsung pada Worker. Supabase wajib — tanpa `SUPABASE_URL` API mati keras di startup (`src/index.ts:27`), tidak ada mode in-memory.
-- **Admin** → Worker `c-verse-admin` di `admin.c-verse.co`, dilindungi Access + posture WARP. Baca lewat anon key + RLS policy admin; **semua mutasi** lewat `/api/admin/*` role-gated supaya ter-audit. 2FA TOTP (`aal2`) wajib, audit log append-only.
+- **Admin** → Worker `c-verse-admin` di `admin.c-verse.co`, dilindungi Access founder allowlist + posture WARP. Login aplikasi memakai Supabase email OTP; baca lewat anon key + RLS policy admin, dan **semua mutasi** lewat `/api/admin/*` dengan pemeriksaan role admin serta suspension di server supaya ter-audit. Audit log append-only.
 
 ---
 
@@ -102,7 +102,7 @@ Template per app — copy `<folder>/.env.example` jadi file lokal masing-masing:
 | App | Copy dari | Jadi | Isi |
 |---|---|---|---|
 | `apps/web` | `apps/web/.env.example` | `.env.local` | `VITE_SUPABASE_*` (anon only), `VITE_TURNSTILE_SITE_KEY` |
-| `apps/admin` | `apps/admin/.env.example` | `.env.local` | `VITE_SUPABASE_*` (anon + MFA, di belakang Access), `VITE_API_URL` (dev `http://localhost:8787`, kosong = same-origin) |
+| `apps/admin` | `apps/admin/.env.example` | `.env.local` | `VITE_SUPABASE_*` (anon, di belakang Access/WARP), `VITE_API_URL` (dev `http://localhost:8787`, kosong = same-origin) |
 | `apps/api` | `apps/api/.env.example` | `.dev.vars` (dipakai Wrangler **dan** Node) | `SUPABASE_*`, `NFC_MASTER_KEY`, `MIDTRANS_*`, `PAYOUT_WEBHOOK_SIGNING_KEY`, `EMAIL_*`/`ADMIN_ALERT_EMAIL` (Cloudflare Email Service) |
 
 Secrets prod via `wrangler secret put` — tidak pernah di repo. Turnstile secret & sender email OTP dikonfigurasi di **Supabase Dashboard** (dipakai GoTrue), bukan dibaca API. Email transaksional API via Cloudflare Email Service (`EMAIL_ENABLED`/`EMAIL_FROM`/`ADMIN_ALERT_EMAIL`).
@@ -123,7 +123,7 @@ Login **tanpa password** — email OTP atau Google. UUID fixed di `supabase/seed
 | Role | Email | Saldo | Catatan |
 |------|-------|-------|---------|
 | Kolektor | `demo@cverse.id` | 120 C-Coin | 45 XP, order + vault card |
-| Admin | `admin@cverse.id` | 50 C-Coin | butuh TOTP `aal2` di admin app |
+| Admin | `admin@cverse.id` | 50 C-Coin | email OTP; host hanya lewat Access founder allowlist + WARP |
 | Kreator | `karina@creator.id` | 0 C-Coin | 120 XP (seed creator) |
 
 ---
@@ -227,7 +227,7 @@ Belum diimplementasi: notifikasi in-app/push (F010, F013). Email transaksional A
 | `/home` | Home |
 | `/drops/:id/checkout` | Checkout (settle langsung ke vault — tanpa alamat/ongkir) |
 | `/orders` · `/orders/:id` | Daftar & timeline `paid → qc → settled` (tracking hanya di shipment `vault_shipout`) |
-| `/wallet` | Saldo + ledger + top-up (cap non-KYC 500 C) + payout (min 10 C, fee 1%) |
+| `/wallet` | Saldo + ledger + top-up (cap non-KYC 500 C-Coin) + payout (min 10 C-Gems, fee 1%) |
 | `/collection` · `/me` | Koleksi + level/badge |
 | `/me/manage` | Kelola kartu — buyout, bid accept, ship-from-vault |
 | `/me/privacy` | `is_anonymous` + 2 consent toggles |
@@ -252,7 +252,7 @@ Guard login dilakukan per halaman (`if (!user)`), bukan lewat wrapper route.
 | `/audit` | ADM-08 | Append-only, retensi ≥1 th |
 | `/investor` | ADM-10 | GMV · users · drops · secondary (bukan publik) |
 
-Gate berlapis: tanpa env Supabase → layar config error; tanpa session → login email magic link; session tanpa `aal2` → challenge TOTP. UI privileged baru terbuka setelah `aal2`.
+Gate berlapis: tanpa env Supabase → layar config error; tanpa session → login email OTP; session membuka UI admin. Read mengikuti policy RLS; route privileged memeriksa role admin dan suspension di API. Access founder allowlist + posture WARP menolak request di perimeter sebelum Worker.
 
 ---
 
@@ -263,7 +263,7 @@ Gate berlapis: tanpa env Supabase → layar config error; tanpa session → logi
 | Rate | **1 C-Coin = Rp 10.000** (ceiling dari IDR) | `C_COIN_RATE_IDR` |
 | Nominal | **integer ≥ 1**, tanpa desimal (`CHECK x >= 1`) | `packages/shared` |
 | Cap saldo | **500 C** non-KYC (≈ Rp 5 jt); KYC approved = tanpa cap | `BALANCE_CAP_CCOIN` (07 C-08) |
-| Min payout | **10 C** (Rp 100 rb), fee **1%** | `MIN_PAYOUT_CCOIN` |
+| Min payout | **10 C-Gems** (Rp 100 rb), fee **1%** | `MIN_PAYOUT_CCOIN` (nama konstanta legacy; nilai diterapkan pada C-Gems) |
 | Harga signed | **unsigned + 20 C** FLAT (bukan multiplier) | `SIGNED_PRICE_DELTA_CCOIN` |
 | Level | `floor(total_xp / 10) + 1`, clamp 1..100 | `calcLevel` |
 | Primary | **70/30** platform/creator (platform-produced; creator-produced defer Y2+) | `REVENUE_SHARE_PLATFORM_PRODUCED` |
@@ -319,7 +319,7 @@ Cron Workers (`wrangler.toml` — 3 trigger):
 |---|---|---|
 | `* * * * *` | tiap 1 menit | drain antrean email transaksional saat `EMAIL_ENABLED=true` |
 | `*/5 * * * *` | tiap 5 menit | `activate_scheduled_drops` → `draw_pending_drops` (settlement pembelian langsung di RPC, tanpa escrow cron — founder 2026-08-28) |
-| `0 23 * * 1` | Selasa 06:00 | `payout_batch_run` (fee 1%, KYC + hold + min 10 C) |
+| `0 23 * * 1` | Selasa 06:00 | `payout_batch_run` (fee 1%, KYC + hold + min 10 C-Gems) |
 
 **Go-live checklist** (08): SSL aktif, `/health` OK, NFC verify di device nyata, RLS tanpa leak `service_role`, secret tidak di bundle, email OTP terkirim, cron OK, T&C + cap saldo live sebelum top-up uang riil.
 
@@ -361,7 +361,7 @@ Angka kanonik ada di `docs/00_readme.md` §4 **dan** `packages/shared/src/index.
 - **Vault-first** — `platform_vault` adalah default; ship-from-vault kapan saja.
 - **No auction timer** di MVP (defer — 07 C-07).
 - **Passwordless** — Google OAuth + email OTP saja; jangan reintroduce login password.
-- **Admin app terpisah dan WARP-only** — Worker gateway + Access, anon key + RLS, dan `aal2`; mutasi lewat Service Binding ke `/api/admin/*` (+ `/api/kyc/:id/approve`, `PATCH /api/drops/:id/status`, `PATCH /api/shipments/:id/status`) yang role-gated dan ter-audit `admin_audit_log`.
+- **Admin app terpisah dan WARP-only** — Worker gateway + Access founder allowlist, anon key + RLS, email OTP, serta pemeriksaan role admin dan suspension di server; mutasi lewat Service Binding ke `/api/admin/*` (+ `/api/kyc/:id/approve`, `PATCH /api/drops/:id/status`, `PATCH /api/shipments/:id/status`) yang ter-audit `admin_audit_log`.
 - **Uang & stok wajib RPC** — tidak ada UPDATE saldo/stok langsung dari aplikasi.
 
 ---
