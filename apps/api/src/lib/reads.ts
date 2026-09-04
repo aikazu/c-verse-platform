@@ -218,9 +218,9 @@ export function mapKycRow(r: Row): KycRecord {
     createdAt: str(r.created_at),
     updatedAt: nstr(r.updated_at) ?? undefined,
     dob: nstr(r.dob) ?? null,
-    ktpUrl: nstr(r.ktp_url) ?? null,
-    npwpUrl: nstr(r.npwp_url) ?? null,
-    selfieUrl: nstr(r.selfie_url) ?? null,
+    ktpObjectKey: nstr(r.ktp_object_key) ?? null,
+    npwpObjectKey: nstr(r.npwp_object_key) ?? null,
+    selfieObjectKey: nstr(r.selfie_object_key) ?? null,
   };
 }
 

@@ -134,7 +134,7 @@ describe("userDb request headers (lib/db.ts)", () => {
   // `wrangler secret put`) must fail fast, matching getSupabase in lib/supabase.ts.
   it("throws when SUPABASE_ANON_KEY is missing — silent fallback would re-enable the hosted Kong bug", () => {
     process.env.SUPABASE_URL = "https://test-project.supabase.co";
-    delete process.env.SUPABASE_ANON_KEY;
+    Reflect.deleteProperty(process.env, "SUPABASE_ANON_KEY");
     expect(() => userDb("user-jwt-token")).toThrow(/SUPABASE_ANON_KEY/);
   });
 });

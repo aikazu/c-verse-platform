@@ -179,9 +179,6 @@ importers:
       hono:
         specifier: ^4.13.5
         version: 4.13.5
-      hono-rate-limiter:
-        specifier: ^0.5.3
-        version: 0.5.3(hono@4.13.5)
       jose:
         specifier: ^6.2.10
         version: 6.2.10
@@ -189,9 +186,6 @@ importers:
         specifier: ^4.4.3
         version: 4.4.3
     devDependencies:
-      '@cloudflare/workers-types':
-        specifier: ^5.20260828.1
-        version: 5.20260828.1
       '@types/node':
         specifier: ^26.4.0
         version: 26.4.0
@@ -1183,15 +1177,6 @@ packages:
     engines: {node: ^8.16.0 || ^10.6.0 || >=11.0.0}
     os: [darwin]
 
-  hono-rate-limiter@0.5.3:
-    resolution: {integrity: sha512-M0DxbVMpPELEzLi0AJg1XyBHLGJXz7GySjsPoK+gc5YeeBsdGDGe+2RvVuCAv8ydINiwlbxqYMNxUEyYfRji/A==}
-    peerDependencies:
-      hono: ^4.10.8
-      unstorage: ^1.17.3
-    peerDependenciesMeta:
-      unstorage:
-        optional: true
-
   hono@4.13.5:
     resolution: {integrity: sha512-O6+/eCYRkzzzy0rPWwKLiGBR1nFuUPZynnwjxN1MBA62NNqbT0wQEzQyK2gSO5yDIDB336sXQleAhOHrzlYyKw==}
     engines: {node: '>=16.9.0'}
@@ -1674,7 +1659,8 @@ snapshots:
   '@cloudflare/workerd-windows-64@1.20260826.1':
     optional: true
 
-  '@cloudflare/workers-types@5.20260828.1': {}
+  '@cloudflare/workers-types@5.20260828.1':
+    optional: true
 
   '@cspotcode/source-map-support@0.8.1':
     dependencies:
@@ -2248,10 +2234,6 @@ snapshots:
 
   fsevents@2.3.3:
     optional: true
-
-  hono-rate-limiter@0.5.3(hono@4.13.5):
-    dependencies:
-      hono: 4.13.5
 
   hono@4.13.5: {}
 

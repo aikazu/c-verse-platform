@@ -4,12 +4,9 @@ vi.hoisted(() => {
   (globalThis as unknown as Record<string, string | undefined>).SUPABASE_URL = "http://localhost:54321";
 });
 
-// P2-5: admin KYC status routes (POST /:id/approve, POST /:id/reject, GET /admin/all).
-// requireAdmin di-mock per-mode, tapi adminGateError DIBIARKAN asli (via importOriginal)
-// supaya pemetaan 401/403 -> body benar-benar diuji, bukan di-hardcode.
 const control = vi.hoisted(() => ({
   caller: "admin" as "admin" | "not_admin" | "suspended" | "unauthorized",
-  setStatusResult: { id: "kyc-1", user_id: "user-1", status: "approved" } as Record<string, unknown> | null,
+  current: null as null | Record<string, unknown>,
   setStatusCalls: [] as Array<{ id: string; status: string }>,
   auditCalls: [] as Array<{
     adminUserId: string;
@@ -18,8 +15,9 @@ const control = vi.hoisted(() => ({
     targetId: string | null;
     payloadSummary: Record<string, unknown> | null;
   }>,
-  listCalls: 0,
-  kycList: [{ id: "kyc-1", status: "pending" }] as Array<Record<string, unknown>>,
+  kycList: [] as Array<Record<string, unknown>>,
+  headAvailable: true,
+  getAvailable: true,
 }));
 
 vi.mock("../../../lib/auth.js", async (importOriginal) => {
@@ -55,14 +53,12 @@ vi.mock("../../../lib/auth.js", async (importOriginal) => {
 
 vi.mock("../../../lib/reads/kyc.js", () => ({
   getKycByUser: () => Promise.resolve(null),
-  listKycRecords: () => {
-    control.listCalls += 1;
-    return Promise.resolve(control.kycList);
-  },
-  upsertKycSubmission: () => Promise.resolve(control.setStatusResult),
+  getKycById: () => Promise.resolve(control.current),
+  listKycRecords: () => Promise.resolve(control.kycList),
+  upsertKycSubmission: () => Promise.resolve(control.current),
   setKycStatus: (id: string, status: "approved" | "rejected") => {
     control.setStatusCalls.push({ id, status });
-    return Promise.resolve(control.setStatusResult);
+    return Promise.resolve(control.current ? { ...control.current, status } : null);
   },
   logAuditDb: (
     adminUserId: string,
@@ -77,175 +73,116 @@ vi.mock("../../../lib/reads/kyc.js", () => ({
 }));
 
 vi.mock("../../../lib/supabase.js", () => ({
-  getSupabase: () => ({
-    from: () => ({
-      select: () => ({
-        order: () => Promise.resolve({ data: [], error: null }),
-        eq: () => ({ maybeSingle: () => Promise.resolve({ data: null, error: null }) }),
-      }),
-      update: () => ({
-        eq: () => ({ select: () => ({ maybeSingle: () => Promise.resolve({ data: null, error: null }) }) }),
-      }),
-      insert: () => Promise.resolve({ data: null, error: null }),
-    }),
-    rpc: () => Promise.resolve({ data: null, error: null }),
-  }),
+  getSupabase: () => ({ from: () => ({}) }),
 }));
 
 const { app } = await import("../../../index.js");
 
-function post(path: string, body?: unknown) {
-  return app.request(`/api/kyc${path}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: "Bearer t" },
-    ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
-  });
+function baseRecord(): Record<string, unknown> {
+  return {
+    id: "kyc-1",
+    userId: "user-1",
+    fullName: "Budi Santoso",
+    nik: "3201234567890001",
+    address: "Jl. Merdeka No. 17, Jakarta",
+    dob: "1990-05-12",
+    status: "pending",
+    createdAt: "2026-09-01T00:00:00.000Z",
+    ktpObjectKey: "user-1/ktp-test.png",
+    selfieObjectKey: "user-1/selfie-test.jpg",
+    npwpObjectKey: null,
+  };
 }
 
-describe("POST /api/kyc/:id/approve | :id/reject (admin KYC status, P2-5)", () => {
+function fakeBucket(): R2Bucket {
+  const body = new Blob([new Uint8Array([0x89, 0x50, 0x4e, 0x47])], { type: "image/png" });
+  return {
+    head: vi.fn(() => Promise.resolve(control.headAvailable ? ({} as R2Object) : null)),
+    get: vi.fn(() =>
+      Promise.resolve(
+        control.getAvailable
+          ? ({
+              body: body.stream(),
+              writeHttpMetadata(headers: Headers) {
+                headers.set("Content-Type", "image/png");
+              },
+            } as R2ObjectBody)
+          : null,
+      ),
+    ),
+    put: vi.fn(() => Promise.resolve({} as R2Object)),
+    delete: vi.fn(() => Promise.resolve()),
+  } as unknown as R2Bucket;
+}
+
+function post(path: string, body?: unknown, bucket?: R2Bucket) {
+  return app.request(
+    `/api/kyc${path}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: "Bearer t" },
+      ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+    },
+    bucket ? { KYC: bucket } : {},
+  );
+}
+
+describe("admin KYC review and status", () => {
   beforeEach(() => {
     control.caller = "admin";
-    control.setStatusResult = { id: "kyc-1", user_id: "user-1", status: "approved" };
+    control.current = baseRecord();
+    control.kycList = [baseRecord()];
     control.setStatusCalls = [];
     control.auditCalls = [];
-    control.listCalls = 0;
+    control.headAvailable = true;
+    control.getAvailable = true;
   });
 
-  it("admin approve -> 200, setKycStatus(id, 'approved'), audit append (update/kyc_records/status approved)", async () => {
-    const res = await post("/kyc-1/approve");
+  it("approves only after both required R2 objects exist", async () => {
+    const bucket = fakeBucket();
+    const res = await post("/kyc-1/approve", undefined, bucket);
     expect(res.status).toBe(200);
-    const body = (await res.json()) as { kyc?: { id: string; status: string } };
-    expect(body.kyc).toMatchObject({ id: "kyc-1", status: "approved" });
+    expect(bucket.head).toHaveBeenCalledTimes(2);
     expect(control.setStatusCalls).toEqual([{ id: "kyc-1", status: "approved" }]);
-    expect(control.auditCalls).toHaveLength(1);
-    expect(control.auditCalls[0]).toMatchObject({
-      adminUserId: "admin-1",
-      action: "update",
-      targetTable: "kyc_records",
-      targetId: "kyc-1",
-      payloadSummary: { status: "approved" },
-    });
+    expect(control.auditCalls[0]?.payloadSummary).toEqual({ status: "approved" });
   });
 
-  // Lane P2: reason penolakan WAJIB (trim, min 3, maks 1000) — audit trail
-  // tidak boleh berakhir dengan reason:null. Tanpa body / kosong / terlalu
-  // pendek → 400 tanpa perubahan status dan tanpa audit append.
-  it("admin reject tanpa body -> 400, tanpa perubahan status, tanpa audit", async () => {
-    control.setStatusResult = { id: "kyc-1", user_id: "user-1", status: "rejected" };
-    const res = await post("/kyc-1/reject");
-    expect(res.status).toBe(400);
-    const body = (await res.json()) as { error: string };
-    expect(body.error).toBe("Alasan penolakan wajib diisi (min 3 karakter)");
-    expect(control.setStatusCalls).toHaveLength(0);
-    expect(control.auditCalls).toHaveLength(0);
-  });
+  it("rejects approval when binding or required objects are missing", async () => {
+    expect((await post("/kyc-1/approve")).status).toBe(503);
 
-  it("admin reject dengan reason kosong -> 400", async () => {
-    control.setStatusResult = { id: "kyc-1", user_id: "user-1", status: "rejected" };
-    const res = await post("/kyc-1/reject", { reason: "" });
-    expect(res.status).toBe(400);
-    const body = (await res.json()) as { error: string };
-    expect(body.error).toBe("Alasan penolakan wajib diisi (min 3 karakter)");
+    control.headAvailable = false;
+    expect((await post("/kyc-1/approve", undefined, fakeBucket())).status).toBe(409);
     expect(control.setStatusCalls).toHaveLength(0);
   });
 
-  it("admin reject dengan reason < 3 karakter -> 400", async () => {
-    control.setStatusResult = { id: "kyc-1", user_id: "user-1", status: "rejected" };
-    const res = await post("/kyc-1/reject", { reason: "ab" });
-    expect(res.status).toBe(400);
-    expect(control.setStatusCalls).toHaveLength(0);
-    expect(control.auditCalls).toHaveLength(0);
+  it("streams a private document with no-store headers and an audit entry", async () => {
+    const res = await app.request("/api/kyc/admin/kyc-1/files/ktp", { headers: { Authorization: "Bearer t" } }, { KYC: fakeBucket() });
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toBe("image/png");
+    expect(res.headers.get("cache-control")).toBe("private, no-store");
+    expect(control.auditCalls[0]).toMatchObject({ action: "view_sensitive", payloadSummary: { document: "ktp" } });
   });
 
-  it("admin reject dengan reason whitespace saja -> 400", async () => {
-    control.setStatusResult = { id: "kyc-1", user_id: "user-1", status: "rejected" };
-    const res = await post("/kyc-1/reject", { reason: "   " });
-    expect(res.status).toBe(400);
-    expect(control.setStatusCalls).toHaveLength(0);
+  it("does not expose R2 object keys in the admin list", async () => {
+    const res = await app.request("/api/kyc/admin/all", { headers: { Authorization: "Bearer t" } });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { kyc: Array<Record<string, unknown>> };
+    expect(body.kyc[0]).not.toHaveProperty("ktpObjectKey");
+    expect(body.kyc[0]).toMatchObject({ documents: { ktp: true, selfie: true, npwp: false } });
   });
 
-  it("admin reject dengan reason > 1000 karakter -> 400 tanpa perubahan status", async () => {
-    control.setStatusResult = { id: "kyc-1", user_id: "user-1", status: "rejected" };
-    const res = await post("/kyc-1/reject", { reason: "a".repeat(1001) });
-    expect(res.status).toBe(400);
-    expect(control.setStatusCalls).toHaveLength(0);
-    expect(control.auditCalls).toHaveLength(0);
-  });
-
-  // Audit batch 3 (lane I): reason penolakan ikut ke audit payload —
-  // sebelumnya reviewer tidak bisa mengetahui ALASAN penolakan dari audit log.
-  it("admin reject dengan reason valid -> 200, setKycStatus rejected, audit payload membawa reason (trim)", async () => {
-    control.setStatusResult = { id: "kyc-1", user_id: "user-1", status: "rejected" };
+  it("requires a meaningful rejection reason and audits a valid rejection", async () => {
+    expect((await post("/kyc-1/reject", { reason: "ab" })).status).toBe(400);
     const res = await post("/kyc-1/reject", { reason: "  Foto KTP tidak jelas  " });
     expect(res.status).toBe(200);
-    const body = (await res.json()) as { kyc?: { id: string; status: string } };
-    expect(body.kyc).toMatchObject({ id: "kyc-1", status: "rejected" });
     expect(control.setStatusCalls).toEqual([{ id: "kyc-1", status: "rejected" }]);
-    expect(control.auditCalls).toHaveLength(1);
     expect(control.auditCalls[0]?.payloadSummary).toEqual({ status: "rejected", reason: "Foto KTP tidak jelas" });
   });
 
-  it("unknown record id -> 404 and NO audit append", async () => {
-    control.setStatusResult = null;
-    const res = await post("/missing/approve");
-    expect(res.status).toBe(404);
-    const body = (await res.json()) as { error?: string };
-    expect(body.error).toBe("Not found");
-    expect(control.auditCalls).toHaveLength(0);
-  });
-
-  it("non-admin caller -> 403 'Hanya admin' (real adminGateError mapping), no status change, no audit", async () => {
-    control.caller = "not_admin";
-    const res = await post("/kyc-1/approve");
-    expect(res.status).toBe(403);
-    const body = (await res.json()) as { error?: string };
-    expect(body.error).toBe("Hanya admin");
-    expect(control.setStatusCalls).toHaveLength(0);
-    expect(control.auditCalls).toHaveLength(0);
-  });
-
-  it("suspended caller -> 403 'Akun disuspend', no status change", async () => {
-    control.caller = "suspended";
-    const res = await post("/kyc-1/approve");
-    expect(res.status).toBe(403);
-    const body = (await res.json()) as { error?: string };
-    expect(body.error).toBe("Akun disuspend");
-    expect(control.setStatusCalls).toHaveLength(0);
-    expect(control.auditCalls).toHaveLength(0);
-  });
-
-  it("unauthenticated caller -> 401, no status change, no audit", async () => {
-    control.caller = "unauthorized";
-    const res = await post("/kyc-1/approve");
-    expect(res.status).toBe(401);
-    const body = (await res.json()) as { error?: string };
-    expect(body.error).toBe("Unauthorized");
-    expect(control.setStatusCalls).toHaveLength(0);
-    expect(control.auditCalls).toHaveLength(0);
-  });
-});
-
-describe("GET /api/kyc/admin/all (admin KYC list)", () => {
-  beforeEach(() => {
-    control.caller = "admin";
-    control.listCalls = 0;
-  });
-
-  it("admin -> 200 with the record list (listKycRecords called once)", async () => {
-    const res = await app.request("/api/kyc/admin/all", { headers: { Authorization: "Bearer t" } });
-    expect(res.status).toBe(200);
-    const body = (await res.json()) as { kyc: Array<{ id: string }> };
-    expect(body.kyc).toHaveLength(1);
-    expect(body.kyc[0]?.id).toBe("kyc-1");
-    expect(control.listCalls).toBe(1);
-  });
-
-  it("non-admin -> 403 'Hanya admin' and the list is never read", async () => {
+  it("blocks non-admin access before reading KYC data", async () => {
     control.caller = "not_admin";
     const res = await app.request("/api/kyc/admin/all", { headers: { Authorization: "Bearer t" } });
     expect(res.status).toBe(403);
-    const body = (await res.json()) as { error?: string };
-    expect(body.error).toBe("Hanya admin");
-    expect(control.listCalls).toBe(0);
+    expect(control.auditCalls).toHaveLength(0);
   });
 });

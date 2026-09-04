@@ -31,7 +31,12 @@ import type {
   ApiWalletResponse,
 } from "./api-types";
 
-const API_BASE = "";
+// Empty in local development so Vite proxies /api to Wrangler. The explicit
+// production fallback keeps the app operational until api.c-verse.co can be
+// attached from the Cloudflare account that owns the zone.
+const API_BASE = (
+  (import.meta.env.VITE_API_URL as string | undefined) ?? (import.meta.env.PROD ? "https://c-verse-api.gaeunwong.workers.dev" : "")
+).replace(/\/$/, "");
 
 // metadata pagination dari endpoint list server-side (lihat apps/api reads.ts PageMeta)
 export interface PagedMeta {
@@ -60,11 +65,11 @@ export function setApiToken(token: string | null) {
 }
 
 async function req<T>(path: string, opts: RequestInit = {}): Promise<T> {
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-    ...(sessionToken ? { Authorization: `Bearer ${sessionToken}` } : {}),
-    ...((opts.headers as Record<string, string>) || {}),
-  };
+  const headers = new Headers(opts.headers);
+  if (opts.body != null && !(opts.body instanceof FormData) && !headers.has("Content-Type")) {
+    headers.set("Content-Type", "application/json");
+  }
+  if (sessionToken) headers.set("Authorization", `Bearer ${sessionToken}`);
   const res = await fetch(`${API_BASE}/api${path}`, { ...opts, headers });
   const data = (await res.json().catch(() => ({}))) as { error?: string; message?: string; code?: string };
   if (!res.ok) throw new ApiError(data.error || data.message || `HTTP ${res.status}`, res.status, data.code);
@@ -288,9 +293,10 @@ export const api = {
   badges: () => req<ApiBadgesResponse>("/gamification/badges"),
 
   // kyc
-  // Body validated server-side by kycSchema. Server source of truth.
+  // Multipart is proxied through the Worker into private R2; the browser never
+  // receives R2 credentials or controls persisted object keys.
   kyc: () => req<ApiKycResponse>("/kyc"),
-  submitKyc: (body: Record<string, unknown>) => req<ApiKycResponse>("/kyc", { method: "POST", body: JSON.stringify(body) }),
+  submitKyc: (body: FormData) => req<ApiKycResponse>("/kyc", { method: "POST", body }),
 
   // notifications — P0-3 inbox (audit 2026-08-24).
   notifications: (limit = 30) =>

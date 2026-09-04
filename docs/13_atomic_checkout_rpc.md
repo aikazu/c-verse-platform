@@ -2,7 +2,7 @@
 
 > Status: [IMPLEMENTED 2026-08-16] — spec ini historis; kondisi akhir:
 > semua uang & stok lewat RPC single-transaction di
-> `supabase/migrations/*.sql` (18 file bernomor; RPC di 07–17), `store.ts` tinggal type + helper
+> `supabase/migrations/*.sql` (21 file; RPC di 07–17), `store.ts` tinggal type + helper
 > murni (bukan data), tidak ada fallback in-memory.
 > Created: 2026-08-15; updated: 2026-08-18
 > Basis audit awal: seluruh route API pakai `apps/api/src/lib/store.ts` (Map

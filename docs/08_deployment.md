@@ -1,7 +1,9 @@
 # 08 — Deployment Runbook (Step-by-Step)
 
 > Status: [VALIDATED]
-> Last updated: 2026-08-31 (deploy.yml TIDAK ada — deploy manual;
+> Last updated: 2026-09-04 (bucket R2 `cverse-kyc` + binding Worker
+> aktif; upload/review KYC tidak memakai Supabase Storage)
+> Previous: 2026-08-31 (deploy.yml TIDAK ada — deploy manual;
 > email = Cloudflare Email Service)
 > Previous: 2026-08-20 (konvensi angka opex Y1 → Rp 38 jt, burn ~1 jt/bln)
 > Previous: 2026-08-18 (sinkronisasi dengan codebase: pnpm workspace
@@ -21,8 +23,8 @@ repo-root (pnpm workspace, tanpa Turborepo)
 
 Infra pendukung:
 - Supabase (Postgres + Auth + Realtime + Supavisor)
-- Cloudflare R2 (artwork, model 3D, KYC private) — binding masih
-  dikomentari di `wrangler.toml` sampai bucket dibuat
+- Cloudflare R2 (`cverse-kyc` private) — binding `KYC` aktif;
+  artwork/model 3D belum dipindahkan pada tahap ini
 - Cloudflare Cron Triggers (raffle draw, payout batch — settlement
   pembelian langsung di RPC, tanpa cron; founder 2026-08-28)
 - Midtrans (sandbox → prod)
@@ -44,7 +46,7 @@ Akun & kredensial yang harus sudah ada:
 |---|--------------|-----------|
 | 1 | Cloudflare (zone domain) | Pages, Workers, R2, Queues, Cron, Access, DNS |
 | 2 | GitHub (repo) | CI/CD Actions |
-| 3 | Supabase | Postgres, Auth, Realtime, Storage |
+| 3 | Supabase | Postgres, Auth, Realtime (bukan storage KYC) |
 | 4 | Cloudflare Email Service | Email transaksional API (akses kreator + digest cron) — binding `send_email`; sender OTP Supabase Auth dikonfigurasi di Supabase Dashboard, bukan env API |
 | 5 | Midtrans/Xendit (sandbox dulu) | Top-up & disbursement (top-up bisa live setelah T&C final + cap saldo) |
 | 6 | Firebase (FCM) | Push notification — **post-MVP, belum diimplementasi** |
@@ -92,31 +94,44 @@ tidak membacanya (env email API hanya `EMAIL_ENABLED`/`EMAIL_FROM`/
    - Output dir: `apps/web/dist`
    - Root dir: `/`
 3. Environment variables (prod + preview): anon keys Supabase
-   `PUBLIC_SUPABASE_URL`, `PUBLIC_SUPABASE_ANON_KEY`,
-   `PUBLIC_API_URL=https://api.c-verse.co`.
+   `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`,
+   `VITE_API_URL=https://api.c-verse.co`.
 
 ### 3.3 Cloudflare Workers (apps/api)
-1. Buat Worker `cverse-api` (dari `apps/api`).
-2. Route: `api.c-verse.co/*`.
-3. Cron Triggers (`wrangler.toml` — 2 trigger aktif):
+1. Worker bernama `c-verse-api` (dari `apps/api`, sesuai `wrangler.toml`).
+2. Origin aktif 2026-09-04: `https://c-verse-api.gaeunwong.workers.dev`
+   (`workers_dev=true`, preview URL acak dimatikan). Target final tetap
+   `api.c-verse.co`; custom domain belum dapat di-attach karena zona
+   `c-verse.co` berada di akun Cloudflare lain dari akun deployment.
+3. Cron Triggers (`wrangler.toml` — 3 trigger aktif):
    | Cron (UTC) | WIB | Fungsi |
    |------|-----|--------|
+   | `* * * * *` | tiap 1 menit | drain queue email transaksional saat `EMAIL_ENABLED=true` |
    | `*/5 * * * *` | tiap 5 menit | `activate_scheduled_drops` (scheduled→live) → `draw_pending_drops` (drops lewat `raffle_end_at`, idempotent — C-15) — settlement pembelian langsung di RPC (purchase → vault only, founder 2026-08-28) |
    | `0 23 * * 1` | Selasa 06:00 | `payout_batch_run` (settlement mingguan, fee 1%) |
 4. Queues (`email-queue` dll) belum aktif — blok masih dikomentari
    di `wrangler.toml`; aktifkan saat notifikasi diimplementasi.
 5. Secrets (wrangler secret put, TIDAK di repo):
-   `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`,
+   `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`,
    `JWT_SECRET` (JWKS verifikasi), `EMAIL_ENABLED`, `EMAIL_FROM`,
    `ADMIN_ALERT_EMAIL` (Cloudflare Email Service — binding `EMAIL`
    di `wrangler.toml`; SMTP dihapus 2026-08-29),
    `MIDTRANS_SERVER_KEY`, `NFC_MASTER_KEY`,
    `PAYOUT_WEBHOOK_SIGNING_KEY`.
+6. Native Rate Limiting bindings aktif di `wrangler.toml`:
+   auth/payment 30, NFC 60, KYC submit 10, global 600 request per
+   menit per actor + lokasi edge. Ini menggantikan limiter in-memory
+   Node yang tidak kompatibel dengan Workers global scope.
 
 ### 3.4 Cloudflare R2
-- Bucket `cverse-assets` (publik via CDN): artwork, model 3D.
-- Bucket `cverse-kyc` (PRIVATE): KYC dokumen — akses via
-  presigned URL + audit log, TIDAK publik.
+- Bucket `cverse-assets` (publik via CDN): artwork, model 3D — belum
+  dibuat/dihubungkan pada tahap KYC.
+- Bucket `cverse-kyc` (PRIVATE, dibuat 2026-09-04): KTP, selfie,
+  NPWP. Binding `KYC` memakai Workers API `put/get/head/delete`.
+  Browser tidak memakai presigned URL dan tidak memerlukan CORS R2:
+  upload multipart diproksi Worker (maks. 5 MiB/file), review admin
+  lewat endpoint streaming role admin + AAL2, `Cache-Control:
+  private, no-store`, dan audit log per dokumen.
 - Bucket `cverse-qr` (opsional): fallback QR statik per kartu.
 
 ### 3.5 Admin app (apps/admin) — TIDAK di Pages
@@ -127,8 +142,8 @@ tidak membacanya (env email API hanya `EMAIL_ENABLED`/`EMAIL_FROM`/
      `admin.c-verse.co` ke `http://localhost:3000`.
   3. Cloudflare Access: policy **Allow founders** (email list)
      di depan `admin.c-verse.co` — no internet attacker.
-- Env admin: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`
-  (service-role HANYA di sini), `ADMIN_ALLOWED_EMAILS`.
+- Env admin SPA: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`,
+  `VITE_API_URL`; service-role hanya disimpan sebagai secret Worker.
 - Build: `pnpm --filter admin build` → `pnpm --filter admin
   start` (serve statik) di belakang tunnel.
 
@@ -145,8 +160,8 @@ tidak membacanya (env email API hanya `EMAIL_ENABLED`/`EMAIL_FROM`/
    (prod: `https://c-verse.co`, preview: `https://*.pages.dev`).
 4. Migrasi: `npx supabase db push` (atau `npx supabase db reset`
    untuk lokal) — file SQL murni di `supabase/migrations/*.sql`
-   (18 file SQL bernomor, masing-masing ≤300 LoC: 01–03 schema → 04 auth →
-   05–06 RLS → 07–17 RPC → 18 indexes).
+   (21 file SQL: 01–03 schema → 04 auth → 05–06 RLS → 07–17 RPC →
+   18 indexes → 19–20 hardening → migrasi object key KYC R2).
    Cek `npx supabase db lint` untuk drift.
 5. RLS: apply policy per tabel (lihat `05_data_model.md` RLS) —
    verifikasi dengan `supabase/rls` test setelah deploy.
@@ -175,9 +190,9 @@ test endpoint `/health` & CMAC verify di device nyata (C-03).
 #    manual sekali: pnpm dlx wrangler pages deploy \
 #    apps/web/dist --project-name cverse-web)
 
-# 2) API → Workers (variabel + secret sudah di-set):
+# 2) Database lalu API Worker (secret sudah di-set):
+supabase db push             # rename kolom KYC ke *_object_key lebih dulu
 pnpm --filter api deploy     # = wrangler deploy
-supabase db push             # apply supabase/migrations ke Supabase prod (hati-hati)
 pnpm dlx wrangler deploy --cron dist/cron.js   # buat cron Jobs
 
 # 3) Verifikasi:

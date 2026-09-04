@@ -1,7 +1,9 @@
 # 06 — Tech Decisions (Keputusan Arsitektur)
 
 > Status: [VALIDATED]
-> Last updated: 2026-09-03 (D3b: dual-token C-Coin/C-Gems — saldo
+> Last updated: 2026-09-04 (KYC private storage dipindah penuh ke
+> Cloudflare R2 melalui Worker binding)
+> Previous: 2026-09-03 (D3b: dual-token C-Coin/C-Gems — saldo
 > penghasilan, lock 24 jam, payout/conversi)
 > Previous: 2026-08-31 (email = Cloudflare Email Service binding
 > `send_email` — SumoPod SMTP dihapus)
@@ -49,8 +51,9 @@ Admin flow (terpisah):
 | Database | Supabase Postgres (region SG) + Supavisor |
 | ORM | — (query via Supabase client langsung — tidak pakai ORM) |
 | Auth | Supabase Auth (Google OAuth + email OTP, **email OTP wajib captcha anti-spam** — Cloudflare Turnstile), JWKS di Hono |
-| Storage | Cloudflare R2 (artwork, model 3D) — zero egress fee |
+| Storage | Cloudflare R2 (artwork, model 3D, KYC private) — zero egress fee |
 | Queue/async | CF Queues + Cron Triggers |
+| Rate limiting | Native Cloudflare Rate Limiting bindings (auth/payment 30, NFC 60, KYC 10, global 600 request/menit) |
 | Realtime | Supabase Realtime broadcast (< 50 concurrent bidder) |
 | Payment | Midtrans (primary) + Xendit (backup) — HANYA top-up & disbursement |
 | Shipping | Biteship / RajaOngkir |
@@ -68,10 +71,12 @@ Admin flow (terpisah):
 - `apps/admin` dijalankan **lokal** (mesin founder) atau VPS
   kecil + **Cloudflare Access** (Zero Trust). TIDAK di-upload
   ke Cloudflare Pages publik.
-- Admin app akses **Supabase langsung via service-role key**
-  (env var, tidak pernah di bundle publik).
-- **TIDAK ADA route admin di Workers API publik.** Public API
-  hanya untuk user/kreator.
+- Admin app login melalui Supabase Auth memakai anon key; seluruh
+  operasi sensitif melalui route Worker `/api/admin/*` atau route
+  admin per-modul, dengan gate role admin + AAL2 dan audit log.
+- `SUPABASE_SERVICE_ROLE_KEY` hanya berada di Worker, tidak pernah
+  dibundle ke admin SPA. Cloudflare Access tetap menjadi perimeter
+  tambahan untuk host admin.
 - Public app = anon key + RLS. Service-role = admin only.
 - **Catatan (dev shortcut)**: `lib/supabase.ts` di API server saat ini
   prefer `serviceKey ?? anonKey` — service-role dipakai di API publik
@@ -257,7 +262,7 @@ Retensi: minimum 1 tahun (UU PDP + forensik fraud).
 |------|------|--------|
 | O-1 | Detail implementasi CMAC & key derivation di KMS Workers | Sprint 0 |
 | O-2 | Region final Supabase (SG vs lain) | Sprint 0 |
-| O-3 | Struktur bucket R2 (artwork, model 3D, KYC) | Sprint 0 |
+| O-3 | Struktur bucket R2 KYC | **Selesai 2026-09-04: bucket privat `cverse-kyc`, binding `KYC`, akses hanya lewat Worker** |
 | O-4 | Cache strategy TanStack Query | Sprint 0 |
 | O-5 | CI/CD pipeline detail | **Dijawab `08_deployment.md` section 7** |
 | O-6 | Monitoring stack final | Sprint 0 |

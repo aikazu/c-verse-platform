@@ -105,7 +105,7 @@ membatalkan komitmen yang sudah ada.
 | PG-USR-07 | `/me/manage` | Kelola kartu (sell) | Set/ubah/cabut **buyout price**, lihat bid active, accept bid (tanpa reject); **lihat lokasi kartu** (dengan owner / di vault platform) + tombol **"Kirim dari vault"** (ongkir C-Coin) untuk kartu yang dipegang platform — vault adalah default, ship-out kapan saja |
 | PG-USR-07b | `/me/manage/verify-shipment` | Verifikasi kiriman secondary | Halaman USER untuk SELLER secondary input resi pengiriman kartu ke platform (jalur vault). Input hasil verifikasi NFC + QC dilakukan di ADMIN app (ADM-04), BUKAN di web publik — release payout otomatis setelah verifikasi admin |
 | PG-USR-08 | `/notifications` | Notifikasi | List notif (email/FCM) |
-| PG-USR-09 | `/me/kyc` | KYC | Upload KTP/selfie/NPWP (trigger: payout/disbursement ke IDR + akumulasi top-up besar; tidak perlu KYC untuk pasang buyout atau accept bid) |
+| PG-USR-09 | `/me/kyc` | KYC | Upload multipart KTP/selfie/NPWP ke Worker → private Cloudflare R2 (maks. 5 MiB/file; trigger: payout/disbursement ke IDR + akumulasi top-up besar; tidak perlu KYC untuk pasang buyout atau accept bid) |
 | PG-USR-10 | `/me/privacy` | Privacy settings | Toggle **privacy anonymous** (profil tidak tampil publik) |
 
 ## 6. Sitemap — KREATOR (login, role creator)
@@ -134,7 +134,7 @@ membatalkan komitmen yang sudah ada.
 | PG-ADM-07 | `/disputes` | Dispute | ADM-06 | List dispute, mediasi, keputusan |
 | PG-ADM-08 | `/badges` | Kelola badge | ADM-07 | **Definisi badge: kriteria + logo/ikon + XP reward** (admin-configurable, contoh: koleksi N C.Card, punya C.Card kreator A/B) |
 | PG-ADM-09 | `/audit` | Audit log admin | ADM-08 | Lihat semua aksi admin (**append-only**): siapa, aksi, target, payload ringkas, IP/session, waktu — filter |
-| PG-ADM-11 | `/kyc` | Kelola KYC | F014 | Review submission (KTP/selfie), **approve / reject (+ alasan penolakan tercatat di audit log)** |
+| PG-ADM-11 | `/kyc` | Kelola KYC | F014 | Review dokumen private R2 via endpoint terproteksi; object key tidak diekspos; **approve hanya setelah KTP+selfie tersedia / reject (+ alasan), semua akses dan keputusan tercatat di audit log** |
 | PG-ADM-10 | `/investor` | Investor Data Pack | — | Ringkasan metrik kunci: GMV, user growth, drop performance, creator earnings, secondary volume — via RPC `get_investor_stats` (RPC `07`–`17`). Tabel + chart sederhana. **BUKAN untuk publik** |
 
 > **2FA admin (ADM-09)**: bukan halaman terpisah — flow

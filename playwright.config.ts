@@ -27,7 +27,7 @@ export default defineConfig({
   // Auto-start (CI / mesin kosong) atau reuse server yang sudah jalan (lokal).
   webServer: [
     {
-      command: "pnpm --filter @c-verse/api dev:node",
+      command: "pnpm --filter @c-verse/api dev",
       url: "http://127.0.0.1:8787/health",
       reuseExistingServer: true,
       timeout: 120_000,

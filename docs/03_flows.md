@@ -3,7 +3,9 @@
 > Status: [VALIDATED — partial: open items payout (SLA, disbursement,
 > cap Rp 5-10 jt) & validasi C-03 iPhone masih [DRAFT] — lihat
 > `07_constraints.md`]
-> Last updated: 2026-09-03 (dual-token: penghasilan seller/kreator/
+> Last updated: 2026-09-04 (Flow 12: KYC multipart → private R2,
+> review admin terproteksi + audit akses dokumen)
+> Previous: 2026-09-03 (dual-token: penghasilan seller/kreator/
 > royalti/Dukungan masuk C-Gems — lot terkunci 24 jam; payout debit
 > Gems matured FIFO; konversi Gems→C-Coin 1:1 — D3b `06_tech_decisions.md`)
 > Previous: 2026-08-31 (fee ship-out = konstanta server
@@ -553,6 +555,39 @@ penjualan — tidak ada split/gateway/escrow.
   (creator self-dealing dilarang 30 hari) enforceable.
 - Audit: setiap provisioning dicatat `admin_audit_log`; role
   promotion hanya via RPC admin.
+
+## Flow 12: KYC Private Storage (Cloudflare R2)
+
+```
+[USER] /me/kyc
+   -> isi nama, NIK 16 digit, alamat, DOB
+   -> pilih KTP + selfie (wajib), NPWP (opsional), maks. 5 MiB/file
+   -> modal persetujuan legal KYC; tombol disabled sampai checkbox
+   -> POST multipart /api/kyc (Supabase JWT)
+      -> Worker autentikasi user + tolak KYC yang sudah approved
+      -> validasi metadata, MIME allowlist, dan magic bytes
+      -> Worker membuat object key caller-scoped
+         <user_id>/ktp-<uuid>.<ext> (serupa untuk selfie/NPWP)
+      -> upload binary melalui binding `KYC` ke private R2
+      -> upsert metadata + *_object_key di `kyc_records`
+      -> bila DB gagal: object baru dihapus; bila resubmit sukses:
+         object versi lama dihapus
+   -> response owner hanya status + PII termasking; object key tidak bocor
+
+[ADMIN AAL2] /kyc
+   -> GET /api/kyc/admin/all: identitas + flag ketersediaan dokumen
+   -> GET /api/kyc/admin/:id/files/:kind
+      -> Worker cek role admin + AAL2 + ownership prefix
+      -> stream object R2 dengan private/no-store
+      -> append audit `view_sensitive` per dokumen
+   -> approve enabled setelah KTP + selfie berhasil dimuat
+      -> server `head()` ulang kedua object sebelum status approved
+   -> reject wajib alasan 3-1000 karakter; keputusan masuk audit log
+```
+
+R2 tidak dibuka publik dan browser tidak memegang credential atau
+presigned URL. Supabase tetap dipakai untuk Auth, metadata KYC, RLS,
+status workflow, serta audit; bukan untuk binary dokumen KYC.
 
 ## Matriks Gate (tersisa)
 

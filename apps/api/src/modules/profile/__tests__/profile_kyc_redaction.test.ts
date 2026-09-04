@@ -78,9 +78,9 @@ describe("GET /api/profile — KYC PII redaction (audit batch 2 F6)", () => {
       createdAt: "2026-08-01T00:00:00.000Z",
       updatedAt: "2026-08-01T00:00:00.000Z",
       dob: "1990-05-12",
-      ktpUrl: "https://storage.example/ktp.jpg",
-      npwpUrl: null,
-      selfieUrl: "https://storage.example/selfie.jpg",
+      ktpObjectKey: "u-1/ktp-private.jpg",
+      npwpObjectKey: null,
+      selfieObjectKey: "u-1/selfie-private.jpg",
     };
     vi.clearAllMocks();
   });
@@ -97,6 +97,13 @@ describe("GET /api/profile — KYC PII redaction (audit batch 2 F6)", () => {
     const res = await getProfile();
     const body = (await res.json()) as { kyc: { address: string } | null };
     expect(body.kyc?.address).toBe("[redacted]");
+  });
+
+  it("R2 object keys tidak pernah dikirim ke owner", async () => {
+    const res = await getProfile();
+    const body = (await res.json()) as { kyc: Record<string, unknown> | null };
+    expect(body.kyc).not.toHaveProperty("ktpObjectKey");
+    expect(body.kyc).not.toHaveProperty("selfieObjectKey");
   });
 
   it("tanpa row KYC → kyc null (bukan error)", async () => {

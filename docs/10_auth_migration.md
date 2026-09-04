@@ -102,8 +102,10 @@ Auth saat ini custom in-memory — tidak bisa dibawa ke produksi:
    dan demo jadi akun nyata (password disimpan di `.env` lokal saja).
 
 ### 3,5 Rate limit auth (anti abuse OTP)
-- Workers: max **5 OTP request / email / 10 menit** + max **20 / IP / jam**
-  (pakai Cloudflare Rate Limiting binding, fallback KV counter).
+- Worker binding saat ini membatasi auth **30 request/menit per
+  actor + lokasi edge**; limit provider Supabase tetap menjadi
+  lapisan khusus OTP. Target granular **5 OTP/email/10 menit + 20/IP/jam**
+  masih hardening lanjutan, bukan klaim implementasi saat ini.
 - Salah OTP 5x → lock 15 menit (tabel `auth_retry_lock` atau claim di users).
 
 ### 3,6 Provisioning akun kreator (admin-provisioned, FINAL 2026-08-20)

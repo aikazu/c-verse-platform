@@ -264,6 +264,30 @@ html, body { margin: 0; }
 .input-mini { font-size: 11px; padding: 4px 8px; }
 .align-center { text-align: center; }
 
+/* ── Private KYC review ─────────────────────────────────────────────── */
+.kyc-review { display: flex; flex-direction: column; gap: 14px; }
+.kyc-review-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.kyc-review-title { padding: 0 0 4px; border: 0; color: var(--text); }
+.kyc-identity-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0;
+}
+.kyc-identity-grid div { padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-2); }
+.kyc-identity-grid dt { margin-bottom: 4px; color: var(--muted); font-size: 10px; font-weight: 700; text-transform: uppercase; }
+.kyc-identity-grid dd { margin: 0; font-size: 12px; overflow-wrap: anywhere; }
+.kyc-address-row { grid-column: 1 / -1; }
+.kyc-document-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.kyc-document { min-height: 120px; padding: 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-2); }
+.kyc-document-label { margin-bottom: 8px; color: var(--muted); font-size: 10px; font-weight: 700; text-transform: uppercase; }
+.kyc-document-image { display: block; width: 100%; max-height: 280px; border-radius: 6px; object-fit: contain; background: var(--bg); }
+
+@media (max-width: 720px){
+  .kyc-document-grid, .kyc-identity-grid { grid-template-columns: 1fr; }
+  .kyc-address-row { grid-column: auto; }
+}
+
 /* ── Polish: token-bound hover feedback + typographic balance ───────────── */
 /* Subtle, gold-tinted feedback in the admin theme (cyan is the web theme).
    These admin overrides win against the inherited web rules because the

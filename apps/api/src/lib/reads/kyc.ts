@@ -31,9 +31,9 @@ export interface KycSubmissionInput {
   nik: string;
   address: string;
   dob?: string;
-  ktpUrl?: string;
-  npwpUrl?: string;
-  selfieUrl?: string;
+  ktpObjectKey: string;
+  npwpObjectKey?: string;
+  selfieObjectKey: string;
 }
 
 /** Insert or resubmit (pending) a KYC record — unique per user (DB: upsert on user_id). */
@@ -49,9 +49,9 @@ export async function upsertKycSubmission(userId: string, existing: KycRecord | 
     createdAt: existing?.createdAt ?? now,
     updatedAt: now,
     dob: input.dob ?? null,
-    ktpUrl: input.ktpUrl ?? null,
-    npwpUrl: input.npwpUrl ?? null,
-    selfieUrl: input.selfieUrl ?? null,
+    ktpObjectKey: input.ktpObjectKey,
+    npwpObjectKey: input.npwpObjectKey ?? null,
+    selfieObjectKey: input.selfieObjectKey,
   };
   const db = readDb();
   const { error } = await db.from("kyc_records").upsert(
@@ -63,9 +63,9 @@ export async function upsertKycSubmission(userId: string, existing: KycRecord | 
       address: input.address,
       status: "pending",
       dob: input.dob ?? null,
-      ktp_url: input.ktpUrl ?? null,
-      npwp_url: input.npwpUrl ?? null,
-      selfie_url: input.selfieUrl ?? null,
+      ktp_object_key: input.ktpObjectKey,
+      npwp_object_key: input.npwpObjectKey ?? null,
+      selfie_object_key: input.selfieObjectKey,
     },
     { onConflict: "user_id" },
   );

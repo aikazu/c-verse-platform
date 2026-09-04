@@ -32,6 +32,18 @@
   },
   "overrides": [
     {
+      "includes": ["apps/api/worker-configuration.d.ts"],
+      "formatter": {
+        "enabled": false
+      },
+      "linter": {
+        "enabled": false
+      },
+      "assist": {
+        "enabled": false
+      }
+    },
+    {
       "includes": ["apps/web/**", "apps/admin/**"],
       "linter": {
         "rules": {

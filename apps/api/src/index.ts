@@ -1,8 +1,7 @@
-import { Hono } from "hono";
+import { type Context, Hono, type Next } from "hono";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
-import { rateLimiter } from "hono-rate-limiter";
-import { clientIp } from "./lib/auth.js";
+import { clientIp, tokenFingerprint } from "./lib/auth.js";
 import { runCron } from "./lib/cron.js";
 import type { EmailBindings } from "./lib/email.js";
 import { clientErrorMessage } from "./lib/errors.js";
@@ -12,6 +11,7 @@ import bids from "./modules/bids/index.js";
 import creators from "./modules/creators/index.js";
 import drops from "./modules/drops/index.js";
 import gamification from "./modules/gamification/index.js";
+import type { KycBindings } from "./modules/kyc/files.js";
 import kyc from "./modules/kyc/index.js";
 import marketplace from "./modules/marketplace/index.js";
 import nfc from "./modules/nfc/index.js";
@@ -24,10 +24,15 @@ import seo from "./modules/seo/index.js";
 import shipments from "./modules/shipments/index.js";
 import wallet from "./modules/wallet/index.js";
 
-export type Bindings = EmailBindings & {
-  ENV?: string;
-  ADMIN_ALERT_EMAIL?: string; // cron failure digest recipient (lib/cron.ts)
-};
+export type Bindings = EmailBindings &
+  KycBindings & {
+    ENV?: string;
+    ADMIN_ALERT_EMAIL?: string; // cron failure digest recipient (lib/cron.ts)
+    AUTH_RATE_LIMITER?: RateLimit;
+    GLOBAL_RATE_LIMITER?: RateLimit;
+    KYC_RATE_LIMITER?: RateLimit;
+    NFC_RATE_LIMITER?: RateLimit;
+  };
 
 // Fail-fast (F-08 diperketat): tanpa SUPABASE_URL API menolak start — tidak ada
 // lagi mode in-memory. Jalankan `npx supabase start` lalu set apps/api/.dev.vars.
@@ -89,39 +94,30 @@ const supabaseIsLocal = (typeof process !== "undefined" ? process.env.SUPABASE_U
 const isProduction = !isTsxDev && envMode !== "development" && !supabaseIsLocal;
 
 if (isProduction) {
-  // Behind Cloudflare: trust CF-Connecting-IP first; x-forwarded-for is client-spoofable so it is last resort.
-  // Single source of truth (lib/auth.ts -> clientIp) keeps audit-log and rate-limiter in lockstep.
-  const clientKey = (c: { req: { header: (k: string) => string | undefined } }) => clientIp(c) ?? "loopback";
+  type LimiterName = "AUTH_RATE_LIMITER" | "GLOBAL_RATE_LIMITER" | "KYC_RATE_LIMITER" | "NFC_RATE_LIMITER";
+  const limitWith = (name: LimiterName, message: string) => async (c: Context<{ Bindings: Bindings }>, next: Next) => {
+    // `app.request()` unit tests and Node-local execution do not inject Worker
+    // bindings. Production is fail-closed because Wrangler always supplies
+    // ENV=production together with every configured limiter binding.
+    if (c.env?.ENV !== "production") {
+      await next();
+      return;
+    }
+    const limiter = c.env[name];
+    if (!limiter) return c.json({ error: "Rate limiter belum terkonfigurasi" }, 503);
+    // Prefer a non-reversible user-session fingerprint; IP is only the fallback
+    // for unauthenticated endpoints such as login and NFC verification.
+    const actor = (await tokenFingerprint(c.req.header("authorization"))) ?? clientIp(c) ?? "anonymous";
+    const { success } = await limiter.limit({ key: actor });
+    if (!success) return c.json({ error: message }, 429);
+    await next();
+  };
 
-  const authLimiter = rateLimiter({
-    windowMs: 60 * 1000,
-    limit: 30,
-    standardHeaders: "draft-6",
-    keyGenerator: clientKey,
-    message: { error: "Too many requests — coba lagi nanti" },
-  });
-
-  // NFC verify is unauthenticated + does crypto/DB writes — throttle tighter than global.
-  const nfcLimiter = rateLimiter({
-    windowMs: 60 * 1000,
-    limit: 60,
-    standardHeaders: "draft-6",
-    keyGenerator: clientKey,
-    message: { error: "Terlalu banyak percobaan verifikasi — coba lagi nanti" },
-  });
-
-  const globalLimiter = rateLimiter({
-    windowMs: 60 * 1000,
-    limit: 600,
-    standardHeaders: "draft-6",
-    keyGenerator: clientKey,
-    message: { error: "Too many requests — coba lagi nanti" },
-  });
-
-  app.use("/api/auth/*", authLimiter);
-  app.use("/api/payments/*", authLimiter);
-  app.use("/api/nfc/*", nfcLimiter);
-  app.use("*", globalLimiter);
+  app.use("/api/auth/*", limitWith("AUTH_RATE_LIMITER", "Too many requests — coba lagi nanti"));
+  app.use("/api/payments/*", limitWith("AUTH_RATE_LIMITER", "Too many requests — coba lagi nanti"));
+  app.use("/api/kyc", limitWith("KYC_RATE_LIMITER", "Terlalu banyak pengajuan KYC — coba lagi nanti"));
+  app.use("/api/nfc/*", limitWith("NFC_RATE_LIMITER", "Terlalu banyak percobaan verifikasi — coba lagi nanti"));
+  app.use("*", limitWith("GLOBAL_RATE_LIMITER", "Too many requests — coba lagi nanti"));
 }
 
 app.get("/", (c) => c.json({ name: "C.Verse API", tagline: "Revolusi Ekonomi Kreator", status: "ok" }));

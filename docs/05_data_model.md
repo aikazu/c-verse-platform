@@ -416,16 +416,24 @@ qc_defects
 ### kyc_records
 ```
 kyc_records
-  id uuid PK
+  id text PK
   user_id uuid FK users.id
-  full_name, nik, selfie_url, npwp_url nullable
+  full_name text, nik text, address text, dob date
+  ktp_object_key text nullable       -- private Cloudflare R2 key
+  selfie_object_key text nullable    -- private Cloudflare R2 key
+  npwp_object_key text nullable      -- private Cloudflare R2 key
   status enum('pending','approved','rejected')
-  reviewed_by uuid FK users.id nullable (admin)
   created_at, updated_at
 ```
 > Trigger KYC (keputusan 2026-08-13, validasi lawyer): payout/
 > disbursement ke IDR + akumulasi top-up besar. Tidak perlu KYC
 > untuk pasang buyout, accept bid, atau top-up rutin.
+> Binary KTP/selfie/NPWP disimpan hanya di bucket privat Cloudflare
+> R2 `cverse-kyc`. Web mengirim multipart ke Worker; Worker validasi
+> ukuran, MIME + magic bytes, membentuk object key caller-scoped,
+> lalu menyimpan key itu di Postgres. Object key tidak dikirim balik
+> ke user/admin; review admin memakai endpoint streaming terproteksi
+> dan setiap pembacaan dokumen masuk `admin_audit_log`.
 
 ### creator_page_views (analytics — log dari day 1)
 ```

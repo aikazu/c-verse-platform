@@ -129,14 +129,6 @@ public = true
 file_size_limit = "20MiB"
 allowed_mime_types = ["image/png", "image/jpeg", "image/webp", "model/obj", "application/octet-stream"]
 
-# Bucket KYC dipakai Kyc.tsx uploadKycFile: storage.from("kyc-files") — nama
-# HARUS sama persis dengan string di UI (policy RLS kyc_files_owner_insert di
-# 01_schema.sql juga scope ke bucket ini).
-[storage.buckets.kyc-files]
-public = false
-file_size_limit = "5MiB"
-allowed_mime_types = ["image/png", "image/jpeg", "image/webp", "application/pdf"]
-
 # [storage.buckets.images]
 # public = false
 # file_size_limit = "50MiB"

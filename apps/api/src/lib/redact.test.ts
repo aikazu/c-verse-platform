@@ -24,6 +24,8 @@ describe("redactKycForOwner", () => {
       address: "Jl. Sudirman No. 1, Jakarta",
       status: "pending",
       createdAt: "2026-08-24T00:00:00Z",
+      ktpObjectKey: "u-1/ktp-private.png",
+      selfieObjectKey: "u-1/selfie-private.jpg",
     });
     expect(out).toMatchObject({
       id: "kyc-1",
@@ -34,5 +36,7 @@ describe("redactKycForOwner", () => {
       status: "pending",
     });
     expect(out.address).not.toContain("Sudirman");
+    expect(out).not.toHaveProperty("ktpObjectKey");
+    expect(out).not.toHaveProperty("selfieObjectKey");
   });
 });

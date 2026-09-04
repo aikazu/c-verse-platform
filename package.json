@@ -9,7 +9,7 @@
   ],
   "scripts": {
     "dev:web": "pnpm --filter @c-verse/web dev",
-    "dev:api": "pnpm --filter @c-verse/api dev:node",
+    "dev:api": "pnpm --filter @c-verse/api dev",
     "dev": "node scripts-dev.mjs",
     "build": "pnpm -r build",
     "build:web": "pnpm --filter @c-verse/web build",

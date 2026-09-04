@@ -1,98 +1,203 @@
-import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import { z } from "zod";
 import { adminGateError, clientIp, requireAdmin, requireUser, tokenFingerprint } from "../../lib/auth.js";
-import { getKycByUser, listKycRecords, logAuditDb, setKycStatus, upsertKycSubmission } from "../../lib/reads/kyc.js";
+import { getKycById, getKycByUser, listKycRecords, logAuditDb, setKycStatus, upsertKycSubmission } from "../../lib/reads/kyc.js";
 import { redactKycForOwner } from "../../lib/redact.js";
+import type { KycRecord } from "../../lib/store.js";
+import { buildKycObjectKey, isOwnKycObjectKey, type KycBindings, type KycDocumentKind, validateKycFile } from "./files.js";
 
-const app = new Hono();
+const app = new Hono<{ Bindings: KycBindings }>();
+const documentKindSchema = z.enum(["ktp", "selfie", "npwp"]);
+const submissionSchema = z.object({
+  fullName: z.string().trim().min(2).max(100),
+  nik: z.string().regex(/^\d{16}$/, "NIK harus 16 digit angka"),
+  address: z.string().trim().min(10).max(500),
+  dob: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .refine((value) => !Number.isNaN(Date.parse(`${value}T00:00:00Z`)) && value <= new Date().toISOString().slice(0, 10)),
+});
 
-// Lane P2 (regression fix): ktpUrl/selfieUrl/npwpUrl adalah STORAGE PATH bucket
-// kyc-files — web uploadKycFile mengembalikan `${userId}/${kind}-${ts}.${ext}`,
-// bukan URL (batch 2 F7 salah pasang `.url()` sehingga semua submission 400).
-// Kontrak: path caller-scoped (diawali `${user.id}/`), charset aman, tanpa
-// traversal `..` — dicek SETELAH auth karena butuh user.id.
-const KYC_PATH_CHARSET_RE = /^[A-Za-z0-9._\-/]+$/;
+function documentKeys(rec: KycRecord): Record<KycDocumentKind, string | null> {
+  return {
+    ktp: rec.ktpObjectKey ?? null,
+    selfie: rec.selfieObjectKey ?? null,
+    npwp: rec.npwpObjectKey ?? null,
+  };
+}
 
-function isOwnKycStoragePath(path: string, userId: string): boolean {
-  return path.startsWith(`${userId}/`) && KYC_PATH_CHARSET_RE.test(path) && !path.includes("..");
+function adminKycRecord(rec: KycRecord) {
+  const { ktpObjectKey: _ktp, npwpObjectKey: _npwp, selfieObjectKey: _selfie, ...safe } = rec;
+  return {
+    ...safe,
+    documents: {
+      ktp: Boolean(rec.ktpObjectKey),
+      selfie: Boolean(rec.selfieObjectKey),
+      npwp: Boolean(rec.npwpObjectKey),
+    },
+  };
+}
+
+async function removeObjects(bucket: R2Bucket, keys: Array<string | null | undefined>): Promise<void> {
+  const present = [...new Set(keys.filter((key): key is string => Boolean(key)))];
+  if (present.length === 0) return;
+  await bucket.delete(present);
 }
 
 app.get("/", async (c) => {
   const authRes = await requireUser(c);
   if ("error" in authRes) return c.json({ error: authRes.error === 403 ? "Akun disuspend" : "Unauthorized" }, authRes.error);
-  const user = authRes.user;
-  const rec = await getKycByUser(user.id);
-  // M5 (audit 2026-08-24): PII redaction for the user-facing endpoint. Admin endpoint
-  // (/admin/all) keeps the unredacted record so reviewers can verify identity.
+  const rec = await getKycByUser(authRes.user.id);
   return c.json({ kyc: rec ? redactKycForOwner(rec) : null });
 });
 
-app.post(
-  "/",
-  zValidator(
-    "json",
-    z.object({
-      fullName: z.string().min(2).max(100),
-      // Audit batch 2 F7: NIK wajib 16 DIGIT (dulu cuma .length(16) sehingga NIK
-      // alfabetik lolos dan luput dari mask redactNik saat dibaca balik owner).
-      nik: z.string().regex(/^\d{16}$/, "NIK harus 16 digit angka"),
-      address: z.string().min(10).max(500),
-      dob: z.string().optional(),
-      // Lane P2: bukan `.url()` — web mengirim storage path (lihat helper di atas).
-      ktpUrl: z.string().min(1).max(500),
-      npwpUrl: z.string().max(500).optional(),
-      selfieUrl: z.string().min(1).max(500),
-    }),
-  ),
-  async (c) => {
-    const authRes = await requireUser(c);
-    if ("error" in authRes) return c.json({ error: authRes.error === 403 ? "Akun disuspend" : "Unauthorized" }, authRes.error);
-    const user = authRes.user;
-    const body = c.req.valid("json");
-    // P0-5 (audit 2026-08-24): wajib dob + ktpUrl + selfieUrl agar sesuai
-    // US-USR-011 (KTP, selfie, NPWP opsional). NPWP opsional. NIK checksum
-    // dilakukan client-side; server-side wajib 16 digit angka (lihat zValidator,
-    // diperketat audit batch 2 F7).
-    if (!body.dob || !body.ktpUrl || !body.selfieUrl) {
-      return c.json({ error: "Lengkapi DOB, foto KTP, dan selfie untuk validasi KYC" }, 400);
-    }
-    // Lane P2: storage path wajib caller-scoped — path uid lain memungkinkan
-    // PII orang lain di-review/di-sign atas nama submitter ini.
-    const invalidPath =
-      !isOwnKycStoragePath(body.ktpUrl, user.id) ||
-      !isOwnKycStoragePath(body.selfieUrl, user.id) ||
-      (body.npwpUrl != null && body.npwpUrl !== "" && !isOwnKycStoragePath(body.npwpUrl, user.id));
-    if (invalidPath) return c.json({ error: "Path file KYC tidak valid" }, 400);
-    const existing = await getKycByUser(user.id);
-    if (existing && existing.status === "approved") return c.json({ error: "KYC sudah approved" }, 400);
-    const rec = await upsertKycSubmission(user.id, existing, {
-      fullName: body.fullName,
-      nik: body.nik,
-      address: body.address,
-      dob: body.dob,
-      ktpUrl: body.ktpUrl,
-      npwpUrl: body.npwpUrl,
-      selfieUrl: body.selfieUrl,
+app.post("/", async (c) => {
+  const authRes = await requireUser(c);
+  if ("error" in authRes) return c.json({ error: authRes.error === 403 ? "Akun disuspend" : "Unauthorized" }, authRes.error);
+  const bucket = c.env.KYC;
+  if (!bucket) return c.json({ error: "KYC storage belum terkonfigurasi" }, 503);
+
+  const form = await c.req.raw.formData().catch(() => null);
+  if (!form) return c.json({ error: "Form KYC tidak valid" }, 400);
+  const parsed = submissionSchema.safeParse({
+    fullName: form.get("fullName"),
+    nik: form.get("nik"),
+    address: form.get("address"),
+    dob: form.get("dob"),
+  });
+  if (!parsed.success) return c.json({ error: "Data identitas KYC tidak valid" }, 400);
+
+  const ktp = form.get("ktp");
+  const selfie = form.get("selfie");
+  const npwp = form.get("npwp");
+  if (!(ktp instanceof File) || !(selfie instanceof File) || (npwp != null && !(npwp instanceof File))) {
+    return c.json({ error: "Lengkapi foto KTP dan selfie" }, 400);
+  }
+
+  const existing = await getKycByUser(authRes.user.id);
+  if (existing?.status === "approved") return c.json({ error: "KYC sudah approved" }, 400);
+
+  let validated: Array<{ kind: KycDocumentKind; file: Awaited<ReturnType<typeof validateKycFile>> }>;
+  try {
+    const required = await Promise.all([validateKycFile("ktp", ktp), validateKycFile("selfie", selfie)]);
+    validated = [
+      { kind: "ktp", file: required[0] },
+      { kind: "selfie", file: required[1] },
+    ];
+    if (npwp) validated.push({ kind: "npwp", file: await validateKycFile("npwp", npwp) });
+  } catch (error) {
+    return c.json({ error: error instanceof Error ? error.message : "File KYC tidak valid" }, 400);
+  }
+
+  const uploads = validated.map(({ kind, file }) => ({
+    kind,
+    file,
+    key: buildKycObjectKey(authRes.user.id, kind, file.extension),
+  }));
+  const newKeys = uploads.map(({ key }) => key);
+  const uploadResults = await Promise.allSettled(
+    uploads.map(({ kind, file, key }) =>
+      bucket.put(key, file.buffer, {
+        httpMetadata: {
+          contentType: file.contentType,
+          contentDisposition: `inline; filename="${kind}.${file.extension}"`,
+          cacheControl: "private, no-store",
+        },
+        customMetadata: { userId: authRes.user.id, kind },
+      }),
+    ),
+  );
+  const failedUpload = uploadResults.find((result): result is PromiseRejectedResult => result.status === "rejected");
+  if (failedUpload) {
+    await removeObjects(bucket, newKeys).catch((cleanupError) => console.error("kyc_upload_cleanup_failed", cleanupError));
+    throw failedUpload.reason;
+  }
+
+  const keyFor = (kind: KycDocumentKind) => uploads.find((upload) => upload.kind === kind)?.key;
+  let rec: KycRecord;
+  try {
+    rec = await upsertKycSubmission(authRes.user.id, existing, {
+      ...parsed.data,
+      ktpObjectKey: keyFor("ktp") as string,
+      selfieObjectKey: keyFor("selfie") as string,
+      npwpObjectKey: keyFor("npwp"),
     });
-    // M5: response is redacted for the user; admin endpoint keeps the unredacted record.
-    return c.json({ kyc: redactKycForOwner(rec) }, 201);
-  },
-);
+  } catch (error) {
+    await removeObjects(bucket, newKeys).catch((cleanupError) => console.error("kyc_db_cleanup_failed", cleanupError));
+    throw error;
+  }
+
+  if (existing) {
+    await removeObjects(bucket, Object.values(documentKeys(existing))).catch((error) =>
+      console.error("kyc_old_objects_cleanup_failed", error),
+    );
+  }
+  return c.json({ kyc: redactKycForOwner(rec) }, 201);
+});
+
+app.get("/admin/:id/files/:kind", async (c) => {
+  const authRes = await requireAdmin(c);
+  if ("error" in authRes) {
+    const error = adminGateError(authRes);
+    return c.json(error.body, error.status);
+  }
+  const kind = documentKindSchema.safeParse(c.req.param("kind"));
+  if (!kind.success) return c.json({ error: "Jenis dokumen KYC tidak valid" }, 400);
+  const bucket = c.env.KYC;
+  if (!bucket) return c.json({ error: "KYC storage belum terkonfigurasi" }, 503);
+
+  const rec = await getKycById(c.req.param("id"));
+  if (!rec) return c.json({ error: "Not found" }, 404);
+  const key = documentKeys(rec)[kind.data];
+  if (!key || !isOwnKycObjectKey(key, rec.userId, kind.data)) return c.json({ error: "Dokumen KYC tidak tersedia" }, 404);
+  const object = await bucket.get(key);
+  if (!object) return c.json({ error: "Dokumen KYC tidak tersedia" }, 404);
+
+  await logAuditDb(
+    authRes.user.id,
+    "view_sensitive",
+    "kyc_records",
+    rec.id,
+    { document: kind.data },
+    clientIp(c),
+    await tokenFingerprint(c.req.header("authorization")),
+  );
+  const headers = new Headers();
+  object.writeHttpMetadata(headers);
+  headers.set("Cache-Control", "private, no-store");
+  headers.set("Content-Disposition", headers.get("Content-Disposition") ?? `inline; filename="${kind.data}"`);
+  headers.set("X-Content-Type-Options", "nosniff");
+  return new Response(object.body, { headers });
+});
 
 app.post("/:id/approve", async (c) => {
   const authRes = await requireAdmin(c);
   if ("error" in authRes) {
-    const e = adminGateError(authRes);
-    return c.json(e.body, e.status);
+    const error = adminGateError(authRes);
+    return c.json(error.body, error.status);
   }
-  const user = authRes.user;
+  const bucket = c.env.KYC;
+  if (!bucket) return c.json({ error: "KYC storage belum terkonfigurasi" }, 503);
+  const current = await getKycById(c.req.param("id"));
+  if (!current) return c.json({ error: "Not found" }, 404);
+  const requiredKeys = [current.ktpObjectKey, current.selfieObjectKey];
+  if (
+    !current.ktpObjectKey ||
+    !current.selfieObjectKey ||
+    !isOwnKycObjectKey(current.ktpObjectKey, current.userId, "ktp") ||
+    !isOwnKycObjectKey(current.selfieObjectKey, current.userId, "selfie")
+  ) {
+    return c.json({ error: "Dokumen KTP dan selfie wajib tersedia sebelum approval" }, 409);
+  }
+  const objects = await Promise.all(requiredKeys.map((key) => bucket.head(key as string)));
+  if (objects.some((object) => object == null)) {
+    return c.json({ error: "Dokumen KTP dan selfie wajib tersedia sebelum approval" }, 409);
+  }
+
   const rec = await setKycStatus(c.req.param("id"), "approved");
   if (!rec) return c.json({ error: "Not found" }, 404);
-  // Badge "verified" + XP di-award OLEH TRIGGER badge_on_kyc (sekali, idempotent) —
-  // jangan ulangi di JS (double XP fix 2026-08-16).
   await logAuditDb(
-    user.id,
+    authRes.user.id,
     "update",
     "kyc_records",
     c.req.param("id"),
@@ -100,20 +205,15 @@ app.post("/:id/approve", async (c) => {
     clientIp(c),
     await tokenFingerprint(c.req.header("authorization")),
   );
-  return c.json({ kyc: rec });
+  return c.json({ kyc: adminKycRecord(rec) });
 });
 
-// Lane P2: reason penolakan WAJIB (trim, min 3, maks 1000) — audit trail tidak
-// boleh berakhir dengan reason:null (kontrak lane I sebelumnya menerima kosong
-// demi backward-compat). Body tetap diparse manual: request tanpa body harus
-// menghasilkan 400 yang jelas, bukan parse error.
 app.post("/:id/reject", async (c) => {
   const authRes = await requireAdmin(c);
   if ("error" in authRes) {
-    const e = adminGateError(authRes);
-    return c.json(e.body, e.status);
+    const error = adminGateError(authRes);
+    return c.json(error.body, error.status);
   }
-  const user = authRes.user;
   const rejectSchema = z.object({ reason: z.string().trim().min(3).max(1000) });
   const rawBody: unknown = await c.req.json().catch(() => ({}));
   const parsed = rejectSchema.safeParse(rawBody);
@@ -124,28 +224,28 @@ app.post("/:id/reject", async (c) => {
       400,
     );
   }
-  const reason = parsed.data.reason;
   const rec = await setKycStatus(c.req.param("id"), "rejected");
   if (!rec) return c.json({ error: "Not found" }, 404);
   await logAuditDb(
-    user.id,
+    authRes.user.id,
     "update",
     "kyc_records",
     c.req.param("id"),
-    { status: "rejected", reason },
+    { status: "rejected", reason: parsed.data.reason },
     clientIp(c),
     await tokenFingerprint(c.req.header("authorization")),
   );
-  return c.json({ kyc: rec });
+  return c.json({ kyc: adminKycRecord(rec) });
 });
 
 app.get("/admin/all", async (c) => {
   const authRes = await requireAdmin(c);
   if ("error" in authRes) {
-    const e = adminGateError(authRes);
-    return c.json(e.body, e.status);
+    const error = adminGateError(authRes);
+    return c.json(error.body, error.status);
   }
-  return c.json({ kyc: await listKycRecords() });
+  const records = await listKycRecords();
+  return c.json({ kyc: records.map(adminKycRecord) });
 });
 
 export default app;

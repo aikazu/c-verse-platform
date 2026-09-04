@@ -21,7 +21,7 @@ describe("getSupabase — service-role fail-fast (M1)", () => {
   it("throws when SUPABASE_SERVICE_ROLE_KEY is missing even with anon key present", async () => {
     process.env.SUPABASE_URL = "https://test.supabase.co";
     process.env.SUPABASE_ANON_KEY = "anon-test-key";
-    delete process.env.SUPABASE_SERVICE_ROLE_KEY;
+    Reflect.deleteProperty(process.env, "SUPABASE_SERVICE_ROLE_KEY");
     delete process.env.VITE_SUPABASE_URL;
     delete process.env.VITE_SUPABASE_ANON_KEY;
     expect(() => getSupabase()).toThrow(/SUPABASE_SERVICE_ROLE_KEY/);
@@ -29,21 +29,21 @@ describe("getSupabase — service-role fail-fast (M1)", () => {
 
   it("throws when neither service-role nor anon key is set", () => {
     process.env.SUPABASE_URL = "https://test.supabase.co";
-    delete process.env.SUPABASE_ANON_KEY;
-    delete process.env.SUPABASE_SERVICE_ROLE_KEY;
+    Reflect.deleteProperty(process.env, "SUPABASE_ANON_KEY");
+    Reflect.deleteProperty(process.env, "SUPABASE_SERVICE_ROLE_KEY");
     expect(() => getSupabase()).toThrow();
   });
 
   it("returns a client when env param supplies the service-role key", () => {
     process.env.SUPABASE_URL = "https://test.supabase.co";
-    delete process.env.SUPABASE_SERVICE_ROLE_KEY;
+    Reflect.deleteProperty(process.env, "SUPABASE_SERVICE_ROLE_KEY");
     const client = getSupabase({ SUPABASE_URL: "https://x.supabase.co", SUPABASE_SERVICE_ROLE_KEY: "svc" });
     expect(client).toBeDefined();
   });
 
   it("accepts globalThis-injected env at first call (Workers path)", () => {
-    delete process.env.SUPABASE_URL;
-    delete process.env.SUPABASE_SERVICE_ROLE_KEY;
+    Reflect.deleteProperty(process.env, "SUPABASE_URL");
+    Reflect.deleteProperty(process.env, "SUPABASE_SERVICE_ROLE_KEY");
     (globalThis as unknown as Record<string, string | undefined>).SUPABASE_URL = "https://worker.supabase.co";
     (globalThis as unknown as Record<string, string | undefined>).SUPABASE_SERVICE_ROLE_KEY = "worker-svc";
     try {

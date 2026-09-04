@@ -215,14 +215,12 @@ export interface KycRecord {
   status: "pending" | "approved" | "rejected";
   createdAt: string;
   updatedAt?: string;
-  // P0-5 (audit 2026-08-24): kelengkapan KYC per US-USR-011 + validasi lawyer
-  // 2026-08-13 — wajib DOB + KTP photo, selfie wajib, NPWP opsional. URL disimpan
-  // dari hasil upload Supabase Storage (bucket kyc-files, private; service-role
-  // yang menandatangani URL untuk review admin).
+  // KTP + selfie wajib dan NPWP opsional. Hanya object key privat Cloudflare R2
+  // yang disimpan di Postgres; file tidak pernah berada di Supabase Storage.
   dob?: string | null;
-  ktpUrl?: string | null;
-  npwpUrl?: string | null;
-  selfieUrl?: string | null;
+  ktpObjectKey?: string | null;
+  npwpObjectKey?: string | null;
+  selfieObjectKey?: string | null;
 }
 
 export interface OwnershipHistory {

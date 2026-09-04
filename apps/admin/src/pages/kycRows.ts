@@ -8,8 +8,15 @@ export interface KycAdminRow {
   userId: string;
   fullName: string;
   nik: string;
+  address: string;
+  dob: string | null;
   status: string;
   createdAt: string;
+  documents: {
+    ktp: boolean;
+    selfie: boolean;
+    npwp: boolean;
+  };
 }
 
 /** Pure mapper baris API -> sel tabel KYC (userShort, NIK termasking, label tanggal). */

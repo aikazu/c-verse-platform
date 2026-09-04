@@ -18,12 +18,10 @@
     "@supabase/supabase-js": "^2.112.4",
     "dotenv": "^17.4.2",
     "hono": "^4.13.5",
-    "hono-rate-limiter": "^0.5.3",
     "jose": "^6.2.10",
     "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^5.20260828.1",
     "@types/node": "^26.4.0",
     "pg": "^8.23.0",
     "tsx": "^4.23.12",

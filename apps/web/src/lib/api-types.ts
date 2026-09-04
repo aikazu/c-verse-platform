@@ -411,9 +411,6 @@ export interface ApiKycResponse {
     createdAt?: string;
     updatedAt?: string;
     dob?: string | null;
-    ktpUrl?: string | null;
-    npwpUrl?: string | null;
-    selfieUrl?: string | null;
   };
 }
 

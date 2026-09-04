@@ -38,10 +38,9 @@ test.describe("KYC", () => {
     await page.goto("/me/kyc");
     await expect(page.locator("#kyc-fullname")).toBeVisible({ timeout: 10000 });
 
-    // Data koheren NIK↔DOB (digit 7-12 = 090391 → 1991-03-09). Upload jalan ke
-    // storage lokal BENERAN (bucket kyc-files, policy kyc_files_owner_insert di
-    // 01_schema.sql), lalu POST /api/kyc meng-upsert kyc_records (seed kyc-demo:
-    // status pending → resubmit diizinkan, hanya approved yang ditolak 400).
+    // Data koheren NIK↔DOB (digit 7-12 = 090391 → 1991-03-09). Multipart masuk
+    // Worker, file tersimpan ke emulator R2 binding KYC, lalu metadata/object key
+    // di-upsert ke kyc_records (seed kyc-demo pending → resubmit diizinkan).
     await page.locator("#kyc-fullname").fill("E2E Tester");
     await page.locator("#kyc-nik").fill("3174012003910001");
     await page.locator("#kyc-dob").fill("1991-03-09");
@@ -57,7 +56,7 @@ test.describe("KYC", () => {
     await consentModal.getByRole("checkbox").check();
     await submitButton.click();
 
-    // Toast sukses hanya muncul kalau upload storage + POST /api/kyc keduanya 2xx.
+    // Toast sukses hanya muncul kalau upload R2 + upsert metadata keduanya berhasil.
     await expect(page.locator(".toast-msg", { hasText: "Verifikasi terkirim" })).toBeVisible();
     // Round-trip nyata: status card (hasil GET /api/kyc setelah refetch) menampilkan
     // fullName BARU "E2E Tester" — membuktikan row benar-benar tersimpan (sebelum

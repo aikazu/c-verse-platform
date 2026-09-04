@@ -288,7 +288,9 @@ Status implementasi per item (`[done]` = ada di code + test; `[spec NN]` = spec 
 - **NFC CMAC (SUN AN12196)** — AES-CMAC RFC 4493 + anti-replay counter + tamper permanen. `[done — docs/12]` (provisioning tag fisik = ops TapLinx).
 - **Atomic money RPC** — wallet/checkout/raffle/bid/buyout single-transaction + idempotency ledger. `[done — docs/13]` (semua route read lewat facade `lib/reads`, tanpa fallback in-memory).
 - **Payments Midtrans** — Snap top-up + webhook signature + payout disbursement. `[done — docs/14]` (sandbox keys + e2e = ops; gate C-08 sebelum uang riil).
-- **Rate limit HTTP** — 30 req/menit untuk `/api/auth/*` & `/api/payments/*`, 600 req/menit global (aktif di mode production). `[done]`
+- **Rate limit HTTP** — native Cloudflare bindings: auth/payments 30,
+  NFC 60, KYC submit 10, dan global 600 request/menit per actor +
+  lokasi edge (aktif production; tidak memakai in-memory timer). `[done]`
 - **Limit bid** — max **3 bid aktif/user** (RPC `BID_LIMIT`). `[done]`
 - **Wash trading** — blok rebuy seller **1×24 jam** (`COOLING_PERIOD_24H`; menggantikan cooling 14 hari). `[done]`
 - **Creator self-dealing** — larang beli kartu drop sendiri **30 hari** (`CREATOR_SELF_DEALING_30D`). `[done]`

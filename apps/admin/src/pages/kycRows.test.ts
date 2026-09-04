@@ -11,8 +11,11 @@ const apiRow: KycAdminRow = {
   userId: "a1b2c3d4e5f6a7b8",
   fullName: "Iqbal Attila",
   nik: "3175012345670001",
+  address: "Jl. Contoh No. 1, Jakarta",
+  dob: "1990-01-01",
   status: "pending",
   createdAt: "2026-08-29T04:00:00.000Z",
+  documents: { ktp: true, selfie: true, npwp: false },
 };
 
 describe("kycRowToDisplay", () => {

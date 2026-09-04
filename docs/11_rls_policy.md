@@ -1,7 +1,9 @@
 # 11 — RLS Policy Matrix (ganti `allow all using(true)`)
 
 > Status: [IMPLEMENTED 2026-08-16]
-> Created: 2026-08-15; updated: 2026-08-31 (creator_page_views:
+> Created: 2026-08-15; updated: 2026-09-04 (KYC binary storage
+> dipindah dari Supabase Storage ke private Cloudflare R2)
+> Previous: 2026-08-31 (creator_page_views:
 > insert langsung dihapus — tulis hanya via RPC
 > `record_creator_page_view`, SELECT owner-only)
 > Basis audit awal: semua policy `for all using (true) with check (true)`.
@@ -51,6 +53,16 @@ Helper: `create policy ... for select using (...)`, dst.
 | `qc_defects` | - | - | service | service | service | service only |
 | `creator_page_views` | - | owner only (creator halaman sendiri) | RPC only** | - | - | **lihat catatan |
 | `admin_audit_log` | - | - | service | **TIDAK ADA** | **TIDAK ADA** | append-only, tidak ada update/delete |
+
+### Dokumen KYC di R2
+
+- Policy `storage.objects` untuk bucket Supabase `kyc-files` sudah
+  dihapus; browser tidak memiliki jalur upload langsung.
+- Metadata KYC tetap default-deny di Postgres. Worker memverifikasi
+  JWT user sebelum upload dan membentuk object key sendiri.
+- Download dokumen hanya melalui route admin role + AAL2. Object key
+  R2 tidak pernah dikirim ke browser, respons `no-store`, dan setiap
+  akses dicatat sebagai `view_sensitive` di `admin_audit_log`.
 
 `creator_page_views`: INSERT langsung DITOLAK untuk semua role non-service —
 tulis HANYA via SECURITY DEFINER RPC `record_creator_page_view` (RPC `07`–`17`,

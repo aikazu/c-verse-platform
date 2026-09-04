@@ -7,11 +7,11 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
-    "types": ["@cloudflare/workers-types", "node"],
+    "types": ["node"],
     "baseUrl": ".",
     "paths": {
       "@c-verse/shared": ["../../packages/shared/src/index.ts"]
     }
   },
-  "include": ["src"]
+  "include": ["src", "worker-configuration.d.ts"]
 }

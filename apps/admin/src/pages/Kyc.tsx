@@ -1,18 +1,49 @@
 import { useEffect, useState } from "react";
 import { useConfirm } from "../components/ConfirmProvider";
 import { StatusBadge } from "../components/StatusBadge";
-import { apiFetch } from "../lib/api";
+import { apiFetch, apiFetchBlob } from "../lib/api";
 import { errMessage } from "../lib/utils";
 import { buildKycRejectBody, kycRejectConfirmMessage, normalizeKycRejectReason } from "./kycReject";
 import { type KycAdminRow, kycRowToDisplay } from "./kycRows";
+
+type DocumentKind = "ktp" | "selfie" | "npwp";
+type ReviewDocument = { url: string; contentType: string };
+
+const DOCUMENT_LABELS: Record<DocumentKind, string> = {
+  ktp: "KTP",
+  selfie: "Selfie dengan KTP",
+  npwp: "NPWP",
+};
+
+function DocumentPreview({ kind, document }: { kind: DocumentKind; document?: ReviewDocument }) {
+  return (
+    <div className="kyc-document">
+      <div className="kyc-document-label">{DOCUMENT_LABELS[kind]}</div>
+      {document ? (
+        document.contentType === "application/pdf" ? (
+          <a className="btn-ghost admin-mini" href={document.url} target="_blank" rel="noreferrer">
+            Buka PDF
+          </a>
+        ) : (
+          <a href={document.url} target="_blank" rel="noreferrer" aria-label={`Buka ${DOCUMENT_LABELS[kind]}`}>
+            <img className="kyc-document-image" src={document.url} alt={DOCUMENT_LABELS[kind]} />
+          </a>
+        )
+      ) : (
+        <span className="muted fs-11">Tidak tersedia</span>
+      )}
+    </div>
+  );
+}
 
 export function KycPage() {
   const confirm = useConfirm();
   const [rows, setRows] = useState<KycAdminRow[]>([]);
   const [msg, setMsg] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  // Alur tolak (audit batch 3): alasan penolakan WAJIB — panel terbuka saat
-  // tombol Tolak ditekan, lalu confirm danger menampilkan alasan sebelum kirim.
+  const [reviewTarget, setReviewTarget] = useState<KycAdminRow | null>(null);
+  const [reviewDocuments, setReviewDocuments] = useState<Partial<Record<DocumentKind, ReviewDocument>>>({});
+  const [reviewLoading, setReviewLoading] = useState(false);
   const [rejectTarget, setRejectTarget] = useState<KycAdminRow | null>(null);
   const [rejectReason, setRejectReason] = useState("");
 
@@ -24,15 +55,49 @@ export function KycPage() {
       setMsg(errMessage(err));
     }
   }
+
   useEffect(() => {
-    load();
+    void load();
   }, []);
+
+  useEffect(() => {
+    if (!reviewTarget) {
+      setReviewDocuments({});
+      return;
+    }
+    let active = true;
+    const objectUrls: string[] = [];
+    const availableKinds = (Object.keys(reviewTarget.documents) as DocumentKind[]).filter((kind) => reviewTarget.documents[kind]);
+    setReviewLoading(true);
+    setMsg(null);
+    Promise.all(
+      availableKinds.map(async (kind) => {
+        const blob = await apiFetchBlob(`/api/kyc/admin/${reviewTarget.id}/files/${kind}`);
+        const url = URL.createObjectURL(blob);
+        objectUrls.push(url);
+        return [kind, { url, contentType: blob.type }] as const;
+      }),
+    )
+      .then((documents) => {
+        if (active) setReviewDocuments(Object.fromEntries(documents));
+      })
+      .catch((err) => {
+        if (active) setMsg(errMessage(err));
+      })
+      .finally(() => {
+        if (active) setReviewLoading(false);
+      });
+    return () => {
+      active = false;
+      for (const url of objectUrls) URL.revokeObjectURL(url);
+    };
+  }, [reviewTarget]);
 
   async function decide(id: string) {
     if (
       !(await confirm({
         title: "Setujui pengajuan KYC ini?",
-        message: "User bisa menarik dana setelah disetujui.",
+        message: "User bisa menerima payout setelah disetujui. Pastikan KTP, selfie, NIK, dan tanggal lahir sudah cocok.",
         confirmLabel: "Setujui",
       }))
     )
@@ -42,7 +107,8 @@ export function KycPage() {
     try {
       await apiFetch(`/api/kyc/${id}/approve`, { method: "POST" });
       setMsg(`KYC ${id.slice(0, 8)} disetujui`);
-      load();
+      setReviewTarget(null);
+      await load();
     } catch (err) {
       setMsg(errMessage(err));
     } finally {
@@ -75,7 +141,8 @@ export function KycPage() {
       await apiFetch(`/api/kyc/${rejectTarget.id}/reject`, { method: "POST", body: JSON.stringify(buildKycRejectBody(reason)) });
       setMsg(`KYC ${rejectTarget.id.slice(0, 8)} ditolak`);
       setRejectTarget(null);
-      load();
+      setReviewTarget(null);
+      await load();
     } catch (err) {
       setMsg(errMessage(err));
     } finally {
@@ -83,19 +150,71 @@ export function KycPage() {
     }
   }
 
+  const requiredDocumentsLoaded = Boolean(reviewDocuments.ktp && reviewDocuments.selfie);
+
   return (
     <div className="admin-page">
       <div className="admin-page-head">
         <h2>KYC</h2>
-        <p className="muted">Review KYC untuk payout &amp; top-up besar (via API, ter-audit)</p>
+        <p className="muted">Review identitas payout melalui dokumen privat Cloudflare R2; setiap akses ter-audit</p>
       </div>
       {msg && (
         <div className="admin-msg" role="status" aria-live="polite">
           {msg}
         </div>
       )}
+      {reviewTarget && (
+        <section className="card card-pad kyc-review" aria-label={`Review KYC ${reviewTarget.fullName}`}>
+          <div className="kyc-review-head">
+            <div>
+              <div className="admin-table-head kyc-review-title">Review pengajuan — {reviewTarget.fullName}</div>
+              <div className="muted fs-11">ID {reviewTarget.id}</div>
+            </div>
+            <button className="btn-ghost admin-mini" onClick={() => setReviewTarget(null)} disabled={busy}>
+              Tutup
+            </button>
+          </div>
+          <dl className="kyc-identity-grid">
+            <div>
+              <dt>NIK</dt>
+              <dd className="mono">{reviewTarget.nik}</dd>
+            </div>
+            <div>
+              <dt>Tanggal lahir</dt>
+              <dd>{reviewTarget.dob ?? "—"}</dd>
+            </div>
+            <div className="kyc-address-row">
+              <dt>Alamat</dt>
+              <dd>{reviewTarget.address}</dd>
+            </div>
+          </dl>
+          {reviewLoading ? (
+            <div className="muted fs-11">Memuat dokumen privat…</div>
+          ) : (
+            <div className="kyc-document-grid">
+              <DocumentPreview kind="ktp" document={reviewDocuments.ktp} />
+              <DocumentPreview kind="selfie" document={reviewDocuments.selfie} />
+              {reviewTarget.documents.npwp && <DocumentPreview kind="npwp" document={reviewDocuments.npwp} />}
+            </div>
+          )}
+          {reviewTarget.status === "pending" && (
+            <div className="flex-gap-6">
+              <button
+                className="btn-gold admin-mini"
+                onClick={() => decide(reviewTarget.id)}
+                disabled={busy || reviewLoading || !requiredDocumentsLoaded}
+              >
+                Setujui
+              </button>
+              <button className="btn-ghost admin-mini" onClick={() => startReject(reviewTarget)} disabled={busy}>
+                Tolak
+              </button>
+            </div>
+          )}
+        </section>
+      )}
       {rejectTarget && (
-        <div className="card card-pad" style={{ marginBottom: 14 }}>
+        <div className="card card-pad">
           <div className="admin-table-head">Tolak pengajuan KYC — {rejectTarget.fullName}</div>
           <label className="label" htmlFor="kyc-reject-reason">
             Alasan penolakan (wajib, maks. 1000 karakter — dicatat di audit log)
@@ -106,7 +225,7 @@ export function KycPage() {
             rows={2}
             maxLength={1000}
             value={rejectReason}
-            onChange={(e) => setRejectReason(e.target.value)}
+            onChange={(event) => setRejectReason(event.target.value)}
           />
           <div className="flex-gap-6" style={{ marginTop: 8 }}>
             <button
@@ -155,21 +274,10 @@ export function KycPage() {
                         <StatusBadge status={view.status} kind="kyc" />
                       </td>
                       <td style={{ fontSize: 11 }}>{view.submittedLabel}</td>
-                      <td className="flex-gap-6">
-                        {view.status === "pending" ? (
-                          <>
-                            <button className="btn-gold admin-mini" onClick={() => decide(view.id)} disabled={busy}>
-                              Setujui
-                            </button>
-                            <button className="btn-ghost admin-mini" onClick={() => startReject(row)} disabled={busy}>
-                              Tolak
-                            </button>
-                          </>
-                        ) : (
-                          <span className="muted" style={{ fontSize: 11 }}>
-                            Selesai
-                          </span>
-                        )}
+                      <td>
+                        <button className="btn-ghost admin-mini" onClick={() => setReviewTarget(row)} disabled={busy}>
+                          Review
+                        </button>
                       </td>
                     </tr>
                   );

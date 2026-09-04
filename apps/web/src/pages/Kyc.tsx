@@ -9,7 +9,6 @@ import { RequireAuth } from "../components/RequireAuth";
 import { api } from "../lib/api";
 import type { ApiKycResponse } from "../lib/api-types";
 import { useAuth } from "../lib/auth";
-import { supabase } from "../lib/supabase";
 import { useToast } from "../lib/toast";
 import "./account.css";
 
@@ -39,28 +38,11 @@ function parseNik(nik: string): { province: string; dobDDMMYY: string; sequence:
   };
 }
 
-/** Upload satu file ke bucket kyc-files (private). Mengembalikan path storage;
- *  route /api/kyc menerima URL absolut hasil sign. */
 /** Styling-only: map KYC status to the `ac-status-*` modifier class (account.css). */
 function statusClassName(status: NonNullable<ApiKycResponse["kyc"]>["status"]): string {
   if (status === "approved") return "ac-status ac-status-approved";
   if (status === "rejected") return "ac-status ac-status-rejected";
   return "ac-status ac-status-pending";
-}
-
-async function uploadKycFile(userId: string, kind: "ktp" | "selfie" | "npwp", file: File): Promise<string> {
-  if (!supabase) throw new Error("Supabase belum terkonfigurasi");
-  const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
-  const path = `${userId}/${kind}-${Date.now()}.${ext}`;
-  const { error } = await supabase.storage.from("kyc-files").upload(path, file, {
-    cacheControl: "3600",
-    upsert: true,
-    contentType: file.type || undefined,
-  });
-  if (error) throw new Error(error.message);
-  // Simpan path; service-role admin yang menandatangani URL saat review (lihat M5 + 11_rls).
-  // Untuk MVP, simpan path publik (signed URL on read by admin via separate endpoint).
-  return path;
 }
 
 export default function Kyc() {
@@ -85,7 +67,6 @@ function KycInner() {
   const [selfieFile, setSelfieFile] = useState<File | null>(null);
   const [npwpFile, setNpwpFile] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
-  const [uploading, setUploading] = useState(false);
   const nikInfo = parseNik(nik);
 
   async function onSubmit() {
@@ -109,26 +90,18 @@ function KycInner() {
       return;
     setSaving(true);
     try {
-      setUploading(true);
-      const [ktpPath, selfiePath] = await Promise.all([
-        uploadKycFile(user.id, "ktp", ktpFile),
-        uploadKycFile(user.id, "selfie", selfieFile),
-      ]);
-      const npwpPath = npwpFile ? await uploadKycFile(user.id, "npwp", npwpFile) : undefined;
-      setUploading(false);
-      await api.submitKyc({
-        fullName,
-        nik,
-        address,
-        dob,
-        ktpUrl: ktpPath,
-        selfieUrl: selfiePath,
-        npwpUrl: npwpPath,
-      });
+      const form = new FormData();
+      form.set("fullName", fullName);
+      form.set("nik", nik);
+      form.set("address", address);
+      form.set("dob", dob);
+      form.set("ktp", ktpFile);
+      form.set("selfie", selfieFile);
+      if (npwpFile) form.set("npwp", npwpFile);
+      await api.submitKyc(form);
       push("Verifikasi terkirim — menunggu persetujuan", "success");
       refetch();
     } catch (e: unknown) {
-      setUploading(false);
       push(errorMessage(e), "error");
     } finally {
       setSaving(false);
@@ -277,8 +250,8 @@ function KycInner() {
               </div>
             )}
           </div>
-          <button className="btn-gold" onClick={onSubmit} disabled={saving || uploading} style={{ width: "100%", padding: "12px" }}>
-            {uploading ? "Mengunggah…" : saving ? "Mengirim…" : "Kirim"}
+          <button className="btn-gold" onClick={onSubmit} disabled={saving} style={{ width: "100%", padding: "12px" }}>
+            {saving ? "Mengunggah & Mengirim…" : "Kirim"}
           </button>
         </div>
       )}

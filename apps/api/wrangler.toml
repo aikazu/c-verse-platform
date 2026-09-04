@@ -1,15 +1,18 @@
 name = "c-verse-api"
 main = "src/index.ts"
-compatibility_date = "2024-12-01"
+compatibility_date = "2026-09-02"
 compatibility_flags = ["nodejs_compat"]
+workers_dev = true
+preview_urls = false
 
 # ── Bindings (docs/08 §3.3 — runbook full-edge)
 # ENV distinguishes local vs preview vs prod; real secrets via `wrangler secret put` (never in repo).
 [vars]
 ENV = "production"
+SUPABASE_URL = "https://rnsfgbhoahzvrbtvjjtw.supabase.co"
 
 # Secrets (set via `wrangler secret put` — see docs/08 §3.3 + §7):
-# SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY,
+# SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY,
 # EMAIL_ENABLED (flag email transaksional — akses kreator + queue notifikasi
 # uang/pemenuhan via lib/emailQueue.ts; 'true' enable, default OFF di dev),
 # EMAIL_FROM (sender address, e.g. no-reply@c-verse.co — domain must be onboarded to Email Service),
@@ -23,14 +26,45 @@ ENV = "production"
 [[send_email]]
 name = "EMAIL"
 
-# R2 buckets (§3.4) — uncomment when R2 created in Cloudflare dashboard:
+# R2 KYC bucket is private and accessed only through the Worker binding.
 # [[r2_buckets]]
 # binding = "ASSETS"
 # bucket_name = "cverse-assets"
-# [[r2_buckets]]
-# binding = "KYC"
-# bucket_name = "cverse-kyc"
-# preview_bucket_name = "cverse-kyc-preview"
+[[r2_buckets]]
+binding = "KYC"
+bucket_name = "cverse-kyc"
+
+[observability]
+enabled = true
+head_sampling_rate = 1
+
+[[ratelimits]]
+name = "AUTH_RATE_LIMITER"
+namespace_id = "1001"
+[ratelimits.simple]
+limit = 30
+period = 60
+
+[[ratelimits]]
+name = "NFC_RATE_LIMITER"
+namespace_id = "1002"
+[ratelimits.simple]
+limit = 60
+period = 60
+
+[[ratelimits]]
+name = "GLOBAL_RATE_LIMITER"
+namespace_id = "1003"
+[ratelimits.simple]
+limit = 600
+period = 60
+
+[[ratelimits]]
+name = "KYC_RATE_LIMITER"
+namespace_id = "1004"
+[ratelimits.simple]
+limit = 10
+period = 60
 
 # Queues (§3.3) — uncomment when created:
 # [[queues.producers]]
@@ -49,6 +83,5 @@ name = "EMAIL"
 [triggers]
 crons = ["* * * * *", "*/5 * * * *", "0 23 * * 1"]
 
-# Route (§3.1): api.c-verse.co/*
-# Set in Dashboard → Workers → Routes, or via `wrangler.toml` route (when domain zone is in this account):
-# route = { pattern = "api.c-verse.co/*", zone_name = "c-verse.co" }
+# Temporary public origin: workers.dev. Move to `api.c-verse.co` after the
+# `c-verse.co` zone is accessible in this Cloudflare account.
