@@ -31,12 +31,12 @@ import type {
   ApiWalletResponse,
 } from "./api-types";
 
-// Empty in local development so Vite proxies /api to Wrangler. The explicit
-// production fallback keeps the app operational until api.c-verse.co can be
-// attached from the Cloudflare account that owns the zone.
-const API_BASE = (
-  (import.meta.env.VITE_API_URL as string | undefined) ?? (import.meta.env.PROD ? "https://c-verse-api.gaeunwong.workers.dev" : "")
-).replace(/\/$/, "");
+// Empty in local development so Vite proxies /api to Wrangler. Production
+// defaults to the Worker custom domain and can still be overridden per deploy.
+const API_BASE = ((import.meta.env.VITE_API_URL as string | undefined) ?? (import.meta.env.PROD ? "https://api.c-verse.co" : "")).replace(
+  /\/$/,
+  "",
+);
 
 // metadata pagination dari endpoint list server-side (lihat apps/api reads.ts PageMeta)
 export interface PagedMeta {

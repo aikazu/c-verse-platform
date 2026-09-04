@@ -7,9 +7,10 @@ import { supabase } from "./supabase";
 
 // Same-origin base — value replicated from lib/api.ts (not exported there;
 // that module is owned by another lane and must not gain surface for this).
-const API_BASE = (
-  (import.meta.env.VITE_API_URL as string | undefined) ?? (import.meta.env.PROD ? "https://c-verse-api.gaeunwong.workers.dev" : "")
-).replace(/\/$/, "");
+const API_BASE = ((import.meta.env.VITE_API_URL as string | undefined) ?? (import.meta.env.PROD ? "https://api.c-verse.co" : "")).replace(
+  /\/$/,
+  "",
+);
 
 /**
  * Fire-and-forget page-view beacon. Never awaits in the render path and never

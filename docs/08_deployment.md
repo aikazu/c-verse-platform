@@ -99,10 +99,10 @@ tidak membacanya (env email API hanya `EMAIL_ENABLED`/`EMAIL_FROM`/
 
 ### 3.3 Cloudflare Workers (apps/api)
 1. Worker bernama `c-verse-api` (dari `apps/api`, sesuai `wrangler.toml`).
-2. Origin aktif 2026-09-04: `https://c-verse-api.gaeunwong.workers.dev`
-   (`workers_dev=true`, preview URL acak dimatikan). Target final tetap
-   `api.c-verse.co`; custom domain belum dapat di-attach karena zona
-   `c-verse.co` berada di akun Cloudflare lain dari akun deployment.
+2. Origin produksi 2026-09-04: `https://api.c-verse.co` sebagai Worker
+   Custom Domain. `workers_dev=true` dipertahankan untuk diagnosis darurat;
+   preview URL acak dimatikan. Deployment dikunci ke Cloudflare account
+   `0252b83dcbeac8879add5c278fbc342d` agar resource tidak salah akun.
 3. Cron Triggers (`wrangler.toml` — 3 trigger aktif):
    | Cron (UTC) | WIB | Fungsi |
    |------|-----|--------|
@@ -112,12 +112,13 @@ tidak membacanya (env email API hanya `EMAIL_ENABLED`/`EMAIL_FROM`/
 4. Queues (`email-queue` dll) belum aktif — blok masih dikomentari
    di `wrangler.toml`; aktifkan saat notifikasi diimplementasi.
 5. Secrets (wrangler secret put, TIDAK di repo):
-   `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`,
-   `JWT_SECRET` (JWKS verifikasi), `EMAIL_ENABLED`, `EMAIL_FROM`,
+   `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `EMAIL_ENABLED`, `EMAIL_FROM`,
    `ADMIN_ALERT_EMAIL` (Cloudflare Email Service — binding `EMAIL`
    di `wrangler.toml`; SMTP dihapus 2026-08-29),
    `MIDTRANS_SERVER_KEY`, `NFC_MASTER_KEY`,
    `PAYOUT_WEBHOOK_SIGNING_KEY`.
+   `SUPABASE_URL` adalah environment variable non-rahasia di
+   `wrangler.toml`; autentikasi user diverifikasi melalui JWKS Supabase.
 6. Native Rate Limiting bindings aktif di `wrangler.toml`:
    auth/payment 30, NFC 60, KYC submit 10, global 600 request per
    menit per actor + lokasi edge. Ini menggantikan limiter in-memory
@@ -126,7 +127,8 @@ tidak membacanya (env email API hanya `EMAIL_ENABLED`/`EMAIL_FROM`/
 ### 3.4 Cloudflare R2
 - Bucket `cverse-assets` (publik via CDN): artwork, model 3D — belum
   dibuat/dihubungkan pada tahap KYC.
-- Bucket `cverse-kyc` (PRIVATE, dibuat 2026-09-04): KTP, selfie,
+- Bucket `cverse-kyc` (PRIVATE, dibuat ulang pada account produksi
+  2026-09-04; location hint APAC): KTP, selfie,
   NPWP. Binding `KYC` memakai Workers API `put/get/head/delete`.
   Browser tidak memakai presigned URL dan tidak memerlukan CORS R2:
   upload multipart diproksi Worker (maks. 5 MiB/file), review admin

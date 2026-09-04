@@ -1,9 +1,14 @@
 name = "c-verse-api"
 main = "src/index.ts"
+account_id = "0252b83dcbeac8879add5c278fbc342d"
 compatibility_date = "2026-09-02"
 compatibility_flags = ["nodejs_compat"]
 workers_dev = true
 preview_urls = false
+
+[[routes]]
+pattern = "api.c-verse.co"
+custom_domain = true
 
 # ── Bindings (docs/08 §3.3 — runbook full-edge)
 # ENV distinguishes local vs preview vs prod; real secrets via `wrangler secret put` (never in repo).
@@ -83,5 +88,5 @@ period = 60
 [triggers]
 crons = ["* * * * *", "*/5 * * * *", "0 23 * * 1"]
 
-# Temporary public origin: workers.dev. Move to `api.c-verse.co` after the
-# `c-verse.co` zone is accessible in this Cloudflare account.
+# Production origin: `api.c-verse.co`; workers.dev remains available as an
+# emergency diagnostic origin.

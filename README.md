@@ -118,7 +118,7 @@ npx supabase start        # API :54321  DB :54322  Studio :54323
 npx supabase db reset     # migrations/*.sql + seed.sql
 ```
 
-Storage: Cloudflare R2 (`cverse-assets`, `cverse-kyc` — binding di `wrangler.toml` masih dikomentari, aktifkan saat bucket dibuat; `08_deployment.md` §3.4).
+Storage: Cloudflare R2 (`cverse-kyc` private sudah aktif melalui binding `KYC`; `cverse-assets` belum dibuat — lihat `08_deployment.md` §3.4).
 
 ### Akun Seed (dev)
 
@@ -140,7 +140,7 @@ Login **tanpa password** — email OTP atau Google. UUID fixed di `supabase/seed
 | API | Hono 4 + Zod (`@hono/zod-validator`) → Cloudflare Workers |
 | Admin | React 19 + Vite → VPS + Cloudflare Tunnel + Access (Zero Trust) |
 | DB / Auth / Realtime | Supabase Postgres (SG) + pgcrypto |
-| Storage | Cloudflare R2 — `cverse-assets` / `cverse-kyc` · zero egress · binding disiapkan di `wrangler.toml` |
+| Storage | Cloudflare R2 — `cverse-kyc` private aktif via Worker binding; `cverse-assets` belum dibuat |
 | Shared | `packages/shared` — Zod schemas + constants canonical |
 | Email OTP | Supabase Auth (GoTrue) — sender OTP diatur di Dashboard |
 | Monorepo | pnpm workspaces (`pnpm -r`, tanpa Turborepo) |

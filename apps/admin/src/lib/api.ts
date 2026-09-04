@@ -2,9 +2,10 @@ import { supabase } from "./supabase";
 
 // Empty = same-origin (prod, behind the same Cloudflare tunnel); local dev sets
 // the local API base in .env.local (see .env.example for the dev default).
-const API_BASE = (
-  (import.meta.env.VITE_API_URL as string | undefined) ?? (import.meta.env.PROD ? "https://c-verse-api.gaeunwong.workers.dev" : "")
-).replace(/\/$/, "");
+const API_BASE = ((import.meta.env.VITE_API_URL as string | undefined) ?? (import.meta.env.PROD ? "https://api.c-verse.co" : "")).replace(
+  /\/$/,
+  "",
+);
 
 async function authorizedFetch(path: string, init: RequestInit): Promise<Response> {
   const { data } = await supabase.auth.getSession();
