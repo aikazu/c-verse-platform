@@ -1,36 +1,55 @@
-# C.Verse Admin — `apps/admin` (app terpisah, TIDAK di Pages publik)
+# C.Verse Admin — `apps/admin`
 
-Per `docs/06-tech-decisions.md` D1 + `docs/08-deployment.md` section 3.5: admin dashboard = **app terpisah** (bukan di edge), akses langsung ke Supabase via `service-role` (tidak pernah di-bundle publik). Tidak ada route admin di API publik.
+Admin adalah React/Vite SPA terpisah yang disajikan statik dari VPS dan tidak
+dideploy ke Pages. Browser hanya menerima Supabase publishable/anon key;
+`service-role` tetap menjadi secret Worker dan tidak boleh berada di bundle,
+VPS, atau file environment admin.
 
-## Arsitektur
+## Arsitektur produksi
 
-- Stack: React 19 + Vite SPA (`apps/admin`) — dijalankan **lokal** (mesin founder) atau VPS kecil + **Cloudflare Tunnel + Access** (Zero Trust).
-- URL prod: `admin.c-verse.co` (via `cloudflared tunnel` → `http://localhost:3000`, policy Access: *Allow founders* email list).
-- Auth: Supabase Auth (Google OAuth + email OTP) + **MFA TOTP wajib** (Supabase MFA: `aal1` → challenge → `aal2`; UI privileged terkunci sampai `aal2`).
-- Audit: `admin_audit_log` append-only (siapa, aksi, target, payload ringkas, IP/session, waktu; RLS: no public, retensi ≥1 tahun).
+```text
+Internet
+  -> Cloudflare Access (allowlist founder)
+  -> Cloudflare Tunnel
+  -> cloudflared
+  -> Nginx 127.0.0.1:8080
+  -> apps/admin/dist
+```
+
+- URL: `https://admin.c-verse.co`.
+- Cloudflare Access adalah gerbang pertama. Aplikasi disembunyikan dari App
+  Launcher, cookie Access memakai `HttpOnly` dan binding cookie, serta sesi
+  aplikasi dibatasi 6 jam.
+- Login aplikasi memakai Supabase email OTP, lalu MFA TOTP wajib sampai sesi
+  mencapai `aal2`.
+- Read mengikuti RLS. Semua mutasi privileged lewat API role-gated
+  `https://api.c-verse.co`; API menegakkan role admin + `aal2` dan menulis
+  `admin_audit_log`.
+- Nginx hanya listen di loopback. Port publik VPS hanya SSH key-only; HTTP/HTTPS
+  tidak dibuka langsung.
 
 ## Menjalankan lokal
 
-```bash
-# env (apps/admin/.env.local)
-VITE_SUPABASE_URL=https://xxx.supabase.co
-VITE_SUPABASE_ANON_KEY=eyJ...
+Salin `.env.example` menjadi `.env.local`, lalu isi hanya nilai publik:
 
-pnpm --filter @c-verse/admin dev   # :3000
-pnpm --filter @c-verse/admin build # → apps/admin/dist
+```bash
+VITE_SUPABASE_URL=https://xxx.supabase.co
+VITE_SUPABASE_ANON_KEY=sb_publishable_xxx
+VITE_API_URL=http://localhost:8787
+VITE_TURNSTILE_SITE_KEY=0x...
+
+pnpm --filter @c-verse/admin dev   # 127.0.0.1:3000
+pnpm --filter @c-verse/admin build # apps/admin/dist
 ```
 
-## Cloudflare Tunnel + Access (VPS)
+## Deploy ke VPS
 
-1. `cloudflared tunnel create cverse-admin` → route `admin.c-verse.co` → `http://localhost:3000`
-2. Cloudflare Access policy: *Allow* founder emails di depan `admin.c-verse.co`
-3. Env admin di VPS: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` (HANYA di admin — tidak di `apps/web`), `ADMIN_ALLOWED_EMAILS`
+Build dilakukan lokal dengan `VITE_*` production, lalu isi `dist/` dikirim ke
+direktori release versioned di `/var/www/cverse-admin/releases/`. Symlink
+`/var/www/cverse-admin/current` diarahkan ke release baru setelah upload lolos
+checksum. Nginx menyajikan `current` di `127.0.0.1:8080`; tunnel
+`cverse-admin` meneruskan `admin.c-verse.co` ke origin tersebut.
 
-## 2FA (ADM-09) & Audit (ADM-08)
-
-- **2FA:** lihat `src/App.tsx` — enroll QR + `mfa.challenge()` + `mfa.verify()` → sesi `aal2`. Catatan D1: admin via `service-role` (bypass RLS), jadi penegakan `aal2` di **app (guard route/UI)** + Cloudflare Access di jaringan.
-- **Audit log:** hook terpusat di admin app — semua mutasi lewat satu service function → `INSERT admin_audit_log` otomatis; view + filter di `/audit`.
-
-## Deploy
-
-Admin TIDAK di-`wrangler pages deploy`. Build serve statik di belakang tunnel. Jangan pernah expose service-role key ke `apps/web` bundle.
+VPS tidak memerlukan Node.js atau secret aplikasi. Rollback dilakukan dengan
+mengembalikan symlink `current` ke release sebelumnya lalu menjalankan
+`nginx -t` dan reload Nginx.

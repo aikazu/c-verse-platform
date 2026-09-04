@@ -1,7 +1,8 @@
 # 08 — Deployment Runbook (Step-by-Step)
 
 > Status: [VALIDATED]
-> Last updated: 2026-09-04 (bucket R2 `cverse-kyc` + binding Worker
+> Last updated: 2026-09-04 (admin production di VPS aktif melalui
+> Cloudflare Tunnel + Access; bucket R2 `cverse-kyc` + binding Worker
 > aktif; upload/review KYC tidak memakai Supabase Storage)
 > Previous: 2026-08-31 (deploy.yml TIDAK ada — deploy manual;
 > email = Cloudflare Email Service)
@@ -35,8 +36,8 @@ Infra pendukung:
 ```
 
 Environment:
-- `prod` = branch `main` (deploy otomatis).
-- `preview` = tiap PR/branch (deploy ke URL preview Pages).
+- `prod` = branch `main` (deploy manual; CI hanya quality gates).
+- `preview` = URL preview Pages saat dibuat manual dari PR/branch.
 
 ## 2. Prasyarat (Sprint 0)
 
@@ -83,6 +84,7 @@ tidak membacanya (env email API hanya `EMAIL_ENABLED`/`EMAIL_FROM`/
    | A/AAAA | `@` | Pages custom domain (Cloudflare mengelola otomatis) |
    | A/AAAA | `api` | Worker route (atau via `wrangler` binding) |
    | CNAME | `www` | Pages |
+   | CNAME | `admin` | `<tunnel-id>.cfargotunnel.com` (proxied) |
 3. SSL/TLS mode: **Full (strict)**.
 4. Pages custom domain: attach `@` ke project Pages apps/web
    (otomatis provisioning SSL).
@@ -137,17 +139,26 @@ tidak membacanya (env email API hanya `EMAIL_ENABLED`/`EMAIL_FROM`/
 - Bucket `cverse-qr` (opsional): fallback QR statik per kartu.
 
 ### 3.5 Admin app (apps/admin) — TIDAK di Pages
-- Deploy ke **VPS kecil** (Rp 100-200rb/bln) atau mesin lokal
-  founder; akses lewat **Cloudflare Tunnel + Access**:
-  1. Install `cloudflared` di VPS.
-  2. `cloudflared tunnel create cverse-admin` → route
-     `admin.c-verse.co` ke `http://localhost:3000`.
-  3. Cloudflare Access: policy **Allow founders** (email list)
-     di depan `admin.c-verse.co` — no internet attacker.
-- Env admin SPA: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`,
-  `VITE_API_URL`; service-role hanya disimpan sebagai secret Worker.
-- Build: `pnpm --filter admin build` → `pnpm --filter admin
-  start` (serve statik) di belakang tunnel.
+- Production aktif 2026-09-04 di VPS `cverse-admin` melalui rantai:
+  Cloudflare Access → Tunnel `cverse-admin` → `cloudflared` → Nginx
+  `127.0.0.1:8080` → build statik admin. Nginx tidak listen di
+  interface publik; firewall hanya membuka SSH key-only.
+- Access app `C.Verse Admin` melindungi `admin.c-verse.co` dengan policy
+  allowlist email founder, sesi 6 jam, App Launcher tersembunyi, cookie
+  `HttpOnly`, dan binding cookie. Policy Access dibuat **sebelum** DNS
+  CNAME dipublikasikan agar origin tidak pernah terbuka tanpa gate.
+- Build dilakukan lokal dengan nilai publik `VITE_SUPABASE_URL`,
+  `VITE_SUPABASE_ANON_KEY` (publishable key),
+  `VITE_API_URL=https://api.c-verse.co`, dan
+  `VITE_TURNSTILE_SITE_KEY`. `service-role` hanya secret Worker; VPS
+  tidak menyimpan environment aplikasi atau runtime Node.js.
+- Deploy isi `apps/admin/dist` ke release versioned di
+  `/var/www/cverse-admin/releases/`, verifikasi checksum, lalu ubah
+  symlink `/var/www/cverse-admin/current`. Rollback = arahkan kembali
+  symlink ke release sebelumnya, `nginx -t`, lalu reload Nginx.
+- Verifikasi dari luar: `https://admin.c-verse.co` tanpa sesi harus
+  merespons redirect ke Cloudflare Access, sedangkan port publik VPS
+  80/443 harus tertutup.
 
 ## 4. Setup Supabase (sekali, Sprint 0)
 
@@ -267,6 +278,9 @@ Secrets CI yang wajib diset (GitHub Settings → Secrets):
   "Rollback". Statik SPA = rollback instant.
 - **API**: `wrangler rollback` (ke release terakhir) ATAU
   redeploy commit sebelumnya.
+- **Admin**: arahkan symlink `/var/www/cverse-admin/current` ke release
+  sebelumnya, jalankan `nginx -t`, lalu reload Nginx. Tunnel dan Access
+  tidak perlu diubah.
 - **DB**: migrasi TIDAK auto-rollback. Prinsipi: migrasi selalu
   backward-compatible (add column nullable dulu, drop belakangan);
   kalau rusak, restore point-in-time Supabase + log replay
@@ -280,6 +294,8 @@ Secrets CI yang wajib diset (GitHub Settings → Secrets):
 - [ ] `/health` OK; halaman kartu 3D OK di Chrome Android.
 - [ ] Web NFC verify OK di device nyata (C-03); fallback QR OK.
 - [ ] Supabase RLS verified (service-role tidak bocor ke publik).
+- [ ] `admin.c-verse.co` tanpa sesi mendapat redirect Cloudflare Access;
+      origin VPS port 80/443 tidak dapat diakses publik.
 - [ ] Secrets tidak ada di bundle publik (cari `service_role|SERVER_KEY` di `dist/`).
 - [ ] Email via Cloudflare Email Service terkirim: akses kreator +
       digest failure cron (`EMAIL_ENABLED=true`, binding `EMAIL`).
