@@ -47,7 +47,7 @@ const POWER_UPS = [
     icon: "₵",
     label: "POWER-UP 3",
     title: "C-COIN",
-    desc: "1 C-Coin = Rp 10.000 — angka bulat, tanpa desimal. Top-up, beli drop, dan trade semuanya lewat satu mata uang.",
+    desc: "1 C-Coin = Rp 10.000. Top-up dan belanja pakai C-Coin; hasil jual dan royalti masuk sebagai C-Gems.",
   },
 ];
 

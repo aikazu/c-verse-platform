@@ -81,6 +81,6 @@ describe("POST /api/payments/payout — gems maturity error map", () => {
     expect(res.status).toBe(400);
     const body = (await res.json()) as { error: string; code: string };
     expect(body.code).toBe("MIN_PAYOUT");
-    expect(body.error).toBe("Payout minimum 10 C-Coin");
+    expect(body.error).toBe("Payout minimum 10 C-Gems");
   });
 });

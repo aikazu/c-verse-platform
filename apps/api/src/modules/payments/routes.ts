@@ -91,7 +91,7 @@ app.post("/payout", zValidator("json", z.object({ amountCcoin: z.number().int().
       KYC_REQUIRED: "KYC harus disetujui dulu sebelum payout (ajukan di /me/kyc)",
       PAYOUT_HELD: "Payout sedang ditahan admin (fraud hold)",
       INSUFFICIENT: "Saldo C-Coin tidak cukup",
-      MIN_PAYOUT: "Payout minimum 10 C-Coin",
+      MIN_PAYOUT: "Payout minimum 10 C-Gems",
       // Dual-token (docs/07): payout mendebit Gems matured — lot yang masih
       // dikunci ditolak; angka jam mengikuti konstanta shared, bukan hardcode.
       PAYOUT_GEMS_LOCKED: `Gems masih dikunci ${GEMS_LOCK_HOURS} jam — cairkan setelah masa kunci selesai`,

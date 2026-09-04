@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import React, { lazy, Suspense, useState } from "react";
-import { BrowserRouter, Navigate, NavLink, Route, Routes, useNavigate, useParams } from "react-router-dom";
+import { BrowserRouter, Link, Navigate, NavLink, Route, Routes, useNavigate, useParams } from "react-router-dom";
 import { ConfirmProvider } from "./components/ConfirmProvider";
 import { api } from "./lib/api";
 import { AuthProvider, useAuth } from "./lib/auth";
@@ -27,6 +27,7 @@ const Drops = lazy(() => import("./pages/Drops"));
 const Home = lazy(() => import("./pages/Home"));
 const Kyc = lazy(() => import("./pages/Kyc"));
 const Landing = lazy(() => import("./pages/Landing"));
+const Legal = lazy(() => import("./pages/Legal"));
 const Leaderboard = lazy(() => import("./pages/Leaderboard"));
 const Login = lazy(() => import("./pages/Login"));
 const ManageCards = lazy(() => import("./pages/ManageCards"));
@@ -361,6 +362,12 @@ function AppRoutes() {
             <Route path="/u/:username" element={<PublicProfile />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
+            <Route path="/legal" element={<Legal />} />
+            <Route path="/legal/:slug" element={<Legal />} />
+            <Route path="/terms" element={<Navigate to="/legal/terms" replace />} />
+            <Route path="/tos" element={<Navigate to="/legal/terms" replace />} />
+            <Route path="/terms-of-service" element={<Navigate to="/legal/terms" replace />} />
+            <Route path="/privacy-policy" element={<Navigate to="/legal/privacy" replace />} />
             <Route path="/creator" element={<CreatorDashboard />} />
             <Route path="/creator/drops" element={<CreatorDashboard />} />
             <Route path="/creator/drops/:dropId" element={<CreatorDropAnalytics />} />
@@ -376,9 +383,20 @@ function AppRoutes() {
         </Suspense>
       </main>
       <footer className="footer-arcade">
-        <div className="footer-line">C.Verse — Koleksi Kreator Edisi Terbatas</div>
-        <div className="footer-meta">
-          © 2026 · <a href="/sitemap.xml">Sitemap</a> · c-verse.co · Insert Coin <span className="blink">▮</span>
+        <div className="footer-inner">
+          <div className="footer-brand-block">
+            <div className="footer-line">C.Verse — Koleksi Kreator Edisi Terbatas</div>
+            <div className="footer-meta">
+              © 2026 · c-verse.co · Insert Coin <span className="blink">▮</span>
+            </div>
+          </div>
+          <nav className="footer-legal-links" aria-label="Informasi legal">
+            <Link to="/legal">Pusat Legal</Link>
+            <Link to="/legal/terms">Syarat & Ketentuan</Link>
+            <Link to="/legal/privacy">Privasi</Link>
+            <Link to="/legal/shipping">Pengiriman & Vault</Link>
+            <a href="/sitemap.xml">Sitemap</a>
+          </nav>
         </div>
       </footer>
     </div>

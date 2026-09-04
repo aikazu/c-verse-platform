@@ -124,7 +124,19 @@ describe("GET /api/seo/sitemap.xml", () => {
     const xml = await res.text();
     expect(xml.startsWith('<?xml version="1.0" encoding="UTF-8"?')).toBe(true);
     // static pages
-    for (const p of ["/", "/drops", "/marketplace", "/browse", "/leaderboard"]) {
+    for (const p of [
+      "/",
+      "/drops",
+      "/marketplace",
+      "/browse",
+      "/leaderboard",
+      "/legal",
+      "/legal/terms",
+      "/legal/privacy",
+      "/legal/shipping",
+      "/legal/kyc",
+      "/legal/creator-terms",
+    ]) {
       expect(xml).toContain(`<loc>${base}${p}</loc>`);
     }
     // drop statuses outside published/live/sold_out/scheduled are excluded
@@ -260,5 +272,18 @@ describe("GET /api/seo/meta", () => {
     const body = (await res.json()) as { og: { title: string }; jsonLd: unknown };
     expect(body.og.title).toContain("C.Verse");
     expect(body.jsonLd).toBeNull();
+  });
+
+  it("legal page returns dedicated OG and WebPage metadata", async () => {
+    const res = await app.request("/api/seo/meta?path=/legal/privacy");
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      og: { title: string; description: string };
+      jsonLd: { "@type": string; url: string } | null;
+    };
+    expect(body.og.title).toBe("Kebijakan Privasi — C.Verse");
+    expect(body.og.description).toContain("data pribadi");
+    expect(body.jsonLd?.["@type"]).toBe("WebPage");
+    expect(body.jsonLd?.url).toBe(`${base}/legal/privacy`);
   });
 });

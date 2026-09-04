@@ -1,7 +1,9 @@
 # 02 — Peta Halaman MVP
 
 > Status: [VALIDATED]
-> Last updated: 2026-08-31 (sitemap admin: + /kyc approve/reject,
+> Last updated: 2026-09-04 (public legal center: /legal + 5
+> dokumen, route alias TOS/privacy, footer links, sitemap + OG)
+> Previous: 2026-08-31 (sitemap admin: + /kyc approve/reject,
 > NFC seed ops vault-in/release, /investor via RPC
 > `get_investor_stats`; /register route web)
 > Previous: 2026-08-27 (PG-LB-01 multi-type leaderboard: tab
@@ -58,6 +60,12 @@ warna): lihat `06_tech_decisions.md` D7–D8.
 | PG-CRT-PUB-01 | `/c/:username` | Halaman kreator (publik) | **Handle, bio, link media sosial** + **list drop** (published/live/upcoming, klik ke detail drop) + **tombol Dukungan** (login user kirim C-Coin min 1 → 100% ke kreator, tanpa potongan platform; pengirim XP 1:1 — `POST /api/wallet/support`) + **Papan Kolektor** (top 10 kolektor kreator tersebut — `type=creator`, `creatorId=<uuid>`). TANPA jumlah follower. Creator suspended disembunyikan dari listing publik; creator anonymous juga disembunyikan (konsisten dgn privacy rule). Papan Kolektor TIDAK punya link ke papan global |
 | PG-PROF-01 | `/u/:username` | Profil kolektor (publik) | Koleksi, level, badge, ranking leaderboard — **kecuali user mengaktifkan privacy anonymous ATAU di-suspend (`flag_reason`)** |
 | PG-AUTH-01 | `/login` · `/register` | Login/Register | Google OAuth + email OTP (**email OTP wajib captcha anti-spam** — Cloudflare Turnstile) |
+| PG-LEGAL-00 | `/legal` | Pusat Legal | Hub publik untuk seluruh kebijakan, status dokumen, versi, tanggal update, dan kanal kontak |
+| PG-LEGAL-01 | `/legal/terms` | Syarat & Ketentuan | T&C/TOS v1.0: akun, dual-token, raffle, Vault, secondary, NFC, refund, suspension, liability, sengketa; alias `/terms`, `/tos`, `/terms-of-service` |
+| PG-LEGAL-02 | `/legal/privacy` | Kebijakan Privasi | Data, tujuan/dasar pemrosesan, penerima, retensi, keamanan, hak subjek data; alias `/privacy-policy` |
+| PG-LEGAL-03 | `/legal/shipping` | Pengiriman & Vault | Purchase-to-vault only, ship-out, refund ongkir, tanggung jawab kehilangan/kerusakan |
+| PG-LEGAL-04 | `/legal/kyc` | Kebijakan KYC | Payout C-Gems, cap saldo non-KYC, data verifikasi, monitoring risiko, banding |
+| PG-LEGAL-05 | `/legal/creator-terms` | Ketentuan Kreator | Lisensi, revenue share, lifetime royalty, Creator Seed, C-Gems, integritas pasar |
 
 ## 4. Halaman Verifikasi TIDAK ADA (di-merge)
 
@@ -154,6 +162,8 @@ Worker aktif hanya untuk halaman publik yang butuh SEO:
 - `GET /cards/:shortId/3d` — inject Product schema + OG
 - `GET /drops/:dropId` — inject OG + Event schema
 - `GET /sitemap.xml` — sitemap dinamis. Sitemap EXCLUDE creator suspended (`flag_reason`) + anonymous (`is_anonymous`) — konsisten dgn `/api/creators` listing dan privacy rule publik.
+- `GET /legal*` — OG + WebPage JSON-LD untuk pusat legal dan
+  lima dokumen; seluruh route legal masuk sitemap publik.
 
 Halaman login/dashboard/wallet — SPA murni, skip Worker.
 

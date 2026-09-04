@@ -77,7 +77,7 @@ const ERROR_MESSAGES: Record<string, string> = {
   SELF_SUPPORT: "Tidak bisa mengirim dukungan ke diri sendiri",
   CREATOR_NOT_FOUND: "Kreator tujuan tidak ditemukan",
   KYC_REQUIRED: "KYC harus disetujui dulu sebelum payout",
-  MIN_PAYOUT: "Payout minimum 10 C-Coin",
+  MIN_PAYOUT: "Payout minimum 10 C-Gems",
   PAYOUT_HELD: "Payout sedang ditahan admin (fraud hold)",
   TOPUP_CAP_EXCEEDED: "Cap saldo top-up non-KYC tercapai (500 C-Coin) — selesaikan KYC untuk membuka tanpa cap",
   SALE_IN_PROGRESS: "Transaksi sedang berjalan — bid/buyout tidak bisa dipasang sampai transaksi selesai",

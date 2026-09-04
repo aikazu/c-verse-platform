@@ -44,4 +44,18 @@ test.describe("Public browsing (unauthenticated)", () => {
     // .first(): error page render 2 elemen match (span "404" + heading "tidak ditemukan")
     await expect(page.locator("text=404").or(page.locator("text=tidak ditemukan")).first()).toBeVisible({ timeout: 10000 });
   });
+
+  test("pusat legal dan dokumen T&C dapat dibaca tanpa login", async ({ page }) => {
+    await page.goto("/legal");
+    await expect(page.getByRole("heading", { name: "Pusat Legal", exact: true })).toBeVisible();
+    await page
+      .getByRole("link", { name: /Syarat & Ketentuan/ })
+      .first()
+      .click();
+    await expect(page).toHaveURL(/\/legal\/terms$/);
+    await expect(page.getByRole("heading", { name: "Syarat & Ketentuan C.Verse" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "C-Coin" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "C-Gems" })).toBeVisible();
+    await expect(page.getByText("support@c-verse.co").first()).toBeVisible();
+  });
 });

@@ -27,7 +27,7 @@ app.get("/", async (c) => {
     payoutHeld: held.held,
     payoutHoldUntil: held.until,
     disclosureOpsiA:
-      "Saldo C-Coin bersifat closed-loop: saldo buyer tidak dapat diuangkan (withdraw). Hanya hasil penjualan seller/kreator yang dapat di-disburse ke IDR (fee 1%, min 10 C-Coin, KYC wajib).",
+      "C-Coin adalah saldo belanja closed-loop dan tidak dapat diuangkan. Hasil penjualan seller/kreator masuk sebagai C-Gems yang dapat di-payout ke IDR (fee 1%, minimum 10 C-Gems, KYC wajib).",
   });
 });
 

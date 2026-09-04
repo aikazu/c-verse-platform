@@ -57,9 +57,9 @@ export function renderNotificationEmail(templateKey: string, payload: Payload | 
       );
     case "payout_disbursed":
       return render(
-        `Payout ${str(p, "amount")} C-Coin sudah ditransfer`,
+        `Payout ${str(p, "amount")} C-Gems sudah ditransfer`,
         [
-          `Permintaan payout ${str(p, "payoutId")} sebesar ${str(p, "amount")} C-Coin sudah ditransfer secara manual oleh tim kami.`,
+          `Permintaan payout ${str(p, "payoutId")} sebesar ${str(p, "amount")} C-Gems sudah ditransfer secara manual oleh tim kami.`,
           "Dana dalam bentuk Rupiah dikirim ke rekening terdaftar kamu.",
         ],
         "Lihat riwayat payout",
@@ -67,10 +67,10 @@ export function renderNotificationEmail(templateKey: string, payload: Payload | 
       );
     case "payout_failed":
       return render(
-        `Payout ${str(p, "amount")} C-Coin gagal diproses`,
+        `Payout ${str(p, "amount")} C-Gems gagal diproses`,
         [
-          `Permintaan payout ${str(p, "payoutId")} sebesar ${str(p, "amount")} C-Coin tidak dapat diproses.`,
-          "Dana sudah dikembalikan penuh ke saldo C-Coin kamu dan bisa diajukan ulang kapan saja.",
+          `Permintaan payout ${str(p, "payoutId")} sebesar ${str(p, "amount")} C-Gems tidak dapat diproses.`,
+          "Dana sudah dikembalikan penuh ke saldo C-Gems kamu dan bisa diajukan ulang kapan saja.",
         ],
         "Cek dompet kamu",
         "/wallet",
@@ -90,7 +90,7 @@ export function renderNotificationEmail(templateKey: string, payload: Payload | 
         `C.Card kamu terjual — +${str(p, "amount")} C-Coin`,
         [
           `${str(p, "dropTitle") || "C.Card"} kamu terjual seharga ${str(p, "amount")} C-Coin di pasar sekunder.`,
-          "Hasil penjualan sudah masuk ke saldo C-Coin kamu.",
+          "Hasil penjualan sudah masuk ke saldo C-Gems kamu.",
         ],
         "Cek dompet kamu",
         "/wallet",

@@ -12,6 +12,33 @@ const app = new Hono();
 // publik: URL kartu/drop-nya tidak boleh bocor lewat sitemap maupun meta.
 const SEO_PUBLIC_DROP_STATUSES: string[] = ["published", "live", "sold_out", "scheduled"];
 
+const LEGAL_PAGE_META: Record<string, { title: string; description: string }> = {
+  "/legal": {
+    title: "Pusat Legal — C.Verse",
+    description: "Pusat Syarat & Ketentuan, privasi, KYC, pengiriman, Vault, dan ketentuan kreator C.Verse.",
+  },
+  "/legal/terms": {
+    title: "Syarat & Ketentuan — C.Verse",
+    description: "Aturan penggunaan C.Verse, C.Card, C-Coin, C-Gems, Vault, Primary Sale, dan secondary market.",
+  },
+  "/legal/privacy": {
+    title: "Kebijakan Privasi — C.Verse",
+    description: "Cara C.Verse mengumpulkan, menggunakan, membagikan, menyimpan, dan melindungi data pribadi.",
+  },
+  "/legal/shipping": {
+    title: "Kebijakan Pengiriman & Vault — C.Verse",
+    description: "Aturan settlement C.Card ke Vault, ship-out, biaya, pembatalan, kehilangan, dan kerusakan.",
+  },
+  "/legal/kyc": {
+    title: "Kebijakan KYC — C.Verse",
+    description: "Ketentuan verifikasi identitas untuk payout C-Gems, cap saldo, dan pengendalian risiko.",
+  },
+  "/legal/creator-terms": {
+    title: "Ketentuan Kreator — C.Verse",
+    description: "Hak, lisensi, revenue share, royalti, payout, dan kewajiban kreator C.Verse.",
+  },
+};
+
 // GET /sitemap.xml — dynamic sitemap for SEO (docs 02 s.8: SPA + Worker HTMLRewriter + sitemap generator)
 app.get("/sitemap.xml", async (_c) => {
   const base = `https://${PRIMARY_DOMAIN}`;
@@ -31,6 +58,7 @@ app.get("/sitemap.xml", async (_c) => {
     `<url><loc>${base}/marketplace</loc><lastmod>${now}</lastmod></url>`,
     `<url><loc>${base}/browse</loc><lastmod>${now}</lastmod></url>`,
     `<url><loc>${base}/leaderboard</loc><lastmod>${now}</lastmod></url>`,
+    ...Object.keys(LEGAL_PAGE_META).map((path) => `<url><loc>${base}${path}</loc><lastmod>${now}</lastmod></url>`),
   ];
   for (const d of drops) urls.push(`<url><loc>${base}/drops/${d.id}</loc><lastmod>${d.createdAt}</lastmod></url>`);
   for (const u of creators) {
@@ -47,6 +75,20 @@ app.get("/sitemap.xml", async (_c) => {
 // GET /meta?path=/c/:handle | /cards/:id/3d | /drops/:id  — OG + JSON-LD for edge Worker HTMLRewriter to inject
 app.get("/meta", async (c) => {
   const path = c.req.query("path") ?? "/";
+  const normalizedPath = path.split("?")[0].replace(/\/+$/, "") || "/";
+  const legalMeta = LEGAL_PAGE_META[normalizedPath];
+  if (legalMeta) {
+    return c.json({
+      og: { title: legalMeta.title, description: legalMeta.description, image: null },
+      jsonLd: {
+        "@context": "https://schema.org",
+        "@type": "WebPage",
+        name: legalMeta.title,
+        description: legalMeta.description,
+        url: `https://${PRIMARY_DOMAIN}${normalizedPath}`,
+      },
+    });
+  }
   if (path.startsWith("/c/")) {
     const slug = path.slice(3).split("?")[0].split("/")[0];
     const rec = await getCreatorByHandle(slug);
