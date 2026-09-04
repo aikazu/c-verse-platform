@@ -1,7 +1,9 @@
 import { kycStatusLabel } from "@c-verse/shared";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
+import { useConfirm } from "../components/ConfirmProvider";
 import { KycVisual } from "../components/HeroVisuals";
+import { LEGAL_CONSENTS } from "../components/LegalConsentCheckbox";
 import { PageHero } from "../components/PageHero";
 import { RequireAuth } from "../components/RequireAuth";
 import { api } from "../lib/api";
@@ -72,6 +74,7 @@ export default function Kyc() {
 function KycInner() {
   const { user } = useAuth();
   const { push } = useToast();
+  const confirm = useConfirm();
   const { data, refetch } = useQuery<ApiKycResponse>({ queryKey: ["kyc"], queryFn: () => api.kyc() });
   const kyc = data?.kyc;
   const [fullName, setFullName] = useState("");
@@ -95,6 +98,15 @@ function KycInner() {
       push("Akun tidak valid — login ulang", "error");
       return;
     }
+    if (
+      !(await confirm({
+        title: "Kirim data verifikasi KYC?",
+        message: "Dokumen identitas akan diproses untuk verifikasi dan keamanan payout.",
+        confirmLabel: "Setujui & Kirim",
+        requireCheck: LEGAL_CONSENTS.kyc,
+      }))
+    )
+      return;
     setSaving(true);
     try {
       setUploading(true);

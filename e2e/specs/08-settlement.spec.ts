@@ -110,6 +110,7 @@ test.describe("Settlement (money flow)", () => {
       await expect(dialog).toBeVisible({ timeout: 5000 });
       const confirmBtn = dialog.getByRole("button", { name: "Ikut", exact: true });
       await expect(confirmBtn).toBeDisabled();
+      await expect(dialog.getByRole("link", { name: "Syarat & Ketentuan" })).toHaveAttribute("href", "/legal/terms");
       await dialog.getByRole("checkbox", { name: "Saya paham mengikuti raffle tidak bisa dibatalkan." }).check();
       await expect(confirmBtn).toBeEnabled();
       await confirmBtn.click();
@@ -192,6 +193,12 @@ test.describe("Settlement (money flow)", () => {
     const balanceBefore = await readBalance(page);
     await page.goto(checkoutHref);
     await page.locator("button", { hasText: new RegExp(`Bayar ${price} C`) }).click();
+    const checkoutConfirm = page.locator(".cfm-card", { hasText: `Bayar ${price} C?` });
+    const checkoutButton = checkoutConfirm.getByRole("button", { name: "Bayar", exact: true });
+    await expect(checkoutButton).toBeDisabled();
+    await expect(checkoutConfirm.getByRole("link", { name: "Kebijakan Pengiriman & Vault" })).toHaveAttribute("href", "/legal/shipping");
+    await checkoutConfirm.getByRole("checkbox").check();
+    await checkoutButton.click();
 
     // Sukses → redirect ke halaman order + toast sukses (toast persist antar route).
     await expect(page).toHaveURL(/\/orders\//, { timeout: 15000 });

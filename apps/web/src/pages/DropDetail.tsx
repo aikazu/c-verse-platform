@@ -5,6 +5,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { CardThumb } from "../components/CardThumb";
 import { useConfirm } from "../components/ConfirmProvider";
 import { DropsVisual } from "../components/HeroVisuals";
+import { LEGAL_CONSENTS } from "../components/LegalConsentCheckbox";
 import { PageHero } from "../components/PageHero";
 import { StatusBadge } from "../components/StatusBadge";
 import type { ApiDropCardRow, ApiDropDetailWithWinners } from "../lib/api";
@@ -323,7 +324,7 @@ function ActionPanel(props: {
         title: `Ikut raffle ${props.drop.title}?`,
         message: `Pool ${poolLabel} — ${holdAmount} C ditahan. Tidak menang, otomatis kembali.`,
         confirmLabel: "Ikut",
-        requireCheck: { label: "Saya paham mengikuti raffle tidak bisa dibatalkan." },
+        requireCheck: LEGAL_CONSENTS.raffle,
       }))
     )
       return;

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useConfirm } from "../components/ConfirmProvider";
 import { KelolaVisual } from "../components/HeroVisuals";
+import { LEGAL_CONSENTS } from "../components/LegalConsentCheckbox";
 import { PageHero } from "../components/PageHero";
 import { RequireAuth } from "../components/RequireAuth";
 import { api } from "../lib/api";
@@ -73,6 +74,15 @@ function ManageCardsInner() {
       push("Minimal 1 C", "info");
       return;
     }
+    if (
+      !(await confirm({
+        title: `Pasang harga ${v} C?`,
+        message: "Harga akan tampil sebagai penawaran buyout di secondary market.",
+        confirmLabel: "Publikasikan",
+        requireCheck: LEGAL_CONSENTS.listing,
+      }))
+    )
+      return;
     setBusyId(card.id);
     try {
       await api.setBuyout(card.id, v);
@@ -98,6 +108,7 @@ function ManageCardsInner() {
         title: "Kirim C.Card ini?",
         message: `Ongkir ${SHIPMENT_FEE_CCOIN} C dipotong dari saldo.`,
         confirmLabel: "Kirim",
+        requireCheck: LEGAL_CONSENTS.shipout,
       }))
     )
       return;
@@ -121,6 +132,7 @@ function ManageCardsInner() {
         message: `Kartu pindah ke ${card.activeBid?.bidderName} (vault). Tidak bisa dibatalkan.`,
         confirmLabel: "Terima",
         danger: true,
+        requireCheck: LEGAL_CONSENTS.acceptBid,
       }))
     )
       return;

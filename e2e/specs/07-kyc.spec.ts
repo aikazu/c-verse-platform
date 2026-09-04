@@ -50,6 +50,13 @@ test.describe("KYC", () => {
     await page.locator("#kyc-selfie").setInputFiles(KYC_SELFIE_FIXTURE);
     await page.locator("button.btn-gold").click();
 
+    const consentModal = page.locator(".cfm-card", { hasText: "Kirim data verifikasi KYC?" });
+    await expect(consentModal.getByRole("link", { name: "Kebijakan Privasi" })).toHaveAttribute("href", "/legal/privacy");
+    const submitButton = consentModal.getByRole("button", { name: "Setujui & Kirim" });
+    await expect(submitButton).toBeDisabled();
+    await consentModal.getByRole("checkbox").check();
+    await submitButton.click();
+
     // Toast sukses hanya muncul kalau upload storage + POST /api/kyc keduanya 2xx.
     await expect(page.locator(".toast-msg", { hasText: "Verifikasi terkirim" })).toBeVisible();
     // Round-trip nyata: status card (hasil GET /api/kyc setelah refetch) menampilkan

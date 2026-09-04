@@ -285,7 +285,10 @@ test.describe("Secondary transfer — accept-bid & buyout (F6/F7)", () => {
     await rivalEntry.locator("button:has-text('Terima →')").click();
     const acceptConfirm = rivalPage.locator(".cfm-card");
     await expect(acceptConfirm).toContainText(`Terima tawaran ${bidAmount} C?`);
-    await acceptConfirm.locator("button:has-text('Terima')").click();
+    const acceptButton = acceptConfirm.locator("button:has-text('Terima')");
+    await expect(acceptButton).toBeDisabled();
+    await acceptConfirm.getByRole("checkbox").check();
+    await acceptButton.click();
 
     // Accept selesai via UI asli — api.acceptBidOnCard kini mengirim body `{}`
     // sesuai kontrak zValidator (acceptBidSchema strict) → toast sukses muncul.
@@ -367,6 +370,11 @@ test.describe("Secondary transfer — accept-bid & buyout (F6/F7)", () => {
     await rivalEntry.locator("summary").filter({ hasText: "Pasang / Ubah Harga Jual" }).click();
     await rivalEntry.locator('input[aria-label="Harga jual C-Coin"]').fill(String(buyoutPrice));
     await rivalEntry.locator("button:has-text('Simpan')").click();
+    const listingConfirm = rivalPage.locator(".cfm-card", { hasText: `Pasang harga ${buyoutPrice} C?` });
+    const listingButton = listingConfirm.getByRole("button", { name: "Publikasikan" });
+    await expect(listingButton).toBeDisabled();
+    await listingConfirm.getByRole("checkbox").check();
+    await listingButton.click();
     await expect(rivalPage.locator(".toast-success").filter({ hasText: `Dijual ${buyoutPrice} C` })).toBeVisible();
     await expect(rivalEntry).toContainText(`${buyoutPrice} C · Dijual`);
 
@@ -391,7 +399,10 @@ test.describe("Secondary transfer — accept-bid & buyout (F6/F7)", () => {
     await page.locator(`button:has-text('Beli ${buyoutPrice} C')`).click();
     const buyConfirm = page.locator(".cfm-card");
     await expect(buyConfirm).toContainText(`Beli ${buyoutPrice} C?`);
-    await buyConfirm.locator("button:has-text('Beli')").click();
+    const buyButton = buyConfirm.locator("button:has-text('Beli')");
+    await expect(buyButton).toBeDisabled();
+    await buyConfirm.getByRole("checkbox").check();
+    await buyButton.click();
     await expect(page.locator(".toast-success").filter({ hasText: "C.Card dibeli" })).toBeVisible();
 
     // Saldo demo via UI: -harga buyout persis.

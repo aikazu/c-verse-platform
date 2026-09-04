@@ -75,6 +75,7 @@ test.describe("Secondary market", () => {
     await expect(confirmModal).toContainText("Tawar 5 C?");
     const confirmBtn = confirmModal.locator("button:has-text('Tawar')");
     await expect(confirmBtn).toBeDisabled();
+    await expect(confirmModal.getByRole("link", { name: "Syarat & Ketentuan" })).toHaveAttribute("href", "/legal/terms");
     await confirmModal.getByRole("checkbox", { name: "Saya paham bid baru bisa dibatalkan setelah 24 jam." }).check();
     await expect(confirmBtn).toBeEnabled();
     await confirmBtn.click();

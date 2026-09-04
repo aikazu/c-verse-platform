@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useConfirm } from "../components/ConfirmProvider";
 import { DompetVisual } from "../components/HeroVisuals";
+import { LEGAL_CONSENTS, LegalConsentCheckbox } from "../components/LegalConsentCheckbox";
 import { PageHero } from "../components/PageHero";
 import { RequireAuth } from "../components/RequireAuth";
 import { ApiError, api, formatIdr } from "../lib/api";
@@ -34,6 +35,7 @@ function WalletInner() {
   const [busyTopup, setBusyTopup] = useState(false);
   const [busyPayout, setBusyPayout] = useState(false);
   const [payoutConfirmOpen, setPayoutConfirmOpen] = useState(false); // P1-12 modal konfirmasi payout
+  const [payoutConsent, setPayoutConsent] = useState(false);
   const [convertAmt, setConvertAmt] = useState(1); // konversi Gems → C-Coin (docs/07)
   const [busyConvert, setBusyConvert] = useState(false);
   const [txPage, setTxPage] = useState(0); // halaman riwayat C-Coin
@@ -61,7 +63,15 @@ function WalletInner() {
 
   async function onTopup() {
     // Uang asli (IDR via Midtrans) — wajib konfirmasi sebelum redirect (founder 2026-08-29).
-    if (!(await confirm({ title: `Top-up ${amount} C?`, message: "Lanjut ke Midtrans untuk pembayaran.", confirmLabel: "Bayar" }))) return;
+    if (
+      !(await confirm({
+        title: `Top-up ${amount} C?`,
+        message: "Lanjut ke Midtrans untuk pembayaran.",
+        confirmLabel: "Bayar",
+        requireCheck: LEGAL_CONSENTS.topup,
+      }))
+    )
+      return;
     setBusyTopup(true);
     try {
       const r = await api.topup(amount);
@@ -93,12 +103,14 @@ function WalletInner() {
       await api.payout(payoutAmt);
       push("Permintaan payout dibuat — diproses batch mingguan", "success");
       setPayoutConfirmOpen(false);
+      setPayoutConsent(false);
       refetch();
     } catch (e) {
       const err = e instanceof ApiError ? e : null;
       if (err?.status === 403 && err.code === "KYC_REQUIRED") {
         push(`${err.message} — buka KYC sekarang`, "error");
         setPayoutConfirmOpen(false);
+        setPayoutConsent(false);
         nav("/me/kyc");
       } else if (err?.status === 400 && err.code === "MIN_PAYOUT") {
         push("Payout minimum 10 C-Gems", "error");
@@ -283,6 +295,7 @@ function WalletInner() {
                       title: `Konversi ${convertAmt} Gems?`,
                       message: `Jadi ${convertAmt} C-Coin — satu arah, tidak dapat dibalik.`,
                       confirmLabel: "Konversi",
+                      requireCheck: LEGAL_CONSENTS.conversion,
                     }))
                   )
                     return;
@@ -325,6 +338,7 @@ function WalletInner() {
                 push("Saldo bisa cair tidak cukup", "info");
                 return;
               }
+              setPayoutConsent(false);
               setPayoutConfirmOpen(true);
             }}
             disabled={busyPayout}
@@ -446,7 +460,12 @@ function WalletInner() {
           aria-modal="true"
           aria-labelledby="payout-confirm-title"
           className="wa-modal-overlay"
-          onClick={() => !busyPayout && setPayoutConfirmOpen(false)}
+          onClick={() => {
+            if (!busyPayout) {
+              setPayoutConfirmOpen(false);
+              setPayoutConsent(false);
+            }
+          }}
         >
           <div className="card card-pad wa-modal" onClick={(e) => e.stopPropagation()}>
             <div id="payout-confirm-title" className="wa-modal-title">
@@ -465,11 +484,25 @@ function WalletInner() {
               </div>
               <div className="muted wa-modal-note">Dana dikunci setelah konfirmasi — dicairkan batch mingguan (Selasa 06:00 WIB).</div>
             </div>
+            <LegalConsentCheckbox
+              id="payout-legal-consent"
+              consent={LEGAL_CONSENTS.payout}
+              checked={payoutConsent}
+              onChange={setPayoutConsent}
+              autoFocus
+            />
             <div className="wa-modal-actions">
-              <button className="btn-ghost wa-btn-flex" onClick={() => setPayoutConfirmOpen(false)} disabled={busyPayout}>
+              <button
+                className="btn-ghost wa-btn-flex"
+                onClick={() => {
+                  setPayoutConfirmOpen(false);
+                  setPayoutConsent(false);
+                }}
+                disabled={busyPayout}
+              >
                 Batal
               </button>
-              <button className="btn-gold wa-btn-flex" onClick={onPayout} disabled={busyPayout}>
+              <button className="btn-gold wa-btn-flex" onClick={onPayout} disabled={busyPayout || !payoutConsent}>
                 {busyPayout ? "Memproses…" : "Kunci Dana"}
               </button>
             </div>

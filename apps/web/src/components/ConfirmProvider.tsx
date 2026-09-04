@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { type LegalConsent, LegalConsentCheckbox } from "./LegalConsentCheckbox";
 
 // Modal konfirmasi in-app (pengganti native window.confirm) — tema Space Arcade.
 // API: const confirm = useConfirm(); if (!(await confirm({ title, message }))) return;
@@ -11,7 +12,7 @@ export interface ConfirmOptions {
   /** Aksi irreversible (accept bid, kirim kartu) — tombol konfirmasi merah. */
   danger?: boolean;
   /** Checklist wajib (founder 2026-09-01): confirm terkunci sampai dicentang. */
-  requireCheck?: { label: string };
+  requireCheck?: LegalConsent;
 }
 
 type ConfirmRequest = { options: ConfirmOptions; resolve: (value: boolean) => void };
@@ -64,19 +65,15 @@ export function ConfirmProvider({ children }: { children: React.ReactNode }) {
               {request.options.title}
             </div>
             {request.options.message && <div className="cfm-message">{request.options.message}</div>}
-            {request.options.requireCheck && (
-              <label className="cfm-check">
-                {/* Autofocus ke checkbox: tombol confirm disabled saat requireCheck,
-                    dan browser membuang autofocus pada elemen disabled. */}
-                <input
-                  type="checkbox"
-                  checked={isChecked}
-                  onChange={(e) => setIsChecked(e.target.checked)}
-                  autoFocus={!request.options.danger || undefined}
-                />
-                <span>{request.options.requireCheck.label}</span>
-              </label>
-            )}
+            {request.options.requireCheck ? (
+              <LegalConsentCheckbox
+                id="cfm-legal-consent"
+                consent={request.options.requireCheck}
+                checked={isChecked}
+                onChange={setIsChecked}
+                autoFocus
+              />
+            ) : null}
             <div className="cfm-actions">
               <button type="button" className="btn-ghost" onClick={() => close(false)}>
                 {request.options.cancelLabel ?? "Batal"}

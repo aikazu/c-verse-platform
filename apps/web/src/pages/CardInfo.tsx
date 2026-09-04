@@ -5,6 +5,7 @@ import { Link, useParams } from "react-router-dom";
 import { CardThumb } from "../components/CardThumb";
 import { useConfirm } from "../components/ConfirmProvider";
 import { CardVisual } from "../components/HeroVisuals";
+import { LEGAL_CONSENTS } from "../components/LegalConsentCheckbox";
 import { PageHero } from "../components/PageHero";
 import { ApiError, api } from "../lib/api";
 import type { ApiCardDetailResponse, ApiCardOwnershipRow, ApiPublicBid } from "../lib/api-types";
@@ -141,6 +142,7 @@ export default function CardInfo() {
         title: `Beli ${card.buyoutPriceCcoin} C?`,
         message: "C.Card masuk vault — kirim fisik nanti via Kelola C.Card.",
         confirmLabel: "Beli",
+        requireCheck: LEGAL_CONSENTS.checkout,
       }))
     )
       return;
@@ -215,7 +217,7 @@ export default function CardInfo() {
         title: `Tawar ${amt} C?`,
         message: "C-Coin ditahan sampai bid kalah atau dibatalkan.",
         confirmLabel: "Tawar",
-        requireCheck: { label: "Saya paham bid baru bisa dibatalkan setelah 24 jam." },
+        requireCheck: LEGAL_CONSENTS.bid,
       }))
     )
       return;

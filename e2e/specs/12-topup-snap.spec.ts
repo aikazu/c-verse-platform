@@ -223,7 +223,11 @@ test.describe("Wallet top-up — real Midtrans Snap (sandbox)", () => {
     await amountSelect.selectOption(String(TOPUP_AMOUNT_CCOIN));
     await page.locator("button.wa-btn-block").click();
     // Uang asli wajib modal konfirmasi in-app (D8) — jendela native confirm dilarang.
-    await page.getByRole("dialog").getByRole("button", { name: "Bayar" }).click();
+    const topupDialog = page.getByRole("dialog");
+    const payButton = topupDialog.getByRole("button", { name: "Bayar" });
+    await expect(payButton).toBeDisabled();
+    await topupDialog.getByRole("checkbox").check();
+    await payButton.click();
 
     // createTopup mengembalikan redirect_url → window.location.href (Wallet.tsx L63).
     await page.waitForURL(/midtrans\.com\/snap/, { timeout: 30_000 });

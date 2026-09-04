@@ -55,6 +55,22 @@ test.describe("Wallet", () => {
     await expect(page.locator("button[class*=wa-btn-block]")).toBeVisible();
   });
 
+  test("top-up wajib menyetujui dokumen legal sebelum lanjut ke pembayaran", async ({ page }) => {
+    await loginAs(page, "demo@cverse.id");
+    await page.goto("/wallet");
+
+    await page.locator("button[class*=wa-btn-block]").click();
+    const dialog = page.locator(".cfm-card", { hasText: "Top-up 50 C?" });
+    await expect(dialog).toBeVisible();
+    await expect(dialog.getByRole("link", { name: "Syarat & Ketentuan" })).toHaveAttribute("href", "/legal/terms");
+    await expect(dialog.getByRole("link", { name: "Kebijakan Privasi" })).toHaveAttribute("href", "/legal/privacy");
+
+    const confirmButton = dialog.getByRole("button", { name: "Bayar" });
+    await expect(confirmButton).toBeDisabled();
+    await dialog.getByRole("checkbox").check();
+    await expect(confirmButton).toBeEnabled();
+  });
+
   test("payout terbuka untuk semua user: kontrol payout tampil, gate kreator hilang", async ({ page }) => {
     // Wallet.tsx (commit 29ecc38, docs/07 dual-token) — blok payout
     // ("Tarik ke Rekening" + tombol "Tarik") render untuk SEMUA role; pesan gate
@@ -181,7 +197,12 @@ test.describe("Wallet dual-token (C-Gems)", () => {
     // Modal konfirmasi payout milik Wallet.tsx (P1-12) — ringkasan sebelum kunci dana.
     const payoutModal = page.getByRole("dialog");
     await expect(payoutModal.locator("#payout-confirm-title")).toHaveText("Konfirmasi Payout");
-    await payoutModal.getByRole("button", { name: "Kunci Dana" }).click();
+    await expect(payoutModal.getByRole("link", { name: "Kebijakan KYC" })).toHaveAttribute("href", "/legal/kyc");
+    const payoutButton = payoutModal.getByRole("button", { name: "Kunci Dana" });
+    await expect(payoutButton).toBeDisabled();
+    await payoutModal.getByRole("checkbox").check();
+    await expect(payoutButton).toBeEnabled();
+    await payoutButton.click();
 
     await expect(page.locator(".toast-success", { hasText: "Permintaan payout dibuat" })).toBeVisible({
       timeout: 15000,
@@ -211,7 +232,11 @@ test.describe("Wallet dual-token (C-Gems)", () => {
     await expect(confirmModal).toBeVisible();
     await expect(confirmModal.locator("#cfm-title")).toHaveText("Konversi 5 Gems?");
     await expect(confirmModal).toContainText("Jadi 5 C-Coin — satu arah, tidak dapat dibalik.");
-    await confirmModal.getByRole("button", { name: "Konversi" }).click();
+    await expect(confirmModal.getByRole("link", { name: "Syarat & Ketentuan" })).toHaveAttribute("href", "/legal/terms");
+    const convertButton = confirmModal.getByRole("button", { name: "Konversi" });
+    await expect(convertButton).toBeDisabled();
+    await confirmModal.getByRole("checkbox").check();
+    await convertButton.click();
 
     await expect(page.locator(".toast-success", { hasText: "Konversi berhasil" })).toBeVisible({ timeout: 15000 });
 

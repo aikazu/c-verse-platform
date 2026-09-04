@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useConfirm } from "../components/ConfirmProvider";
 import { PesananVisual } from "../components/HeroVisuals";
+import { LEGAL_CONSENTS } from "../components/LegalConsentCheckbox";
 import { PageHero } from "../components/PageHero";
 import { RequireAuth } from "../components/RequireAuth";
 import { StatusBadge } from "../components/StatusBadge";
@@ -59,7 +60,14 @@ function OrderDetailInner() {
       return;
     }
     // D8: submit dispute = aksi tidak bisa dibatalkan — wajib konfirmasi in-app.
-    if (!(await confirm({ title: "Kirim dispute untuk pesanan ini?", confirmLabel: "Kirim" }))) return;
+    if (
+      !(await confirm({
+        title: "Kirim dispute untuk pesanan ini?",
+        confirmLabel: "Kirim",
+        requireCheck: LEGAL_CONSENTS.dispute,
+      }))
+    )
+      return;
     setBusy(true);
     try {
       await api.openDispute(o.id, disputeReason.trim());

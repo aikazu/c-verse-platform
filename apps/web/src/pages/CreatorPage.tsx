@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useConfirm } from "../components/ConfirmProvider";
 import { KreatorVisual } from "../components/HeroVisuals";
+import { LEGAL_CONSENTS } from "../components/LegalConsentCheckbox";
 import { PageHero } from "../components/PageHero";
 import { StatusBadge } from "../components/StatusBadge";
 import { trackCreatorPageView } from "../lib/analytics";
@@ -174,7 +175,14 @@ export default function CreatorPage() {
       return;
     }
     // Spend action — mandatory in-app confirm (founder 2026-08-29).
-    if (!(await confirm({ title: `Kirim dukungan ${amt} C?`, confirmLabel: "Kirim" }))) return;
+    if (
+      !(await confirm({
+        title: `Kirim dukungan ${amt} C?`,
+        confirmLabel: "Kirim",
+        requireCheck: LEGAL_CONSENTS.support,
+      }))
+    )
+      return;
     setBusySupport(true);
     try {
       await api.supportCreator(creator.id, amt);

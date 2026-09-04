@@ -157,7 +157,10 @@ test.describe("Dukungan kreator & daftar pemenang drop", () => {
     // Spend action — in-app confirm (D8) wajib muncul sebelum API dipanggil.
     const confirmCard = page.locator(".cfm-card");
     await expect(confirmCard).toContainText("Kirim dukungan 1 C?");
-    await confirmCard.locator("button:has-text('Kirim')").click();
+    const sendButton = confirmCard.locator("button:has-text('Kirim')");
+    await expect(sendButton).toBeDisabled();
+    await confirmCard.getByRole("checkbox").check();
+    await sendButton.click();
 
     await expect(page.locator(".toast-success").filter({ hasText: "Dukungan 1 C terkirim" })).toBeVisible();
 

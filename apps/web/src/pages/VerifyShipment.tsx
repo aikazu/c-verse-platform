@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useConfirm } from "../components/ConfirmProvider";
 import { KelolaVisual } from "../components/HeroVisuals";
+import { LEGAL_CONSENTS } from "../components/LegalConsentCheckbox";
 import { PageHero } from "../components/PageHero";
 import { RequireAuth } from "../components/RequireAuth";
 import { api } from "../lib/api";
@@ -63,6 +64,7 @@ function VerifyShipmentInner() {
         message: "Setelah diterima, tim verifikasi NFC sebelum payout dilepas.",
         confirmLabel: "Kirim",
         danger: true,
+        requireCheck: LEGAL_CONSENTS.sellerVault,
       }))
     )
       return;

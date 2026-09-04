@@ -2,7 +2,9 @@ import { AOV_UNSIGNED_CCOIN } from "@c-verse/shared";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { useConfirm } from "../components/ConfirmProvider";
 import { CheckoutVisual } from "../components/HeroVisuals";
+import { LEGAL_CONSENTS } from "../components/LegalConsentCheckbox";
 import { PageHero } from "../components/PageHero";
 import { api, ccoinToIdr, formatIdr } from "../lib/api";
 import type { ApiDrop, ApiDropDetailResponse } from "../lib/api-types";
@@ -19,6 +21,7 @@ export default function Checkout() {
   const { user } = useAuth();
   const { push } = useToast();
   const nav = useNavigate();
+  const confirm = useConfirm();
   const [buying, setBuying] = useState(false);
   const { data, isLoading } = useQuery<ApiDropDetailResponse>({
     queryKey: ["drop", id],
@@ -56,6 +59,15 @@ export default function Checkout() {
       nav("/login");
       return;
     }
+    if (
+      !(await confirm({
+        title: `Bayar ${price} C?`,
+        message: "Pembelian diproses langsung dan C.Card disimpan di Vault.",
+        confirmLabel: "Bayar",
+        requireCheck: LEGAL_CONSENTS.checkout,
+      }))
+    )
+      return;
     setBuying(true);
     try {
       // Vault-only purchase (founder 2026-08-28): settle straight to vault,

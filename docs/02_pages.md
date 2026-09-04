@@ -1,7 +1,9 @@
 # 02 — Peta Halaman MVP
 
 > Status: [VALIDATED]
-> Last updated: 2026-09-04 (public legal center: /legal + 5
+> Last updated: 2026-09-04 (legal consent gate: checkbox wajib +
+> deep-link dokumen sebelum aksi finansial, KYC, dispute, dan pengiriman)
+> Previous: 2026-09-04 (public legal center: /legal + 5
 > dokumen, route alias TOS/privacy, footer links, sitemap + OG)
 > Previous: 2026-08-31 (sitemap admin: + /kyc approve/reject,
 > NFC seed ops vault-in/release, /investor via RPC
@@ -34,6 +36,16 @@ langsung via service-role key. Detail: `06_tech_decisions.md`.
 Konvensi UI lintas-halaman (a11y baseline, state error + retry,
 konfirmasi aksi destruktif, `StatusBadge`/label status shared, token
 warna): lihat `06_tech_decisions.md` D7–D8.
+
+Semua komitmen finansial atau data sensitif memakai **legal consent
+gate** di modal konfirmasi: checkbox selalu kosong saat modal dibuka,
+tombol aksi disabled sampai dicentang, dan dokumen terkait dapat dibuka
+langsung di tab baru. Gate wajib untuk top-up, raffle entry, FCFS
+checkout, buyout, bid, pemasangan listing, accept bid, Dukungan,
+konversi C-Gems, payout, KYC, dispute, ship-out, dan pengiriman seller
+ke Vault. Pembatalan bid dan penghapusan listing tetap memakai modal
+konfirmasi D8, tetapi tidak meminta persetujuan legal baru karena hanya
+membatalkan komitmen yang sudah ada.
 
 ## 2. Istilah Pasar
 
