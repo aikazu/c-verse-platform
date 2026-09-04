@@ -158,7 +158,7 @@ HARUS sinkron dengan tabel di atas (dua arah).
 | GTM off-platform | 17_mvp_off_platform_gtm (rekrut via personal relationship + 1-2 agency partner, 30-50 kreator; TANPA aplikasi/approval in-platform; keputusan 2026-08-12) |
 | Tech stack | 01_tech_stack (full-edge: React/Vite di CF Pages + Hono di CF Workers + Supabase + R2, konsolidasi 2026-08-11), 20_tech_stack_decision (monorepo, free tier cukup Y1) |
 | Flow MVP (orisinal) | 05_mvp_flow (Flow 1-10: primary raffle+C FCFS, fulfillment, payment/settlement, NFC tap, QR fallback, ownership transfer, secondary Marketplace+Browse, pendukung/onboarding, top-up & payout; Flow 10 seed card 2026-08-20) |
-| Legal & C-Coin | 02_legal_compliance (2,2 [VALIDATED 2026-08-13]: C-Coin bukan e-money, struktur Opsi A closed-loop + payout fee 1%), 14_legal_consultation_brief (Sesi A gate launch — A1-A3 dijawab lawyer fintech 2026-08-13); dual-token 2026-09-03 menuntaskan pemisahan "hasil titip jual" — refresh lawyer = pending sebelum go-live |
+| Legal & dual-token | C-Coin closed-loop telah divalidasi 2026-08-13; dual-token 2026-09-03 memisahkan saldo belanja C-Coin dari penghasilan C-Gems. Keputusan owner 2026-09-04: refresh opini lawyer dual-token bukan release gate; residual risk diterima dengan guardrail produk dan monitoring regulasi |
 | SOP operasional | 03_operations_playbook (SOP 1-6: produksi & QC, inventory, fulfillment/shipping, CS, trust & safety, finance & payout) |
 
 ## 8. Perubahan Terhadap Dokumen Sumber (2026-08-12)

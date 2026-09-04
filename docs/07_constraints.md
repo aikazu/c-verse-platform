@@ -1,9 +1,9 @@
 # 07 — Constraints, Gates & Open Items
 
 > Status: [VALIDATED] (C-01/C-02 resolved 2026-08-13)
-> Last updated: 2026-09-03 (C-01 amended: dual-token C-Coin/C-Gems —
-> pemisahan "hasil titip jual" dari saldo belanja; refresh lawyer
-> = open item pending)
+> Last updated: 2026-09-04 (C-01 amended: owner mencabut refresh
+> opini lawyer dual-token sebagai release gate; residual risk
+> diterima dengan guardrail produk dan monitoring regulasi)
 > Previous: 2026-08-31 (C-10: fee ship-out = konstanta server
 > `SHIPMENT_FEE_CCOIN`; email = Cloudflare Email Service)
 > Previous: 2026-08-23 (C-17 → admin abort path PHASE-1 stuck seed
@@ -58,16 +58,19 @@
   "Pembayaran Hasil Titip Jual/Konsinyasi") dan (2) konversi satu
   arah Gems→C-Coin 1:1 (tanpa potongan, tanpa XP). Aturan teknis
   lengkap: D3b di `06_tech_decisions.md`; skema: `05_data_model.md`.
-- **Riset regulasi 2026-09-02**: e-money BI = 3 unsur (dibayar di
+- **Riset regulasi 2026-09-02; diperbarui 2026-09-04**: e-money BI = 3 unsur (dibayar di
   muka, tersimpan elektronik, bayar pedagang bukan penerbit) —
   C-Coin one-way tetap di luar definisi; bukan aset kripto (tanpa
   DLT; PP 49/2024); payout hasil jual = praktik PMSE (PP 80/2019
-  jo. 31/2023); pajak penjual individu ≤ Rp 500 jt/tahun bebas
+  jo. Permendag 19/2026 yang mencabut Permendag 31/2023); pajak
+  penjual individu ≤ Rp 500 jt/tahun bebas
   potongan dengan surat pernyataan, di atasnya PPh final 0,5%
   (PMK-37/2025).
-- **PENDING OWNER**: refresh opini lawyer untuk struktur dua-token
-  (satu sesi) SEBELUM go-live — open item, bukan blocker dev
-  (lihat section 5).
+- **KEPUTUSAN OWNER 2026-09-04**: refresh opini lawyer untuk
+  struktur dua-token dicabut sebagai release gate. Owner menerima
+  residual risk. Guardrail dual-ledger, C-Coin non-cashable,
+  C-Gems non-top-up/non-transferable, KYC payout, cooling period,
+  cap saldo non-KYC, dan monitoring regulasi tetap wajib.
 
 ### C-02 [RESOLVED 2026-08-13] Escrow design (gap G9)
 - Mekanisme escrow ledger internal sudah divalidasi lawyer.
@@ -397,7 +400,7 @@
 | Kode | Item | Blocker? |
 |------|------|----------|
 | C-03 | Validasi iOS SUN URL | Ya (mempengaruhi D2) |
-| LAWYER | Refresh opini lawyer struktur dual-token C-Coin/C-Gems (2026-09-03) | Tidak (dev jalan; wajib sebelum go-live) |
+| ~~LAWYER~~ | ~~Refresh opini lawyer struktur dual-token C-Coin/C-Gems~~ | **CLOSED 2026-09-04** - dicabut sebagai release gate oleh owner |
 | O-1..O-7 | Tech open items (lihat `06_tech_decisions.md` section 3) | Tidak |
 | ~~Q026~~ | ~~Status hukum C-Coin~~ | **RESOLVED 2026-08-13** — bukan blocker |
 | R6 | Desain deposit secondary | Tidak (post-launch secondary) |
@@ -410,7 +413,7 @@
 |-----------|--------|
 | ~~C-Coin medium tunggal~~ → dual-token: C-Coin belanja (top-up, non-cashable) + C-Gems penghasilan (settlement sendiri; payout/conversi 1:1), rate Rp 10.000 | FINAL (2026-09-03; menggantikan "medium tunggal" 2026-08-11 — lihat C-01 amend, D3b) |
 | Opsi A closed-loop tanpa withdraw buyer | FINAL (2026-08-11) — **DIVALIDASI lawyer 2026-08-13** |
-| C-Coin bukan e-money; "Gamified Point Redemption" (bukan lelang); KYC hanya untuk cash-out (payout C-Gems ke IDR) | FINAL (2026-08-13, validasi lawyer; diperkuat struktur dual-token 2026-09-03 — refresh lawyer pending sebelum go-live) |
+| C-Coin closed-loop non-cashable; C-Gems hanya dari settlement sendiri; KYC untuk payout C-Gems ke IDR | FINAL (basis lawyer 2026-08-13; dual-token 2026-09-03; owner menerima residual risk dan mencabut refresh lawyer sebagai gate 2026-09-04) |
 | Threshold kreator 100rb+ combined | FINAL (2026-08-12) |
 | Onboarding off-platform tanpa approval in-platform | FINAL (2026-08-12) |
 | Admin app terpisah, tidak di edge | FINAL (2026-08-12) |
@@ -454,6 +457,9 @@
   ~Rp 1 jt/bln, A030 legal+domain sekali, A031 seed card 4,8 jt).
 - Diskusi founder 2026-08-12.
 - Validasi lawyer fintech 2026-08-13.
+- Keputusan owner 2026-09-04: refresh opini lawyer dual-token
+  dicabut sebagai release gate; residual risk diterima dengan
+  guardrail produk dan monitoring regulasi.
 - Keputusan user 2026-08-20 (marketing=0, AI one-time, pemisahan
   burn/working-capital/akuisisi) — selaras C-14 & T-2 di atas;
   angka kunci: Opex Y1 Rp 38 jt, EBITDA base ≈ -Rp 4,8 jt,

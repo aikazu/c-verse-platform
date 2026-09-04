@@ -174,9 +174,10 @@ Retensi: minimum 1 tahun (UU PDP + forensik fraud).
   menerima C-Coin via `record_platform_revenue`; share 70/30
   (primary) & 7,5/7,5/85 (secondary) tetap.
 - **Rasio legal**: C-Coin one-way/non-cashable mempertahankan
-  posisi "bukan e-money" (C-01 Opsi A, label "Gamified Point
-  Redemption"). Riset regulasi 2026-09-02 + PENDING refresh
-  lawyer: lihat amend C-01 di `07_constraints.md`.
+  posisi closed-loop C-01 Opsi A. Keputusan owner 2026-09-04:
+  refresh opini lawyer dual-token bukan release gate; residual
+  risk diterima dengan guardrail produk dan monitoring regulasi.
+  Lihat amend C-01 di `07_constraints.md`.
 - **Motivasi (temuan audit)**: RPC `payout_request` lama debit
   C-Coin tanpa gate kreator → premis non-cashable bocor; kini
   payout debit `balance_gems` matured only.

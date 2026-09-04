@@ -26,8 +26,10 @@ Mekanisme inti yang WAJIB jalan di MVP:
    tertinggi/kartu; bid lebih tinggi meng-outbid yang lama &
    C-Coin balik; bidder bisa cancel; owner accept only — TANPA
    reject).
-4. **C-Coin**: medium tunggal semua transaksi (1 C-Coin =
-   Rp 10.000; top-up gated by legal, lihat `07_constraints.md`).
+4. **Dual-token**: C-Coin adalah saldo belanja closed-loop
+   (1 C-Coin = Rp 10.000); C-Gems adalah saldo penghasilan
+   seller/kreator yang dapat di-payout atau dikonversi satu arah
+   ke C-Coin 1:1 (lihat `07_constraints.md`).
 5. **Leaderboard**: halaman peringkat kolektor (F019).
 6. **Admin/ops**: founder menjalankan operasi tanpa sentuh
    database.

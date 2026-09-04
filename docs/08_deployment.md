@@ -293,7 +293,7 @@ Secrets CI yang wajib diset (GitHub Settings → Secrets):
 - 01_tech_stack (full-edge, CI/CD O5: GitHub Actions → wrangler
   deploy, domain O7).
 - 20_tech_stack_decision (keputusan full-edge 2026-08-05/2026-08-11:
-  monorepo, free tier cukup Y1, C-Coin medium tunggal; email
+  monorepo, free tier cukup Y1, struktur dual-token; email
   transaksional kini Cloudflare Email Service).
 - `05_data_model.md` (RLS → step 4.5).
 - Konvensi angka: A024 build time **6-8 bulan** (`01_scope.md`
