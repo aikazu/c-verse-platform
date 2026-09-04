@@ -1,14 +1,13 @@
 # 11 — RLS Policy Matrix (ganti `allow all using(true)`)
 
 > Status: [IMPLEMENTED 2026-08-16]
-> Created: 2026-08-15; updated: 2026-09-04 (KYC binary storage
-> dipindah dari Supabase Storage ke private Cloudflare R2)
+> Created: 2026-08-15; updated: 2026-09-05 (baseline 18 file;
+> matriks akses efektif mencakup least-privilege grants dan KYC R2 privat)
 > Previous: 2026-08-31 (creator_page_views:
 > insert langsung dihapus — tulis hanya via RPC
 > `record_creator_page_view`, SELECT owner-only)
 > Basis audit awal: semua policy `for all using (true) with check (true)`.
-> Migration `03_rls.sql` (sebelumnya `20260817020000_rls_policies.sql`,
-> dilebur saat konsolidasi 2026-08-24) sudah mengimplementasikan
+> Migration `05_rls.sql` dan `06_rls_policies.sql` sudah mengimplementasikan
 > matriks policy penuh — enable RLS semua tabel, policy per-operation,
 > guard function immutable.
 > Estimasi: 2-3 hari AI-assisted. Dependency: `10_auth_migration.md`
@@ -26,23 +25,28 @@
 4. Satu tabel boleh punya beberapa policy per operation — jangan satu
    policy `for all`.
 
-## 2. Matriks Policy (SQL target)
+## 2. Matriks Akses Efektif (grant + RLS)
 
 Helper: `create policy ... for select using (...)`, dst.
 `auth.uid()` return `uuid` = `users.id` (setelah migrasi 10).
+Policy yang masih ada tidak memberi akses bila grant tabel/kolom telah dicabut.
+Baseline `03_schema_grants.sql` mempertahankan hardening 2026-09-04:
+baca bids/provenance dan katalog cards anonim melalui API tersanitasi, bukan
+SELECT mentah. Service-role memiliki akses backend; matriks berikut menjelaskan
+akses browser anon/authenticated.
 
 | Tabel | anon SELECT | user SELECT (owner) | INSERT | UPDATE | DELETE | Catatan |
 |---|---|---|---|---|---|---|
 | `users` (profiles) | - (revoke all from anon) | own row; admin = semua baris via `public.is_admin()` | trigger only | own (non-role field) | tidak | role & flag_reason: service only; hardening 2026-08-30 |
-| `creators` | publish (handle/bio) | own | service | service | service | `status='active'` saja anon |
+| `creators` | ditolak | SELECT kolom aman + RLS | service | service | service | `bank_account` tidak di-grant; API publik memfilter identitas |
 | `drops` | `status in ('live','published','sold_out','closed')` | - | service | service | service | draft tidak bocor |
-| `cards` | baris ter-own ATAU status terjual publik | own cards | service | owner kolom buyout saja | service | lihat policy khusus |
+| `cards` | ditolak | RLS kartu publik/own | service | owner kolom buyout saja | service | anon melalui API; lihat policy khusus |
 | `orders` | - | `user_id = auth.uid()` | RPC only | RPC/status only | tidak | |
 | `wallets` | - | `user_id = auth.uid()` | service | RPC only | tidak | |
 | `wallet_transactions` | - | `user_id = auth.uid()` | RPC only | **TIDAK ADA (immutable)** | **TIDAK ADA** | append-only |
-| `bids` | 90 hari terakhir + accepted | own bids | `bidder_id = auth.uid()` | status transition via RPC | tidak | |
+| `bids` | ditolak | ditolak langsung | RPC only | RPC only | tidak | API/RPC mem-mask identitas; policy lama bukan grant |
 | `shipments` | - | requester own | RPC | service | tidak | |
-| `ownership_history` | read publik (provenance) | - | RPC only | tidak | tidak | |
+| `ownership_history` | ditolak | ditolak langsung | RPC only | tidak | tidak | provenance publik melalui API tersanitasi |
 | `badges` (definitions) | all active | - | service | service | service | |
 | `user_badges` | - | `user_id = auth.uid()` | service (event) | tidak | tidak | |
 | `kyc_records` | - | own (mask NIK) | own (submit) | service (approve/reject) | tidak | **tidak pernah anon** |
@@ -70,14 +74,15 @@ di-grant ke anon+authenticated; berjalan sebagai table owner sehingga tidak
 terkena RLS; guard suspended/unknown/no-creator). Policy INSERT terbuka
 `with check (true)` dihapus (audit 2026-08-29 — anon bisa inject baris
 creator_id apa pun melewati guard RPC). SELECT owner-only: policy
-`creator_page_views_select_own` (`03_rls.sql`) — kreator hanya boleh baca
+`creator_page_views_select_own` (`06_rls_policies.sql`) — kreator hanya boleh baca
 page view halamannya sendiri; agregat untuk dashboard via RPC
 `get_creator_page_stats` (owner-fenced).
 
 ### Policy khusus `cards`
-- SELECT publik: kartu yang sudah sold/bind (`status <> 'inventory'`)
+- Policy SELECT: kartu yang sudah sold/bind (`status <> 'inventory'`)
   atau yang di-miliki user — `inventory` (belum terjual) tidak tampil.
-- UPDATE buyout: `current_owner_id = auth.uid()` hanya boleh SET
+- Grant SELECT untuk anon tetap dicabut; read publik memakai API.
+- UPDATE buyout: `owner_id = auth.uid()` hanya boleh SET
   kolom `buyout_price_ccoin` — pakai trigger guard kolom lain ditolak
   (`raise exception` jika `cards.*` lain berubah dari sesi non-service).
 
@@ -91,8 +96,7 @@ page view halamannya sendiri; agregat untuk dashboard via RPC
 
 ## 3. Langkah Eksekusi
 
-1. Migration RLS `03_rls.sql` (sebelumnya `20260817020000_rls_policies.sql`,
-   fase 3 dari rantai 7 file — sekarang dilebur di konsolidasi 2026-08-24):
+1. Migration RLS final `05_rls.sql` + `06_rls_policies.sql`:
    `enable row level security` ulang semua tabel, `force row level
    security` pada `cards`, buat policy matriks di atas + 5 guard function
    (`users_fields_guard`, `cards_buyout_guard`, `wallet_tx_immutable_guard`,
@@ -143,7 +147,6 @@ SQL test per kombinasi (jalankan sebagai `anon`, `authenticated` dgn
 
 - `05_data_model.md` section RLS (matriks asli).
 - Audit Platform 2026-08-15: kebocoran allow-all pada migration lama di-squash;
-  kini dijaga di `03_rls.sql` (sebelumnya fase 3
-  `20260817020000_rls_policies.sql`) + EXECUTE lockdown di `17_rpc_grants`
-  (sebelumnya fase 5 `20260817040000_grants_payout.sql`).
+  kini dijaga di `05_rls.sql` + `06_rls_policies.sql`, table/column grants
+  final di `03_schema_grants.sql`, dan EXECUTE lockdown di `17_rpc_grants.sql`.
 - Supabase docs: Row Level Security, `auth.uid()`, JWT claims.

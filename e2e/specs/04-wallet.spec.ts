@@ -3,10 +3,10 @@ import { clearMailbox, loginAs } from "../helpers";
 import { creditLockedGemsFixture, isDbFixtureAvailable, restoreGemsBalance } from "../helpers/db";
 
 const KARINA_EMAIL = "karina@creator.id";
-// UUID fixed seed.sql (pola 13-support-winners) — karina, KYC approved.
+// UUID fixed seeds/*.sql (pola 13-support-winners) — karina, KYC approved.
 const KARINA_USER_ID = "00000000-0000-4000-8000-000000000003";
 // Dual-token (docs/07): seed karina = 45 C-Gems, SEMUA lot matured
-// (5 royalty x 9 gems, mature_at backdated) → gemsLocked = 0.
+// Event-closed seed includes royalty/settlement/payout history; gemsLocked = 0.
 const SEED_GEMS_MATURED = 45;
 
 /** Kartu saldo spesifik di /wallet — Wallet.tsx grid-2 (C-Coin lalu C-Gems). */
@@ -76,7 +76,7 @@ test.describe("Wallet", () => {
     // ("Tarik ke Rekening" + tombol "Tarik") render untuk SEMUA role; pesan gate
     // "Penarikan hanya untuk kreator" sudah dihapus. Guard KYC + gems matured
     // tetap di-enforce server (RPC payout_request).
-    // (demo@cverse.id role user + KYC pending di seed.sql — deterministik).
+    // (demo@cverse.id role user + KYC pending di seeds/*.sql — deterministik).
     await loginAs(page, "demo@cverse.id");
     await page.goto("/wallet");
 
@@ -148,38 +148,38 @@ test.describe("Wallet dual-token (C-Gems)", () => {
     await expect(page.locator(".wa-min-label", { hasText: "MIN 10 C-Gems" })).toBeVisible();
   });
 
-  test("riwayat C-Gems karina: 5 baris seed royalty, amount bertanda + saldo eksak", async ({ page }) => {
+  test("riwayat C-Gems karina: signed amounts and balances match the event-closed ledger", async ({ page }) => {
     await loginAs(page, KARINA_EMAIL);
+    const walletResponse = page.waitForResponse(
+      (response) => new URL(response.url()).pathname === "/api/wallet" && response.request().method() === "GET",
+    );
     await page.goto("/wallet");
+    const payload = (await (await walletResponse).json()) as {
+      gemTxs: Array<{ amount: number; balanceAfterGems: number; refType: string }>;
+    };
+    expect(payload.gemTxs.length).toBeGreaterThan(0);
 
     const gemsLedger = page.locator(".card").filter({ has: page.locator(".wa-toolbar-title", { hasText: "Riwayat C-Gems" }) });
     await expect(gemsLedger).toHaveCount(1);
     await expect(gemsLedger.locator(".wa-toolbar-title")).toHaveText("Riwayat C-Gems");
 
-    // Seed: 5 gem_transactions 'royalty' @ +9 Gems (saldo kumulatif 9..45).
-    // Test ini dideklarasikan SEBELUM test payout/konversi (workers: 1,
-    // urutan deklarasi) agar ledger masih murni seed — debit payout/konversi
-    // menambah baris baru setelahnya.
+    // Check the actual latest page instead of pinning the obsolete five-row
+    // fixture. SQL assertions independently verify event/ledger conservation.
+    const expectedRows = payload.gemTxs.slice(0, 10);
     const rows = gemsLedger.locator("tbody tr");
-    await expect(rows).toHaveCount(5);
+    await expect(rows).toHaveCount(expectedRows.length);
 
     // Ledger gems 4 kolom (tanpa "Catatan" milik ledger C-Coin).
     await expect(gemsLedger.locator("thead th")).toHaveText(["Waktu", "Tipe", "Jumlah", "Saldo"]);
 
-    // created_at desc → baris atas = kredit terakhir (2 hari lalu, saldo 45).
-    const firstRow = rows.nth(0);
-    await expect(firstRow.locator(".pill")).toHaveText("Royalti");
-    await expect(firstRow.locator(".wa-td-amount")).toHaveText("+9 Gems");
-    await expect(firstRow.locator(".wa-td-balance")).toHaveText("45 Gems");
-
-    // Baris bawah = kredit pertama (22 hari lalu, saldo 9).
-    const lastRow = rows.nth(4);
-    await expect(lastRow.locator(".pill")).toHaveText("Royalti");
-    await expect(lastRow.locator(".wa-td-amount")).toHaveText("+9 Gems");
-    await expect(lastRow.locator(".wa-td-balance")).toHaveText("9 Gems");
-
-    // Kelima baris semuanya ref_type 'royalty' → label eksak "Royalti".
-    await expect(rows.locator(".pill")).toHaveText(["Royalti", "Royalti", "Royalti", "Royalti", "Royalti"]);
+    const labels: Record<string, string> = { royalty: "Royalti", settlement: "Settlement", support: "Dukungan", payout: "Penarikan" };
+    for (const [index, transaction] of expectedRows.entries()) {
+      const row = rows.nth(index);
+      await expect(row.locator(".wa-td-amount")).toHaveText(`${transaction.amount > 0 ? "+" : ""}${transaction.amount} Gems`);
+      await expect(row.locator(".wa-td-balance")).toHaveText(`${transaction.balanceAfterGems} Gems`);
+      if (labels[transaction.refType]) await expect(row.locator(".pill")).toHaveText(labels[transaction.refType]);
+    }
+    await expect(rows.first().locator(".wa-td-balance")).toHaveText(`${SEED_GEMS_MATURED} Gems`);
   });
 
   test("payout sukses dari gems matured: gems -10 persis, C-Coin tak tersentuh", async ({ page }) => {

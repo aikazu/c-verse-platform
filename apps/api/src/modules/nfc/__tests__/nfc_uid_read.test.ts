@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // nfc_uid lookup hardening (lane B, audit 2026-08-31): ?uid= is unauthenticated
 // input — % / _ wildcards must never enable prefix enumeration, and the lookup
-// must hit the unique b-tree index (DB stores uppercase hex, see seed.sql).
+// must hit the unique b-tree index (DB stores uppercase hex, see seeds/*.sql).
 
 const control = vi.hoisted(() => ({
   calls: [] as Array<{ method: string; args: unknown[] }>,

@@ -1,4 +1,4 @@
--- 17: EXECUTE grants per role + tombstone fn_drop_id_for_card (part of consolidated RPC set; apply in lexical order).
+-- 17: EXECUTE grants per role.
 
 -- Wallet operations (X1 audit 2026-08-29: default privileges Supabase memberi
 -- EXECUTE ke anon/authenticated saat CREATE FUNCTION — revoke from public saja
@@ -152,5 +152,3 @@ revoke execute on function public.get_leaderboard(text, uuid, integer) from publ
 grant execute on function public.get_leaderboard(text, uuid, integer) to anon;
 grant execute on function public.get_leaderboard(text, uuid, integer) to authenticated;
 grant execute on function public.get_leaderboard(text, uuid, integer) to service_role;
-
-drop function if exists public.fn_drop_id_for_card(text);

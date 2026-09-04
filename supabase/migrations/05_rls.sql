@@ -1,5 +1,5 @@
 -- ══════════════════════════════════════════════════════════════════════════
--- C.Verse — 03_rls: Row Level Security policies + helper function +
+-- C.Verse — 05_rls: Row Level Security policies + helper function +
 -- trigger guards. Default deny: RLS enable semua tabel publik, policy per
 -- operation per matriks. service_role bypass otomatis. Guard function
 -- prevent tulis langsung kolom sensitif oleh role authenticated/anon (hanya
@@ -12,12 +12,12 @@
 -- Catatan konsolidasi:
 --   - cards force row level security (force RLS for table owner too)
 --     dipertahankan dari foundation/RLS.
---   - is_service_role() juga dipakai di guard trigger 04_rpc.sql dan
---     beberapa RPC sebagai pagar kedua — definisi tunggal di sini.
--- Split 2026-09-03 (LoC budget <=300 per file): part 2 moved to
--- 03b_rls_policies.sql — storage.objects kyc-files, payouts, disputes,
--- notifications, creator_page_views, drop_entries, audit log immutable
--- guard, unlist trigger. No dependency on helpers here; 03_ < 03b < 04_.
+--   - is_service_role() juga dipakai oleh guard trigger dan beberapa RPC
+--     sebagai pagar kedua — definisi tunggal di sini.
+-- Baseline maksimum 500 baris fisik per file; kebijakan lanjutan ada di
+-- 06_rls_policies.sql — payouts, disputes, notifications, creator_page_views,
+-- drop_entries, audit log immutable guard, dan unlist trigger. No dependency
+-- on helpers here; 05_ < 06_.
 -- ══════════════════════════════════════════════════════════════════════════
 
 -- ══════════════════════════════════════════════════════════════════════════
@@ -69,8 +69,8 @@ $$;
 -- select internal tidak merekursi lewat RLS users; auth.uid() null → false.
 -- Tanpa revoke: EXECUTE default (public) disengaja — policy users_select
 -- dievaluasi sebagai caller, anon/authenticated butuh EXECUTE ini.
--- Didefinisikan di sini (bukan 04_rpc) karena users_select di bawah
--- memanggilnya dan 03_rls di-apply lebih dulu — CREATE POLICY memvalidasi
+-- Didefinisikan di sini (bukan migration RPC) karena users_select di bawah
+-- memanggilnya dan 05_rls di-apply lebih dulu — CREATE POLICY memvalidasi
 -- fungsi saat DDL.
 -- ══════════════════════════════════════════════════════════════════════════
 create or replace function public.is_admin() returns boolean

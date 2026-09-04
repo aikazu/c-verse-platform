@@ -1,7 +1,7 @@
 -- ══════════════════════════════════════════════════════════════════════════
--- C.Verse — 01b_schema_tables: tabel badges → platform_revenue, treasury
+-- C.Verse — 02_schema_tables: tabel badges → platform_revenue, treasury
 -- system user, trigger updated_at + tie-break timestamps.
--- Lanjutan 01_schema (urutan leksikal: 01_ < 01b_ < 01c_ < 02_).
+-- Lanjutan 01_schema.
 -- notifications.read_at dan payouts_status_check ditulis FINAL inline
 -- (fold dari alter add column/constraint di 01 yang lama).
 -- ══════════════════════════════════════════════════════════════════════════
@@ -31,11 +31,9 @@ create table public.user_badges (
   primary key (user_id, badge_id)
 );
 
--- Kolom dob/ktp_url/npwp_url/selfie_url = kelengkapan KYC US-USR-011 (P0-5 audit
--- 2026-08-24): DOB + foto KTP + selfie wajib, NPWP opsional — ditulis
--- upsertKycSubmission (apps/api/src/lib/reads/kyc.ts), dibaca ulang via mapKycRow.
--- dob memakai tipe date karena UI (<input type="date">) dan API selalu
--- mengirim ISO yyyy-mm-dd. Semua nullable (npwp opsional + resubmit parsial).
+-- KYC menyimpan metadata workflow dan object key Cloudflare R2 privat, bukan
+-- URL publik. DOB + KTP + selfie wajib, NPWP opsional. Semua nullable agar
+-- resubmission parsial tetap dapat diproses.
 create table public.kyc_records (
   id text primary key,
   user_id uuid not null references public.users(id) on delete cascade,
@@ -43,14 +41,24 @@ create table public.kyc_records (
   nik text not null check (char_length(nik)=16),
   address text not null,
   dob date,
-  ktp_url text,
-  npwp_url text,
-  selfie_url text,
+  ktp_object_key text,
+  npwp_object_key text,
+  selfie_object_key text,
   status kyc_status not null default 'pending',
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
+  constraint kyc_ktp_object_key_owner_check
+    check (ktp_object_key is null or ktp_object_key like user_id::text || '/ktp-%'),
+  constraint kyc_npwp_object_key_owner_check
+    check (npwp_object_key is null or npwp_object_key like user_id::text || '/npwp-%'),
+  constraint kyc_selfie_object_key_owner_check
+    check (selfie_object_key is null or selfie_object_key like user_id::text || '/selfie-%'),
   unique(user_id)
 );
+
+comment on column public.kyc_records.ktp_object_key is 'Private Cloudflare R2 object key; never a public URL.';
+comment on column public.kyc_records.npwp_object_key is 'Private Cloudflare R2 object key; never a public URL.';
+comment on column public.kyc_records.selfie_object_key is 'Private Cloudflare R2 object key; never a public URL.';
 
 create table public.creators (
   id text primary key,
@@ -140,7 +148,7 @@ create table public.notifications (
   attempts integer not null default 0,
   created_at timestamptz not null default now(),
   -- P0-3 (audit 2026-08-24): inbox kolom read_at (nullable, diisi user saat
-  -- klik notifikasi; ditulis FINAL inline). Index unread-count di 05_indexes.sql.
+  -- klik notifikasi; ditulis FINAL inline). Index unread-count di 18_indexes.sql.
   read_at timestamptz
 );
 

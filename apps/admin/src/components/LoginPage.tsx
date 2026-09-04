@@ -3,7 +3,7 @@ import { apiFetch } from "../lib/api";
 import { supabase } from "../lib/supabase";
 import { isTurnstileEnabled, mountTurnstile, type TurnstileHandle } from "../lib/turnstile";
 
-// Akun seed admin (supabase/seed.sql) — one-click login masa demo lokal (DEV only).
+// Akun seed admin (supabase/seeds/*.sql) — one-click login masa demo lokal (DEV only).
 const DEMO_ADMIN_EMAIL = "admin@cverse.id";
 
 export function LoginPage() {

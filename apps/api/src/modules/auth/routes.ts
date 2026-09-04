@@ -10,7 +10,7 @@ import { getSupabase } from "../../lib/supabase.js";
 // POST /demo-login — DEV ONLY (masa demo lokal): one-click login akun seed via
 // auth.admin.generateLink (magic link), tetap passwordless & tanpa kirim email.
 // Gerbang ganda: flag ENABLE_DEMO_LOGIN (tidak pernah ada di prod) + whitelist
-// email seed (supabase/seed.sql) — akun produksi tidak pernah ikut whitelist.
+// email seed (supabase/seeds/*.sql) — akun produksi tidak pernah ikut whitelist.
 
 const DEMO_EMAILS: ReadonlySet<string> = new Set([
   "demo@cverse.id",

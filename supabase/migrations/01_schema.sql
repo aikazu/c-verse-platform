@@ -14,9 +14,9 @@
 --     FINAL (incl. 'secondary_seller_to_vault', 'with_owner') + shipments.fee_ccoin
 --     check >= 0 (seller-to-vault gratis)
 --
--- Pecahan schema (urutan leksikal: 01_ < 01b_ < 01c_ < 02_):
---   - 01b_schema_tables.sql  — tabel badges → platform_revenue + treasury + triggers
---   - 01c_indexes_grants.sql — index + grants/revokes
+-- Lanjutan baseline:
+--   - 02_schema_tables.sql — tabel badges → platform_revenue + treasury + triggers
+--   - 03_schema_grants.sql — index + grants/revokes
 -- ══════════════════════════════════════════════════════════════════════════
 
 create extension if not exists "pgcrypto";
@@ -27,14 +27,11 @@ create extension if not exists "pgcrypto";
 create type public.user_role as enum ('user','creator','admin');
 create type public.drop_status as enum ('draft','scheduled','published','live','sold_out','closed','cancelled');
 create type public.order_status as enum ('paid','qc','shipped','delivered','settled','refunded','disputed');
-create type public.wallet_tx_type as enum ('top_up','checkout','escrow_hold','escrow_release','settlement','payout','royalty','refund','adjustment','platform_buy','platform_revenue','seed_abort','payout_refund');
--- Founder 2026-08-28: ship-out fee dari platform vault (RPC vault_shipout,
--- 04_rpc). Statement-level, idempotent untuk re-run migrator.
-alter type public.wallet_tx_type add value if not exists 'vault_shipout';
--- A1 2026-08-31: fan dukungan C-Coin ke kreator (RPC send_support, 04_rpc).
-alter type public.wallet_tx_type add value if not exists 'support';
--- Dual-token 2026-09-03: konversi Gems→C-Coin 1:1 (RPC convert_gems, 04_rpc).
-alter type public.wallet_tx_type add value if not exists 'convert';
+create type public.wallet_tx_type as enum (
+  'top_up','checkout','escrow_hold','escrow_release','settlement','payout','royalty',
+  'refund','adjustment','platform_buy','platform_revenue','seed_abort','payout_refund',
+  'vault_shipout','support','convert'
+);
 create type public.verify_status as enum ('verified','tamper_detected','registered','unknown');
 create type public.kyc_status as enum ('pending','approved','rejected');
 create type public.card_variant as enum ('unsigned','signed');
@@ -72,7 +69,7 @@ begin new.updated_at = now(); return new; end; $$;
 -- Helper trigger tie-break timestamps (leaderboard, keputusan 2026-08-27).
 -- users.xp_reached_at: bumped HANYA saat total_xp berubah — display_name /
 -- avatar / kolom lain tidak menyentuh tie-break. Klien tidak boleh tulis
--- langsung (users_fields_guard 03_rls menambahkan xp_reached_at ke daftar
+-- langsung (users_fields_guard di migration RLS menambahkan xp_reached_at ke daftar
 -- kolom terlindungi bersama role/flag_reason/total_xp/level).
 -- cards.owner_since: bumped HANYA saat owner_id berubah (INSERT atau UPDATE
 -- owner swap). Cosmetic update (status / buyout_price / verify_status /

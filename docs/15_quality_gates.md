@@ -1,13 +1,12 @@
 # 15 — Quality Gates: Testing, Lint, CI, DoD
 
-> Status: [DRAFT — SPEC SIAP EKSEKUSI]
-> Created: 2026-08-15; updated: 2026-08-31 (CI: + lint:boundaries,
-> supabase db lint PR-only, e2e Playwright PR-only; deploy.yml tidak
-> ada; vitest.config.ts projects; split fee ceil)
-> Basis audit: folder Platform memiliki **0 file test**, `pnpm lint`
-> = no-op, `.github/workflows` di-disabled. DoD `01_scope.md`
-> mensyaratkan coverage >70% — tidak ada mekanisme mengukurnya.
-> Estimasi: 2-3 hari setup awal, lalu disiplin per-PR.
+> Status: [VALIDATED]
+> Created: 2026-08-15; updated: 2026-09-05 (guard baseline 18 file,
+> batas 500 baris, seed/asset contract dan Playwright image decode)
+> Vitest, Biome, typecheck, build dan CI aktif. Klaim 0 test/lint no-op
+> berasal dari audit awal 2026-08-15, bukan keadaan sekarang. Target
+> coverage >70% pada `01_scope.md` belum diukur sebagai gate otomatis;
+> jumlah tes lulus bukan bukti persentase coverage.
 > Berlaku sepanjang sprint (bukan sprint terpisah).
 
 ## 1. Prinsip
@@ -46,6 +45,17 @@ CI job `quality` (PR + main): `pnpm install -> typecheck -> lint
 build`. Job `e2e` **PR saja**: `supabase db lint` + Playwright
 (webServer auto-start API/web/admin — butuh stack Supabase lokal).
 Deploy TIDAK otomatis — manual (`08_deployment.md` §7).
+
+Guard baseline memastikan 18 file migration final, maksimum 500 baris
+fisik/file, fungsi tidak diduplikasi, dan REVOKE penting tidak hilang saat
+konsolidasi. Seed SQL modular dijalankan saat reset lokal; assertion di akhir
+seed memeriksa kontrak fixture dan konsistensi ekonomi. Validator aset mengecek
+file nyata, signature gambar, object key unik dan kesesuaian URL seed; Playwright
+memeriksa HTTP asset (bukan SPA fallback), image decode dan viewer OBJ Genesis.
+
+Saat mengganti baseline, simpan dump schema tanpa seed sebelum/sesudah dan
+bandingkan termasuk ACL. `db lint` memeriksa fungsi SQL, bukan schema equivalence.
+Reset/seed remote tidak menjadi bagian rutin quality gate lokal.
 
 ## 3. Matriks Test Wajib
 

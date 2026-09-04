@@ -6,7 +6,7 @@ Architecture: **fat database, thin API**. All money/stock mutations run inside P
 
 ## Docs
 
-- Canonical planning docs: `docs/` (`00_readme` … `16_foundation_cleanup`, 17 files, read in order) — enough for all codebase work; do not read the spec repo.
+- Canonical planning docs: `docs/` (`00_readme` … `16_foundation_cleanup`, 17 numbered files plus `ui-glossary.md`) — enough for all codebase work; do not read the spec repo.
 - `docs/` is a byte-identical mirror of `00_Dream_Project/dev-strategy/` in the separate spec repo (`C:\Users\iqbal\Documents\C-Verse\00_Dream_Project`), synced both ways. **Codebase = source of truth.** Every `docs/` edit must be committed to BOTH repos (`pnpm sync:docs` after committing here). AGENTS.md is not mirrored.
 
 ## Environment
@@ -23,8 +23,9 @@ Architecture: **fat database, thin API**. All money/stock mutations run inside P
 
 ## Supabase (local stack = standard test bench)
 
-- `supabase/migrations/`: 18 numbered SQL files (lexical order = execution order, each ≤300 LoC), every object written ONCE in final form (no `create or replace` chains): 01–03 schema (DDL/enums/tables, indexes, grants), 04 auth (auth mirror + canonical email), 05–06 RLS (policies + guard triggers), 07–17 RPC (all SECURITY DEFINER RPCs + grants), 18 indexes (performance). Never edit an applied migration; `db push` never re-applies edits to applied files — changes land via a reset.
-- LOCAL stack is the standard test bench: `npx supabase start` (needs Docker), then `npx supabase db reset` (local) applies migrations + seed.sql. Integration tests in `supabase/tests/` run against the local DB (`postgresql://postgres:postgres@127.0.0.1:54322/postgres`) via `node <test>.mjs <url>` or plain `db query`; a local `db reset` clears fixtures. Local auth emails are magic links (not OTP codes), visible in Mailpit :54324. Local reset is routine — no confirmation needed.
+- `supabase/migrations/`: 18 numbered baseline SQL files (lexical order = execution order, each ≤500 physical lines), every object written ONCE in final form (no override chains): 01–03 schema/grants, 04 auth, 05–06 RLS, 07–17 RPC/grants, 18 indexes. Hardening and R2 KYC keys are folded into this baseline. `db push` never re-applies edited applied files: baseline replacement requires an explicitly approved disposable-remote reset, or a separate forward-only migration for retained data. See `supabase/README.md`.
+- LOCAL stack is the standard test bench: `npx supabase start` (needs Docker), then `npx supabase db reset --local` applies migrations + ordered `seeds/*.sql` (each ≤500 lines). Integration tests in `supabase/tests/` run against the local DB (`postgresql://postgres:postgres@127.0.0.1:54322/postgres`) via `node <test>.mjs <url>` or plain `db query`; a local reset clears fixtures. Local auth emails are magic links (not OTP codes), visible in Mailpit :54324. Local reset is routine — no confirmation needed.
+- Mock assets: `supabase/seed-assets.json` maps real files in web Static Assets to planned R2 keys; `pnpm seed:assets` validates files and prints a read-only plan. Public artwork/avatar upload is not implemented; private KYC remains separate. Never seed mock users or move fixture URLs on a live production DB.
 
 ## Quality gates
 
@@ -44,7 +45,7 @@ Architecture: **fat database, thin API**. All money/stock mutations run inside P
 - `apps/api/src/lib/` — kernel: `auth.ts` (JWT verify, `requireUser`), `db.ts` (RPC facade; the client uses the user's JWT so RPCs see `auth.uid()`), `reads.ts` + `reads/` (multi-consumer selectors, snake→camel mappers), `errors.ts` (`sanitizeDbError`), `cmac.ts` (AES-CMAC RFC 4493 + SUN AN12196), `payments/` (Midtrans), `cron.ts`, `supabase.ts` (fail-fast client), `store.ts` (domain types, `uid`/`nowIso`).
 - `apps/web/src/` — public SPA (`App.tsx` routes, `pages/`, `lib/api.ts`). `apps/admin/src/` — separate admin SPA; login email OTP, protected by Access/WARP plus server-side admin role and suspension checks.
 - `packages/shared/src/index.ts` — single source of Zod schemas + business constants (rates, fee shares, caps, `calcLevel`, `calcSignedPrice`). Import via `@c-verse/shared` — never hardcode rates/fees/thresholds in apps.
-- `supabase/` — `config.toml`, `migrations/`, `seed.sql` (fixed UUIDs in `auth.users`), `tests/` (SQL + `.mjs` integration tests).
+- `supabase/` — `config.toml`, `migrations/`, ordered `seeds/` (fixed UUIDs in `auth.users`), `seed-assets.json`, `README.md`, `tests/` (SQL + `.mjs` integration tests).
 - `sync-docs.mjs` (root) — docs mirror: `pnpm sync:docs` (apply) / `:check` (dry-run) / `:reverse`. Never auto-commits.
 
 ## Domain rules

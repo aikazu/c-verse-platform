@@ -1,7 +1,9 @@
 # 05 — Data Model (Skema Logis)
 
 > Status: [VALIDATED]
-> Last updated: 2026-09-03 (dual-token: `wallets.balance_gems` +
+> Last updated: 2026-09-05 (mapping URL artwork/model/avatar ke R2;
+> mock memakai Static Assets, baseline SQL final 18 file)
+> Previous: 2026-09-03 (dual-token: `wallets.balance_gems` +
 > tabel `gem_lots`/`gem_transactions` — keputusan D3b
 > `06_tech_decisions.md`)
 > Previous: 2026-08-31 (skema cards/bids/badges diselaraskan ke
@@ -31,6 +33,12 @@
 ## 2. Tabel Inti
 
 ### users & profiles
+Nama `profiles` dalam skema logis ini adalah profil aplikasi. Implementasi
+fisiknya `public.users`, dengan ID sama seperti `auth.users.id`; tidak ada
+tabel `public.profiles`. `users.avatar_url` menyimpan URL gambar publik atau
+null, bukan binary/KYC. Seed lokal memakai Static Assets; target R2 dan
+kebijakan publikasi/penghapusan avatar ada di `08_deployment.md` 3.4.
+
 ```
 users (dari Supabase Auth: id, email, phone, created_at)
 profiles
@@ -88,8 +96,8 @@ drops
   creator_id uuid FK creators.id
   title text
   description text
-  artwork_2d_url text        -- upload by ops (approved off-platform)
-  artwork_3d_url text nullable -- F008 (cut line)
+  artwork_url text           -- URL artwork/atlas; ops-approved, bukan binary
+  artwork_3d_url text nullable -- URL mesh OBJ; tekstur menggunakan artwork_url
   price_ccoin int            -- e.g. 30 (Rp 300.000) — harga unsigned
   price_signed_ccoin int nullable -- harga signed = price_ccoin + 20 FLAT (founder 2026-08-16)
                               -- e.g. 30 -> 50 (Rp 500.000); nullable utk drop lama

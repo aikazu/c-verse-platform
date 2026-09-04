@@ -4,7 +4,8 @@
 > Created: 2026-08-15; updated: 2026-08-31 (email provisioning =
 > Cloudflare Email Service — SumoPod SMTP dihapus)
 > Basis audit awal: `apps/api/src/modules/auth/routes.ts` (password plaintext, token
-> in-memory). Migration selesai: route auth.ts sudah clean (hanya `/me`),
+> in-memory). Migration selesai: route auth menyediakan `/me` dan demo-login
+> development yang digate (lihat section 7),
 > JWT verify via `jose` + JWKS, tidak ada password/in-memory session.
 > Keputusan 2026-09-05: admin memakai email OTP tanpa MFA/TOTP aplikasi wajib;
 > route privileged mengandalkan role admin aktif, suspension check, Access/WARP,
@@ -42,7 +43,7 @@ in-memory tidak dapat dibawa ke produksi. Tabel ini bukan status kode terkini.
 - **Akun kreator ADMIN-PROVISIONED (FINAL 2026-08-20)**: kreator
   TIDAK self-register. Admin app memanggil API backend (service-role) untuk create auth user
   (tanpa password, `email_confirm: true`) → set
-  `profiles.role = 'creator'` → isi `creators.user_id` → kirim email
+  `public.users.role = 'creator'` → isi `creators.user_id` → kirim email
   akses via Cloudflare Email Service (binding `send_email`, gate
   `EMAIL_ENABLED` — lihat §3.6.1). Ini menutup gap G1/G2 (`creators.user_id`
   nullable tanpa flow pengisian).
@@ -69,8 +70,8 @@ in-memory tidak dapat dibawa ke produksi. Tabel ini bukan status kode terkini.
    - Form email → `supabase.auth.signInWithOtp({ email, options: { captchaToken } })`
      → layar input 6 digit → `supabase.auth.verifyOtp({ email, token, type: 'email' })`.
    - Widget Turnstile render dulu; token disertakan tiap request OTP.
-4. "Demo Login 1-klik" DIHAPUS total dari web (tidak ada env flag
-   tersisa) — login hanya Google OAuth + email OTP.
+4. Production memakai Google OAuth + email OTP. Demo Login 1-klik
+   tersedia hanya pada build development dengan gerbang API section 7.
 
 ### 3,3 API (`apps/api`)
 1. Middleware auth baru `src/lib/auth.ts` (paket `jose`, jalan di Workers):
@@ -87,7 +88,7 @@ in-memory tidak dapat dibawa ke produksi. Tabel ini bukan status kode terkini.
 4. Ganti semua `getUserByToken(...)` di 15 route → `requireUser(c)`.
 
 ### 3,4 Database
-1. Struktur auth disatukan di migration `02_auth.sql` (sebelumnya
+1. Struktur auth disatukan di migration `04_auth.sql` (sebelumnya
    `20260817010000_auth.sql`). Sebelum konsolidasi (2026-08-24): bagian
    dari rantai 7 fase (6 fase inti `1/6`..`6/6` + hardening
    `20260817060000` phase 7/7); phase 1 `foundation`
@@ -102,16 +103,19 @@ in-memory tidak dapat dibawa ke produksi. Tabel ini bukan status kode terkini.
      `users_canonical_email_uidx` (buang titik & `+tag` di gmail/googlemail).
    - Insert row `users` otomatis saat signup: **trigger** `on_auth_user_created`
      (`auth.users insert → insert public.users (id, email, display_name, username, ...)`).
-2. Migrasi akun demo/seed: service-role `authAdmin.createUser({ email, password })`
-   per akun seed → update `users.id` ke UUID baru. Seed `karina@creator.id`
-   dan demo jadi akun nyata (password disimpan di `.env` lokal saja).
+2. Fixture lokal di `supabase/seeds/00_identities.sql` membuat `auth.users`
+   dengan UUID tetap, `encrypted_password = null`, dan provider email.
+   Trigger membuat profil, lalu seed mengisi persona dengan upsert.
+   Tidak ada password seed di `.env`; login lokal memakai magic link Mailpit
+   atau demo-login development. Seed tidak dijalankan pada data produksi.
 
 ### 3,5 Rate limit auth (anti abuse OTP)
 - Worker binding saat ini membatasi auth **30 request/menit per
   actor + lokasi edge**; limit provider Supabase tetap menjadi
   lapisan khusus OTP. Target granular **5 OTP/email/10 menit + 20/IP/jam**
   masih hardening lanjutan, bukan klaim implementasi saat ini.
-- Salah OTP 5x → lock 15 menit (tabel `auth_retry_lock` atau claim di users).
+- Lock aplikasi setelah 5 OTP salah / 15 menit belum diimplementasikan;
+  tidak ada tabel `auth_retry_lock`. Jangan menganggapnya kontrol aktif.
 
 ### 3,6 Provisioning akun kreator (admin-provisioned, FINAL 2026-08-20)
 - **STATUS: TERIMPLEMENTASI (2026-08-21)** — endpoint nyata
@@ -151,8 +155,9 @@ in-memory tidak dapat dibawa ke produksi. Tabel ini bukan status kode terkini.
 
 ## 4. Jangan Dilakukan
 
-- Jangan simpan JWT di localStorage (pakai persistSession supabase — httpOnly
-  cookie via @supabase/ssr saat domain live).
+- Jangan membuat penyimpanan token manual. SPA saat ini memakai persistSession
+  bawaan supabase-js (localStorage); cookie httpOnly via SSR bukan implementasi
+  aktif. Hindari logging token dan pertahankan proteksi XSS.
 - Jangan bypass Turnstile "sementara" di staging publik.
 - Jangan buat endpoint register custom dengan password lagi.
 
@@ -185,8 +190,11 @@ tanpa OTP/email. **Tetap passwordless** — tidak ada password login.
 
 - Endpoint: `POST /api/auth/demo-login` `{ email }` →
   `{ email, tokenHash }`. Gerbang ganda: env `ENABLE_DEMO_LOGIN`
-  (tidak pernah di-set production → 404) + whitelist 8 email seed
-  (`supabase/seed.sql`).
+  (tidak pernah di-set production → 404), penolakan eksplisit `ENV=production`,
+  dan whitelist 8 email persona inti
+  (`supabase/seeds/*.sql`, urutan eksekusi di `config.toml`).
+- Atlas/Luna adalah peserta raffle sintetis tambahan, bukan anggota whitelist
+  one-click login. Keduanya tetap dapat memakai email login lokal.
 - Mekanisme: `auth.admin.generateLink({ type: "magiclink" })` — TIDAK
   mengirim email (juga mem-bypass blokir GoTrue terhadap domain
   `@cverse.id`) → client menukar `token_hash` jadi sesi via

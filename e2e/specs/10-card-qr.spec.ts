@@ -12,7 +12,7 @@ async function getFirstCardHref(page: Page): Promise<string> {
   await loginAs(page, "demo@cverse.id");
   await page.goto("/collection");
   const cardLink = page.locator("a[href*='/cards/']").first();
-  await expect(cardLink, "expected kartu koleksi milik demo@cverse.id di /collection (dijamin seed.sql)").toBeVisible({
+  await expect(cardLink, "expected kartu koleksi milik demo@cverse.id di /collection (dijamin seeds/*.sql)").toBeVisible({
     timeout: 10000,
   });
   const href = await cardLink.getAttribute("href");

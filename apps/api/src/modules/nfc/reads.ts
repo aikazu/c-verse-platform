@@ -5,7 +5,7 @@ import type { Card, OwnershipHistory } from "../../lib/store.js";
 // Card writes (verify_status / last_ctr) stay in modules/nfc/routes.ts persistVerification.
 
 // Canonical uid rule (mirrors verifyTap in routes.ts: 7-byte UID = hex, ≤14 chars).
-// DB uids are uppercase-normalized (only writer is seed.sql `upper(md5(...))` and the
+// DB uids are uppercase-normalized (only writer is seeds/*.sql `upper(md5(...))` and the
 // unique b-tree index on nfc_uid is case-sensitive), so an exact .eq on the uppercased
 // input hits the index — no ilike, no wildcard enumeration surface.
 const NFC_UID_PATTERN = /^[0-9a-fA-F]{1,14}$/;

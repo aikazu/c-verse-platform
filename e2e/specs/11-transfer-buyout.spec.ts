@@ -14,7 +14,7 @@ import { loginAs } from "../helpers";
  * Fixture: kartu BARU prefix `e2e-tfr-` (bukan kartu seed) di-insert via REST
  * service-role (pola parse .dev.vars dari 09-webhook-negative.spec.ts; nilai
  * secret tidak pernah di-echo). Kolom kartu dicerminkan dari INSERT kartu
- * milik rival di supabase/seed.sql (bound/registered/with_owner/passed).
+ * milik rival di supabase/seeds/*.sql (bound/registered/with_owner/passed).
  * Ledger (wallet_transactions, platform_revenue) append-only — tidak & tidak
  * bisa dihapus; baris kartu/bid/ownership_history di-cleanup di akhir.
  */

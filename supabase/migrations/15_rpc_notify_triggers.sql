@@ -33,7 +33,6 @@ begin
 end;
 $$;
 
-drop trigger if exists trg_bids_notify on public.bids;
 create trigger trg_bids_notify
   after update on public.bids
   for each row execute function public.fn_notify_bid_change();
@@ -60,7 +59,6 @@ begin
 end;
 $$;
 
-drop trigger if exists trg_bids_notify_insert on public.bids;
 create trigger trg_bids_notify_insert
   after insert on public.bids
   for each row when (new.status = 'active')
@@ -92,7 +90,6 @@ begin
 end;
 $$;
 
-drop trigger if exists trg_cards_owner_change on public.cards;
 create trigger trg_cards_owner_change
   after update on public.cards
   for each row execute function public.fn_notify_card_owner_change();
@@ -128,7 +125,6 @@ begin
 end;
 $$;
 
-drop trigger if exists trg_payouts_status on public.payouts;
 create trigger trg_payouts_status
   after update on public.payouts
   for each row execute function public.fn_notify_payout_status();
@@ -167,7 +163,6 @@ begin
 end;
 $$;
 
-drop trigger if exists trg_shipments_status on public.shipments;
 create trigger trg_shipments_status
   after update on public.shipments
   for each row execute function public.fn_notify_shipment_status();
@@ -189,7 +184,6 @@ begin
 end;
 $$;
 
-drop trigger if exists trg_kyc_notify on public.kyc_records;
 create trigger trg_kyc_notify
   after update on public.kyc_records
   for each row execute function public.fn_notify_kyc_status();

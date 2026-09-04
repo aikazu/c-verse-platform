@@ -6,17 +6,10 @@ import { adminLogin } from "../../helpers";
 /**
  * Admin operations via admin UI (apps/admin, :3000) — lane e2e 2026-08-29.
  *
- * Kontras penting (diverifikasi di source, bukan asumsi):
- * - Sesi DEMO login = aal1; bypass TotpRequired hanya di SPA (App.tsx
- *   `isDemoDev`). Endpoint admin yang melewati `requireAdmin`
- *   (apps/api/src/lib/auth.ts — role admin + aal aal2, TANPA bypass dev)
- *   tetap menolak sesi aal1.
- * - supabase/config.toml mematikan TOTP (`[auth.mfa.totp] enroll_enabled =
- *   false`), jadi aal2 tidak dapat diperoleh di bench lokal → skenario
- *   approve KYC / shipment / seed-release (semua requireAdmin) TIDAK bisa
- *   dijalankan positif di sini; yang diuji adalah penolakan aal1 yang
- *   teramati di UI (defense-in-depth server-side).
- * - RLS drops (03_rls `drops_select_public`) hanya memperlihatkan status
+ * Current contract: active admin role is enforced server-side; deployed
+ * gateways additionally require Access/WARP. Application TOTP is not required.
+ * Local demo login remains development-only and does not bypass the role gate.
+ * - RLS drops (05_rls `drops_select_public`) hanya memperlihatkan status
  *   publik — drop `draft` tidak muncul di daftar admin (halaman Drops baca
  *   PostgREST langsung via supabase-js). Karena itu transisi status di UI
  *   tidak bisa mengklik baris draft; publish dilakukan via endpoint yang
@@ -72,14 +65,13 @@ async function cleanupDrops(restTitleFilter: string): Promise<void> {
 }
 
 test.describe("Admin ops (UI)", () => {
-  test("login admin via tombol demo (dev): sesi aal1 aktif dan Shell dirender", async ({ page }) => {
+  test("login admin via tombol demo (dev): sesi aktif dan Shell berbasis peran", async ({ page }) => {
     await adminLogin(page);
 
-    // Shell hanya dirender dengan sesi — sidebar memuat email admin + label aal1 demo.
+    // Shell requires a session; no stale application MFA bypass badge.
     await expect(page.getByText("admin@cverse.id")).toBeVisible();
-    await expect(page.getByText("Supabase · aal1 (demo)")).toBeVisible();
-    // Badge dev-only App.tsx: bukti bypass aal2 hanya sisi SPA.
-    await expect(page.getByText("DEMO · aal1 tanpa TOTP")).toBeVisible();
+    await expect(page.getByText("Supabase OTP · akses berbasis peran")).toBeVisible();
+    await expect(page.getByText("DEMO · aal1 tanpa TOTP")).toHaveCount(0);
   });
 
   test("buat drop via admin UI: toast sukses, ter-publish, dan terlihat di daftar + read publik", async ({ page, request }) => {
@@ -143,17 +135,19 @@ test.describe("Admin ops (UI)", () => {
     await cleanupDrops(`eq.${encodeURIComponent(title)}`);
   });
 
-  test("kyc: sesi aal1 (demo) ditolak server — gate MFA aal2 teramati di UI", async ({ page }) => {
-    // Approve KYC positif tidak dapat diuji di bench ini: requireAdmin wajib aal2
-    // dan TOTP enroll dinonaktifkan di supabase/config.toml (lihat header file).
-    // Yang diuji: guard aal2 SERVER-SIDE tetap menolak meski SPA (isDemoDev)
-    // melewatkan TotpRequired — halaman KYC menampilkan error dari API.
+  test("kyc: admin aktif membaca fixture, request tanpa sesi tetap ditolak", async ({ page, request }) => {
+    const guest = await request.get(`${API_BASE}/api/kyc/admin/all`);
+    expect(guest.status()).toBe(401);
     await adminLogin(page);
+    const response = page.waitForResponse((res) => new URL(res.url()).pathname === "/api/kyc/admin/all");
     await page.getByRole("link", { name: "KYC" }).click();
-
-    // KycPage.load() → GET /api/kyc/admin/all → 403 mfa_required → errMessage dirender.
-    await expect(page.locator(".admin-msg")).toContainText("MFA (aal2) wajib", { timeout: 15000 });
-    // Daftar tetap kosong — tidak ada data yang terbaca tanpa aal2.
-    await expect(page.getByText("Belum ada pengajuan")).toBeVisible();
+    expect((await response).status()).toBe(200);
+    const karina = page.getByRole("row").filter({ hasText: "Karina Aespa" });
+    await expect(karina).toBeVisible();
+    await expect(karina).toContainText("Disetujui");
+    await expect(karina).toContainText("•••• •••• •••• 0003");
+    await expect(karina.getByRole("button", { name: "Review" })).toBeEnabled();
+    await expect(page.getByText("Belum ada pengajuan")).toHaveCount(0);
+    // Private KYC documents are placeholders, so this checks metadata only.
   });
 });

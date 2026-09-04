@@ -1,7 +1,9 @@
 # 08 — Deployment Runbook (Step-by-Step)
 
 > Status: [VALIDATED]
-> Last updated: 2026-09-05 (aplikasi dana dikonsolidasikan
+> Last updated: 2026-09-05 (baseline SQL final <=500 baris/file,
+> seed modular dan mapping R2 artwork/model/avatar; belum diterapkan remote)
+> Previous: 2026-09-05 (aplikasi dana dikonsolidasikan
 > menjadi satu native Worker; Access mewajibkan posture WARP; API
 > utama tetap privat melalui Service Binding; cutover dana terverifikasi
 > dan Worker API lama dipensiunkan; VPS/Tunnel dipensiunkan)
@@ -156,8 +158,9 @@ tidak membacanya (env email API hanya `EMAIL_ENABLED`/`EMAIL_FROM`/
    Node yang tidak kompatibel dengan Workers global scope.
 
 ### 3.4 Cloudflare R2
-- Bucket `cverse-assets` (publik via CDN): artwork, model 3D — belum
-  dibuat/dihubungkan pada tahap KYC.
+- Bucket target `cverse-assets`: artwork, model 3D, avatar profil, dan icon
+  badge. Pemeriksaan API 2026-09-05: belum dibuat; binding API belum aktif.
+  Mock saat ini memakai file Static Assets web, bukan URL R2 yang belum hidup.
 - Bucket `cverse-kyc` (PRIVATE, dibuat ulang pada account produksi
   2026-09-04; location hint APAC): KTP, selfie,
   NPWP. Binding `KYC` memakai Workers API `put/get/head/delete`.
@@ -166,6 +169,52 @@ tidak membacanya (env email API hanya `EMAIL_ENABLED`/`EMAIL_FROM`/
   lewat endpoint streaming role admin aktif, `Cache-Control:
   private, no-store`, dan audit log per dokumen.
 - Bucket `cverse-qr` (opsional): fallback QR statik per kartu.
+
+#### Mapping aset publik dan profil (rancangan, belum fitur upload)
+
+| Jenis | Object key target di `cverse-assets` | Referensi Postgres |
+|---|---|---|
+| Artwork/atlas kartu | `drops/<drop-id>/<version>/artwork.png` | `drops.artwork_url` |
+| Mesh OBJ dan file pendamping | `drops/<drop-id>/<version>/model.obj` | `drops.artwork_3d_url` |
+| Avatar user/kreator | `profiles/<user-uuid>/<version>/avatar.png` | `users.avatar_url` |
+| Icon badge | `badges/<badge-id>/<version>/icon.png` | `badges.icon_url` |
+| Fixture development | `mock/v1/artworks/`, `mock/v1/models/`, `mock/v1/avatars/` | Kolom yang sama, bukan tabel mock baru |
+| KTP/selfie/NPWP | Bucket PRIVATE `cverse-kyc`, namespace owner | `kyc_records.*_object_key`, bukan URL publik |
+
+Alur target upload: browser -> gateway same-origin -> API verifikasi JWT,
+role/ownership dan MIME/signature/ukuran -> key dibentuk server -> R2 PUT ->
+update URL DB setelah PUT sukses -> browser GET dari origin aset HTTPS.
+Artwork/model/icon hanya ops/admin; avatar hanya pemilik profil aktif.
+URL input bebas tidak boleh menjadi pengganti pemeriksaan ownership. Bila
+update DB gagal, hapus object baru yang belum direferensikan. Penggantian
+memakai versi baru, lalu pembersihan object lama setelah tidak direferensikan.
+
+Origin publik harus diaktifkan secara sengaja lewat custom domain/CDN, bukan
+membuka bucket KYC atau mengaktifkan `r2.dev` tanpa review. Set MIME yang benar,
+`nosniff`, ETag, dan cache versioned untuk artwork/model. Avatar perlu kebijakan
+cache/penghapusan yang mendukung perubahan privasi; URL publik tetap dapat
+disalin/disimpan pihak lain meski profil kemudian anonim. UI harus menjelaskan
+bahwa avatar yang dipublikasikan bukan dokumen privat. API publik tetap wajib
+menyembunyikan avatar/link identitas persona anonim atau suspended.
+
+Three.js memuat texture/model lintas origin: CORS GET/HEAD origin aset harus
+mengizinkan origin web yang dipakai. Jangan menaruh credential upload di
+browser atau mencampur CORS delivery dengan izin upload. Development tetap
+di belakang perimeter Access/WARP; publikasi asset mock bukan langkah otomatis.
+
+Manifest fixture repository menyimpan path file nyata, MIME, object key target
+dan prompt/provenance; validator menghitung SHA-256 dari file saat dijalankan.
+Urutan aktivasi: siapkan bucket dan
+origin -> upload sesuai manifest -> verifikasi HTTP + CORS + gambar/mesh ->
+review dan jalankan mapping URL fixture pada DB development. Jangan mengubah
+URL DB sebelum object tersedia. Belum ada endpoint upload artwork/avatar atau
+route delivery R2 publik; mapping ini tidak mengklaim keduanya sudah aktif.
+
+Reset Postgres tidak menghapus object R2. Sesudah reset development, cocokkan
+kembali key manifest/metadata dengan bucket sebelum membersihkan orphan.
+Jangan menghapus bucket atau seluruh prefix profil/KYC sebagai efek samping
+reset DB; cleanup harus punya daftar key yang telah ditinjau dan kebijakan
+retensi yang sesuai. R2 menyimpan binary, Postgres menyimpan relasi/otorisasi.
 
 ### 3.5 Worker gateway admin (apps/admin)
 - Worker `c-verse-admin` menyajikan Static Assets di
@@ -203,13 +252,19 @@ tidak membacanya (env email API hanya `EMAIL_ENABLED`/`EMAIL_FROM`/
    + secret key, set di Dashboard Auth → config captcha); set
    redirect URLs untuk root, `https://dev.c-verse.co`,
    `https://*.dev.c-verse.co`, dan `https://admin.c-verse.co`.
-4. Migrasi: `npx supabase db push` (atau `npx supabase db reset`
-   untuk lokal) — file SQL murni di `supabase/migrations/*.sql`
-   (21 file SQL: 01–03 schema → 04 auth → 05–06 RLS → 07–17 RPC →
-   18 indexes → 19–20 hardening → migrasi object key KYC R2).
-   Cek `npx supabase db lint` untuk drift.
+4. Baseline: 18 file SQL final, maksimum 500 baris fisik/file:
+   01–03 schema/grants -> 04 auth -> 05–06 RLS -> 07–17 RPC -> 18 indexes.
+   Hardening 19–20 dan object key KYC sudah dilebur. Lokal:
+   `npx supabase db reset --local` menerapkan baseline lalu seed modular
+   berurutan; `npx supabase db lint --local` memeriksa masalah fungsi SQL.
+   Lint bukan pembanding drift schema; bandingkan dump/catalog bila diperlukan.
+   Remote masih mencatat 21 versi applied pada pemeriksaan 2026-09-05.
+   `db push` tidak menerapkan ulang file applied yang diedit. Reset remote
+   development memerlukan persetujuan baru dan verifikasi target; jangan
+   menghapus migration history saja. DB berdata yang dipertahankan memerlukan
+   migrasi forward-only terpisah. Konsolidasi ini belum dijalankan di remote.
 5. RLS: apply policy per tabel (lihat `05_data_model.md` RLS) —
-   verifikasi dengan `supabase/rls` test setelah deploy.
+   verifikasi dengan tes di `supabase/tests/` pada target yang telah disetujui.
 6. Realtime: enable broadcast untuk channel `drop_countdown` &
    `bid_events` (extension `supabase_realtime`).
 

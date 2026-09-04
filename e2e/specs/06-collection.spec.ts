@@ -18,8 +18,10 @@ test.describe("Collection & NFC", () => {
     await loginAs(page, "demo@cverse.id");
     await page.goto("/collection");
     const cardLink = page.locator("a[href*='/cards/']").first();
-    // Seed menjamin demo@cverse.id punya kartu koleksi (seed.sql) → hard assert.
-    await expect(cardLink, "expected kartu koleksi milik demo@cverse.id di /collection (dijamin seed.sql)").toBeVisible({ timeout: 10000 });
+    // Seed menjamin demo@cverse.id punya kartu koleksi (seeds/*.sql) → hard assert.
+    await expect(cardLink, "expected kartu koleksi milik demo@cverse.id di /collection (dijamin seeds/*.sql)").toBeVisible({
+      timeout: 10000,
+    });
     await cardLink.click();
     await expect(page).toHaveURL(/\/cards\//);
     await expect(page.locator("body")).not.toContainText("Error");

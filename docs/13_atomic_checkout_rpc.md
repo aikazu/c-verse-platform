@@ -2,7 +2,7 @@
 
 > Status: [IMPLEMENTED 2026-08-16] — spec ini historis; kondisi akhir:
 > semua uang & stok lewat RPC single-transaction di
-> `supabase/migrations/*.sql` (21 file; RPC di 07–17), `store.ts` tinggal type + helper
+> `supabase/migrations/*.sql` (18 file final, <=500 baris/file; RPC di 07–17), `store.ts` tinggal type + helper
 > murni (bukan data), tidak ada fallback in-memory.
 > Created: 2026-08-15; updated: 2026-08-18
 > Basis audit awal: seluruh route API pakai `apps/api/src/lib/store.ts` (Map
@@ -191,7 +191,7 @@ wallet_credit(...)  -- mirip, untuk release/refund/royalty/settlement
 | 3 | orders (checkout, orders list/detail), shipments | store → RPC checkout + select. PATCH /api/shipments/:id/status (admin fulfillment) atomic via RPC `admin_fulfill_shipment` di RPC `07`–`17` (sebelumnya `20260823010000_admin_fulfill_shipment.sql`) — bukan sequential writes ke shipments/orders/cards lagi. |
 | 4 | bids (place/cancel/accept), cards buyout set/cabut | store → RPC `place_bid` (hold+outbid release atomic), `accept_bid` (transfer+split fee 7,5/7,5/85 + ownership_history) |
 | 5 | kyc, disputes, admin reads | select via anon + RLS / role-gated API |
-| 6 | `store.ts` disusutkan jadi type + helper murni (bukan data); seed SQL-only (`supabase/seed.sql` satu sumber seed) |
+| 6 | `store.ts` disusutkan jadi type + helper murni (bukan data); seed SQL-only modular (`supabase/seeds/*.sql`, urutan di `config.toml`, <=500 baris/file) |
 
 Per gelombang: jalankan typecheck + manual smoke flow + tambah vitest.
 

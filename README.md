@@ -39,7 +39,7 @@ flowchart LR
     RT["Realtime"]
   end
   subgraph StorageBox["Cloudflare R2"]
-    R2["cverse-assets / cverse-kyc / cverse-qr<br/>zero egress"]
+    R2["cverse-kyc aktif/private<br/>cverse-assets direncanakan: artwork, 3D, avatar"]
   end
   Web -->|Service Binding| Api
   Admin -->|Service Binding| Api
@@ -90,9 +90,9 @@ pnpm run lint        # biome check . (0 error/warning hard gate)
 pnpm run build       # shared + web/dist + admin/dist (api = tsc only)
 
 # Integration & e2e (butuh Docker / server hidup)
-npx supabase start && npx supabase db reset   # local stack (DB :54322)
+npx supabase start && npx supabase db reset --local   # local stack (DB :54322)
 node supabase/tests/rpc_c13_bid_test.mjs "postgresql://postgres:postgres@127.0.0.1:54322/postgres"
-pnpm run test:e2e    # Playwright (16 file spec / 42 test, web + admin)
+pnpm run test:e2e    # Playwright (web + admin + delivery aset mock)
 ```
 
 ### Environment
@@ -111,20 +111,27 @@ Supabase **wajib** — API fail-fast tanpa `SUPABASE_URL`:
 
 ```bash
 npx supabase start        # API :54321  DB :54322  Studio :54323
-npx supabase db reset     # migrations/*.sql + seed.sql
+npx supabase db reset --local  # migrations/*.sql + seeds/*.sql
+pnpm seed:assets              # validasi file dan mapping R2, tidak upload
 ```
 
 Storage: Cloudflare R2 (`cverse-kyc` private sudah aktif melalui binding `KYC`; `cverse-assets` belum dibuat — lihat `08_deployment.md` §3.4).
 
 ### Akun Seed (dev)
 
-Login **tanpa password** — email OTP atau Google. UUID fixed di `supabase/seed.sql`.
+Login **tanpa password** — email OTP atau Google. UUID fixed di `supabase/seeds/`.
 
-| Role | Email | Saldo | Catatan |
-|------|-------|-------|---------|
-| Kolektor | `demo@cverse.id` | 120 C-Coin | 45 XP, order + vault card |
-| Admin | `admin@cverse.id` | 50 C-Coin | email OTP; host hanya lewat Access founder allowlist + WARP |
-| Kreator | `karina@creator.id` | 0 C-Coin | 120 XP (seed creator) |
+| Role | Email | Catatan |
+|------|-------|---------|
+| Kolektor | `demo@cverse.id` | Koleksi/vault, KYC pending, ledger dua token |
+| Admin | `admin@cverse.id` | Email OTP; host hanya lewat Access founder allowlist + WARP |
+| Kreator | `karina@creator.id` | 45 C-Gems matang untuk kontrak payout/support |
+
+Seed juga mencakup kreator lain, rival, persona anonim/suspended, dan treasury.
+Rincian skenario, batas baseline, serta transisi remote ada di
+[runbook database](supabase/README.md). Empat aset ImageGen baru dan referensi
+`karina.jpg` dipetakan di `supabase/seed-assets.json`; file mock saat ini dilayani
+Static Assets, bukan R2. Upload artwork/avatar belum diimplementasikan.
 
 ---
 
@@ -172,12 +179,14 @@ Belum diimplementasi: notifikasi in-app/push (F010, F013). Email transaksional A
 │   └── admin/               # Worker SPA WARP-only — ADM-01..10 + Investor
 ├── packages/shared/         # single source: schemas + C_COIN_RATE_IDR + fee
 ├── supabase/
-│   ├── migrations/          # 18 file SQL bernomor (≤300 LoC): 01 schema →
+│   ├── migrations/          # 18 file SQL bernomor (≤500 baris): 01 schema →
 │   │                        # 04 auth → 05–06 RLS → 07–17 RPC → 18 indexes
-│   ├── seed.sql
+│   ├── seeds/               # fixture SQL berurutan, ≤500 baris/file
+│   ├── seed-assets.json     # file lokal → object key R2 + prompt/provenance
+│   ├── README.md            # runbook reset dan skenario mock
 │   ├── tests/               # rls_test.sql, rpc_*.mjs, revenue_flow_test.mjs
 │   └── config.toml
-├── e2e/                     # Playwright (16 file spec / 42 test, web + admin)
+├── e2e/                     # Playwright (web + admin + delivery aset mock)
 └── docs/                    # canonical 00_readme → 16_foundation_cleanup
 ```
 
@@ -307,7 +316,7 @@ Status implementasi per item (`[done]` = ada di code + test; `[spec NN]` = spec 
 | Web dev | `apps/web` | `pnpm --filter @c-verse/web run deploy` → `dev.c-verse.co` + Access/WARP |
 | API | `apps/api` | `pnpm --filter @c-verse/api run deploy` → private Worker, Service Binding only |
 | Admin | `apps/admin` | `pnpm --filter @c-verse/admin run deploy` → `admin.c-verse.co` + Access/WARP |
-| DB | `supabase/` | `npx supabase db reset` (migrasi + seed) · RLS default-deny (docs/11) |
+| DB lokal | `supabase/` | `npx supabase db reset --local` (baseline + seed modular); transisi remote wajib mengikuti runbook database |
 
 Callback Midtrans belum dapat masuk ke host WARP-only. Pengujian top-up sandbox
 end-to-end membutuhkan ingress webhook khusus; API utama tetap privat.

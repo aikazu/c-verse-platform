@@ -1,6 +1,4 @@
--- 09: RPC pembelian (checkout, vault_shipout, drop_entry) + activate_scheduled_drops (part of consolidated RPC set; apply in lexical order).
-drop function if exists public.checkout(text, text, public.delivery_option, text, integer);
-drop function if exists public.checkout(text);
+-- 09: RPC pembelian (checkout, vault_shipout, drop_entry) + activate_scheduled_drops.
 create or replace function public.checkout(
   p_drop_id text,
   p_pool text default 'regular'

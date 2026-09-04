@@ -1,7 +1,7 @@
 -- ══════════════════════════════════════════════════════════════════════════
--- C.Verse — 01c_indexes_grants: index basis + unique/partial-unique dan
+-- C.Verse — 03_schema_grants: index basis + unique/partial-unique dan
 -- table-level grants/revokes (least-privilege — row tetap difilter RLS).
--- Lanjutan 01_schema / 01b_schema_tables (urutan leksikal: 01_ < 01b_ < 01c_).
+-- Lanjutan 01_schema / 02_schema_tables.
 -- ══════════════════════════════════════════════════════════════════════════
 
 -- ══════════════════════════════════════════════════════════════════════════
@@ -66,39 +66,40 @@ create unique index if not exists uq_shipments_active_per_card
 grant all on all tables in schema public to service_role;
 grant usage, select on all sequences in schema public to service_role;
 
--- anon: read publik. creator_page_views is write-via-RPC-only
--- (record_creator_page_view SECURITY DEFINER; RLS default-deny, no direct INSERT).
--- F4 (pentest 2026-08-30): public.users ditutup untuk anon — email terekspos
--- via policy `not is_anonymous` lama. revoke eksplisit WAJIB: default
--- privileges Supabase memberi ALL ke anon pada tabel baru, jadi cukup tidak
--- me-grant tidak menutup apa pun. Akses admin lewat grant authenticated +
--- policy users_select (public.is_admin) di 03_rls.
--- Lane D (2026-08-31): bids (bidder_name raw) + creators (bank_account/notes)
--- ditutup untuk anon — read publik hanya via API service-role / RPC
--- (buktinya: anon key bisa POSTGREST-read bank_account kreator sebelum revoke).
+-- Anon read publik yang aman. users, bids, creators, cards, dan provenance
+-- sensitif hanya dibaca lewat API service-role atau RPC yang memproyeksikan
+-- payload aman.
 revoke all on public.users from anon;
 revoke select on public.bids from anon;
 revoke select on public.creators from anon;
-grant select on public.drops, public.cards, public.ownership_history, public.badges to anon;
+revoke select on public.cards from anon;
+revoke select on public.ownership_history from anon;
+revoke select on public.bids from authenticated;
+revoke select on public.ownership_history from authenticated;
+revoke select on public.creators from authenticated;
+revoke insert on public.bids from authenticated;
+grant select on public.drops, public.badges to anon;
 
--- authenticated: read sesuai matriks RLS + write minimum (guard trigger).
--- creators TETAP di-grant ke authenticated (Lane D 2026-08-31): admin SPA
--- (Creators.tsx/Dashboard.tsx) membaca creators langsung via supabase-js —
--- revoke authenticated menunggu read tersebut pindah ke API.
+-- Authenticated read mengikuti matriks RLS. Bid hanya melalui SECURITY
+-- DEFINER RPC; ownership provenance hanya melalui API service-role.
 grant select on
-  public.users, public.creators, public.drops, public.cards, public.orders,
-  public.wallets, public.wallet_transactions, public.bids, public.shipments,
-  public.ownership_history, public.badges, public.user_badges, public.kyc_records,
+  public.users, public.drops, public.cards, public.orders,
+  public.wallets, public.wallet_transactions, public.shipments,
+  public.badges, public.user_badges, public.kyc_records,
   public.payouts, public.notifications, public.disputes, public.creator_page_views,
   public.gem_lots, public.gem_transactions
 to authenticated;
-grant insert on public.bids, public.kyc_records, public.disputes to authenticated;
+grant select (
+  id, user_id, handle, total_followers_combined, status,
+  kyc_completed, notes, created_at, updated_at
+) on public.creators to authenticated;
+grant insert on public.kyc_records, public.disputes to authenticated;
 grant update on public.users, public.cards, public.notifications to authenticated;
 
 -- C-Gems tables (dual-token 2026-09-03): anon DITUTUP total (lesson audit
 -- 2026-08-30 — default privileges Supabase memberi ALL ke anon pada tabel
 -- baru; revoke eksplisit wajib). Tulis HANYA via RPC SECURITY DEFINER
--- (wallet_credit_gems/wallet_debit_gems); read owner-only via RLS (03_rls).
+-- (wallet_credit_gems/wallet_debit_gems); read owner-only via RLS (05_rls).
 -- Review 2026-09-02: authenticated juga menerima ALL dari default privileges —
 -- write di-revoke eksplisit (SELECT di atas tetap; JANGAN revoke all —
 -- getWallet membaca gem_lots via user-scoped client, dilindungi RLS own-row).

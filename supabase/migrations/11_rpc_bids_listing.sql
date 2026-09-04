@@ -71,9 +71,13 @@ begin
     update bids set status = 'outbid', outbid_at = now() where id = v_active.id;
   end if;
 
+  -- Audit 2026-09-04 p7: bidder_name denormalized ikut aturan masking "Anonim"
+  -- (paritas maskBidderNames di API) — user anonim/suspended menyimpan 'Anonim',
+  -- bukan display_name asli. Nama asli tidak pernah menyentuh baris bid.
   insert into bids (id, card_id, bidder_id, bidder_name, amount_ccoin, status)
   values (gen_random_uuid()::text, p_card_id, v_user,
-          coalesce((select display_name from users where id = v_user), 'Bidder'),
+          coalesce((select case when is_anonymous or flag_reason is not null then 'Anonim' else display_name end
+                    from users where id = v_user), 'Bidder'),
           p_amount, 'active')
   returning * into v_new;
   return v_new;

@@ -1,53 +1,7 @@
 -- ══════════════════════════════════════════════════════════════════════════
--- C.Verse — 03b_rls_policies — part 2 of the 03_rls split (2026-09-03,
--- original 03_rls.sql 367 LoC > 300 budget). Content below moved
--- byte-for-byte from 03_rls.sql in original relative order:
--- storage.objects kyc-files policies, payouts, disputes, notifications,
--- creator_page_views, drop_entries, admin_audit_log immutable guard,
--- unlist_card_if_non_tradable trigger. No dependency on helpers in
--- 03_rls.sql; 03_ < 03b < 04_ keeps this applied right after 03_rls.sql.
+-- C.Verse — 06_rls_policies: policy lanjutan dan guard trigger.
+-- Bergantung pada helper dan RLS dasar di 05_rls.sql.
 -- ══════════════════════════════════════════════════════════════════════════
-
--- ══════════════════════════════════════════════════════════════════════════
--- KYC files — storage.objects (bucket 'kyc-files', diprovision via
--- config.toml — private). SATU-SATUNYA policy storage.objects di repo:
--- tanpa ini upload dari browser (Kyc.tsx uploadKycFile) selalu ditolak RLS
--- "new row violates row-level security policy" (RLS storage.objects aktif
--- by default, terbukti empiris 2026-08-29; bucket public pun tetap kena RLS
--- untuk insert). Scope minimal: INSERT saja, hanya ke folder per-user
--- `<uid>/...`. Review admin membaca object via service-role (bypass RLS)
--- untuk menandatangani URL — lihat apps/api/src/lib/store.ts (KycRecord
--- comment).
--- ══════════════════════════════════════════════════════════════════════════
-create policy kyc_files_owner_insert on storage.objects for insert to authenticated
-  with check (
-    bucket_id = 'kyc-files'
-    and (storage.foldername(name))[1] = auth.uid()::text
-  );
-
--- supabase-js upload() selalu mengirim header x-upsert (Kyc.tsx: upsert true) —
--- storage mengeksekusi INSERT .. ON CONFLICT DO UPDATE, dan Postgres menuntut
--- policy UPDATE untuk path itu meski tidak ada konflik (tanpa ini upload tetap
--- "new row violates row-level security policy"; terbukti empiris 2026-08-29).
-create policy kyc_files_owner_update on storage.objects for update to authenticated
-  using (
-    bucket_id = 'kyc-files'
-    and (storage.foldername(name))[1] = auth.uid()::text
-  )
-  with check (
-    bucket_id = 'kyc-files'
-    and (storage.foldername(name))[1] = auth.uid()::text
-  );
-
--- Statement upsert storage berakhir dengan RETURNING * — Postgres menuntut
--- policy SELECT agar baris baru boleh dikembalikan (tanpa ini x-upsert upload
--- tetap RLS AccessDenied meski policy INSERT/UPDATE ada; dibuktikan via
--- bisect psql 2026-08-29).
-create policy kyc_files_owner_select on storage.objects for select to authenticated
-  using (
-    bucket_id = 'kyc-files'
-    and (storage.foldername(name))[1] = auth.uid()::text
-  );
 
 -- ══════════════════════════════════════════════════════════════════════════
 -- payouts
@@ -125,7 +79,6 @@ begin
   return new;
 end $$;
 
-drop trigger if exists trg_unlist_non_tradable on public.cards;
 create trigger trg_unlist_non_tradable
   before update of status on public.cards
   for each row execute function public.unlist_card_if_non_tradable();

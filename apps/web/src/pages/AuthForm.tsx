@@ -7,7 +7,7 @@ import { useToast } from "../lib/toast";
 import { isTurnstileEnabled, mountTurnstile, type TurnstileHandle } from "../lib/turnstile";
 import "./creator-console.css";
 
-// Akun seed (supabase/seed.sql) untuk one-click login masa demo lokal.
+// Akun seed (supabase/seeds/*.sql) untuk one-click login masa demo lokal.
 const DEMO_ACCOUNTS = [
   { label: "User", email: "demo@cverse.id" },
   { label: "Creator", email: "karina@creator.id" },

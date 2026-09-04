@@ -149,5 +149,3 @@ begin
   end loop;
   return n;
 end $$;
-
-drop function if exists public.escrow_auto_release();

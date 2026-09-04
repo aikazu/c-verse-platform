@@ -21,6 +21,7 @@
     "dev:all": "pnpm dev",
     "test": "vitest run",
     "test:watch": "vitest",
+    "seed:assets": "node scripts/seed-assets.mjs",
     "format": "biome format --write .",
     "lint:fix": "biome check --write .",
     "test:e2e": "playwright test",

@@ -1,0 +1,59 @@
+{
+  "version": 1,
+  "bucket": "cverse-assets",
+  "status": "planned-not-provisioned",
+  "assets": [
+    {
+      "id": "karina",
+      "kind": "atlas",
+      "publicPath": "/textures/karina.jpg",
+      "objectKey": "mock/v1/artworks/karina.jpg",
+      "contentType": "image/jpeg",
+      "provenance": "Existing user-provided reference; internal mock use only; no new rights clearance."
+    },
+    {
+      "id": "genesis",
+      "kind": "atlas",
+      "publicPath": "/mock/v1/artworks/genesis.png",
+      "objectKey": "mock/v1/artworks/genesis.png",
+      "contentType": "image/png",
+      "provenance": "AI-generated fictional mock artwork; built-in ImageGen.",
+      "prompt": "Use case: stylized-concept. Asset type: 1024x1024 square UV texture atlas for a collectible card OBJ mesh. Reference image is only a UV layout reference, not subject or brand. Generate a new GENESIS science-fiction art atlas: same flat black square canvas, FRONT portrait rectangle exactly x=15 to508 y=130 to890, BACK portrait rectangle x=520 to1013 y=130 to890; no perspective, no physical mockup, no rounded outer shadow. Fill the front with luminous ivory chrome monolith rising over ink-blue ocean beneath orange eclipse, elegant premium illustrated collectible, richly detailed but readable at small scale. Fill the back with a restrained geometric eclipse seal, dark navy background and subtle foil lines. Tiny exact title GENESIS on back only. Keep all artwork strictly inside those two rectangular UV islands; all unused top/bottom margin pure black. Do not reproduce people or brand logos from reference; no fake signature, no watermark. Output PNG."
+    },
+    {
+      "id": "aurora",
+      "kind": "atlas",
+      "publicPath": "/mock/v1/artworks/aurora.png",
+      "objectKey": "mock/v1/artworks/aurora.png",
+      "contentType": "image/png",
+      "provenance": "AI-generated fictional mock artwork; built-in ImageGen.",
+      "prompt": "Use case: stylized-concept. Asset type: 1024x1024 square UV texture atlas for a collectible card OBJ mesh. Reference image is only a UV layout reference, not subject or brand. Generate a new AURORA cosmic-botanical art atlas: same flat black square canvas, FRONT portrait rectangle exactly x=15 to508 y=130 to890, BACK portrait rectangle x=520 to1013 y=130 to890; no perspective, no physical mockup, no outer shadow. Fill the front with an iridescent glass orchid floating above violet mountain peaks under flowing teal aurora and a starfield, sophisticated detailed cinematic illustration for a premium collectible. Back: restrained botanical orbit seal on deep purple with fine teal foil lines. Tiny exact title AURORA on back only. Keep all artwork strictly inside those two rectangular UV islands; all unused top/bottom margin pure black. No people or existing brand logos, no fake signature, no watermark. Output PNG."
+    },
+    {
+      "id": "demo",
+      "kind": "avatar",
+      "publicPath": "/mock/v1/avatars/demo.png",
+      "objectKey": "mock/v1/avatars/demo.png",
+      "contentType": "image/png",
+      "provenance": "AI-generated fictional adult, not an identity document; built-in ImageGen.",
+      "prompt": "Use case: stylized-concept. Asset type: square profile avatar for a fictional Indonesian collector named Demo, test fixture for a collectible platform. New original editorial digital illustration, friendly adult Indonesian man, short dark hair, navy casual jacket, clean amber and midnight-blue studio background, head and shoulders centered, circular crop safe with generous headroom, polished subtle grain, natural proportions. No celebrity likeness, no letters, no watermark. 1024 square PNG."
+    },
+    {
+      "id": "nova",
+      "kind": "avatar",
+      "publicPath": "/mock/v1/avatars/nova.png",
+      "objectKey": "mock/v1/avatars/nova.png",
+      "contentType": "image/png",
+      "provenance": "AI-generated fictional adult, not an identity document; built-in ImageGen.",
+      "prompt": "Use case: stylized-concept. Asset type: square profile avatar for fictional Nova Studio, creator test fixture for a collectible platform. New original editorial digital illustration, friendly adult Indonesian woman artist with chin-length dark hair, understated round glasses and violet studio jacket, muted teal and dark plum studio backdrop, head and shoulders centered, circular crop safe with generous headroom, polished subtle grain, natural proportions. No celebrity likeness, no letters, no watermark. 1024 square PNG."
+    },
+    {
+      "id": "card-mesh",
+      "kind": "model",
+      "publicPath": "/placeholder.obj",
+      "objectKey": "mock/v1/models/card.obj",
+      "contentType": "text/plain",
+      "provenance": "Existing repository mesh; front/back UV atlas."
+    }
+  ]
+}

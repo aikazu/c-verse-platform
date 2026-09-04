@@ -1,5 +1,4 @@
--- 12: RPC settle secondary (accept_bid, buyout_card + tombstone legacy) (part of consolidated RPC set; apply in lexical order).
-drop function if exists public.accept_bid(text, public.shipment_to_dest, text);
+-- 12: RPC settle secondary (accept_bid, buyout_card).
 create or replace function public.accept_bid(
   p_card_id text,
   p_destination public.shipment_to_dest default 'buyer_address',
@@ -100,7 +99,6 @@ begin
   return v_bid;
 end $$;
 
-drop function if exists public.buyout_card(text, public.shipment_to_dest, text);
 create or replace function public.buyout_card(
   p_card_id text,
   p_destination public.shipment_to_dest default 'buyer_address',

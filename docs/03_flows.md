@@ -19,7 +19,7 @@
 > PHASE-2 release untuk kedua path buyout/accept_bid; trigger
 > auto-unlist buyout_price_ccoin saat kartu non-tradable —
 > sebelumnya `20260823020000_seed_xp_unify.sql`, sekarang
-> `03_rls.sql`::unlist_card_if_non_tradable)
+> `06_rls_policies.sql`::unlist_card_if_non_tradable)
 > Previous: 2026-08-21 (Flow 10 → TWO-PHASE SETTLEMENT — bid/accept
 > BUKAN lagi di-gate; release yang wajib menunggu vault-in + NFC
 > verified — sebelumnya `20260821020000_seed_two_phase.sql`, sekarang
@@ -323,7 +323,7 @@ Aturan:
    - Bidder bisa cancel bidnya sendiri; owner tidak bisa reject.
    - Max 20 kartu buyout aktif per user (guard).
    - Kartu tampered/defect/lost tidak tradable (RPC CARD_NOT_TRADABLE);
-     trigger SQL auto-unlist di `03_rls.sql` (sebelumnya `20260823020000_seed_xp_unify.sql`) clear `buyout_price_ccoin`
+     trigger SQL auto-unlist di `06_rls_policies.sql` clear `buyout_price_ccoin`
      saat status berubah ke non-tradable — listing tidak stays live
      dengan diam-diam.
 ```

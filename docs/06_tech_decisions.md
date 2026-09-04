@@ -26,7 +26,7 @@ repo-root (pnpm workspace)
 
 Infra pendukung:
   Supabase (Postgres + Auth + Realtime + Supavisor)
-  Cloudflare R2 (artwork, 3D, KYC private) + Queues (email, payout) + Cron Triggers (raffle draw, payout batch — settlement pembelian langsung di RPC, founder 2026-08-28; badge murni event-driven tanpa cron, lihat `05_data_model.md`)
+  Cloudflare R2 (KYC private aktif; artwork, 3D, avatar masih rancangan — `08_deployment.md` 3.4). Cron Triggers untuk queue email DB, raffle draw dan payout batch; CF Queues belum aktif. Settlement pembelian langsung di RPC, badge event-driven tanpa cron.
   Cloudflare Email Service (binding `send_email` — email transaksional API: akses kreator + queue notifikasi uang/pemenuhan `lib/emailQueue.ts` via cron 1 menit; lane LOW VOLUME HIGH VALUE — outbid, bid masuk, dan kalah raffle tetap in-app saja, 2026-09-02), FCM (push, post-MVP), Midtrans (top-up + disbursement)
   Domain FINAL: c-verse.co (primary; Coming Soon selama development), c-verse.id → 301 redirect
   NDEF URL final: https://c-verse.co/cards/{shortId}/3d (LOCK sebelum provisioning)
@@ -54,8 +54,8 @@ Admin flow (terpisah):
 | Database | Supabase Postgres (region SG) + Supavisor |
 | ORM | — (query via Supabase client langsung — tidak pakai ORM) |
 | Auth | Supabase Auth (Google OAuth + email OTP, **email OTP wajib captcha anti-spam** — Cloudflare Turnstile), JWKS di Hono |
-| Storage | Cloudflare R2 (artwork, model 3D, KYC private) — zero egress fee |
-| Queue/async | CF Queues + Cron Triggers |
+| Storage | Cloudflare R2 KYC privat aktif; target `cverse-assets` untuk artwork/model/avatar belum aktif; mock memakai Static Assets web |
+| Queue/async | Queue notifikasi di Postgres + Cron Triggers; CF Queues belum aktif |
 | Rate limiting | Native Cloudflare Rate Limiting bindings (auth/payment 30, NFC 60, KYC 10, global 600 request/menit) |
 | Realtime | Supabase Realtime broadcast (< 50 concurrent bidder) |
 | Payment | Midtrans (primary) + Xendit (backup) — HANYA top-up & disbursement |

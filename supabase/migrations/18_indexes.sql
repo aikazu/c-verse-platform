@@ -1,7 +1,7 @@
 -- ══════════════════════════════════════════════════════════════════════════
--- C.Verse — 05_indexes: Performance indexes (hot-path query optimization).
+-- C.Verse — 18_indexes: Performance indexes (hot-path query optimization).
 -- Additive — tidak menghapus index lain. Constraint/unique indexes sudah
--- di 01_schema. Idempotency indexes sudah di 04_rpc (function-coupled).
+-- di 01_schema. Idempotency indexes function-coupled ada di 03_schema_grants.
 --
 -- Sumber (FINAL, tanpa patch intermediate):
 --   - 20260817050000_perf_indexes.sql
@@ -66,7 +66,7 @@ create index if not exists idx_gem_tx_user_created
 
 -- ══════════════════════════════════════════════════════════════════════════
 -- Leaderboard (get_leaderboard, keputusan 2026-08-27): TIDAK ada index baru.
--- Audit access-path vs index existing di 01_schema/05_indexes:
+-- Audit access-path vs index existing di 01_schema/18_indexes:
 --   xp:       idx_users_total_xp_desc (total_xp desc) sudah cover sort primer;
 --             tie-break xp_reached_at/username hanya untuk baris kecil (limit
 --             5..50) — cost in-memory negligible.
