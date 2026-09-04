@@ -1,9 +1,10 @@
 # 03 — Flow End-to-End MVP
 
-> Status: [VALIDATED — partial: open items payout (SLA, disbursement,
-> cap Rp 5-10 jt) & validasi C-03 iPhone masih [DRAFT] — lihat
+> Status: [VALIDATED — partial: rincian SLA operasional payout dan
+> validasi C-03 iPhone masih [DRAFT] — lihat
 > `07_constraints.md`]
-> Last updated: 2026-09-04 (Flow 12: KYC multipart → private R2,
+> Last updated: 2026-09-05 (sinkronisasi alur dengan implementasi terkini)
+> Previous: 2026-09-04 (Flow 12: KYC multipart → private R2,
 > review admin terproteksi + audit akses dokumen)
 > Previous: 2026-09-03 (dual-token: penghasilan seller/kreator/
 > royalti/Dukungan masuk C-Gems — lot terkunci 24 jam; payout debit
@@ -439,7 +440,8 @@ ADM-06: dispute masuk -> review bukti -> keputusan
       'bid_pending')
 [7] ACCEPT = PHASE-1 LOCK (keputusan 2026-08-21)
     - saat owner accept: deal TERKUNCI — bid terpilih -> 'accepted'
-      (+ accepted_at, destination & shipping_address tersimpan),
+      (+ accepted_at tersimpan; tidak ada destination atau shipping_address
+      pada fase pembelian),
       kartu -> status 'bid_pending', bid lain di-release (outbid),
       TANPA uang/ownership pindah. Buyout seed juga sama: checkout
       masuk hold (order 'paid' + escrow 'held'), seller BELUM dibayar
@@ -466,8 +468,8 @@ ADM-06: dispute masuk -> review bukti -> keputusan
     - admin memicu POST /api/admin/cards/:id/release-seed-sale ->
       RPC release_seed_sale (service_role HANYA): seller 85% +
       royalti kreator 7,5% (drops.creator_id) + platform 7,5% +
-      ownership pindah ke buyer + shipment (kirim fisik / tetap
-      vault atas nama buyer, pilihan buyer di PHASE-1)
+      ownership pindah ke buyer; kartu tetap di vault. Pengiriman fisik
+      hanya melalui ship-out pasca-vault atas permintaan owner.
     - Buyer XP granted TEPAT SEKALI di PHASE-2 release untuk kedua
       path (buyout & accept_bid) — keputusan founder 2026-08-23
       (RPC `07`–`17`::buyout_card + release_seed_sale; sebelumnya
@@ -477,8 +479,7 @@ ADM-06: dispute masuk -> review bukti -> keputusan
     - TERIMPLEMENTASI (2026-08-21): idempotent — status kartu harus
       'bid_pending' (release kedua -> NO_PENDING_SALE); settle
       accepted-bid ATAU order pending (buyout PHASE-1);
-      ownership_history baru + shipment secondary sesuai pilihan
-      tujuan buyer; path vault-in fisik = PATCH
+      ownership_history baru tanpa shipment pembelian; path vault-in fisik = PATCH
       /api/admin/cards/:id/vault-in (admin — set
       cards.location='platform_vault' + audit pemeriksaan fisik;
       verified NFC tetap hanya dari tap — lihat C-17)

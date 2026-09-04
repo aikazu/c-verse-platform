@@ -1,9 +1,10 @@
 # 08 — Deployment Runbook (Step-by-Step)
 
 > Status: [VALIDATED]
-> Last updated: 2026-09-05 (web development, admin, dan aplikasi dana
-> aktif di Cloudflare Workers; Access mewajibkan posture WARP; API
-> privat dipanggil melalui Service Binding; VPS/Tunnel dipensiunkan)
+> Last updated: 2026-09-05 (aplikasi dana dikonsolidasikan
+> menjadi satu native Worker; Access mewajibkan posture WARP; API
+> utama tetap privat melalui Service Binding; cutover dana terverifikasi
+> dan Worker API lama dipensiunkan; VPS/Tunnel dipensiunkan)
 > Previous: 2026-09-04 (bucket R2 `cverse-kyc` + binding Worker aktif;
 > upload/review KYC tidak memakai Supabase Storage)
 > Previous: 2026-08-31 (deploy.yml TIDAK ada — deploy manual;
@@ -25,14 +26,21 @@ Internet
 ├── admin.c-verse.co    → Access/WARP → c-verse-admin (Worker + Static Assets)
 │                                         └─ Service Binding → c-verse-api
 └── funds.c-verse.co    → Access/WARP → c-verse-funds (Worker + Static Assets)
-                                          └─ Service Binding → c-verse-funds-api → D1
+                                          └─ route API internal → D1 c-verse-funds
 
-c-verse-api dan c-verse-funds-api:
+c-verse-api:
 - tanpa custom domain/route publik;
 - workers.dev=false dan preview_urls=false;
 - hanya dapat dipanggil melalui Service Binding (scheduled trigger API utama
   tetap berjalan langsung di Worker).
 ```
+
+`c-verse-funds` adalah pengecualian terlingkup: satu Worker native di
+`funds.c-verse.co` memegang Static Assets dan binding D1 yang sama. Tidak
+ada `c-verse-funds-api` atau Service Binding; isolasinya per modul aplikasi
+di dalam perimeter Access founder allowlist + posture WARP tepercaya, bukan
+batas kapabilitas database terpisah. Cutover dan penghapusan Worker API lama
+selesai pada 2026-09-05 setelah verifikasi berhasil.
 
 Infra pendukung: Supabase (Postgres/Auth/Realtime/Supavisor), R2
 `cverse-kyc` privat, Cloudflare Email Service, D1 `c-verse-funds`, Cron
@@ -175,9 +183,14 @@ tidak membacanya (env email API hanya `EMAIL_ENABLED`/`EMAIL_FROM`/
 - Sesi 6 jam; cookie `HttpOnly` + binding cookie; App Launcher tersembunyi.
 - Uji dari jaringan non-WARP harus ditolak sebelum Worker. Uji dari device
   founder dengan WARP harus dapat membuka SPA dan endpoint health/data.
-- Aplikasi dana memakai gateway `c-verse-funds` dan API privat
-  `c-verse-funds-api`. Hanya API privat yang mempunyai binding D1
-  `c-verse-funds`; gateway tidak memiliki akses database langsung.
+- Aplikasi dana memakai satu native Worker `c-verse-funds`:
+  `src/worker.mjs` menyajikan Assets dan meneruskan route API ke
+  `handleApiRequest(request, env)` di `src/api.mjs`. Satu `wrangler.jsonc`
+  memuat D1 `c-verse-funds`, `ASSETS`, `CF_VERSION`, dan `nodejs_compat`;
+  `worker-configuration.d.ts` mendefinisikan `FundsEnv`. Gunakan
+  `npm run dev`, `npm run check`, `npm run deploy`, dan `npm run cf-typegen`.
+  Tidak ada Service Binding atau deployment `c-verse-funds-api`; cutover
+  telah terverifikasi dan Worker API lama sudah dipensiunkan 2026-09-05.
 
 ## 4. Setup Supabase (sekali, Sprint 0)
 
@@ -221,14 +234,20 @@ test endpoint `/health` & CMAC verify di device nyata (C-03).
 # 1) Database bila ada migrasi baru
 npx supabase db push
 
-# 2) Backend privat lebih dulu, lalu gateway
+# 2) Backend utama privat lebih dulu, lalu gateway
 pnpm --filter @c-verse/api run deploy
 pnpm --filter @c-verse/web run deploy
 pnpm --filter @c-verse/admin run deploy
 
-# 3) Verifikasi dari device founder dengan WARP
+# 3) Aplikasi dana native Worker
+# Jalankan dari direktori aplikasi dana
+npm run check
+npm run deploy
+
+# 4) Verifikasi dari device founder dengan WARP
 curl https://dev.c-verse.co/api/health
 curl https://admin.c-verse.co/api/health
+curl https://funds.c-verse.co/api/dashboard
 curl -I https://c-verse.co  # Coming Soon tetap aktif
 ```
 
@@ -276,8 +295,11 @@ Secrets CI yang wajib diset (GitHub Settings → Secrets):
 - [ ] Web NFC verify OK di device nyata (C-03); fallback QR OK.
 - [ ] Supabase RLS verified (service-role tidak bocor ke publik).
 - [ ] `dev`, `admin`, dan `funds` ditolak dari device non-WARP.
-- [ ] `c-verse-api` dan `c-verse-funds-api` tidak memiliki custom
-      domain, route, `workers.dev`, atau preview URL.
+- [ ] `c-verse-api` tidak memiliki custom domain, route, `workers.dev`,
+      atau preview URL.
+- [x] `funds` bekerja dari device founder ber-WARP dengan satu native Worker,
+      Assets + D1; cutover terverifikasi dan `c-verse-funds-api` lama
+      dipensiunkan 2026-09-05.
 - [ ] Root `c-verse.co` tetap Coming Soon sampai keputusan public launch.
 - [ ] Secrets tidak ada di bundle publik (cari `service_role|SERVER_KEY` di `dist/`).
 - [ ] Email via Cloudflare Email Service terkirim: akses kreator +
@@ -319,6 +341,7 @@ Secrets CI yang wajib diset (GitHub Settings → Secrets):
   model (recompute 2026-08-20: marketing 0, AI one-time, infra
   free tier) — burn kas bootstrap pasca-launch ~Rp 1 jt/bulan
   (A029; versi lama 135 jt/10-15 jt per bulan dibatalkan).
-- Keputusan founder dan cutover 2026-09-05: `dev`, `admin`, dan
-  aplikasi dana memakai Worker gateway + Access/WARP; backend privat
-  via Service Binding; VPS/Tunnel dipensiunkan; root tetap Coming Soon.
+- Keputusan founder 2026-09-05: `dev` dan `admin` memakai backend privat
+  via Service Binding; aplikasi dana dikonsolidasikan menjadi satu native
+  Worker + D1 dalam Access/WARP. Cutover dana terverifikasi dan Worker API
+  lama dipensiunkan 2026-09-05; VPS/Tunnel dipensiunkan; root tetap Coming Soon.

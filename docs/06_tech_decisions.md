@@ -1,9 +1,10 @@
 # 06 — Tech Decisions (Keputusan Arsitektur)
 
 > Status: [VALIDATED]
-> Last updated: 2026-09-05 (D1/D9: web development dan admin pindah
-> ke Cloudflare Workers Static Assets; API privat melalui Service
-> Binding; Access mewajibkan identitas founder + posture WARP)
+> Last updated: 2026-09-05 (D1/D9: aplikasi dana dikonsolidasikan
+> menjadi satu native Worker + Static Assets + D1; API utama tetap
+> privat melalui Service Binding; Access mewajibkan identitas founder
+> + posture WARP; cutover dana terverifikasi dan Worker API lama dipensiunkan)
 > Previous: 2026-09-04 (KYC private storage dipindah penuh ke
 > Cloudflare R2 melalui Worker binding)
 > Previous: 2026-09-03 (D3b: dual-token C-Coin/C-Gems — saldo
@@ -274,9 +275,20 @@ Retensi: minimum 1 tahun (UU PDP + forensik fraud).
 - `dev.c-verse.co`, `admin.c-verse.co`, dan aplikasi dana internal
   berada di satu Access app dengan allowlist founder + posture WARP.
   Root `c-verse.co` tetap Coming Soon selama development.
-- Pola aplikasi dana dipisah lebih jauh: gateway `c-verse-funds`
-  memanggil `c-verse-funds-api` privat yang memiliki binding D1;
-  gateway tidak memegang binding database.
+- **Pengecualian terlingkup aplikasi dana**: `c-verse-funds` di
+  `funds.c-verse.co` adalah satu native Worker yang menyajikan Static
+  Assets dan route API dengan binding D1 `c-verse-funds`; konfigurasi
+  Worker tunggal memakai `nodejs_compat`, `ASSETS`, dan `CF_VERSION`.
+  Entrypoint `src/worker.mjs` meneruskan request internal ke
+  `handleApiRequest(request, env)` di `src/api.mjs`; tipe lingkungan
+  tunggal adalah `FundsEnv` di `worker-configuration.d.ts`.
+- Ini bukan batas kapabilitas database terpisah: isolasi berada pada
+  modul aplikasi dan perimeter Access founder allowlist + posture WARP
+  yang tepercaya. Karena itu tidak ada Service Binding, deployment,
+  atau type file kedua untuk `c-verse-funds-api`.
+- Script aplikasi dana adalah `npm run dev`, `npm run check`,
+  `npm run deploy`, dan `npm run cf-typegen`. Cutover 2026-09-05 telah
+  terverifikasi; Worker API lama dipensiunkan setelah verifikasi.
 
 ## 3. Yang BELUM Diputuskan (Open Items)
 
@@ -306,8 +318,10 @@ Retensi: minimum 1 tahun (UU PDP + forensik fraud).
 - Diskusi founder 2026-08-12 (D1, D2).
 - Brainstorm + riset regulasi dual-token 2026-09-02 (keputusan
   owner terkunci 2026-09-03) — D3b.
-- Keputusan founder 2026-09-05: web development, admin, dan aplikasi
-  dana dipindah ke Workers; Access wajib WARP; backend privat lewat
-  Service Binding; root domain tetap Coming Soon selama development.
+- Keputusan founder 2026-09-05: web development dan admin memakai
+  backend privat melalui Service Binding; aplikasi dana adalah satu
+  native Worker dengan D1; Access wajib WARP; root domain tetap Coming
+  Soon selama development. Cutover aplikasi dana telah terverifikasi dan
+  Worker API lama dipensiunkan.
 - Keputusan founder 2026-09-05: hapus kewajiban MFA/TOTP aplikasi admin;
   pertahankan login email OTP, otorisasi API, RLS, Access/WARP, dan audit log.
