@@ -27,6 +27,7 @@ const CARD_HEIGHT = 0.88;
 const CARD_WIDTH = 0.63;
 const CARD_DEPTH = 0.025;
 const PLACEHOLDER_OBJ_URL = "/placeholder.obj";
+const ARTWORK_TIMEOUT_MS = 15000;
 const MIN_ZOOM = 0.8;
 const MAX_ZOOM = 1.4;
 // Fits the 0.88-unit card at roughly 60% of a 42deg vertical FOV.
@@ -63,11 +64,30 @@ function textureUrlForLoader(url: string): string {
 }
 
 async function loadTexture(THREE: Three, url: string): Promise<THREE_TYPES.Texture> {
+  const loaderUrl = textureUrlForLoader(url);
   const texture = await new Promise<THREE_TYPES.Texture>((resolve, reject) => {
-    new THREE.TextureLoader().load(textureUrlForLoader(url), resolve, undefined, reject);
+    let timedOut = false;
+    const timer = window.setTimeout(() => {
+      timedOut = true;
+      reject(new Error("Card artwork timed out"));
+    }, ARTWORK_TIMEOUT_MS);
+    new THREE.TextureLoader().load(
+      loaderUrl,
+      (loaded) => {
+        window.clearTimeout(timer);
+        // TextureLoader cannot abort an image request. Discard a late texture
+        // after the viewer has already recovered with its neutral model.
+        if (timedOut) loaded.dispose();
+        else resolve(loaded);
+      },
+      undefined,
+      (error) => {
+        window.clearTimeout(timer);
+        reject(error);
+      },
+    );
   });
-  const srgb = (THREE as unknown as { SRGBColorSpace?: THREE_TYPES.ColorSpace }).SRGBColorSpace;
-  if (srgb) texture.colorSpace = srgb;
+  texture.colorSpace = THREE.SRGBColorSpace;
   texture.anisotropy = 4;
   return texture;
 }

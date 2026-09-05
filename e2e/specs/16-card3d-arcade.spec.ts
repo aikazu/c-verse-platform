@@ -78,6 +78,40 @@ test("context loss during artwork loading cannot be overwritten by a late respon
   await expect(page.getByRole("button", { name: "Sisi depan", exact: true })).toBeDisabled();
 });
 
+test("stalled artwork falls back to a usable neutral card and ignores a late image", async ({ page }) => {
+  await page.clock.install();
+  let resume: (() => void) | undefined;
+  const pending = new Promise<void>((resolve) => {
+    resume = resolve;
+  });
+  const atlas = "**/mock/v1/artworks/genesis.png";
+  await page.route(atlas, async (route) => {
+    await pending;
+    await route.continue();
+  });
+  const requested = page.waitForRequest(atlas);
+  try {
+    await page.goto(CARD_PATH);
+    await requested;
+    await expect(page.locator(".c3d-stage")).toHaveAttribute("data-status", "loading");
+    await page.clock.fastForward(16000);
+    await expect(page.locator(".c3d-stage")).toHaveAttribute("data-status", "unavailable");
+    await expect(page.locator(".c3d-artwork-note")).toContainText("Model 3D netral ditampilkan");
+    const canvas = page.locator(".c3d-canvas canvas");
+    await expect(canvas).toHaveAttribute("data-rendered", "true");
+    await page.getByRole("button", { name: "Sisi belakang", exact: true }).click();
+    await expect(canvas).toHaveAttribute("data-view", "back");
+    const response = page.waitForResponse(atlas);
+    resume?.();
+    await (await response).finished();
+    await page.clock.runFor(50);
+    await expect(page.locator(".c3d-stage")).toHaveAttribute("data-status", "unavailable");
+    await expect(canvas).toHaveAttribute("data-view", "back");
+  } finally {
+    resume?.();
+  }
+});
+
 test("mobile layout and focus mode resize the existing canvas without overflow", async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(CARD_PATH);
