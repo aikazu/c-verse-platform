@@ -33,14 +33,8 @@ async function throwApiError(res: Response): Promise<never> {
 // audited server-side — direct anon-key writes are silently denied by RLS.
 export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
   const res = await authorizedFetch(path, init);
+  if (!res.ok) return throwApiError(res);
   const body: unknown = await res.json().catch(() => null);
-  if (!res.ok) {
-    // The body is already consumed, so preserve its server message while using
-    // the shared auth-expiry behavior.
-    const message = (body as { error?: string } | null)?.error;
-    const replay = new Response(JSON.stringify({ error: message }), { status: res.status, statusText: res.statusText });
-    return throwApiError(replay);
-  }
   return body as T;
 }
 
