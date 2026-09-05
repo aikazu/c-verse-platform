@@ -245,15 +245,6 @@ export interface AuditLog {
   createdAt: string;
 }
 
-export interface CreatorPageView {
-  id: string;
-  creatorId: string;
-  viewedAt: string;
-  referrer: string | null;
-  city: string | null;
-  userId: string | null;
-}
-
 export interface QcDefect {
   id: string;
   cardId: string;

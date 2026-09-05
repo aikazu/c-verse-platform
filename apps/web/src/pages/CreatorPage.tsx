@@ -60,11 +60,11 @@ export default function CreatorPage() {
     },
   });
 
-  // Page-view beacon (docs 09 §2.8): fire-and-forget once per mount/username,
-  // invisible to users — UI for the stats is a later sprint (docs 09 §3.5).
+  // URLs also accept creator handles and user IDs; the beacon RPC uses usernames.
+  const creatorUsername = data?.creator.username;
   useEffect(() => {
-    if (username) trackCreatorPageView(username);
-  }, [username]);
+    if (creatorUsername) trackCreatorPageView(creatorUsername);
+  }, [creatorUsername]);
 
   // The /api/creators/:id route returns `creator.id` = userId (creators.ts:115/129)
   // — that's the value the leaderboard RPC expects as `creatorId` for the

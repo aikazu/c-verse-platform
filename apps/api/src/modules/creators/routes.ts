@@ -1,44 +1,13 @@
 import { Hono } from "hono";
-import { clientIp, requireAdmin, requireUser } from "../../lib/auth.js";
+import { requireUser } from "../../lib/auth.js";
 import { sanitizeDbError } from "../../lib/errors.js";
-import {
-  getCreatorByHandle,
-  getCreatorByUserId,
-  listCreatorPageViews,
-  listCreators,
-  listCreatorUsers,
-  recordCreatorPageView,
-} from "../../lib/reads/creators.js";
+import { getCreatorByHandle, getCreatorByUserId, listCreators, listCreatorUsers } from "../../lib/reads/creators.js";
 import { listDrops } from "../../lib/reads/drops.js";
 import { getUserByUsernameOrId } from "../../lib/reads/profiles.js";
 import { getUserById } from "../../lib/reads/users.js";
 import type { CreatorRec } from "../../lib/store.js";
 
 const app = new Hono();
-
-// M4 (audit 2026-08-24): RLS `creator_page_views_insert with check (true)` allows any
-// anonymous insert. Without a per-IP rate limit, a botnet can pollute analytics + bloat
-// storage. Simple sliding-window in-memory limiter scoped per IP+creator — Workers
-// isolates share state per request, but each isolate independently caps its own
-// load; the cap is intentionally low (10/min/IP/creator) to bound worst-case.
-const VIEW_WINDOW_MS = 60 * 1000;
-const VIEW_MAX_PER_IP = 10;
-const viewBuckets = new Map<string, number[]>();
-
-function ipRateAllow(ip: string, creatorId: string): boolean {
-  const key = `${ip}|${creatorId}`;
-  const now = Date.now();
-  const cutoff = now - VIEW_WINDOW_MS;
-  const bucket = viewBuckets.get(key) ?? [];
-  const pruned = bucket.filter((ts) => ts >= cutoff);
-  if (pruned.length >= VIEW_MAX_PER_IP) {
-    viewBuckets.set(key, pruned);
-    return false;
-  }
-  pruned.push(now);
-  viewBuckets.set(key, pruned);
-  return true;
-}
 
 // GET / — list public creators (derived from users.role=creator + creators table for handle/followers)
 app.get("/", async (c) => {
@@ -62,23 +31,6 @@ app.get("/", async (c) => {
   return c.json({ creators });
 });
 
-// Helper: log creator page view (docs 05 creator_page_views + 09 3.5 log from day 1)
-// rec diteruskan dari caller — hindari query getCreatorByUserId ganda per request.
-async function logCreatorView(creatorUserId: string, c: { req: { header: (k: string) => string | undefined } }, rec: CreatorRec | null) {
-  const resolved = rec ?? (await getCreatorByUserId(creatorUserId));
-  if (!resolved) return;
-  // M4 per-IP rate limit (audit 2026-08-24): skip analytics when over the window
-  // rather than 429 — page rendering must not break, just stop counting the spammer.
-  const ip = clientIp(c) ?? "unknown";
-  if (!ipRateAllow(ip, resolved.id)) return;
-  const referrer = c.req.header("referer") ?? c.req.header("referrer") ?? null;
-  // city anonymized from header — MVP uses x-forwarded-for stub, not real geo
-  const city = c.req.header("x-city") ?? null;
-  const viewerRes = await requireUser(c);
-  const viewer = "error" in viewerRes ? null : viewerRes.user;
-  recordCreatorPageView({ creatorId: resolved.id, referrer, city, userId: viewer?.id ?? null });
-}
-
 // GET /:id — creator by userId or handle or creator rec id; includes published/live drops only for public
 app.get("/:id", async (c) => {
   const raw = c.req.param("id");
@@ -88,51 +40,10 @@ app.get("/:id", async (c) => {
   if (!user && !recByHandle) user = await getUserByUsernameOrId(raw);
   if (!user || (user.role as string) !== "creator") return c.json({ error: "Creator tidak ditemukan" }, 404);
   if (user.flagReason) return c.json({ error: "Creator tidak ditemukan" }, 404); // suspended: sembunyikan storefront
-  const [rec] = await Promise.all([getCreatorByUserId(user.id), logCreatorView(user.id, c, recByHandle)]);
+  const rec = recByHandle ?? (await getCreatorByUserId(user.id));
   const drops = (await listDrops())
     .filter((d) => d.creatorId === user?.id && ["published", "live", "sold_out", "scheduled", "closed"].includes(d.status))
     .sort((a, b) => new Date(b.dropStartAt ?? b.createdAt).getTime() - new Date(a.dropStartAt ?? a.createdAt).getTime());
-  const wantStats = c.req.query("stats") === "1" || c.req.query("includeStats") === "1";
-  if (wantStats) {
-    // Audit batch 2 F1: stats=1 menyajikan analitik PRIVAT (totalViews/
-    // uniqueViewers/topReferrer) — fence identik dengan /:username/views/stats:
-    // owner only (creator rec milik user yang login); admin lewat requireAdmin
-    // (active role=admin). Anon 401, user lain 403.
-    const authRes = await requireUser(c);
-    if ("error" in authRes) return c.json({ error: authRes.error === 403 ? "Akun disuspend" : "Unauthorized" }, authRes.error);
-    if (rec?.userId !== authRes.user.id) {
-      const adminRes = await requireAdmin(c);
-      if ("error" in adminRes) return c.json({ error: "Tidak diizinkan" }, 403);
-    }
-  }
-  if (wantStats && rec) {
-    const views = await listCreatorPageViews(rec.id);
-    const totalViews = views.length;
-    const uniqueViewers = new Set(views.filter((v) => v.userId).map((v) => v.userId)).size;
-    const refMap: Record<string, number> = {};
-    for (const v of views)
-      if (v.referrer) {
-        try {
-          const h = new URL(v.referrer).hostname;
-          refMap[h] = (refMap[h] ?? 0) + 1;
-        } catch {
-          refMap[v.referrer] = (refMap[v.referrer] ?? 0) + 1;
-        }
-      }
-    const topReferrer = Object.entries(refMap).sort((a, b) => b[1] - a[1])[0] ?? null;
-    return c.json({
-      creator: {
-        id: user.id,
-        displayName: user.displayName,
-        username: user.username ?? null,
-        handle: rec?.handle ?? null,
-        totalFollowersCombined: rec?.totalFollowersCombined ?? null,
-        xp: user.totalXp ?? 0,
-      },
-      drops,
-      stats: { totalViews, uniqueViewers, topReferrer: topReferrer ? { domain: topReferrer[0], count: topReferrer[1] } : null },
-    });
-  }
   return c.json({
     creator: {
       id: user.id,
@@ -154,7 +65,6 @@ app.get("/handle/:handle", async (c) => {
   const user = rec.userId ? await getUserById(rec.userId) : null;
   if (!user) return c.json({ error: "Creator tidak ditemukan" }, 404);
   if (user.flagReason) return c.json({ error: "Creator tidak ditemukan" }, 404);
-  await logCreatorView(user.id, c, rec);
   const drops = (await listDrops()).filter((d) => d.creatorId === user.id);
   return c.json({
     creator: {

@@ -310,7 +310,7 @@ Status implementasi per item (`[done]` = ada di code + test; `[spec NN]` = spec 
 - **Fee snapshot** — `fee_rate_platform/royalty/seller` disimpan per transaksi + `platform_revenue` & kredit treasury. `[done]`
 - **Security header** — `X-Frame-Options: DENY`, `nosniff`, `Referrer-Policy`, `Permissions-Policy`. `[done]`
 - **Consent** — `consent_analytics_detail` + `consent_data_market` (`PATCH /api/profile/consent`, UI di `/me/privacy`). `[done]`
-- **Creator views** — `creator_page_views` log dari day 1; tulis hanya via RPC `record_creator_page_view`, stats owner-fenced (`GET /api/public/:username/views/stats` — RPC `get_creator_page_stats`; `GET /api/creators/:id?stats=1` sama-sama owner only). `[done]`
+- **Creator views** — `creator_page_views` log dari day 1; tulis hanya via RPC `record_creator_page_view`, stats owner-fenced (`GET /api/public/:username/views/stats` — RPC `get_creator_page_stats`). `[done]`
 
 ---
 

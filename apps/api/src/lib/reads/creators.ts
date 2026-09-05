@@ -1,21 +1,7 @@
 import { mapCreatorRow, mapUserRow, type Row, readDb } from "../reads.js";
-import type { CreatorPageView, CreatorRec, User } from "../store.js";
-import { randomHex } from "../store.js";
+import type { CreatorRec, User } from "../store.js";
 
-// Domain reads: creators + creator page-view analytics (docs 05 creator_page_views, docs 09 3.5).
-
-const nstr = (v: unknown): string | null => (v == null ? null : String(v));
-
-function mapPageViewRow(r: Row): CreatorPageView {
-  return {
-    id: String(r.id ?? ""),
-    creatorId: String(r.creator_id ?? ""),
-    viewedAt: String(r.viewed_at ?? ""),
-    referrer: nstr(r.referrer),
-    city: nstr(r.city),
-    userId: nstr(r.user_id),
-  };
-}
+// Domain reads: creator records and public creator users.
 
 export async function listCreators(): Promise<CreatorRec[]> {
   const db = readDb();
@@ -53,31 +39,4 @@ export async function listCreatorUsers(): Promise<User[]> {
     .order("created_at");
   if (error) throw new Error(error.message);
   return (data ?? []).map((r) => mapUserRow(r as Row));
-}
-
-export async function listCreatorPageViews(creatorId: string): Promise<CreatorPageView[]> {
-  const db = readDb();
-  const { data, error } = await db.from("creator_page_views").select("*").eq("creator_id", creatorId).order("viewed_at");
-  if (error) throw new Error(error.message);
-  return (data ?? []).map((r) => mapPageViewRow(r as Row));
-}
-
-export interface CreatorPageViewInput {
-  creatorId: string;
-  referrer: string | null;
-  city: string | null;
-  userId: string | null;
-}
-
-/** Fire-and-forget analytics write (INSERT only — not part of money/stock RPC surface). */
-export function recordCreatorPageView(input: CreatorPageViewInput): void {
-  const db = readDb();
-  // id is plain text without DB default — generate client-side; viewed_at defaults to now()
-  const id = `pv-${Date.now().toString(36)}-${randomHex(4)}`;
-  // PostgrestFilterBuilder is PromiseLike (not a full Promise) — wrap to attach .catch
-  void Promise.resolve(
-    db
-      .from("creator_page_views")
-      .insert({ id, creator_id: input.creatorId, referrer: input.referrer, city: input.city, user_id: input.userId }),
-  ).catch((err: unknown) => console.error("[creator_page_views] insert failed:", err));
 }

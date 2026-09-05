@@ -39,8 +39,6 @@ const readsCreators = vi.hoisted(() => ({
   getCreatorByHandle: vi.fn(() => Promise.resolve(control.creatorByHandle)),
   getCreatorByUserId: vi.fn(() => Promise.resolve(control.creatorByUserId)),
   listCreatorUsers: vi.fn(() => Promise.resolve(control.creatorUsers)),
-  listCreatorPageViews: vi.fn(() => Promise.resolve([])),
-  recordCreatorPageView: vi.fn(),
 }));
 
 vi.mock("../../../lib/reads/drops.js", () => readsDrops);
