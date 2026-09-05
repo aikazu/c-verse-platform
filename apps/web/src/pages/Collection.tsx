@@ -82,8 +82,8 @@ function CollectionInner() {
           <div className="kl-filters">
             <select className="select" value={loc} onChange={(e) => setLoc(e.target.value as typeof loc)} aria-label="Filter lokasi">
               <option value="all">Semua lokasi</option>
-              <option value="with_owner">Punya saya</option>
-              <option value="platform_vault">Di vault</option>
+              <option value="with_owner">Disimpan oleh saya</option>
+              <option value="platform_vault">Di Vault</option>
             </select>
             <select
               className="select"
@@ -93,7 +93,7 @@ function CollectionInner() {
             >
               <option value="all">Semua varian</option>
               <option value="signed">Signed</option>
-              <option value="unsigned">Unsigned</option>
+              <option value="unsigned">Reguler</option>
             </select>
             <Link to="/me/manage" className="kl-link">
               Kelola →
@@ -127,7 +127,7 @@ function CollectionInner() {
                     >
                       {ca.location ? cardLocationLabel(ca.location) : (ca.status ?? "")}
                     </span>
-                    {ca.activeBid ? <span className="pill pill-success kl-pill-sm">Bid {ca.activeBid.amountCCoin} C</span> : null}
+                    {ca.activeBid ? <span className="pill pill-success kl-pill-sm">Penawaran {ca.activeBid.amountCCoin} C</span> : null}
                   </div>
                 </div>
               </Link>

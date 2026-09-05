@@ -198,7 +198,7 @@ export default function CreatorPage() {
     { key: "SERI", value: `${distinctSeries}`, accent: "signal" as const },
     {
       key: "STATUS",
-      value: drops.some((d) => d.status === "live") ? "LIVE" : "STANDBY",
+      value: drops.some((d) => d.status === "live") ? "AKTIF" : "BELUM ADA",
       accent: drops.some((d) => d.status === "live") ? ("signal" as const) : ("muted" as const),
     },
   ];
@@ -256,7 +256,7 @@ export default function CreatorPage() {
             <span className="cp-stat-value">{board.length}</span>
           </div>
           <div className="cp-stat" role="listitem">
-            <span className="cp-stat-label">LIVE</span>
+            <span className="cp-stat-label">AKTIF</span>
             <span className="cp-stat-value">{drops.filter((d) => d.status === "live").length}</span>
           </div>
         </div>

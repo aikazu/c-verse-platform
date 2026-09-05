@@ -9,24 +9,25 @@ import "./orders.css";
 // render label generik per templateKey sampai admin/kreator mengirim template
 // riil. Tombol "Tandai semua" idempotent.
 const TEMPLATE_LABEL: Record<string, (p: Record<string, unknown> | null) => string> = {
-  bid_outbid: (p) => `Tawaranmu di-outbid. Tertinggi baru ${p?.newBid ?? "?"} C`,
-  bid_accepted: (p) => `Tawaranmu diterima di ${p?.amount ?? "?"} C`,
-  bid_received: (p) => `Tawaran baru ${p?.amount ?? "?"} C dari ${p?.bidderName ?? "?"}`,
+  bid_outbid: (p) => `Ada penawaran yang lebih tinggi. Penawaran tertinggi sekarang ${p?.newBid ?? "?"} C`,
+  bid_accepted: (p) => `Penawaranmu sebesar ${p?.amount ?? "?"} C diterima`,
+  bid_received: (p) => `Penawaran baru ${p?.amount ?? "?"} C dari ${p?.bidderName ?? "?"}`,
   card_bought: (p) => `C.Card kamu dibeli di ${p?.amount ?? "?"} C`,
-  draw_winner: () => "Kamu menang raffle — order dibuat",
-  draw_loser: () => "Kamu kalah raffle — C-Coin dikembalikan",
-  payout_disbursed: (p) => `Payout ${p?.amount ?? "?"} C diteruskan ke rekening`,
-  payout_failed: (p) => `Penarikan gagal (${p?.status ?? "?"}) — cek Dompet`,
+  draw_winner: () => "Kamu terpilih dalam Raffle — pesanan dibuat",
+  draw_loser: () => "Kamu belum terpilih dalam Raffle — C-Coin dikembalikan",
+  payout_disbursed: (p) => `Penarikan ${p?.amount ?? "?"} C diteruskan ke rekening`,
+  payout_failed: (p) =>
+    p?.status === "refunded" ? "C-Gems dari penarikan dikembalikan ke saldo — cek Dompet" : "Penarikan gagal — cek Dompet",
   shipment_shipped: () => "C.Card dalam pengiriman",
   shipment_delivered: () => "C.Card sudah diterima",
-  kyc_approved: () => "KYC disetujui — penarikan dana tanpa batas saldo",
-  kyc_rejected: () => "KYC ditolak — ajukan ulang dengan dokumen valid",
+  kyc_approved: () => "Verifikasi identitas disetujui. Kamu bisa mengajukan penarikan C-Gems melalui Dompet.",
+  kyc_rejected: () => "Verifikasi identitas ditolak — ajukan ulang dengan dokumen yang sesuai",
 };
 
 function labelFor(templateKey: string, payload: Record<string, unknown> | null): string {
   const tpl = TEMPLATE_LABEL[templateKey];
   if (tpl) return tpl(payload);
-  return `Aktivitas baru (${templateKey})`;
+  return "Ada pembaruan pada akunmu";
 }
 
 export default function Notifications() {
@@ -86,7 +87,9 @@ function NotificationsInner() {
         }
       />
       {list.length === 0 ? (
-        <div className="card card-pad muted od-empty">Belum ada notifikasi. Update dari raffle, bid, dan order akan muncul di sini.</div>
+        <div className="card card-pad muted od-empty">
+          Belum ada notifikasi. Pembaruan Raffle, penawaran, dan pesanan akan muncul di sini.
+        </div>
       ) : (
         <div className="od-feed">
           {list.map((n) => {

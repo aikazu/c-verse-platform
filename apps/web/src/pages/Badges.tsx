@@ -66,11 +66,11 @@ function BadgeStatus({
   signedIn: boolean;
 }) {
   if (!signedIn) return <span className="badges-status badges-status--unknown">Lencana pencapaian</span>;
-  if (!privateReady) return <span className="badges-status badges-status--unknown">Status akun belum diketahui</span>;
+  if (!privateReady) return <span className="badges-status badges-status--unknown">Status lencana belum tersedia</span>;
   if (entry.earned) return <span className="badges-status badges-status--earned">Terkoleksi</span>;
   if (!entry.criteria || progress === undefined)
     return <span className="badges-status badges-status--unknown">Kemajuan belum tersedia</span>;
-  return <span className="badges-status badges-status--progress">Dalam misi</span>;
+  return <span className="badges-status badges-status--progress">Belum didapat</span>;
 }
 
 export default function Badges() {
@@ -124,7 +124,7 @@ export default function Badges() {
   }, [entries, familyFilter, privateReady, search, statusFilter]);
 
   const selected = entries.find((entry) => entry.badge.id === selectedId) ?? null;
-  if (catalog.isLoading) return <LoadingState label="Menyusun galeri lencana…" />;
+  if (catalog.isLoading) return <LoadingState label="Memuat lencana…" />;
   if (catalog.isError) return <ErrorState onRetry={() => void catalog.refetch()} label="Gagal memuat katalog lencana" />;
 
   return (
@@ -132,15 +132,15 @@ export default function Badges() {
       <PageHero
         channel="06"
         channelLabel="LENCANA"
-        title="Kabinet Prestasi"
-        desc="Delapan keluarga pencapaian dengan lima tingkat lencana untuk menandai setiap tonggak koleksi."
+        title="Lencana"
+        desc="Lihat lencana yang bisa kamu dapatkan dan syarat untuk meraihnya."
       />
 
       <section className="badges-cabinet" aria-labelledby="badges-tier-heading">
         <div className="badges-cabinet__copy">
           <span className="section-eyebrow">TINGKAT LENCANA</span>
           <h2 id="badges-tier-heading">Dari Bronze sampai Nova</h2>
-          <p>Setiap tingkat menandai tonggak yang lebih tinggi dalam perjalanan koleksimu.</p>
+          <p>Semakin tinggi tingkat lencana, semakin besar pencapaian yang dibutuhkan.</p>
         </div>
         <ol className="badges-tier-samples" aria-label="Lima tingkat lencana">
           {BADGE_TIERS.map((tier) => (
@@ -161,14 +161,13 @@ export default function Badges() {
       <section className="badges-vault" aria-labelledby="badges-gallery-heading">
         <header className="badges-vault__head">
           <div>
-            <span className="section-eyebrow">CATALOGUE</span>
             <h2 id="badges-gallery-heading">Galeri lencana</h2>
             <p>{entries.length} lencana tercatat dalam katalog saat ini.</p>
           </div>
           {user ? (
             <div className="badges-private-state" aria-live="polite">
-              {progressQuery.isLoading && "Membaca kemajuan akun…"}
-              {privateReady && "Kemajuan akun pribadi aktif"}
+              {progressQuery.isLoading && "Memuat pencapaianmu…"}
+              {privateReady && "Menampilkan pencapaianmu"}
               {privateUnavailable && (
                 <button type="button" onClick={() => void progressQuery.refetch()}>
                   Kemajuan belum tersedia — coba lagi
@@ -188,20 +187,20 @@ export default function Badges() {
             <input
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              placeholder="Cari nama atau keluarga…"
+              placeholder="Cari nama atau kategori…"
               type="search"
             />
           </label>
           <label className="badges-select">
-            <span>Keluarga</span>
+            <span>Kategori</span>
             <select value={familyFilter} onChange={(event) => setFamilyFilter(event.target.value as FamilyFilter)}>
-              <option value="all">Semua keluarga</option>
+              <option value="all">Semua kategori</option>
               {BADGE_FAMILIES.map((family) => (
                 <option key={family.id} value={family.id}>
-                  {family.title}
+                  {family.name}
                 </option>
               ))}
-              <option value="special">Special</option>
+              <option value="special">Khusus</option>
             </select>
           </label>
           <div className="badges-status-filter" role="group" aria-label="Status koleksi">
@@ -225,11 +224,8 @@ export default function Badges() {
 
         {visibleEntries.length === 0 ? (
           <div className="empty-arcade badges-empty" role="status">
-            <div className="empty-icon" aria-hidden="true">
-              NO_MATCH
-            </div>
             <div className="empty-title">Lencana tidak ditemukan</div>
-            <p className="empty-msg">Ubah kata kunci atau filter keluarga untuk melihat pencapaian lain.</p>
+            <p className="empty-msg">Coba kata kunci atau kategori lain.</p>
           </div>
         ) : (
           <div className="badges-grid" aria-label="Daftar lencana">
@@ -245,9 +241,9 @@ export default function Badges() {
                   <BadgeEmblem badge={entry.badge} family={badgeFamily(entry.criteria)} tier={tier.tier} />
                   <div className="badges-card__body">
                     <div className="badges-card__meta">
-                      <span>{family?.title ?? "Special"}</span>
+                      <span>{family?.name ?? "Khusus"}</span>
                       <span>
-                        {tier.name} · Tier {tier.roman}
+                        {tier.name} · Tingkat {tier.roman}
                       </span>
                     </div>
                     <h3>{entry.badge.name}</h3>

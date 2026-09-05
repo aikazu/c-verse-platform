@@ -59,8 +59,8 @@ function VerifyShipmentInner() {
     if (
       !(await confirm({
         // Nomor unit, bukan UUID — label manusiawi di copy konfirmasi.
-        title: `Kirim C.Card #${card.unitNumber} ke vault?`,
-        message: "Setelah diterima, tim verifikasi NFC sebelum payout dilepas.",
+        title: `Kirim C.Card #${card.unitNumber} ke Vault?`,
+        message: "Setelah diterima, C.Card akan diverifikasi dengan NFC sebelum dana penjualan dicairkan.",
         confirmLabel: "Kirim",
         danger: true,
         requireCheck: LEGAL_CONSENTS.sellerVault,
@@ -70,7 +70,7 @@ function VerifyShipmentInner() {
     setBusyId(cardId);
     try {
       await api.sellerShipToVault(cardId, address, tracking || undefined);
-      push("Pengiriman dicatat — admin menerima di vault", "success");
+      push("Pengiriman dicatat — C.Card akan diterima di Vault", "success");
       refetch();
     } catch (e: unknown) {
       console.error("sellerShipToVault gagal", e);
@@ -89,7 +89,7 @@ function VerifyShipmentInner() {
       />
       {eligible.length === 0 ? (
         <div className="card card-pad muted" style={{ textAlign: "center", padding: 32 }}>
-          Tidak ada kartu yang perlu dikirim ke vault.{" "}
+          Tidak ada C.Card yang perlu dikirim ke Vault.{" "}
           <Link to="/me/manage" style={{ color: "var(--gold)" }}>
             Kelola kartu →
           </Link>
@@ -106,7 +106,7 @@ function VerifyShipmentInner() {
               </div>
               <div className="form-row" style={{ marginBottom: 0 }}>
                 <label className="label" htmlFor={`addr-${card.id}`}>
-                  Alamat platform (gudang vault)
+                  Alamat Vault C.Verse
                 </label>
                 <textarea
                   id={`addr-${card.id}`}
@@ -114,7 +114,7 @@ function VerifyShipmentInner() {
                   rows={2}
                   value={addr[card.id] ?? ""}
                   onChange={(e) => setAddr((s) => ({ ...s, [card.id]: e.target.value }))}
-                  placeholder="Alamat gudang vault C.Verse"
+                  placeholder="Masukkan alamat Vault C.Verse"
                 />
               </div>
               <div className="form-row" style={{ marginBottom: 0 }}>

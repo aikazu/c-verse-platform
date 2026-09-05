@@ -116,10 +116,10 @@ export default function PublicProfile() {
   const handle = user.username ? `@${user.username}` : `@${username ?? ""}`;
 
   const tickerItems = [
-    { key: "RANK", value: rank !== undefined ? `#${rank}` : "—", accent: "gold" as const },
+    { key: "PERINGKAT", value: rank !== undefined ? `#${rank}` : "—", accent: "gold" as const },
     { key: "C.CARD", value: `${cards.length}`, accent: "cyan" as const },
     { key: "LENCANA", value: `${badges.length}`, accent: "magenta" as const },
-    { key: "TIER", value: tier.toUpperCase(), accent: "signal" as const },
+    { key: "TINGKAT", value: tier.toUpperCase(), accent: "signal" as const },
   ];
 
   const heroTicker = (
@@ -159,7 +159,7 @@ export default function PublicProfile() {
           <div className="pp-operator-meta">
             <div className="mono pp-handle">{handle}</div>
             <div className="pp-chips">
-              <span className={`tier-${tier} pp-tier-chip`} aria-label={`Tier ${tier}`}>
+              <span className={`tier-${tier} pp-tier-chip`} aria-label={`Tingkat ${tier}`}>
                 <span className="mono">{tier.toUpperCase()}</span>
               </span>
               {user.role === "creator" && <span className="pill pill-info pp-role-chip">KREATOR</span>}
@@ -173,7 +173,7 @@ export default function PublicProfile() {
         </div>
         <div className="pp-stats" role="list" aria-label="Statistik kolektor">
           <div className="pp-stat" role="listitem">
-            <span className="pp-stat-label">RANK</span>
+            <span className="pp-stat-label">PERINGKAT</span>
             <span className="pp-stat-value">{rank !== undefined ? `#${rank}` : "—"}</span>
           </div>
           <div className="pp-stat" role="listitem">

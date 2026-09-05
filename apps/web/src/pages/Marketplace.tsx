@@ -40,9 +40,8 @@ export default function Marketplace() {
     .flatMap((p: ApiListingsResponse) => p.marketplace ?? p.cards ?? p.listings ?? [])
     .filter((entry): entry is ApiMarketplaceEntry => entry?.kind === "buyout");
 
-  // Floor rank is ALWAYS price-ascending regardless of the active sort.
-  // Stable mapping: cardId -> 1-based floor position.
-  const floorRank = useMemo(() => {
+  // Rank loaded cards by ascending price, regardless of the active sort.
+  const priceRank = useMemo(() => {
     const asc = [...rawCards].sort((a, b) => (a.buyoutPriceCcoin ?? 0) - (b.buyoutPriceCcoin ?? 0));
     const map = new Map<string, number>();
     asc.forEach((entry, i) => {
@@ -70,88 +69,52 @@ export default function Marketplace() {
       ? ([...rawCards].sort((a, b) => (a.buyoutPriceCcoin ?? 0) - (b.buyoutPriceCcoin ?? 0))[0]?.buyoutPriceCcoin ?? null)
       : null;
   const sortedByPrice = useMemo(() => [...rawCards].sort((a, b) => (a.buyoutPriceCcoin ?? 0) - (b.buyoutPriceCcoin ?? 0)), [rawCards]);
-  const medianPrice = sortedByPrice.length > 0 ? (sortedByPrice[Math.floor(sortedByPrice.length / 2)]?.buyoutPriceCcoin ?? null) : null;
   const highest = sortedByPrice.length > 0 ? (sortedByPrice[sortedByPrice.length - 1]?.buyoutPriceCcoin ?? null) : null;
-  const floorTitle = sortedByPrice[0] ? (sortedByPrice[0]?.drop?.title ?? "Tanpa judul") : null;
 
   const heroTicker = (
     <div className="hero-ticker" aria-hidden="true">
-      <span className="ticker-label">Listing</span>
+      <span className="ticker-label">Ditampilkan</span>
       <div className="ticker-track">
         <div className="ticker-scroll">
           <span className="ticker-item">
-            <span className="tk-key">LISTING</span>
+            <span className="tk-key">KARTU</span>
             <span className="tk-val cyan">{totalListed}</span>
           </span>
           <span className="ticker-item">
             <span className="tk-sep" aria-hidden="true" />
           </span>
           <span className="ticker-item">
-            <span className="tk-key">TERMURAH</span>
+            <span className="tk-key">HARGA TERENDAH</span>
             <span className="tk-val">{cheapest ?? "—"} C</span>
           </span>
           <span className="ticker-item">
             <span className="tk-sep" aria-hidden="true" />
           </span>
           <span className="ticker-item">
-            <span className="tk-key">MEDIAN</span>
-            <span className="tk-val magenta">{medianPrice ?? "—"} C</span>
-          </span>
-          <span className="ticker-item">
-            <span className="tk-sep" aria-hidden="true" />
-          </span>
-          <span className="ticker-item">
-            <span className="tk-key">TERMAHAL</span>
+            <span className="tk-key">HARGA TERTINGGI</span>
             <span className="tk-val">{highest ?? "—"} C</span>
           </span>
           <span className="ticker-item">
             <span className="tk-sep" aria-hidden="true" />
           </span>
-          {floorTitle && (
-            <span className="ticker-item">
-              <span className="tk-key">LANTAI</span>
-              <span className="tk-val magenta">{floorTitle}</span>
-            </span>
-          )}
           <span className="ticker-item">
-            <span className="tk-sep" aria-hidden="true" />
-          </span>
-          <span className="ticker-item">
-            <span className="tk-key">LISTING</span>
+            <span className="tk-key">KARTU</span>
             <span className="tk-val cyan">{totalListed}</span>
           </span>
           <span className="ticker-item">
             <span className="tk-sep" aria-hidden="true" />
           </span>
           <span className="ticker-item">
-            <span className="tk-key">TERMURAH</span>
+            <span className="tk-key">HARGA TERENDAH</span>
             <span className="tk-val">{cheapest ?? "—"} C</span>
           </span>
           <span className="ticker-item">
             <span className="tk-sep" aria-hidden="true" />
           </span>
           <span className="ticker-item">
-            <span className="tk-key">MEDIAN</span>
-            <span className="tk-val magenta">{medianPrice ?? "—"} C</span>
-          </span>
-          <span className="ticker-item">
-            <span className="tk-sep" aria-hidden="true" />
-          </span>
-          <span className="ticker-item">
-            <span className="tk-key">TERMAHAL</span>
+            <span className="tk-key">HARGA TERTINGGI</span>
             <span className="tk-val">{highest ?? "—"} C</span>
           </span>
-          {floorTitle && (
-            <>
-              <span className="ticker-item">
-                <span className="tk-sep" aria-hidden="true" />
-              </span>
-              <span className="ticker-item">
-                <span className="tk-key">LANTAI</span>
-                <span className="tk-val magenta">{floorTitle}</span>
-              </span>
-            </>
-          )}
         </div>
       </div>
     </div>
@@ -159,7 +122,13 @@ export default function Marketplace() {
 
   return (
     <div className="page-stack">
-      <PageHero channel="02" channelLabel="MARKET" title="Marketplace" ticker={heroTicker} />
+      <PageHero
+        channel="02"
+        channelLabel="MARKET"
+        title="Marketplace"
+        desc="Beli kartu dari kolektor lain dengan harga yang tertera."
+        ticker={heroTicker}
+      />
 
       <div className="toolbar" role="search">
         <input
@@ -169,15 +138,15 @@ export default function Marketplace() {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
-        <select className="select" aria-label="Urutkan listing" value={sort} onChange={(e) => setSort(e.target.value as SortKey)}>
+        <select className="select" aria-label="Urutkan kartu" value={sort} onChange={(e) => setSort(e.target.value as SortKey)}>
           <option value="cheapest">Termurah</option>
           <option value="expensive">Termahal</option>
-          <option value="unit">Unit #</option>
+          <option value="unit">Nomor kartu</option>
         </select>
         <div className="toolbar-right">
-          <button className="refresh-btn" onClick={() => refetch()} aria-label="Refresh marketplace" type="button">
+          <button className="refresh-btn" onClick={() => refetch()} aria-label="Muat ulang Marketplace" type="button">
             <span className="dot" aria-hidden="true" />
-            Refresh
+            Muat ulang
           </button>
           <Link to="/me/manage" className="btn-ghost toolbar-sell">
             Jual C.Card
@@ -191,14 +160,13 @@ export default function Marketplace() {
         <ErrorState onRetry={() => refetch()} label="Gagal memuat marketplace" />
       ) : cards.length === 0 ? (
         <div className="empty-arcade">
-          <div className="empty-icon" aria-hidden="true">
-            NO_LISTINGS
-          </div>
-          <div className="empty-title">Belum ada C.Card dijual</div>
-          <p className="empty-msg">Pasang harga dari Kelola C.Card untuk mulai menawarkan koleksimu.</p>
+          <div className="empty-title">{search ? "Kartu tidak ditemukan" : "Belum ada kartu yang dijual"}</div>
+          <p className="empty-msg">
+            {search ? "Coba kata kunci lain untuk mencari kartu." : "Tentukan harga di Kelola C.Card untuk menjual kartumu."}
+          </p>
           <div className="empty-cta">
             <Link to="/me/manage" className="btn-gold">
-              Pasang Listing →
+              Jual C.Card →
             </Link>
           </div>
         </div>
@@ -209,7 +177,7 @@ export default function Marketplace() {
             const drop = entry.drop;
             const price = entry.buyoutPriceCcoin ?? 0;
             const art = drop?.artworkUrl ? { backgroundImage: `url("${drop.artworkUrl.replace(/"/g, "%22")}")` } : null;
-            const rank = floorRank.get(card.id) ?? null;
+            const rank = priceRank.get(card.id) ?? null;
             const seriesLabel = drop?.series ?? "—";
             const init = getInitials(drop?.title, seriesLabel);
             const sellerName = entry.seller?.displayName ?? "—";
@@ -228,8 +196,8 @@ export default function Marketplace() {
                     </div>
                   )}
                   {rank !== null && rank <= 3 && (
-                    <span className="floor-rank" aria-label={`Peringkat lantai ${rank}`}>
-                      LANTAI <span className="floor-num">#{rank}</span>
+                    <span className="floor-rank" aria-label={`Urutan harga termurah dari kartu yang ditampilkan: ${rank}`}>
+                      TERMURAH <span className="floor-num">#{rank}</span>
                     </span>
                   )}
                 </div>
@@ -239,7 +207,7 @@ export default function Marketplace() {
                     {drop?.title ?? card.id} <span className="market-unit-suffix">· #{card.unitNumber ?? "?"}</span>
                   </div>
                   <div className="card-pills">
-                    {drop?.isSeed && <span className="badge-seed">✦ Seed 1-of-1</span>}
+                    {drop?.isSeed && <span className="badge-seed">✦ Hanya 1 kartu</span>}
                     {card.variant === "signed" && <span className="pill pill-info">✍ Signed</span>}
                   </div>
                   <div className="seller-row">

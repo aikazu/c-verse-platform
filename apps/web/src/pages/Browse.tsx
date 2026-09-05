@@ -59,7 +59,7 @@ function DropTile({ d }: { d: ApiDrop }) {
         </div>
         {d.signedCount > 0 ? (
           <div className="card-pills">
-            <span className="pill pill-muted">✍ signed {d.signedCount}</span>
+            <span className="pill pill-muted">✍ Signed {d.signedCount}</span>
           </div>
         ) : null}
         <div className="card-creator">
@@ -85,8 +85,8 @@ export default function Browse() {
   const totalUnits = drops.reduce((sum, d) => sum + d.totalUnits, 0);
   const tickerItems = [
     { key: "DROP", val: String(drops.length), cls: "cyan" },
-    { key: "UNIT TERJUAL", val: String(totalSold), cls: "signal" },
-    { key: "UNIT TOTAL", val: String(totalUnits), cls: "" },
+    { key: "KARTU TERJUAL", val: String(totalSold), cls: "signal" },
+    { key: "TOTAL KARTU", val: String(totalUnits), cls: "" },
   ];
   return (
     <div className="page-stack">
@@ -94,6 +94,7 @@ export default function Browse() {
         channel="03"
         channelLabel="JELAJAHI"
         title="Jelajahi"
+        desc="Lihat koleksi kartu dari berbagai kreator dan buka detailnya untuk menawar."
         ticker={
           <div className="hero-ticker" aria-hidden="true">
             <span className="ticker-label">Ringkasan</span>
@@ -122,9 +123,9 @@ export default function Browse() {
 
       <div className="toolbar">
         <div className="toolbar-right">
-          <button className="refresh-btn" onClick={() => refetch()} aria-label="Refresh daftar drop" type="button">
+          <button className="refresh-btn" onClick={() => refetch()} aria-label="Muat ulang daftar drop" type="button">
             <span className="dot" aria-hidden="true" />
-            Refresh
+            Muat ulang
           </button>
         </div>
       </div>
@@ -135,11 +136,8 @@ export default function Browse() {
         <ErrorState onRetry={() => refetch()} label="Gagal memuat drop" />
       ) : drops.length === 0 ? (
         <div className="empty-arcade">
-          <div className="empty-icon" aria-hidden="true">
-            NO_HITS
-          </div>
           <div className="empty-title">Belum ada drop</div>
-          <p className="empty-msg">Drop baru rilis tiap hari jam 12.00 WIB.</p>
+          <p className="empty-msg">Koleksi kartu akan tampil di sini saat tersedia.</p>
         </div>
       ) : (
         <div className="grid-3">

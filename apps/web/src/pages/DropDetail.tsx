@@ -252,7 +252,7 @@ export default function DropDetail() {
               <li key={`${winner.variant}-${winner.unitNumber}`} className="dd-winner-row">
                 <span className="dd-winner-unit">#{winner.unitNumber}</span>
                 <span className={`pill ${winner.variant === "signed" ? "pill-warn" : "pill-muted"}`}>
-                  {winner.variant === "signed" ? "Premium" : "Regular"}
+                  {winner.variant === "signed" ? "Signed" : "Reguler"}
                 </span>
                 <span className="dd-winner-name">{winner.displayName}</span>
               </li>
@@ -276,7 +276,7 @@ function Stat({ label, value }: { label: string; value: string }) {
 /** Sel grid per-kartu drop (B2): thumbnail artwork drop + nomor unit. */
 function UnitCell({ row, drop }: { row: ApiDropCardRow; drop: ApiDrop }) {
   return (
-    <Link to={`/cards/${row.id}`} className="dd-cell" aria-label={`Unit ${row.unitNumber}`}>
+    <Link to={`/cards/${row.id}`} className="dd-cell" aria-label={`Kartu nomor ${row.unitNumber}`}>
       <div className="dd-cell-art">
         <CardThumb artworkUrl={drop.artworkUrl} series={drop.series} title={drop.title} />
       </div>
@@ -314,13 +314,13 @@ function ActionPanel(props: {
       props.onLoginRequired();
       return;
     }
-    const poolLabel = pool === "regular" ? "reguler" : pool === "premium" ? "premium" : "kedua pool";
+    const poolLabel = pool === "regular" ? "Reguler" : pool === "premium" ? "Signed" : "Reguler dan Signed";
     // Konfirmasi sebelum C-Coin ditahan (founder 2026-08-29: aksi spend wajib confirm)
     // + checklist entry irreversibel (founder 2026-09-01).
     if (
       !(await confirm({
         title: `Ikut raffle ${props.drop.title}?`,
-        message: `Pool ${poolLabel} — ${holdAmount} C ditahan. Tidak menang, otomatis kembali.`,
+        message: `Pilihan kartu: ${poolLabel}. Saldo ${holdAmount} C ditahan sementara dan dikembalikan otomatis jika tidak menang.`,
         confirmLabel: "Ikut",
         requireCheck: LEGAL_CONSENTS.raffle,
       }))
@@ -355,18 +355,18 @@ function ActionPanel(props: {
       <div>
         <span className="eyebrow">
           {props.phase === "raffle"
-            ? "Raffle Window"
+            ? "Undian pembelian"
             : props.phase === "fcfs"
-              ? "Checkout FCFS"
+              ? "Beli Langsung"
               : props.phase === "upcoming"
                 ? "Akan Datang"
                 : props.phase === "drawing"
-                  ? "Menunggu Draw"
+                  ? "Segera Diundi"
                   : "Status"}
         </span>
         <div className="cm-panel-title">
           {props.phase === "raffle" ? (
-            <em style={{ fontStyle: "italic", fontWeight: 300, color: "var(--gold)" }}>Ikuti</em>
+            <em style={{ fontStyle: "italic", fontWeight: 300, color: "var(--gold)" }}>Ikuti Raffle</em>
           ) : props.phase === "fcfs" ? (
             <em style={{ fontStyle: "italic", fontWeight: 300, color: "var(--gold)" }}>C.Card</em>
           ) : (
@@ -376,18 +376,22 @@ function ActionPanel(props: {
         {props.phase === "upcoming" && props.countdownTarget && (
           <div className="muted cm-panel-note">Mulai: {new Date(props.countdownTarget).toLocaleString("id-ID")}</div>
         )}
-        {props.phase === "drawing" && <div className="muted cm-panel-note">Window tutup — menunggu draw otomatis.</div>}
+        {props.phase === "drawing" && (
+          <div className="muted cm-panel-note">Pendaftaran sudah ditutup. Hasil undian akan tampil setelah tersedia.</div>
+        )}
       </div>
 
       {props.phase === "raffle" && (
         <div className="cm-countdown">
           <div>
-            <div className="label">WINDOW TUTUP DALAM</div>
+            <div className="label">PENDAFTARAN DITUTUP DALAM</div>
             <div className="cm-countdown-value" aria-live="polite">
               {countdownLabel}
             </div>
           </div>
-          <div className="cm-countdown-note">Entry C-Coin ditahan — kalah otomatis kembali, menang jadi order.</div>
+          <div className="cm-countdown-note">
+            Saldo ditahan sementara. Jika menang, saldo dipakai untuk pembelian. Jika tidak, saldo dikembalikan.
+          </div>
         </div>
       )}
 
@@ -402,28 +406,28 @@ function ActionPanel(props: {
       {/* Pool selector hanya muncul saat raffle aktif dan belum ikut */}
       {props.phase === "raffle" && !props.myEntry && (
         <div className="cm-pool">
-          <div className="label">Pilih Pool</div>
+          <div className="label">Pilih jenis kartu</div>
           <div role="radiogroup" className="cm-pool-group">
             <PoolOption
               checked={pool === "regular"}
               onSelect={() => setPool("regular")}
               title="Reguler"
               hold={props.priceRegular}
-              desc={`Harga unsigned (${props.priceRegular} C). Pool reguler.`}
+              desc="Kartu tanpa tanda tangan kreator."
             />
             <PoolOption
               checked={pool === "premium"}
               onSelect={() => setPool("premium")}
-              title="Signed (Premium)"
+              title="Signed"
               hold={props.priceSigned}
-              desc={`Harga signed = ${props.priceRegular} + 20 C. Hanya pool premium.`}
+              desc="Kartu dengan tanda tangan kreator."
             />
             <PoolOption
               checked={pool === "both"}
               onSelect={() => setPool("both")}
               title="Keduanya"
               hold={props.priceSigned}
-              desc={`Tarik undian premium dulu; kalah → otomatis ke pool reguler dan selisih ${props.priceSigned - props.priceRegular} C dikembalikan.`}
+              desc={`Ikut undian Signed terlebih dahulu. Jika tidak menang, otomatis ikut undian Reguler dan selisih ${props.priceSigned - props.priceRegular} C dikembalikan.`}
             />
           </div>
         </div>
@@ -435,28 +439,28 @@ function ActionPanel(props: {
           <button className="btn-gold cm-cta" onClick={onEnterRaffle} disabled={busy}>
             {busy ? "Mengirim…" : `Ikuti Raffle · tahan ${holdAmount} C →`}
           </button>
-          <div className="cm-footnote">Limit 1 entry per user/drop; tidak bisa dibatalkan.</div>
+          <div className="cm-footnote">Setiap akun hanya bisa mendaftar sekali per drop. Pendaftaran tidak bisa dibatalkan.</div>
         </>
       )}
       {/* Pool selector FCFS: signed unit hanya dibeli via pool premium
           (RPC checkout memetakan pool premium -> variant signed). */}
       {props.phase === "fcfs" && (
         <div className="cm-pool">
-          <div className="label">Pilih Pool</div>
+          <div className="label">Pilih jenis kartu</div>
           <div role="radiogroup" className="cm-pool-group">
             <PoolOption
               checked={buyPool === "regular"}
               onSelect={() => setBuyPool("regular")}
               title="Reguler"
               hold={props.priceRegular}
-              desc={`Harga unsigned (${props.priceRegular} C).`}
+              desc="Kartu tanpa tanda tangan kreator."
             />
             <PoolOption
               checked={buyPool === "premium"}
               onSelect={() => setBuyPool("premium")}
-              title="Signed (Premium)"
+              title="Signed"
               hold={props.priceSigned}
-              desc={`Harga signed = ${props.priceSigned} C.`}
+              desc="Kartu dengan tanda tangan kreator."
             />
           </div>
         </div>
@@ -474,8 +478,8 @@ function ActionPanel(props: {
           </div>
         </>
       )}
-      {props.phase === "upcoming" && <div className="pill pill-info cm-phase-pill">Belum rilis — sampai {countdownLabel}</div>}
-      {props.phase === "drawing" && <div className="pill pill-warn cm-phase-pill">Draw otomatis segera — refresh</div>}
+      {props.phase === "upcoming" && <div className="pill pill-info cm-phase-pill">Mulai dalam {countdownLabel}</div>}
+      {props.phase === "drawing" && <div className="pill pill-warn cm-phase-pill">Menunggu hasil undian</div>}
       {props.phase === "ended" && <div className="pill cm-phase-pill">Selesai</div>}
     </div>
   );

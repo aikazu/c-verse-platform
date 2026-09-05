@@ -219,15 +219,15 @@ describe("status label maps (snake_case/English enum → Indonesian UI copy)", (
   });
 
   it("maps card location and kyc status", () => {
-    expect(cardLocationLabel("platform_vault")).toBe("Di vault");
-    expect(cardLocationLabel("with_owner")).toBe("Dimiliki");
+    expect(cardLocationLabel("platform_vault")).toBe("Di Vault");
+    expect(cardLocationLabel("with_owner")).toBe("Pada pemilik");
     expect(kycStatusLabel("approved")).toBe("Disetujui");
   });
 
   it("maps wallet transaction type", () => {
-    expect(walletTxTypeLabel("top_up")).toBe("Top-up");
+    expect(walletTxTypeLabel("top_up")).toBe("Isi saldo");
     expect(walletTxTypeLabel("payout")).toBe("Penarikan");
-    expect(walletTxTypeLabel("payout_refund")).toBe("Refund penarikan");
+    expect(walletTxTypeLabel("payout_refund")).toBe("Pengembalian dana penarikan");
   });
 
   it("maps escrow status to Indonesian labels", () => {
@@ -244,15 +244,15 @@ describe("status label maps (snake_case/English enum → Indonesian UI copy)", (
   });
 
   it("maps shipment type and destination to Indonesian labels", () => {
-    expect(shipmentTypeLabel("vault_shipout")).toBe("Kirim dari vault");
-    expect(shipmentTypeLabel("secondary_seller_to_vault")).toBe("Kirim ke vault (verifikasi)");
+    expect(shipmentTypeLabel("vault_shipout")).toBe("Kirim dari Vault");
+    expect(shipmentTypeLabel("secondary_seller_to_vault")).toBe("Kirim ke Vault untuk pemeriksaan");
     expect(shipmentTypeLabel("primary_shipping")).toBe("Kirim ke alamat");
     expect(shipmentToDestLabel("buyer_address")).toBe("alamat pembeli");
-    expect(shipmentToDestLabel("platform_vault")).toBe("vault");
+    expect(shipmentToDestLabel("platform_vault")).toBe("Vault");
   });
 
   it("maps card variant to human labels (no raw signed/unsigned jargon)", () => {
-    expect(cardVariantLabel("signed")).toBe("Premium (Signed)");
+    expect(cardVariantLabel("signed")).toBe("Signed");
     expect(cardVariantLabel("unsigned")).toBe("Reguler");
   });
 

@@ -24,7 +24,7 @@ test.describe("Authentication", () => {
     // Submit = "Kirim kode OTP (email)". BUKAN has-text("Daftar") — itu cuma
     // match tombol nav "MASUK / DAFTAR" (penyebab register lama tak pernah
     // mengirim email: klik mendarat di nav, form tidak submit).
-    await page.click('button:has-text("Kirim kode OTP")');
+    await page.click('button:has-text("Kirim kode masuk ke email")');
 
     // GoTrue lokal mengirim MAGIC LINK untuk user baru juga (probe 2026-08-29:
     // POST /auth/v1/otp create_user=true → email "Your sign-in link", respons

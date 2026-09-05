@@ -1,4 +1,4 @@
-import { BALANCE_CAP_CCOIN, GEMS_LOCK_HOURS, walletTxTypeLabel } from "@c-verse/shared";
+import { BALANCE_CAP_CCOIN, GEMS_LOCK_HOURS, PAYOUT_FEE_PCT, walletTxTypeLabel } from "@c-verse/shared";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -31,6 +31,7 @@ function WalletInner() {
   const nav = useNavigate();
   const [amount, setAmount] = useState(50);
   const [payoutAmt, setPayoutAmt] = useState(10);
+  const payoutFeeGems = Math.ceil(payoutAmt * PAYOUT_FEE_PCT);
   const [busyTopup, setBusyTopup] = useState(false);
   const [busyPayout, setBusyPayout] = useState(false);
   const [payoutConfirmOpen, setPayoutConfirmOpen] = useState(false); // P1-12 modal konfirmasi payout
@@ -64,7 +65,7 @@ function WalletInner() {
     // Uang asli (IDR via Midtrans) — wajib konfirmasi sebelum redirect (founder 2026-08-29).
     if (
       !(await confirm({
-        title: `Top-up ${amount} C?`,
+        title: `Isi saldo ${amount} C?`,
         message: "Lanjut ke Midtrans untuk pembayaran.",
         confirmLabel: "Bayar",
         requireCheck: LEGAL_CONSENTS.topup,
@@ -86,7 +87,7 @@ function WalletInner() {
     } catch (e) {
       const err = e instanceof ApiError ? e : null;
       if (err && (err.status === 422 || err.code === "KYC_TOPUP_CAP")) {
-        push(`${err.message} — buka KYC sekarang`, "error");
+        push(`${err.message} — buka verifikasi identitas`, "error");
         nav("/me/kyc");
       } else {
         console.error("top-up gagal", e);
@@ -100,26 +101,26 @@ function WalletInner() {
     setBusyPayout(true);
     try {
       await api.payout(payoutAmt);
-      push("Permintaan payout dibuat — diproses batch mingguan", "success");
+      push("Permintaan penarikan dibuat — diproses mingguan", "success");
       setPayoutConfirmOpen(false);
       setPayoutConsent(false);
       refetch();
     } catch (e) {
       const err = e instanceof ApiError ? e : null;
       if (err?.status === 403 && err.code === "KYC_REQUIRED") {
-        push(`${err.message} — buka KYC sekarang`, "error");
+        push(`${err.message} — buka verifikasi identitas`, "error");
         setPayoutConfirmOpen(false);
         setPayoutConsent(false);
         nav("/me/kyc");
       } else if (err?.status === 400 && err.code === "MIN_PAYOUT") {
-        push("Payout minimum 10 C-Gems", "error");
+        push("Penarikan minimum 10 C-Gems", "error");
       } else if (err?.code === "PAYOUT_GEMS_LOCKED") {
         // Dual-token (docs/07): server sudah kirim copy Indonesia dengan angka jam dari shared.
         push(err.message, "error");
       } else if (err?.status === 402) {
         push("Saldo tidak cukup", "error");
       } else if (err?.status === 423) {
-        push("Payout ditahan admin", "error");
+        push("Penarikan ditahan admin", "error");
       } else {
         console.error("payout gagal", e);
         push(GENERIC_ERROR, "error");
@@ -133,12 +134,12 @@ function WalletInner() {
     setBusyConvert(true);
     try {
       await api.convertGems(convertAmt);
-      push("Konversi berhasil — C-Coin masuk ke saldo", "success");
+      push("Penukaran berhasil. C-Coin masuk ke saldo.", "success");
       refetch();
     } catch (e) {
       const err = e instanceof ApiError ? e : null;
       if (err?.status === 400 && err.code === "INSUFFICIENT_GEMS") {
-        push("Gems tidak cukup", "error");
+        push("C-Gems tidak cukup", "error");
       } else {
         console.error("konversi gagal", e);
         push(GENERIC_ERROR, "error");
@@ -170,7 +171,7 @@ function WalletInner() {
 
       {payoutHeld && (
         <div className="card card-pad wa-alert">
-          <strong className="wa-alert-strong">Payout ditahan admin</strong>
+          <strong className="wa-alert-strong">Permintaan penarikan ditahan admin</strong>
           {payoutHoldUntil ? ` sampai ${new Date(payoutHoldUntil).toLocaleString("id-ID")}` : ""}.
         </div>
       )}
@@ -199,7 +200,7 @@ function WalletInner() {
           </div>
           <hr className="wa-hr" />
           <div className="wa-balance-stats">
-            <span className="pill pill-success wa-pill-sm">Bisa dicair · {w.gemsMatured}</span>
+            <span className="pill pill-success wa-pill-sm">Bisa dicairkan · {w.gemsMatured}</span>
             {w.gemsLocked > 0 && (
               <span className="pill pill-warn wa-pill-sm">
                 Terkunci {GEMS_LOCK_HOURS} jam · {w.gemsLocked}
@@ -221,22 +222,22 @@ function WalletInner() {
         <div className="wa-note wa-note-info">
           {kycApproved ? (
             <>
-              KYC terverifikasi — tanpa cap saldo.{" "}
+              Verifikasi identitas selesai. Batas pengisian sebelum verifikasi tidak berlaku.{" "}
               <a href="/me/kyc" className="wa-link">
-                Lihat status KYC
+                Lihat status verifikasi
               </a>
             </>
           ) : (
             <>
-              Cap saldo non-KYC: <strong className="wa-note-strong">{topupCapNoKyc} C-Coin</strong> —{" "}
+              Sebelum verifikasi, saldo setelah pengisian maksimal <strong className="wa-note-strong">{topupCapNoKyc} C-Coin</strong>.{" "}
               <a href="/me/kyc" className="wa-link">
-                selesaikan KYC
+                Selesaikan verifikasi
               </a>{" "}
-              untuk tanpa cap.
+              untuk meningkatkan batas pengisian. Batas penyedia pembayaran tetap berlaku.
             </>
           )}
         </div>
-        <select className="select" aria-label="Jumlah top-up C-Coin" value={amount} onChange={(e) => setAmount(Number(e.target.value))}>
+        <select className="select" aria-label="Jumlah isi saldo C-Coin" value={amount} onChange={(e) => setAmount(Number(e.target.value))}>
           {([10, 20, 30, 50, 100, 200, 500, 1000, 2000, 5000, 10000] as number[])
             .filter((v) => kycApproved || v <= BALANCE_CAP_CCOIN)
             .map((v) => (
@@ -251,9 +252,9 @@ function WalletInner() {
         {snapPanel && (
           <div className="wa-snap">
             <div className="wa-snap-title">Pembayaran Midtrans — {snapPanel.amountCcoin} C</div>
-            <div className="wa-snap-token">{snapPanel.snapToken || "Token tidak tersedia"}</div>
+
             <div className="muted wa-sub">
-              Selesaikan pembayaran, saldo masuk otomatis setelah webhook (kedaluwarsa {snapPanel.expiresLabel}).
+              Saldo masuk otomatis setelah pembayaran dikonfirmasi. Selesaikan pembayaran sebelum {snapPanel.expiresLabel}.
             </div>
           </div>
         )}
@@ -263,7 +264,7 @@ function WalletInner() {
         {w.balanceGems > 0 && (
           <>
             <div className="wa-row-between">
-              <span className="wa-row-title">Konversi ke C-Coin</span>
+              <span className="wa-row-title">Tukar C-Gems ke C-Coin</span>
               <span className="wa-min-label">MAKS {w.balanceGems}</span>
             </div>
             <div className="wa-input-row">
@@ -273,7 +274,7 @@ function WalletInner() {
                 min={1}
                 value={convertAmt}
                 onChange={(e) => setConvertAmt(Number(e.target.value))}
-                aria-label="Jumlah konversi C-Gems"
+                aria-label="Jumlah C-Gems yang ditukar"
                 placeholder="Jumlah C-Gems"
               />
               <button
@@ -281,19 +282,19 @@ function WalletInner() {
                 onClick={async () => {
                   // Pattern CreatorPage: integer >= 1 wajib — tolak desimal/Infinity.
                   if (!Number.isInteger(convertAmt) || convertAmt < 1) {
-                    push("Minimal 1 Gems", "info");
+                    push("Minimal 1 C-Gems", "info");
                     return;
                   }
                   if (convertAmt > w.balanceGems) {
-                    push("Gems tidak cukup", "info");
+                    push("C-Gems tidak cukup", "info");
                     return;
                   }
                   // Konversi satu arah (docs/07) — irreversible, wajib konfirmasi.
                   if (
                     !(await confirm({
-                      title: `Konversi ${convertAmt} Gems?`,
-                      message: `Jadi ${convertAmt} C-Coin — satu arah, tidak dapat dibalik.`,
-                      confirmLabel: "Konversi",
+                      title: `Tukar ${convertAmt} C-Gems ke C-Coin?`,
+                      message: `Kamu akan mendapat ${convertAmt} C-Coin. Penukaran ini tidak bisa dibatalkan.`,
+                      confirmLabel: "Tukar",
                       requireCheck: LEGAL_CONSENTS.conversion,
                     }))
                   )
@@ -302,7 +303,7 @@ function WalletInner() {
                 }}
                 disabled={busyConvert}
               >
-                {busyConvert ? "Memproses…" : "Konversi"}
+                {busyConvert ? "Memproses…" : "Tukar"}
               </button>
             </div>
             <div className="wa-hint">1 C-Gems = 1 C-Coin</div>
@@ -329,7 +330,7 @@ function WalletInner() {
             onClick={() => {
               // Pattern CreatorPage: integer >= 1 wajib — tolak desimal/Infinity.
               if (!Number.isInteger(payoutAmt) || payoutAmt < 10) {
-                push("Payout minimum 10 C-Gems", "info");
+                push("Penarikan minimum 10 C-Gems", "info");
                 return;
               }
               // Payout hanya dari Gems matured — lot terkunci tidak terhitung (docs/07).
@@ -468,7 +469,7 @@ function WalletInner() {
         >
           <div className="card card-pad wa-modal" onClick={(e) => e.stopPropagation()}>
             <div id="payout-confirm-title" className="wa-modal-title">
-              Konfirmasi Payout
+              Konfirmasi penarikan
             </div>
             <div className="wa-modal-rows">
               <div className="wa-modal-row">
@@ -478,10 +479,21 @@ function WalletInner() {
                 </span>
               </div>
               <div className="wa-modal-row">
+                <span className="muted">Biaya penarikan (1%, dibulatkan ke atas)</span>
+                <span className="wa-mono">{payoutFeeGems} C-Gems</span>
+              </div>
+              <div className="wa-modal-row">
+                <span className="muted">Perkiraan diterima sebelum pajak</span>
+                <span className="wa-mono wa-strong">{formatIdr((payoutAmt - payoutFeeGems) * rate)}</span>
+              </div>
+              <div className="wa-modal-row">
                 <span className="muted">Saldo tersisa</span>
                 <span className="wa-mono">{w.gemsMatured - payoutAmt} C-Gems</span>
               </div>
-              <div className="muted wa-modal-note">Dana dikunci setelah konfirmasi — dicairkan batch mingguan (Selasa 06:00 WIB).</div>
+              <div className="muted wa-modal-note">
+                C-Gems dikunci setelah konfirmasi. Penarikan ditargetkan diproses setiap Selasa yang merupakan hari kerja. Waktu penerimaan
+                bergantung pada bank dan pemeriksaan transaksi.
+              </div>
             </div>
             <LegalConsentCheckbox
               id="payout-legal-consent"
@@ -502,7 +514,7 @@ function WalletInner() {
                 Batal
               </button>
               <button className="btn-gold wa-btn-flex" onClick={onPayout} disabled={busyPayout || !payoutConsent}>
-                {busyPayout ? "Memproses…" : "Kunci Dana"}
+                {busyPayout ? "Memproses…" : "Ajukan penarikan"}
               </button>
             </div>
           </div>

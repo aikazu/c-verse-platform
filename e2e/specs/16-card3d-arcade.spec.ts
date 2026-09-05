@@ -74,7 +74,7 @@ test("context loss during artwork loading cannot be overwritten by a late respon
   const texture = page.waitForResponse("**/mock/v1/artworks/genesis.png");
   resume?.();
   await texture;
-  await expect(page.getByRole("alert")).toContainText("Viewer 3D tidak tersedia");
+  await expect(page.getByRole("alert")).toContainText("Tampilan 3D tidak tersedia");
   await expect(page.getByRole("button", { name: "Sisi depan", exact: true })).toBeDisabled();
 });
 
@@ -96,7 +96,7 @@ test("stalled artwork falls back to a usable neutral card and ignores a late ima
     await expect(page.locator(".c3d-stage")).toHaveAttribute("data-status", "loading");
     await page.clock.fastForward(16000);
     await expect(page.locator(".c3d-stage")).toHaveAttribute("data-status", "unavailable");
-    await expect(page.locator(".c3d-artwork-note")).toContainText("Model 3D netral ditampilkan");
+    await expect(page.locator(".c3d-artwork-note")).toContainText("tampilan 3D ditampilkan tanpa gambar");
     const canvas = page.locator(".c3d-canvas canvas");
     await expect(canvas).toHaveAttribute("data-rendered", "true");
     await page.getByRole("button", { name: "Sisi belakang", exact: true }).click();
@@ -143,7 +143,7 @@ test("unavailable WebGL shows a recoverable error without losing card identity",
     };
   });
   await page.goto(CARD_PATH);
-  await expect(page.getByRole("alert")).toContainText("Viewer 3D tidak tersedia");
+  await expect(page.getByRole("alert")).toContainText("Tampilan 3D tidak tersedia");
   await expect(page.getByRole("heading", { level: 1 })).toContainText("Genesis");
   await expect(page.getByRole("button", { name: "Sisi depan", exact: true })).toBeDisabled();
   await expect(page.getByRole("link", { name: "Detail & riwayat kartu" })).toBeVisible();
@@ -189,8 +189,8 @@ test("NFC status is authoritative and SUN parameters reach the API", async ({ pa
     });
   });
   await page.goto(`${CARD_PATH}?uid=test&ctr=01&c=proof&t=seal`);
-  await expect(page.getByRole("heading", { name: "Segel terindikasi berubah" })).toBeVisible();
-  await expect(page.getByText("Verified Card", { exact: true })).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Segel terdeteksi berubah" })).toBeVisible();
+  await expect(page.getByText("Keaslian terverifikasi", { exact: true })).toHaveCount(0);
   const params = new URLSearchParams(query);
   expect(Object.fromEntries(params)).toEqual({ uid: "test", ctr: "01", cmac: "proof", t: "seal" });
   await expect(page.locator(".c3d-metadata")).not.toContainText("KOLEKTOR");

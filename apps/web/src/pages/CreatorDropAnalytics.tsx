@@ -32,7 +32,7 @@ function CreatorDropAnalyticsInner() {
   if (isError || !data) {
     return (
       <div className="card card-pad">
-        <span className="eyebrow">Drop Analytics</span>
+        <span className="eyebrow">Analitik Drop</span>
         <p className="muted" style={{ marginTop: 8 }}>
           Drop tidak ditemukan atau bukan milik kamu.
         </p>
@@ -82,24 +82,24 @@ function CreatorDropAnalyticsInner() {
           <div className="cx-stat-value">
             {cards.sold} / {cards.total}
           </div>
-          <div className="cx-stat-sub">{pct}% sold</div>
+          <div className="cx-stat-sub">{pct}% terjual</div>
           <div className="progress" style={{ marginTop: 10, height: 4 }}>
             <div className="progress-fill" style={{ width: `${pct}%` }} />
           </div>
         </div>
         <div className="card card-pad cx-stat">
-          <span className="label">Inventory</span>
+          <span className="label">Stok tersedia</span>
           <div className="cx-stat-value">{cards.inventory}</div>
           <div className="cx-stat-sub">{cards.withBuyout} sedang dijual</div>
         </div>
         <div className="card card-pad gold cx-stat">
-          <span className="label cx-stat-label-gold">Creator Share (30% Primary)</span>
+          <span className="label cx-stat-label-gold">Bagian kreator (30% penjualan awal)</span>
           <div className="cx-stat-value">
             {revenue.creatorSharePrimaryCcoin} <span style={{ fontFamily: "var(--font-mono)", fontSize: 12 }}>C</span>
           </div>
           <div className="cx-stat-sub">{formatIdr(revenue.creatorSharePrimaryIdr)}</div>
           <div className="muted" style={{ fontSize: 11, marginTop: 6, lineHeight: 1.5 }}>
-            Share kamu dari primary 70/30. Secondary royalties tampil di{" "}
+            Bagian kamu dari penjualan awal 70/30. Royalti penjualan berikutnya tampil di{" "}
             <Link to="/creator/payouts" style={{ color: "var(--gold)" }}>
               Penarikan
             </Link>
@@ -109,15 +109,18 @@ function CreatorDropAnalyticsInner() {
       </div>
 
       <div className="card card-pad">
-        <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 10 }}>Ringkasan Revenue Primary</div>
+        <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 10 }}>Ringkasan penjualan awal</div>
         <div style={{ display: "flex", flexDirection: "column", gap: 8, fontSize: 12 }}>
           <Row label="Harga per kartu" value={`${drop.priceCCoin ?? drop.priceUnsignedCCoin ?? 0} C`} />
           <Row label="Kartu terjual" value={`${cards.sold} unit`} />
-          <Row label="Total revenue" value={formatIdr(revenue.soldIdr)} mono />
-          <Row label="Creator share (30%)" value={`${revenue.creatorSharePrimaryCcoin} C · ${formatIdr(revenue.creatorSharePrimaryIdr)}`} />
+          <Row label="Total penjualan" value={formatIdr(revenue.soldIdr)} mono />
+          <Row
+            label="Bagian kreator (30%)"
+            value={`${revenue.creatorSharePrimaryCcoin} C · ${formatIdr(revenue.creatorSharePrimaryIdr)}`}
+          />
         </div>
         <div className="muted" style={{ fontSize: 11, marginTop: 12, lineHeight: 1.5 }}>
-          Penarikan C-Gems diproses batch mingguan melalui halaman{" "}
+          Penarikan C-Gems diproses mingguan melalui halaman{" "}
           <Link to="/creator/payouts" style={{ color: "var(--gold)" }}>
             Penarikan
           </Link>

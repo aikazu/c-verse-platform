@@ -36,7 +36,7 @@ test.describe("Card QR fallback (/cards/:cardId)", () => {
     // judul drop — bukan sekadar "page loaded".
     await expect(page.locator(".ci-unit")).toBeVisible({ timeout: 10000 });
     await expect(page.locator(".ci-unit")).toContainText(/#\d+/);
-    await expect(page.locator("text=/Registered|Verified|Tamper/").first()).toBeVisible();
+    await expect(page.locator("text=/Terdaftar|Keaslian terverifikasi|Segel terdeteksi berubah/").first()).toBeVisible();
     await expect(page.locator(".ci-sub").first()).not.toHaveText("");
 
     // Ini halaman info QR-grade: menawarkan lanjut ke 3D, bukan merender 3D.

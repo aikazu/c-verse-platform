@@ -49,7 +49,7 @@ test.describe("KYC", () => {
     await page.locator("#kyc-selfie").setInputFiles(KYC_SELFIE_FIXTURE);
     await page.locator("button.btn-gold").click();
 
-    const consentModal = page.locator(".cfm-card", { hasText: "Kirim data verifikasi KYC?" });
+    const consentModal = page.locator(".cfm-card", { hasText: "Kirim data verifikasi identitas?" });
     await expect(consentModal.getByRole("link", { name: "Kebijakan Privasi" })).toHaveAttribute("href", "/legal/privacy");
     const submitButton = consentModal.getByRole("button", { name: "Setujui & Kirim" });
     await expect(submitButton).toBeDisabled();

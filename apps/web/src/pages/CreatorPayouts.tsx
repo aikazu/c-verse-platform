@@ -15,6 +15,21 @@ interface PayoutRow {
   requested_at: string;
 }
 
+function payoutTypeLabel(type: PayoutRow["type"]): string {
+  if (type === "creator_share") return "Bagian kreator";
+  if (type === "royalty") return "Royalti";
+  return "Hasil penjualan";
+}
+
+function payoutStatusLabel(status: string): string {
+  if (status === "disbursed" || status === "paid") return "Selesai";
+  if (status === "failed") return "Gagal";
+  if (status === "refunded") return "Dana dikembalikan";
+  if (status === "pending") return "Menunggu diproses";
+  if (status === "processing") return "Diproses";
+  return "Status belum tersedia";
+}
+
 // P0-4 (audit 2026-08-24): PG-CRT-04 — Riwayat payout + royalti secondary.
 // URL /api/creators/me/payouts mengembalikan daftar payout untuk user saat
 // ini (kreator). Tipe payout (creator_share / royalty) adalah 70/30 primary +
@@ -37,9 +52,9 @@ function CreatorPayoutsInner() {
   if (isError)
     return (
       <div className="card card-pad">
-        <span className="eyebrow">Payout</span>
+        <span className="eyebrow">Penarikan</span>
         <p className="muted" style={{ marginTop: 8 }}>
-          Gagal memuat payout.
+          Gagal memuat riwayat penarikan.
         </p>
         <button className="btn-ghost" onClick={() => refetch()}>
           Coba lagi
@@ -54,29 +69,26 @@ function CreatorPayoutsInner() {
       <PageHero channel="06D" channelLabel="KREATOR" title="Riwayat Penarikan" />
       <div className="grid-2" style={{ alignItems: "stretch" }}>
         <div className="card card-pad cx-stat">
-          <span className="label">Total C-Gems Dicairkan</span>
+          <span className="label">Total C-Gems Diajukan</span>
           <div className="cx-stat-value">
-            {totalCCoin} <span style={{ fontFamily: "var(--font-mono)", fontSize: 14, color: "var(--text-muted)" }}>C</span>
+            {totalCCoin} <span style={{ fontFamily: "var(--font-mono)", fontSize: 14, color: "var(--text-muted)" }}>C-Gems</span>
           </div>
         </div>
         <div className="card card-pad cx-stat">
-          <span className="label">Total Cair (IDR)</span>
+          <span className="label">Total pengajuan (rupiah)</span>
           <div className="cx-stat-value">{formatIdr(totalIdr)}</div>
           <div className="muted" style={{ fontSize: 11, marginTop: 6 }}>
-            Setelah withholding pajak + fee 1%
+            Setelah potongan yang tercatat pada pengajuan
           </div>
         </div>
       </div>
       <div className="card">
         <div className="cx-head">
-          <span className="cx-head-title">Daftar Payout — {list.length}</span>
+          <span className="cx-head-title">Daftar Penarikan — {list.length}</span>
         </div>
         {list.length === 0 ? (
           <div className="empty-arcade cx-drop-empty" role="status">
-            <div className="empty-icon" aria-hidden="true">
-              NO_PAYOUTS
-            </div>
-            <p className="empty-msg">Belum ada payout</p>
+            <p className="empty-msg">Belum ada penarikan</p>
           </div>
         ) : (
           <div className="table-wrap">
@@ -98,17 +110,17 @@ function CreatorPayoutsInner() {
                     </td>
                     <td>
                       <span className="pill pill-info" style={{ fontSize: 10 }}>
-                        {p.type === "creator_share" ? "Creator" : p.type === "royalty" ? "Royalty" : "Seller"}
+                        {payoutTypeLabel(p.type)}
                       </span>
                     </td>
                     <td style={{ fontWeight: 700, fontFamily: "var(--font-mono)", fontSize: 12 }}>{p.ccoin_amount} C</td>
                     <td style={{ fontFamily: "var(--font-mono)", fontSize: 12 }}>{formatIdr(p.idr_amount)}</td>
                     <td>
                       <span
-                        className={`pill ${p.status === "paid" ? "pill-success" : p.status === "failed" ? "pill-warn" : "pill-info"}`}
+                        className={`pill ${p.status === "disbursed" || p.status === "paid" ? "pill-success" : p.status === "failed" ? "pill-warn" : "pill-info"}`}
                         style={{ fontSize: 10 }}
                       >
-                        {p.status}
+                        {payoutStatusLabel(p.status)}
                       </span>
                     </td>
                   </tr>

@@ -24,10 +24,10 @@ type BadgeDetailDialogProps = {
 };
 
 function criterionText(criteria: BadgeCriteria | null): string {
-  if (!criteria) return "Kriteria lencana ini akan ditampilkan saat tersedia.";
+  if (!criteria) return "Syarat lencana ini akan ditampilkan saat tersedia.";
   const family = BADGE_FAMILIES.find((entry) => entry.id === criteria.family);
   const target = badgeProgressTarget(criteria);
-  if (criteria.type === "first_bid") return "Pasang penawaran pertama pada C.Card di Marketplace.";
+  if (criteria.type === "first_bid") return "Ajukan penawaran pertama melalui halaman detail kartu.";
   if (criteria.type === "single_bid_gt") return `Pasang satu penawaran di atas ${target - 1} C-Coin.`;
   if (criteria.type === "kyc_verified") return "Selesaikan verifikasi identitas akun.";
   return `Capai ${target.toLocaleString("id-ID")} ${family?.unit ?? "pencapaian"}.`;
@@ -44,7 +44,7 @@ function actionFor(criteria: BadgeCriteria | null, signedIn: boolean): { to: str
   if (criteria?.type === "kyc_verified")
     return signedIn ? { to: "/me/kyc", label: "Verifikasi akun" } : { to: "/login", label: "Masuk untuk verifikasi" };
   if (criteria?.type === "first_bid" || criteria?.type === "single_bid_gt") return { to: "/browse", label: "Jelajahi C.Card" };
-  return { to: BADGE_FAMILIES.find((family) => family.id === criteria?.family)?.href ?? "/browse", label: "Lanjutkan misi" };
+  return { to: BADGE_FAMILIES.find((family) => family.id === criteria?.family)?.href ?? "/browse", label: "Cari kartu" };
 }
 
 export function BadgeDetailDialog({
@@ -112,13 +112,13 @@ export function BadgeDetailDialog({
       </button>
       <BadgeEmblem badge={badge} size="hero" />
       <div className="badges-dialog__eyebrow">
-        {family?.title ?? "Special"} · {tier.name} Tier {tier.roman}
+        {family?.name ?? "Khusus"} · {tier.name} Tingkat {tier.roman}
       </div>
       <h2 id="badge-detail-title">{badge.name}</h2>
       <p id="badge-detail-description">{badge.description}</p>
       <dl className="badges-dialog__facts">
         <div>
-          <dt>Kriteria</dt>
+          <dt>Syarat</dt>
           <dd>{criterionText(criteria)}</dd>
         </div>
         <div>
@@ -144,7 +144,9 @@ export function BadgeDetailDialog({
         {!earned && !privateReady ? (
           <div>
             <dt>Status</dt>
-            <dd>{privateUnavailable ? "Belum dapat dibaca. Coba lagi dari galeri." : "Masuk untuk membaca kemajuan akun."}</dd>
+            <dd>
+              {privateUnavailable ? "Pencapaianmu belum bisa dimuat. Coba lagi dari galeri lencana." : "Masuk untuk melihat pencapaianmu."}
+            </dd>
           </div>
         ) : null}
       </dl>

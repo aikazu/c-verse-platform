@@ -47,7 +47,7 @@ test.describe("Secondary market", () => {
     await expect(page).toHaveURL(/\/cards\/card-aespa-live-02/);
 
     // Form bid hanya render untuk non-owner (CardInfo.tsx: user && !isOwnerDerived).
-    const bidInput = page.locator('input[aria-label="Jumlah tawaran C-Coin"]');
+    const bidInput = page.locator('input[aria-label="Jumlah penawaran C-Coin"]');
     await expect(bidInput).toBeVisible({ timeout: 10000 });
 
     // Idempoten antar-run: bid aktif sisa run sebelumnya (jika run sebelumnya
@@ -55,15 +55,15 @@ test.describe("Secondary market", () => {
     // Bid sisa bisa jadi segar (< 24 jam) → backdate dulu supaya cooldown lewat.
     // Toast difilter per-teks: toast sukses sebelumnya hidup 4 detik (TTL) sehingga
     // locator .toast-success polos bisa resolve >1 elemen (strict mode violation).
-    const cancelBtn = page.locator("button:has-text('Batalkan bid')");
+    const cancelBtn = page.locator("button:has-text('Batalkan penawaran')");
     if (await cancelBtn.isVisible()) {
       await backdateActiveBids("card-aespa-live-02", BACKDATE_HOURS);
       await page.reload();
       await cancelBtn.click();
       const cancelConfirm = page.locator(".cfm-card");
-      await expect(cancelConfirm).toContainText("Batalkan bid");
-      await cancelConfirm.locator("button:has-text('Batalkan bid')").click();
-      await expect(page.locator(".toast-success").filter({ hasText: "Bid dibatalkan" })).toBeVisible();
+      await expect(cancelConfirm).toContainText("Batalkan penawaran");
+      await cancelConfirm.locator("button:has-text('Batalkan penawaran')").click();
+      await expect(page.locator(".toast-success").filter({ hasText: "Penawaran dibatalkan" })).toBeVisible();
       await expect(cancelBtn).toBeHidden();
     }
 
@@ -77,18 +77,18 @@ test.describe("Secondary market", () => {
     const confirmBtn = confirmModal.locator("button:has-text('Tawar')");
     await expect(confirmBtn).toBeDisabled();
     await expect(confirmModal.getByRole("link", { name: "Syarat & Ketentuan" })).toHaveAttribute("href", "/legal/terms");
-    await confirmModal.getByRole("checkbox", { name: "Saya paham bid baru bisa dibatalkan setelah 24 jam." }).check();
+    await confirmModal.getByRole("checkbox", { name: "Saya paham penawaran baru bisa dibatalkan setelah 24 jam." }).check();
     await expect(confirmBtn).toBeEnabled();
     await confirmBtn.click();
     await expect(page.locator(".toast-success").filter({ hasText: "Penawaran 5 C terkirim" })).toBeVisible();
 
     const bidPanel = page.locator(".ci-bid-panel");
-    await expect(bidPanel).toContainText("BID KAMU");
+    await expect(bidPanel).toContainText("PENAWARANMU");
     await expect(bidPanel).toContainText("5 C");
 
     // Perilaku baru (founder 2026-09-01): bid segar terkunci oleh cooldown —
     // tombol cancel disabled + info statis "Bisa dibatalkan <datetime>".
-    await expect(page.locator("button:has-text('Batalkan bid')")).toBeDisabled();
+    await expect(page.locator("button:has-text('Batalkan penawaran')")).toBeDisabled();
     await expect(page.locator(".ci-cancel-note")).toContainText("Bisa dibatalkan");
 
     // Cleanup + teardown cooldown: backdate created_at -25 jam → reload →
@@ -97,12 +97,12 @@ test.describe("Secondary market", () => {
     // aktif demo tidak naik).
     await backdateActiveBids("card-aespa-live-02", BACKDATE_HOURS);
     await page.reload();
-    await expect(page.locator("button:has-text('Batalkan bid')")).toBeEnabled();
-    await page.locator("button:has-text('Batalkan bid')").click();
+    await expect(page.locator("button:has-text('Batalkan penawaran')")).toBeEnabled();
+    await page.locator("button:has-text('Batalkan penawaran')").click();
     const cancelConfirm = page.locator(".cfm-card");
-    await expect(cancelConfirm).toContainText("Batalkan bid");
-    await cancelConfirm.locator("button:has-text('Batalkan bid')").click();
-    await expect(page.locator(".toast-success").filter({ hasText: "Bid dibatalkan" })).toBeVisible();
+    await expect(cancelConfirm).toContainText("Batalkan penawaran");
+    await cancelConfirm.locator("button:has-text('Batalkan penawaran')").click();
+    await expect(page.locator(".toast-success").filter({ hasText: "Penawaran dibatalkan" })).toBeVisible();
     await expect(page.locator(".ci-bid-panel")).toBeHidden();
   });
 });

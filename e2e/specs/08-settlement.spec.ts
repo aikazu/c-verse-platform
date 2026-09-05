@@ -38,7 +38,7 @@ test.describe("Settlement (money flow)", () => {
     await expect(page).toHaveURL(/\/home/);
 
     expect(await readBalance(page)).toBe(balanceBefore - 28);
-    const holdRow = page.locator("tr", { hasText: "Escrow ditahan" }).filter({ hasText: "-28 C" });
+    const holdRow = page.locator("tr", { hasText: "Saldo ditahan sementara" }).filter({ hasText: "-28 C" });
     await expect(holdRow.first()).toBeVisible();
     await page.goto(`/drops/${RAFFLE_DROP}`);
     await expect(page.locator(".cm-phase-pill", { hasText: "Sudah ikut" })).toContainText("28 C");
@@ -65,7 +65,7 @@ test.describe("Settlement (money flow)", () => {
     await dialog.getByRole("checkbox").check();
     await confirmButton.click();
     await expect(page).toHaveURL(/\/orders\//);
-    await expect(page.locator(".toast-success", { hasText: "Checkout berhasil — 25 C · fisik tersimpan di vault" })).toBeVisible();
+    await expect(page.locator(".toast-success", { hasText: "Pembelian berhasil (25 C). Kartu disimpan di Vault." })).toBeVisible();
 
     expect(await readBalance(page)).toBe(balanceBefore - 25);
     await page.goto("/collection");

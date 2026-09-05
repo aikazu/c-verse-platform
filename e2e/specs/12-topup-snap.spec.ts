@@ -211,7 +211,7 @@ test.describe("Wallet top-up — real Midtrans Snap (sandbox)", () => {
     const balanceBefore = await readBalance(page);
     // Cap non-KYC 500 C: kalau seed demo sudah mentok, spec skip (bukan fail) —
     // webhook juga akan menolak kredit (TOPUP_CAP_EXCEEDED).
-    const amountSelect = page.locator('select[aria-label="Jumlah top-up C-Coin"]');
+    const amountSelect = page.locator('select[aria-label="Jumlah isi saldo C-Coin"]');
     const isKycApproved = (await amountSelect.locator('option[value="1000"]').count()) > 0;
     if (!isKycApproved && balanceBefore + TOPUP_AMOUNT_CCOIN > NON_KYC_CAP_CCOIN) {
       test.skip(
@@ -263,7 +263,7 @@ test.describe("Wallet top-up — real Midtrans Snap (sandbox)", () => {
     const ledgerRow = page
       .locator("table tbody tr")
       .filter({ hasText: `+${TOPUP_AMOUNT_CCOIN} C` })
-      .filter({ hasText: "Top-up" });
+      .filter({ hasText: "Isi saldo" });
     await expect(ledgerRow.first()).toBeVisible();
   });
 });

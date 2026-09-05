@@ -17,7 +17,7 @@ const KYC = { label: "Kebijakan KYC", to: "/legal/kyc" } as const;
 
 export const LEGAL_CONSENTS = {
   topup: {
-    label: "Saya paham C-Coin bersifat closed-loop dan tidak dapat diuangkan.",
+    label: "Saya paham C-Coin hanya bisa digunakan di C.Verse dan tidak dapat diuangkan.",
     documents: [TERMS, PRIVACY],
   },
   raffle: {
@@ -29,15 +29,15 @@ export const LEGAL_CONSENTS = {
     documents: [TERMS, SHIPPING],
   },
   bid: {
-    label: "Saya paham bid baru bisa dibatalkan setelah 24 jam.",
+    label: "Saya paham penawaran baru bisa dibatalkan setelah 24 jam.",
     documents: [TERMS],
   },
   listing: {
-    label: "Saya menyetujui publikasi harga dan skema settlement secondary market.",
+    label: "Saya menyetujui penayangan harga jual dan ketentuan penyelesaian transaksi antarkolektor.",
     documents: [TERMS],
   },
   acceptBid: {
-    label: "Saya menyetujui perpindahan kepemilikan dan settlement C-Gems.",
+    label: "Saya menyetujui perpindahan kepemilikan kartu dan penyelesaian pembayaran dalam C-Gems.",
     documents: [TERMS, SHIPPING],
   },
   shipout: {
@@ -45,15 +45,15 @@ export const LEGAL_CONSENTS = {
     documents: [SHIPPING, TERMS],
   },
   sellerVault: {
-    label: "Saya menyetujui verifikasi C.Card dan settlement setelah diterima Vault.",
+    label: "Saya menyetujui pemeriksaan C.Card dan penyelesaian pembayaran setelah kartu diterima di Vault.",
     documents: [SHIPPING, TERMS],
   },
   payout: {
-    label: "Saya menyetujui fee, verifikasi KYC, dan penguncian dana selama payout.",
+    label: "Saya menyetujui biaya, verifikasi identitas, dan penguncian dana selama proses penarikan.",
     documents: [TERMS, KYC, PRIVACY],
   },
   conversion: {
-    label: "Saya paham konversi C-Gems ke C-Coin bersifat satu arah dan final.",
+    label: "Saya paham penukaran C-Gems ke C-Coin tidak bisa dibatalkan dan C-Coin tidak bisa ditukar kembali ke C-Gems.",
     documents: [TERMS],
   },
   support: {
@@ -61,11 +61,11 @@ export const LEGAL_CONSENTS = {
     documents: [TERMS],
   },
   kyc: {
-    label: "Saya menyetujui pemrosesan data identitas untuk verifikasi KYC.",
+    label: "Saya menyetujui pemrosesan data identitas untuk verifikasi identitas (KYC).",
     documents: [KYC, PRIVACY],
   },
   dispute: {
-    label: "Saya menyatakan informasi dispute ini benar dan dapat dipertanggungjawabkan.",
+    label: "Saya menyatakan informasi laporan masalah ini benar dan dapat dipertanggungjawabkan.",
     documents: [TERMS],
   },
 } as const satisfies Record<string, LegalConsent>;

@@ -32,7 +32,7 @@ function DocumentMeta({ document }: { document: LegalDocument }) {
       <div>
         <dt>Diperbarui</dt>
         <dd>
-          <time dateTime="2026-09-04">{document.updated}</time>
+          <time dateTime={document.updatedAt}>{document.updated}</time>
         </dd>
       </div>
       <div>
@@ -106,7 +106,7 @@ function LegalHub() {
     <div className="legal-shell legal-hub">
       <header className="legal-hero">
         <h1>Pusat Legal</h1>
-        <p className="legal-lead">Syarat layanan, privasi, KYC, pengiriman, dan Vault.</p>
+        <p className="legal-lead">Syarat layanan, privasi, verifikasi identitas, pengiriman, dan penyimpanan kartu.</p>
       </header>
 
       <section className="legal-launch-notice" aria-labelledby="legal-readiness-title">
@@ -187,7 +187,7 @@ function LegalDocumentPage({ document }: { document: LegalDocument }) {
                 {section.title}
               </a>
             ))}
-            <a href="#sumber">Sumber hukum</a>
+            <a href="#sumber-hukum">Sumber hukum</a>
           </nav>
         </aside>
 
@@ -199,9 +199,9 @@ function LegalDocumentPage({ document }: { document: LegalDocument }) {
             </section>
           ))}
 
-          <section id="sumber" className="legal-sources">
+          <section id="sumber-hukum" className="legal-sources">
             <h2>Sumber hukum</h2>
-            <p>Rujukan berikut digunakan sebagai fondasi penyusunan. Tautan membuka sumber resmi di tab baru.</p>
+            <p>Peraturan yang menjadi rujukan dokumen ini. Tautan membuka sumber resmi di tab baru.</p>
             <ol>
               {document.sources.map((source) => (
                 <li key={source.label}>

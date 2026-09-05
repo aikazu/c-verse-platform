@@ -496,6 +496,26 @@
     padding: 8px 0 24px;
   }
 
+  .legal-document-title-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .legal-print {
+    align-self: flex-start;
+  }
+
+  .legal-meta-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .legal-card,
+  .legal-card:nth-child(1),
+  .legal-card:nth-child(2) {
+    grid-column: span 12;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .legal-card {
     transition: none;

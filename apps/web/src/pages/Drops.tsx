@@ -316,9 +316,9 @@ export default function Drops() {
           <option value="price">Harga Terendah</option>
         </select>
         <div className="toolbar-right">
-          <button className="refresh-btn" onClick={() => refetch()} aria-label="Refresh daftar drop" type="button">
+          <button className="refresh-btn" onClick={() => refetch()} aria-label="Muat ulang daftar drop" type="button">
             <span className="dot" aria-hidden="true" />
-            Refresh
+            Muat ulang
           </button>
         </div>
       </div>
@@ -357,9 +357,6 @@ export default function Drops() {
         <ErrorState onRetry={() => refetch()} label="Gagal memuat drop" />
       ) : !drops.length && !featured ? (
         <div className="empty-arcade">
-          <div className="empty-icon" aria-hidden="true">
-            NO_DATA
-          </div>
           <div className="empty-title">Belum ada drop di fase ini</div>
           <p className="empty-msg">Drop baru rilis tiap hari jam 12.00 WIB.</p>
         </div>
@@ -413,7 +410,7 @@ export default function Drops() {
                   </div>
                   {d.signedCount > 0 ? (
                     <div className="card-pills">
-                      <span className="pill pill-muted">✍ signed {d.signedCount}</span>
+                      <span className="pill pill-muted">✍ Signed {d.signedCount}</span>
                     </div>
                   ) : null}
                   <div className="card-creator">
@@ -460,7 +457,7 @@ function NextLaunchConsole({ d, now }: { d: ApiDrop; now: number }) {
         )}
       </div>
       <div className="next-launch-rail">
-        <span className="next-launch-eyebrow">PELUNCURAN BERIKUTNYA</span>
+        <span className="next-launch-eyebrow">{isLive ? "RAFFLE SEDANG DIBUKA" : "SEGERA RILIS"}</span>
         <div className="next-launch-title">{d.title}</div>
         <p className="next-launch-desc muted-clamp-2">{d.narrative}</p>
         <div className="card-pills">

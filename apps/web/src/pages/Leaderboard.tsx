@@ -104,7 +104,7 @@ export default function Leaderboard() {
       // Top 50" sengaja tidak ditampilkan daripada memfabrikasi angka
       // (menjumlahkan `score` akan menjumlahkan XP).
       return [
-        { key: "LV TERTINGGI", value: String(topLevel) },
+        { key: "LEVEL TERTINGGI", value: String(topLevel) },
         { key: "XP TERTINGGI", value: topXp.toLocaleString("id-ID") },
         { key: "KOLEKTOR", value: String(board.length) },
       ];
@@ -204,9 +204,6 @@ export default function Leaderboard() {
 
       {board.length === 0 ? (
         <div className="empty-arcade">
-          <div className="empty-icon" aria-hidden="true">
-            NO_PLAYERS
-          </div>
           <div className="empty-title">Belum ada kolektor di papan ini</div>
           <p className="empty-msg">
             {activeType === "xp"
@@ -219,7 +216,7 @@ export default function Leaderboard() {
       ) : (
         <>
           {topThree.length > 0 && (
-            <section className="podium" aria-label="Podium top 3 kolektor">
+            <section className="podium" aria-label="Tiga kolektor teratas">
               {topThree.map((e) => {
                 const tier = tierOf(e.tier);
                 const target = profileTarget(e);

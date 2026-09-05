@@ -53,7 +53,7 @@ function ManageCardsInner() {
     const hasExisting = card.buyoutPriceCcoin != null;
     if (raw === "") {
       if (!hasExisting) return; // tidak ada perubahan — memang belum dijual
-      if (!(await confirm({ title: "Hapus harga buyout?", danger: true, confirmLabel: "Hapus" }))) return;
+      if (!(await confirm({ title: "Hapus harga jual?", danger: true, confirmLabel: "Hapus" }))) return;
       setBusyId(card.id);
       try {
         await api.patchBuyout(card.id, null);
@@ -76,8 +76,8 @@ function ManageCardsInner() {
     if (
       !(await confirm({
         title: `Pasang harga ${v} C?`,
-        message: "Harga akan tampil sebagai penawaran buyout di secondary market.",
-        confirmLabel: "Publikasikan",
+        message: "C.Card akan ditawarkan di Marketplace dengan harga ini.",
+        confirmLabel: "Pasang harga",
         requireCheck: LEGAL_CONSENTS.listing,
       }))
     )
@@ -127,8 +127,8 @@ function ManageCardsInner() {
     // Konfirmasi: kartu berpindah kepemilikan dan tidak bisa dibatalkan (founder 2026-08-29).
     if (
       !(await confirm({
-        title: `Terima tawaran ${card.activeBid?.amountCCoin} C?`,
-        message: `Kartu pindah ke ${card.activeBid?.bidderName} (vault). Tidak bisa dibatalkan.`,
+        title: `Terima penawaran ${card.activeBid?.amountCCoin} C?`,
+        message: `Kepemilikan kartu beralih kepada ${card.activeBid?.bidderName}, dengan kartu fisik disimpan di Vault. Penjualan ini tidak bisa dibatalkan.`,
         confirmLabel: "Terima",
         danger: true,
         requireCheck: LEGAL_CONSENTS.acceptBid,
@@ -140,7 +140,7 @@ function ManageCardsInner() {
       // Vault-only accept (founder 2026-08-28): settle straight to vault, no
       // address — buyer requests shipping later via "Kirim dari Vault".
       await api.acceptBidOnCard(card.id);
-      push("Penawaran diterima — fisik disimpan di vault", "success");
+      push("Penawaran diterima — C.Card fisik disimpan di Vault", "success");
       refetch();
     } catch (e: unknown) {
       console.error("acceptBid gagal", e);
@@ -191,7 +191,7 @@ function ManageCardsInner() {
                 )}
                 {card.activeBid ? (
                   <span className="pill pill-success" style={{ fontSize: 10 }}>
-                    Tawaran {card.activeBid.amountCCoin} C
+                    Penawaran {card.activeBid.amountCCoin} C
                   </span>
                 ) : null}
               </div>
@@ -229,11 +229,11 @@ function ManageCardsInner() {
               {card.activeBid && (
                 <details className="ac-card-item">
                   <summary className="ac-card-summary">
-                    Terima Tawaran {card.activeBid.amountCCoin} C (dari {card.activeBid.bidderName})
+                    Terima Penawaran {card.activeBid.amountCCoin} C (dari {card.activeBid.bidderName})
                   </summary>
                   <div className="ac-card-body">
                     <div style={{ fontSize: 12, color: "var(--text-dim)" }}>
-                      C.Card masuk vault — pembeli minta kirim fisik kapan saja via &quot;Kirim dari Vault&quot;.
+                      C.Card fisik disimpan di Vault. Pembeli dapat meminta pengiriman fisik lewat &quot;Kirim dari Vault&quot;.
                     </div>
                     <button
                       className="btn-gold"

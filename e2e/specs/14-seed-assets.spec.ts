@@ -46,7 +46,7 @@ for (const [name, cardId, artwork] of [
     await page.goto(`/cards/${cardId}/3d`);
     expect((await texture).ok()).toBe(true);
     await expect(page.locator(".c3d-canvas canvas")).toBeVisible();
-    await expect(page.getByText("Memuat artwork C.Card…", { exact: true })).toHaveCount(0);
+    await expect(page.getByText("Memuat gambar kartu…", { exact: true })).toHaveCount(0);
     await expect(page.locator(".c3d-stage")).toHaveAttribute("data-status", "ready");
     expect(errors).toEqual([]);
   });
@@ -77,7 +77,7 @@ test("Aurora viewer requests its own CDN atlas and OBJ", async ({ page }, testIn
   expect((await texture).ok()).toBe(true);
   expect((await mesh).ok()).toBe(true);
   await expect(page.locator(".c3d-canvas canvas")).toBeVisible();
-  await expect(page.getByText("Memuat artwork C.Card…", { exact: true })).toHaveCount(0);
+  await expect(page.getByText("Memuat gambar kartu…", { exact: true })).toHaveCount(0);
   await expect(page.locator(".c3d-stage")).toHaveAttribute("data-status", "ready");
   expect(requested.some((url) => url.includes("karina"))).toBe(false);
   await page.screenshot({ path: testInfo.outputPath("aurora-3d.png"), fullPage: true });
@@ -90,7 +90,7 @@ test("failed Aurora atlas keeps a neutral mesh and never requests Karina", async
   await page.route(`${AURORA_ATLAS_URL}*`, (route) => route.abort("failed"));
   await page.goto(`/cards/${AURORA_CARD_ID}/3d`);
   await expect(page.locator(".c3d-canvas canvas")).toBeVisible();
-  await expect(page.locator(".c3d-artwork-note[role='status']")).toContainText("Artwork C.Card tidak dapat dimuat");
+  await expect(page.locator(".c3d-artwork-note[role='status']")).toContainText("Gambar kartu belum bisa dimuat");
   expect(requested.some((url) => url.includes("karina"))).toBe(false);
   await page.screenshot({ path: testInfo.outputPath("aurora-3d-unavailable.png"), fullPage: true });
 });
@@ -127,7 +127,7 @@ test("Genesis #8 renders after its CDN image was cached by a regular image", asy
   }, atlas);
   await page.goto("/cards/card-genesis-live-08/3d");
   await expect(page.locator(".c3d-canvas canvas")).toBeVisible();
-  await expect(page.getByText("Memuat artwork C.Card…", { exact: true })).toHaveCount(0);
+  await expect(page.getByText("Memuat gambar kartu…", { exact: true })).toHaveCount(0);
   await expect(page.locator(".c3d-stage"), errors.join("\n")).toHaveAttribute("data-status", "ready");
   expect(errors).toEqual([]);
   await page.screenshot({ path: testInfo.outputPath("genesis-08-3d-cached.png"), fullPage: true });
@@ -153,7 +153,7 @@ test("Karina viewer loads the R2 artwork without a bundled texture", async ({ pa
   await page.goto("/cards/card-aespa-live-08/3d");
   expect((await atlas).ok()).toBe(true);
   await expect(page.locator(".c3d-canvas canvas")).toBeVisible();
-  await expect(page.getByText("Memuat artwork C.Card…", { exact: true })).toHaveCount(0);
+  await expect(page.getByText("Memuat gambar kartu…", { exact: true })).toHaveCount(0);
   await expect(page.locator(".c3d-stage")).toHaveAttribute("data-status", "ready");
   expect(requests.some((url) => new URL(url).pathname === "/textures/karina.jpg")).toBe(false);
   await page.screenshot({ path: testInfo.outputPath("karina-r2-3d.png"), fullPage: true });

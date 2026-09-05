@@ -76,14 +76,14 @@ function HomeInner() {
             {pendingBidCount > 0 && (
               <Link to="/me/manage" className="hm-action-link">
                 <span className="hm-action-text">
-                  {pendingBidCount}/{MAX_BIDS} bid aktif — keluar/terima dari Kelola C.Card
+                  {pendingBidCount}/{MAX_BIDS} penawaran aktif — kelola di Kelola C.Card
                 </span>
                 <span className="hm-action-arrow">→</span>
               </Link>
             )}
             {vaultCards.length > 0 && (
               <Link to="/me/manage" className="hm-action-link">
-                <span className="hm-action-text">{vaultCards.length} C.Card di vault — bisa dikirim kapan saja</span>
+                <span className="hm-action-text">{vaultCards.length} C.Card disimpan di Vault — bisa dikirim kapan saja</span>
                 <span className="hm-action-arrow">→</span>
               </Link>
             )}

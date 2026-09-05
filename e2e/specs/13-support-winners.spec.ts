@@ -183,7 +183,7 @@ test.describe("Dukungan kreator & daftar pemenang drop", () => {
     expect(await rows.count()).toBeGreaterThanOrEqual(1);
     await expect(rows.first().locator(".dd-winner-unit")).toHaveText(/^#\d+$/);
     // Seed: unit 10 = kartu signed → baris Premium.
-    await expect(rows.filter({ hasText: "#10" }).first()).toContainText("Premium");
+    await expect(rows.filter({ hasText: "#10" }).first()).toContainText("Signed");
     await expect(rows.filter({ hasText: "#10" }).first().locator(".dd-winner-name")).not.toBeEmpty();
   });
 });

@@ -4,19 +4,20 @@ import "./landing.css";
 const STEPS = [
   {
     title: "Pilih drop",
-    description: "Ikuti raffle pada pool yang tersedia. Setelah undian, sisa unit dijual langsung.",
+    description: "Pilih jenis kartu, lalu ikuti undian pembelian (raffle). Setelah undian selesai, sisa kartu bisa dibeli langsung.",
     href: "/drops",
-    action: "Lihat drops",
+    action: "Lihat Drops",
   },
   {
     title: "Simpan di Vault",
-    description: "Pembelian masuk ke Vault. Ajukan pengiriman dari koleksi saat ingin menerima kartu fisik.",
+    description:
+      "Kartu yang kamu beli disimpan di Vault, tempat penyimpanan C.Verse. Ajukan pengiriman saat ingin menerima kartu fisiknya.",
     href: "/legal/shipping",
     action: "Ketentuan Vault",
   },
   {
-    title: "Jual atau ajukan bid",
-    description: "Beli dari kolektor di Marketplace, atau ajukan bid melalui halaman detail kartu.",
+    title: "Beli atau tawar kartu",
+    description: "Beli kartu dari kolektor lain di Marketplace, atau ajukan harga penawaran melalui halaman detail kartu.",
     href: "/marketplace",
     action: "Buka Marketplace",
   },
@@ -70,11 +71,11 @@ export default function Landing() {
               HOLO
             </text>
           </svg>
-          <figcaption>Kartu holo dalam pelindung acrylic, dengan chip NFC untuk pemeriksaan keaslian.</figcaption>
+          <figcaption>Kartu holografik dalam pelindung akrilik, dengan chip NFC untuk memeriksa keaslian.</figcaption>
         </figure>
       </section>
       <section className="landing-guide" aria-labelledby="landing-guide-title">
-        <h2 id="landing-guide-title">Alur koleksi</h2>
+        <h2 id="landing-guide-title">Cara mengoleksi C.Card</h2>
         <ol>
           {STEPS.map((step) => (
             <li key={step.href}>

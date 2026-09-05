@@ -55,13 +55,13 @@ function OrderDetailInner() {
   const isVault = o.deliveryOption === "vault" || (!o.shippingAddress && o.deliveryOption !== "shipping");
   async function onDispute() {
     if (disputeReason.trim().length < 10) {
-      push("Alasan dispute minimal 10 karakter", "info");
+      push("Jelaskan masalah dalam minimal 10 karakter", "info");
       return;
     }
     // D8: submit dispute = aksi tidak bisa dibatalkan — wajib konfirmasi in-app.
     if (
       !(await confirm({
-        title: "Kirim dispute untuk pesanan ini?",
+        title: "Kirim laporan masalah untuk pesanan ini?",
         confirmLabel: "Kirim",
         requireCheck: LEGAL_CONSENTS.dispute,
       }))
@@ -70,7 +70,7 @@ function OrderDetailInner() {
     setBusy(true);
     try {
       await api.openDispute(o.id, disputeReason.trim());
-      push("Dispute dibuat", "success");
+      push("Laporan masalah dikirim", "success");
       setDisputeOpen(false);
       setDisputeSent(true); // P1-5: hide tombol setelah submit agar tidak double-submit
       refetch();
@@ -130,7 +130,7 @@ function OrderDetailInner() {
         </div>
         {!isVault ? (
           <div className="od-timeline-block">
-            <div className="od-section-label">Timeline</div>
+            <div className="od-section-label">Status pesanan</div>
             <div className="od-timeline" role="list">
               {["paid", "qc", "shipped", "delivered", "settled"].map((s) => {
                 const isCurrent = o.status === s;
@@ -150,7 +150,7 @@ function OrderDetailInner() {
           </div>
         ) : (
           <div className="od-vault-note">
-            Disimpan di vault — tanpa tracking. Kelola di{" "}
+            Disimpan di Vault — tanpa nomor resi. Kelola di{" "}
             <Link to="/me/manage" className="od-link-gold">
               Kelola C.Card →
             </Link>
@@ -163,7 +163,7 @@ function OrderDetailInner() {
             {disputeOpen ? (
               <div className="od-form-col">
                 <label className="label" htmlFor="dispute-reason">
-                  Alasan dispute (min 10 karakter)
+                  Jelaskan masalah (minimal 10 karakter)
                 </label>
                 <textarea
                   id="dispute-reason"
@@ -178,20 +178,20 @@ function OrderDetailInner() {
                     Batal
                   </button>
                   <button className="btn-gold od-btn-sm" onClick={onDispute} disabled={busy}>
-                    {busy ? "Mengirim…" : "Kirim dispute"}
+                    {busy ? "Mengirim…" : "Kirim laporan"}
                   </button>
                 </div>
               </div>
             ) : (
               <button className="btn-ghost od-dispute-btn" onClick={() => setDisputeOpen(true)}>
-                Lapor masalah (dispute)
+                Laporkan masalah
               </button>
             )}
           </div>
         )}
         {disputeSent && (
           <div className="card card-pad od-dispute-sent" role="status">
-            <strong className="od-dispute-strong">Dispute terkirim</strong>
+            <strong className="od-dispute-strong">Laporan masalah terkirim</strong>
           </div>
         )}
         {cards.length > 0 && (

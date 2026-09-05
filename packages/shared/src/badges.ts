@@ -12,9 +12,23 @@ export const BADGE_FAMILIES = [
   { id: "devotee", name: "Loyalitas", title: "Devotee", metric: "creator_cards", unit: "kartu satu kreator", href: "/browse" },
   { id: "explorer", name: "Eksplorasi", title: "Explorer", metric: "creator_count", unit: "kreator berbeda", href: "/browse" },
   { id: "archivist", name: "Ragam Drop", title: "Archivist", metric: "drop_count", unit: "Drop berbeda", href: "/drops" },
-  { id: "autograph", name: "Signed", title: "Autograph", metric: "signed_count", unit: "kartu signed", href: "/browse" },
-  { id: "pioneer", name: "Primer", title: "Pioneer", metric: "primary_count", unit: "kartu primer unik", href: "/drops" },
-  { id: "trader", name: "Sekunder", title: "Voyager", metric: "secondary_count", unit: "kartu sekunder unik", href: "/marketplace" },
+  { id: "autograph", name: "Signed", title: "Autograph", metric: "signed_count", unit: "kartu bertanda tangan", href: "/browse" },
+  {
+    id: "pioneer",
+    name: "Pembelian di Drops",
+    title: "Pioneer",
+    metric: "primary_count",
+    unit: "kartu berbeda yang dibeli dari Drops",
+    href: "/drops",
+  },
+  {
+    id: "trader",
+    name: "Pembelian antarkolektor",
+    title: "Voyager",
+    metric: "secondary_count",
+    unit: "kartu berbeda yang dibeli dari kolektor lain",
+    href: "/marketplace",
+  },
   { id: "patron", name: "Dukungan", title: "Patron", metric: "support_creators", unit: "kreator didukung", href: "/browse" },
 ] as const;
 

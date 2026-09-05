@@ -46,7 +46,7 @@ function OrdersInner() {
             <thead>
               <tr>
                 <th>Pesanan</th>
-                <th>Drop</th>
+                <th>Drops</th>
                 <th>Total</th>
                 <th>Status</th>
                 <th>Opsi</th>
@@ -74,7 +74,7 @@ function OrdersInner() {
                     <td>
                       <StatusBadge status={o.status} kind="order" style={{ fontSize: 10 }} />
                     </td>
-                    <td className="od-td-opt">{o.deliveryOption ?? (o.shippingAddress ? "kirim" : "vault")}</td>
+                    <td className="od-td-opt">{o.deliveryOption === "vault" || !o.shippingAddress ? "Vault" : "Kirim fisik"}</td>
                   </tr>
                 ))
               )}

@@ -54,7 +54,7 @@ export default function Checkout() {
     pool === "premium" ? (drop.priceSignedCCoin ?? drop.priceCcoin ?? drop.priceUnsignedCCoin ?? AOV_UNSIGNED_CCOIN) : priceRegular;
   async function onCheckout() {
     if (!user) {
-      push("Silakan login dulu", "info");
+      push("Masuk untuk melanjutkan pembelian", "info");
       nav("/login");
       return;
     }
@@ -72,7 +72,7 @@ export default function Checkout() {
       // Vault-only purchase (founder 2026-08-28): settle straight to vault,
       // physical shipping requested later via ManageCards vault-shipout.
       const res = await api.checkout(drop.id, pool);
-      push(`Checkout berhasil — ${price} C · fisik tersimpan di vault`, "success");
+      push(`Pembelian berhasil (${price} C). Kartu disimpan di Vault.`, "success");
       nav(`/orders/${res.order.id}`);
     } catch (e: unknown) {
       // Raw server text tidak untuk user — catat di console, tampilkan fallback generik.
@@ -111,7 +111,7 @@ export default function Checkout() {
           </div>
           <div>
             <div className="label">TERSEDIA</div>
-            <div className="cm-summary-value-avail">{drop.totalUnits - drop.soldCount} unit</div>
+            <div className="cm-summary-value-avail">{drop.totalUnits - drop.soldCount} kartu</div>
           </div>
           <div>
             <div className="label cm-summary-label-gold">TOTAL</div>
@@ -122,7 +122,7 @@ export default function Checkout() {
       <div className="card card-pad">
         <div className="label cm-form-label">Penyimpanan</div>
         <div className="muted cm-panel-note">
-          C.Card fisik disimpan di vault platform — minta kirim kapan saja lewat{" "}
+          Kartu disimpan di Vault. Kamu bisa meminta pengiriman melalui{" "}
           <Link to="/me/manage" style={{ color: "var(--gold)" }}>
             Kelola C.Card
           </Link>

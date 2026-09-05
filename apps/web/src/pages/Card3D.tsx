@@ -33,12 +33,20 @@ function ControlIcon({ name }: { name: "rotate" | "pause" | "reset" | "expand" |
 
 function verificationInfo(data: ApiCard3dResponse) {
   if (data.card.verifyStatus === "tamper_detected")
-    return { tone: "danger", title: "Segel terindikasi berubah", detail: "Periksa kondisi fisik dan detail verifikasi kartu ini." };
+    return { tone: "danger", title: "Segel terdeteksi berubah", detail: "Periksa kondisi fisik dan detail verifikasi kartu ini." };
   if (data.verifiedBadge)
-    return { tone: "verified", title: data.verifiedBadge, detail: "Keaslian telah diperiksa melalui verifikasi NFC." };
+    return { tone: "verified", title: "Keaslian terverifikasi", detail: "Keaslian kartu telah diperiksa melalui chip NFC." };
   if (data.card.verifyStatus === "registered")
-    return { tone: "registered", title: "Terdaftar via QR", detail: "Tap NFC pada kartu fisik untuk memverifikasi keasliannya." };
-  return { tone: "pending", title: "Belum terverifikasi", detail: "Tap NFC pada kartu fisik untuk memverifikasi keasliannya." };
+    return {
+      tone: "registered",
+      title: "Terdaftar melalui QR",
+      detail: "Tempelkan kartu fisik ke ponsel yang mendukung NFC untuk memeriksa keasliannya.",
+    };
+  return {
+    tone: "pending",
+    title: "Belum terverifikasi",
+    detail: "Tempelkan kartu fisik ke ponsel yang mendukung NFC untuk memeriksa keasliannya.",
+  };
 }
 
 function CardInspection({ data }: { data: ApiCard3dResponse }) {
@@ -92,14 +100,14 @@ function CardInspection({ data }: { data: ApiCard3dResponse }) {
           <h1>{title}</h1>
         </div>
         <div className="c3d-dimension" aria-hidden="true">
-          3D<span>360° VIEW</span>
+          3D<span>TAMPILAN 360°</span>
         </div>
       </header>
       <div className="c3d-layout">
-        <section className="c3d-stage" aria-label="Inspeksi kartu" data-status={viewer.status}>
+        <section className="c3d-stage" aria-label="Tampilan kartu" data-status={viewer.status}>
           <div className="c3d-stage-rail">
             <h2>
-              <span /> Inspeksi 360°
+              <span /> Tampilan 360°
             </h2>
             <button type="button" aria-pressed={expanded} onClick={() => setExpanded(!expanded)}>
               <ControlIcon name="expand" />
@@ -112,7 +120,7 @@ function CardInspection({ data }: { data: ApiCard3dResponse }) {
               className="c3d-canvas"
               role="application"
               tabIndex={canControl ? 0 : -1}
-              aria-label={`Viewer 3D interaktif ${title}`}
+              aria-label={`Tampilan 3D interaktif ${title}`}
               aria-describedby="c3d-keyboard-help"
               onKeyDown={onViewerKeyDown}
             />
@@ -136,24 +144,24 @@ function CardInspection({ data }: { data: ApiCard3dResponse }) {
             {viewer.status === "loading" && (
               <div className="c3d-overlay" role="status">
                 <span className="c3d-orbit" />
-                <p>Memuat artwork C.Card…</p>
+                <p>Memuat gambar kartu…</p>
               </div>
             )}
             {viewer.status === "error" && (
               <div className="c3d-overlay" role="alert">
                 <ControlIcon name="expand" />
-                <h3>Viewer 3D tidak tersedia</h3>
-                <p>WebGL tidak tersedia atau koneksi grafis terputus. Muat ulang halaman atau buka detail kartu.</p>
+                <h3>Tampilan 3D tidak tersedia</h3>
+                <p>Browser belum bisa menampilkan kartu dalam 3D. Muat ulang halaman atau buka detail kartu.</p>
                 <Link to={`/cards/${card.id}`}>Lihat detail kartu →</Link>
               </div>
             )}
           </div>
           {viewer.status === "unavailable" && (
             <p className="c3d-artwork-note" role="status">
-              Artwork C.Card tidak dapat dimuat. Model 3D netral ditampilkan.
+              Gambar kartu belum bisa dimuat. Untuk sementara, tampilan 3D ditampilkan tanpa gambar.
             </p>
           )}
-          <div className="c3d-controls" role="group" aria-label="Kontrol viewer">
+          <div className="c3d-controls" role="group" aria-label="Kontrol tampilan 3D">
             <div className="c3d-face-controls">
               <button
                 type="button"
@@ -218,7 +226,7 @@ function CardInspection({ data }: { data: ApiCard3dResponse }) {
         </section>
         <aside className="c3d-dossier" aria-label="Identitas kartu">
           <div className="c3d-edition">
-            <p className="c3d-eyebrow">LIMITED EDITION</p>
+            <p className="c3d-eyebrow">EDISI TERBATAS</p>
             <div className="c3d-serial">
               <span>#</span>
               {String(card.unitNumber).padStart(2, "0")}
@@ -226,7 +234,7 @@ function CardInspection({ data }: { data: ApiCard3dResponse }) {
             </div>
             <div className="c3d-variants">
               <span>{card.variant === "signed" ? "Signed" : "Reguler"}</span>
-              {drop?.isSeed && <span className="c3d-seed">Seed 1-of-1</span>}
+              {drop?.isSeed && <span className="c3d-seed">Hanya 1 kartu</span>}
             </div>
           </div>
           <dl className="c3d-metadata">

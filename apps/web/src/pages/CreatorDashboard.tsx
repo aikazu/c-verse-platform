@@ -52,7 +52,7 @@ function CreatorDashboardInner() {
           <div className="cx-stat-value">{myDrops.reduce((n, d) => n + d.soldCount, 0)}</div>
         </div>
         <div className="card card-pad cx-stat">
-          <span className="label">EST. GMV</span>
+          <span className="label">ESTIMASI NILAI PENJUALAN</span>
           <div className="cx-stat-value-mono">
             {formatIdr(myDrops.reduce((n, d) => n + d.soldCount * ((d.priceCcoin ?? d.priceUnsignedCCoin) * 10000), 0))}
           </div>
@@ -67,9 +67,6 @@ function CreatorDashboardInner() {
         <div>
           {myDrops.length === 0 ? (
             <div className="empty-arcade cx-drop-empty" role="status">
-              <div className="empty-icon" aria-hidden="true">
-                NO_DROPS
-              </div>
               <div className="empty-title">Belum ada drop</div>
             </div>
           ) : (

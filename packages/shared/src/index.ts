@@ -555,8 +555,8 @@ export function shipmentStatusLabel(status: string): string {
 
 const CARD_LOCATION_LABELS: Record<string, string> = {
   platform_stock: "Stok platform",
-  platform_vault: "Di vault",
-  with_owner: "Dimiliki",
+  platform_vault: "Di Vault",
+  with_owner: "Pada pemilik",
 };
 export function cardLocationLabel(location: string): string {
   return labelFrom(CARD_LOCATION_LABELS, location);
@@ -572,21 +572,21 @@ export function kycStatusLabel(status: string): string {
 }
 
 const WALLET_TX_TYPE_LABELS: Record<string, string> = {
-  top_up: "Top-up",
-  topup: "Top-up",
+  top_up: "Isi saldo",
+  topup: "Isi saldo",
   checkout: "Pembelian",
-  escrow_hold: "Escrow ditahan",
-  escrow_release: "Escrow lepas",
-  settlement: "Settlement",
+  escrow_hold: "Saldo ditahan sementara",
+  escrow_release: "Penahanan saldo selesai",
+  settlement: "Penyelesaian transaksi",
   payout: "Penarikan",
-  payout_refund: "Refund penarikan",
+  payout_refund: "Pengembalian dana penarikan",
   royalty: "Royalti",
   refund: "Dana kembali",
   adjustment: "Penyesuaian",
   platform_buy: "Pembelian platform",
   platform_revenue: "Pendapatan platform",
-  seed_abort: "Refund seed",
-  vault_shipout: "Kirim dari vault",
+  seed_abort: "Pengembalian dana kartu Seed",
+  vault_shipout: "Kirim dari Vault",
   support: "Dukungan",
   convert: "Konversi ke C-Coin",
 };
@@ -618,11 +618,11 @@ export function dropEntryStatusLabel(status: string): string {
 
 const SHIPMENT_TYPE_LABELS: Record<string, string> = {
   primary_shipping: "Kirim ke alamat",
-  primary_vault: "Simpan di vault",
-  secondary_buyout: "Buyout — antar ke vault",
-  secondary_bid: "Bid diterima — antar ke vault",
-  vault_shipout: "Kirim dari vault",
-  secondary_seller_to_vault: "Kirim ke vault (verifikasi)",
+  primary_vault: "Simpan di Vault",
+  secondary_buyout: "Pembelian langsung — kirim ke Vault",
+  secondary_bid: "Penawaran diterima — kirim ke Vault",
+  vault_shipout: "Kirim dari Vault",
+  secondary_seller_to_vault: "Kirim ke Vault untuk pemeriksaan",
 };
 export function shipmentTypeLabel(type: string): string {
   return labelFrom(SHIPMENT_TYPE_LABELS, type);
@@ -630,16 +630,15 @@ export function shipmentTypeLabel(type: string): string {
 
 const SHIPMENT_TO_DEST_LABELS: Record<string, string> = {
   buyer_address: "alamat pembeli",
-  platform_vault: "vault",
+  platform_vault: "Vault",
 };
 export function shipmentToDestLabel(dest: string): string {
   return labelFrom(SHIPMENT_TO_DEST_LABELS, dest);
 }
 
-// Varian C.Card: signed = Premium (Signed), unsigned = Reguler — label yang
-// sama dipakai grup unit di halaman drop agar konsisten antar halaman.
+// Card variants use the same labels as the groups on the drop detail page.
 const CARD_VARIANT_LABELS: Record<string, string> = {
-  signed: "Premium (Signed)",
+  signed: "Signed",
   unsigned: "Reguler",
 };
 export function cardVariantLabel(variant: string): string {

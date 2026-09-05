@@ -23,12 +23,12 @@ async function readCardValue(page: Page, token: "C-Coin" | "C-Gems"): Promise<nu
   return parsed;
 }
 
-/** Parse angka chip "Bisa dicair · N" (= gemsMatured, Wallet.tsx). */
+/** Parse angka chip "Bisa dicairkan · N" (= gemsMatured, Wallet.tsx). */
 async function readMaturedChip(page: Page): Promise<number> {
   const chip = balanceCard(page, "C-Gems").locator(".pill-success");
   await expect(chip).toBeVisible({ timeout: 10000 });
-  const match = (await chip.textContent())?.match(/Bisa dicair\s*·\s*(\d+)/);
-  if (!match) throw new Error(`Chip "Bisa dicair" tidak terbaca: "${await chip.textContent()}"`);
+  const match = (await chip.textContent())?.match(/Bisa dicairkan\s*·\s*(\d+)/);
+  if (!match) throw new Error(`Chip "Bisa dicairkan" tidak terbaca: "${await chip.textContent()}"`);
   return Number.parseInt(match[1], 10);
 }
 
@@ -51,7 +51,7 @@ test.describe("Wallet", () => {
     // Top-up TIDAK lewat halaman terpisah — blok "Isi Saldo" inline di /wallet
     // (Wallet.tsx): title + select nominal + tombol "Isi N C →".
     await expect(page.locator("text=Isi Saldo").first()).toBeVisible({ timeout: 10000 });
-    await expect(page.locator('select[aria-label="Jumlah top-up C-Coin"]')).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('select[aria-label="Jumlah isi saldo C-Coin"]')).toBeVisible({ timeout: 10000 });
     await expect(page.locator("button[class*=wa-btn-block]")).toBeVisible();
   });
 
@@ -60,7 +60,7 @@ test.describe("Wallet", () => {
     await page.goto("/wallet");
 
     await page.locator("button[class*=wa-btn-block]").click();
-    const dialog = page.locator(".cfm-card", { hasText: "Top-up 50 C?" });
+    const dialog = page.locator(".cfm-card", { hasText: "Isi saldo 50 C?" });
     await expect(dialog).toBeVisible();
     await expect(dialog.getByRole("link", { name: "Syarat & Ketentuan" })).toHaveAttribute("href", "/legal/terms");
     await expect(dialog.getByRole("link", { name: "Kebijakan Privasi" })).toHaveAttribute("href", "/legal/privacy");
@@ -88,13 +88,13 @@ test.describe("Wallet", () => {
     await expect(page.getByText("hanya untuk kreator")).toHaveCount(0);
 
     // Messaging gate non-KYC (demo KYC-nya pending): cap saldo 500 C-Coin tampil.
-    await expect(page.locator("text=Cap saldo non-KYC").first()).toBeVisible();
+    await expect(page.getByText("Sebelum verifikasi, saldo setelah pengisian maksimal")).toBeVisible();
     await expect(page.locator("text=500 C-Coin").first()).toBeVisible();
 
     // Dual-token: kartu C-Gems tetap tampil untuk user biasa, tapi demo 0 gems →
     // blok konversi tidak dirender (gate `balanceGems > 0` di Wallet.tsx).
     await expect(page.locator("text=Saldo C-Gems").first()).toBeVisible();
-    await expect(page.locator("text=Konversi ke C-Coin")).toHaveCount(0);
+    await expect(page.locator("text=Tukar C-Gems ke C-Coin")).toHaveCount(0);
   });
 
   test("riwayat C-Gems: demo user 0 gems → section tampil dengan state kosong", async ({ page }) => {
@@ -133,14 +133,14 @@ test.describe("Wallet dual-token (C-Gems)", () => {
     const gemsCard = balanceCard(page, "C-Gems");
     await expect(gemsCard.locator(".wa-balance-value")).toHaveText(String(SEED_GEMS_MATURED));
     // Seed: semua lot matured → chip bisa-cair 45, chip terkunci absen.
-    await expect(gemsCard.locator(".pill-success")).toHaveText(/Bisa dicair\s*·\s*45$/);
+    await expect(gemsCard.locator(".pill-success")).toHaveText(/Bisa dicairkan\s*·\s*45$/);
     await expect(gemsCard.locator(".pill-warn", { hasText: "Terkunci" })).toHaveCount(0);
 
     // Blok konversi tampil (balanceGems > 0) + hint rate 1:1 + batas MAKS.
-    await expect(page.locator("text=Konversi ke C-Coin").first()).toBeVisible();
+    await expect(page.locator("text=Tukar C-Gems ke C-Coin").first()).toBeVisible();
     await expect(page.locator("text=1 C-Gems = 1 C-Coin")).toBeVisible();
     await expect(page.locator(".wa-min-label", { hasText: `MAKS ${SEED_GEMS_MATURED}` })).toBeVisible();
-    await expect(page.locator('input[aria-label="Jumlah konversi C-Gems"]')).toBeVisible();
+    await expect(page.locator('input[aria-label="Jumlah C-Gems yang ditukar"]')).toBeVisible();
 
     // Kreator: blok payout beroperasi pada C-Gems (dual-token), bukan C-Coin.
     await expect(page.locator("text=Tarik ke Rekening").first()).toBeVisible();
@@ -172,7 +172,12 @@ test.describe("Wallet dual-token (C-Gems)", () => {
     // Ledger gems 4 kolom (tanpa "Catatan" milik ledger C-Coin).
     await expect(gemsLedger.locator("thead th")).toHaveText(["Waktu", "Tipe", "Jumlah", "Saldo"]);
 
-    const labels: Record<string, string> = { royalty: "Royalti", settlement: "Settlement", support: "Dukungan", payout: "Penarikan" };
+    const labels: Record<string, string> = {
+      royalty: "Royalti",
+      settlement: "Penyelesaian transaksi",
+      support: "Dukungan",
+      payout: "Penarikan",
+    };
     for (const [index, transaction] of expectedRows.entries()) {
       const row = rows.nth(index);
       await expect(row.locator(".wa-td-amount")).toHaveText(`${transaction.amount > 0 ? "+" : ""}${transaction.amount} Gems`);
@@ -196,15 +201,17 @@ test.describe("Wallet dual-token (C-Gems)", () => {
 
     // Modal konfirmasi payout milik Wallet.tsx (P1-12) — ringkasan sebelum kunci dana.
     const payoutModal = page.getByRole("dialog");
-    await expect(payoutModal.locator("#payout-confirm-title")).toHaveText("Konfirmasi Payout");
+    await expect(payoutModal.locator("#payout-confirm-title")).toHaveText("Konfirmasi penarikan");
+    await expect(payoutModal.locator(".wa-modal-row", { hasText: "Biaya penarikan" })).toContainText("1 C-Gems");
+    await expect(payoutModal.locator(".wa-modal-row", { hasText: "Perkiraan diterima sebelum pajak" })).toContainText(/Rp\s*90\.000/);
     await expect(payoutModal.getByRole("link", { name: "Kebijakan KYC" })).toHaveAttribute("href", "/legal/kyc");
-    const payoutButton = payoutModal.getByRole("button", { name: "Kunci Dana" });
+    const payoutButton = payoutModal.getByRole("button", { name: "Ajukan penarikan" });
     await expect(payoutButton).toBeDisabled();
     await payoutModal.getByRole("checkbox").check();
     await expect(payoutButton).toBeEnabled();
     await payoutButton.click();
 
-    await expect(page.locator(".toast-success", { hasText: "Permintaan payout dibuat" })).toBeVisible({
+    await expect(page.locator(".toast-success", { hasText: "Permintaan penarikan dibuat" })).toBeVisible({
       timeout: 15000,
     });
 
@@ -213,7 +220,7 @@ test.describe("Wallet dual-token (C-Gems)", () => {
     await expect(balanceCard(page, "C-Gems").locator(".wa-balance-value")).toHaveText(String(gemsBefore - 10), {
       timeout: 15000,
     });
-    await expect(balanceCard(page, "C-Gems").locator(".pill-success")).toHaveText(new RegExp(`Bisa dicair\\s*·\\s*${gemsBefore - 10}$`));
+    await expect(balanceCard(page, "C-Gems").locator(".pill-success")).toHaveText(new RegExp(`Bisa dicairkan\\s*·\\s*${gemsBefore - 10}$`));
     await expect(balanceCard(page, "C-Coin").locator(".wa-balance-value")).toHaveText(String(ccoinBefore));
   });
 
@@ -224,21 +231,21 @@ test.describe("Wallet dual-token (C-Gems)", () => {
     const gemsBefore = await readCardValue(page, "C-Gems");
     const ccoinBefore = await readCardValue(page, "C-Coin");
 
-    await page.fill('input[aria-label="Jumlah konversi C-Gems"]', "5");
-    await page.getByRole("button", { name: "Konversi", exact: true }).click();
+    await page.fill('input[aria-label="Jumlah C-Gems yang ditukar"]', "5");
+    await page.getByRole("button", { name: "Tukar", exact: true }).click();
 
     // Konversi satu arah — wajib modal useConfirm (D8), bukan native confirm.
     const confirmModal = page.locator(".cfm-card");
     await expect(confirmModal).toBeVisible();
-    await expect(confirmModal.locator("#cfm-title")).toHaveText("Konversi 5 Gems?");
-    await expect(confirmModal).toContainText("Jadi 5 C-Coin — satu arah, tidak dapat dibalik.");
+    await expect(confirmModal.locator("#cfm-title")).toHaveText("Tukar 5 C-Gems ke C-Coin?");
+    await expect(confirmModal).toContainText("Kamu akan mendapat 5 C-Coin. Penukaran ini tidak bisa dibatalkan.");
     await expect(confirmModal.getByRole("link", { name: "Syarat & Ketentuan" })).toHaveAttribute("href", "/legal/terms");
-    const convertButton = confirmModal.getByRole("button", { name: "Konversi" });
+    const convertButton = confirmModal.getByRole("button", { name: "Tukar" });
     await expect(convertButton).toBeDisabled();
     await confirmModal.getByRole("checkbox").check();
     await convertButton.click();
 
-    await expect(page.locator(".toast-success", { hasText: "Konversi berhasil" })).toBeVisible({ timeout: 15000 });
+    await expect(page.locator(".toast-success", { hasText: "Penukaran berhasil. C-Coin masuk ke saldo." })).toBeVisible({ timeout: 15000 });
 
     // Rate 1:1 (docs/07): C-Coin +5, C-Gems -5.
     await expect(balanceCard(page, "C-Coin").locator(".wa-balance-value")).toHaveText(String(ccoinBefore + 5), {
@@ -283,7 +290,7 @@ test.describe("Wallet dual-token (C-Gems)", () => {
       await expect(gemsCard.locator(".wa-balance-value")).toHaveText(String(totalBefore + LOCKED_GEMS), {
         timeout: 15000,
       });
-      await expect(gemsCard.locator(".pill-success")).toHaveText(new RegExp(`Bisa dicair\\s*·\\s*${maturedBefore}$`));
+      await expect(gemsCard.locator(".pill-success")).toHaveText(new RegExp(`Bisa dicairkan\\s*·\\s*${maturedBefore}$`));
       const lockedChip = gemsCard.locator(".pill-warn", { hasText: "Terkunci" });
       await expect(lockedChip).toHaveText(new RegExp(`Terkunci\\s+\\d+ jam\\s*·\\s*${LOCKED_GEMS}$`));
     } finally {

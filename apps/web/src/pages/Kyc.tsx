@@ -80,8 +80,8 @@ function KycInner() {
     }
     if (
       !(await confirm({
-        title: "Kirim data verifikasi KYC?",
-        message: "Dokumen identitas akan diproses untuk verifikasi dan keamanan payout.",
+        title: "Kirim data verifikasi identitas?",
+        message: "Dokumen identitas akan diproses untuk verifikasi dan keamanan penarikan.",
         confirmLabel: "Setujui & Kirim",
         requireCheck: LEGAL_CONSENTS.kyc,
       }))
@@ -132,7 +132,7 @@ function KycInner() {
       </div>
       {kyc?.status !== "approved" && (
         <div className="card card-pad" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-          <div style={{ fontWeight: 600, fontSize: 14 }}>Ajukan Verifikasi</div>
+          <div style={{ fontWeight: 600, fontSize: 14 }}>Ajukan verifikasi identitas</div>
           <div className="form-row" style={{ marginBottom: 0 }}>
             <label className="label" htmlFor="kyc-fullname">
               Nama lengkap (sesuai KTP)
@@ -234,7 +234,7 @@ function KycInner() {
           </div>
           <div className="form-row" style={{ marginBottom: 0 }}>
             <label className="label" htmlFor="kyc-npwp">
-              NPWP (opsional — untuk withhold pajak 23)
+              NPWP (opsional — untuk pemotongan PPh 23)
             </label>
             <input
               id="kyc-npwp"

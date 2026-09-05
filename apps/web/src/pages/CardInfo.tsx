@@ -17,16 +17,16 @@ import "./cards.css";
 const GENERIC_ERROR = "Terjadi kesalahan, coba lagi";
 
 const VERIFY_BADGES: Record<string, { label: string; cls: string }> = {
-  verified: { label: "✓ Verified", cls: "pill pill-success" },
-  registered: { label: "Registered", cls: "pill pill-info" },
-  tamper_detected: { label: "⚠ Tamper Detected", cls: "pill pill-warn" },
+  verified: { label: "✓ Keaslian terverifikasi", cls: "pill pill-success" },
+  registered: { label: "Terdaftar", cls: "pill pill-info" },
+  tamper_detected: { label: "⚠ Segel terdeteksi berubah", cls: "pill pill-warn" },
   unknown: { label: "Belum terverifikasi", cls: "pill" },
 };
 
 const BUYOUT_ERRORS: Record<string, string> = {
   INSUFFICIENT: "Saldo tidak cukup",
   OWN_CARD: "C.Card ini milikmu sendiri",
-  COOLING_PERIOD_24H: "Blok rebuy 24 jam — C.Card yang baru kamu jual belum bisa dibeli kembali",
+  COOLING_PERIOD_24H: "Kartu yang baru kamu jual belum bisa dibeli kembali selama 24 jam",
   CREATOR_SELF_DEALING_30D: "Kreator tidak boleh membeli C.Card sendiri (30 hari)",
   CARD_NOT_TRADABLE: "C.Card ini tidak dapat diperdagangkan",
 };
@@ -139,7 +139,7 @@ export default function CardInfo() {
     if (
       !(await confirm({
         title: `Beli ${card.buyoutPriceCcoin} C?`,
-        message: "C.Card masuk vault — kirim fisik nanti via Kelola C.Card.",
+        message: "Kartu disimpan di Vault. Kamu bisa meminta pengiriman melalui Kelola C.Card.",
         confirmLabel: "Beli",
         requireCheck: LEGAL_CONSENTS.checkout,
       }))
@@ -150,7 +150,7 @@ export default function CardInfo() {
       // Vault-only purchase (founder 2026-08-28): settle straight to vault,
       // no destination/address at buy time — ship-out happens via ManageCards.
       await api.buyout(card.id, "platform_vault");
-      push(`C.Card dibeli — fisik disimpan di vault (${card.buyoutPriceCcoin} C)`, "success");
+      push(`Pembelian berhasil (${card.buyoutPriceCcoin} C). Kartu disimpan di Vault.`, "success");
       setBuyoutOpen(false);
       refetch();
     } catch (e) {
@@ -169,16 +169,16 @@ export default function CardInfo() {
     // Konfirmasi sebelum penahanan C-Coin dilepas (founder 2026-08-31: cancel bid
     // wajib confirm — aksi destruktif & irreversible, aturan D8).
     const ok = await confirm({
-      title: `Batalkan bid ${myActiveBid.amountCCoin} C?`,
+      title: `Batalkan penawaran ${myActiveBid.amountCCoin} C?`,
       message: "C-Coin yang ditahan akan dikembalikan ke saldomu. Tindakan ini tidak bisa dibatalkan.",
-      confirmLabel: "Batalkan bid",
+      confirmLabel: "Batalkan penawaran",
       danger: true,
     });
     if (!ok) return;
     setBusy(true);
     try {
       await api.cancelBid(myActiveBid.id);
-      push("Bid dibatalkan", "success");
+      push("Penawaran dibatalkan", "success");
       refetch();
     } catch (e) {
       const err = e instanceof ApiError ? e : null;
@@ -206,7 +206,7 @@ export default function CardInfo() {
       return;
     }
     if (activeBid && amt <= activeBid.amountCCoin) {
-      push(`Bid harus lebih tinggi dari ${activeBid.amountCCoin} C`, "info");
+      push(`Penawaran harus lebih tinggi dari ${activeBid.amountCCoin} C`, "info");
       return;
     }
     // Konfirmasi sebelum C-Coin ditahan (founder 2026-08-29: aksi spend wajib confirm)
@@ -214,7 +214,8 @@ export default function CardInfo() {
     if (
       !(await confirm({
         title: `Tawar ${amt} C?`,
-        message: "C-Coin ditahan sampai bid kalah atau dibatalkan.",
+        message:
+          "Saldo ditahan selama penawaran aktif. Jika diterima, saldo dipakai untuk pembelian. Jika ada penawaran lebih tinggi atau kamu membatalkannya, saldo dikembalikan.",
         confirmLabel: "Tawar",
         requireCheck: LEGAL_CONSENTS.bid,
       }))
@@ -253,7 +254,7 @@ export default function CardInfo() {
                 #{card.unitNumber} <em>· {cardVariantLabel(card.variant)}</em>
               </div>
               <span className={`${verifyBadge.cls} ci-badge-sm`}>{verifyBadge.label}</span>
-              {drop?.isSeed && <span className="badge-seed ci-badge-sm">✦ Seed 1-of-1</span>}
+              {drop?.isSeed && <span className="badge-seed ci-badge-sm">✦ Hanya 1 kartu</span>}
             </div>
             <div className="muted ci-sub">{drop?.title ?? ""}</div>
             <Link to={`/cards/${card.id}/3d`} className="btn-gold ci-view-3d">
@@ -295,12 +296,12 @@ export default function CardInfo() {
                   <div className="ci-price-val">{card.buyoutPriceCcoin} C</div>
                   {canBuyout && !buyoutOpen && (
                     <button className="btn-gold ci-buy-btn" onClick={() => setBuyoutOpen(true)}>
-                      Beli di harga buyout
+                      Beli langsung
                     </button>
                   )}
                   {canBuyout && buyoutOpen && (
                     <div className="ci-form">
-                      <div className="muted ci-note">C.Card masuk vault — kirim fisik nanti via Kelola C.Card.</div>
+                      <div className="muted ci-note">Kartu disimpan di Vault. Kamu bisa meminta pengiriman melalui Kelola C.Card.</div>
                       <div className="ci-actions">
                         <button className="btn-ghost ci-btn-sm" onClick={() => setBuyoutOpen(false)} disabled={busy}>
                           Batal
@@ -315,14 +316,14 @@ export default function CardInfo() {
               ) : null}
               {activeBid && (
                 <div className="ci-bid-panel">
-                  <span className="label ci-label-gold">{myActiveBid ? "BID KAMU — TERTINGGI" : "TAWARAN TERTINGGI"}</span>
+                  <span className="label ci-label-gold">{myActiveBid ? "PENAWARANMU TERTINGGI" : "PENAWARAN TERTINGGI"}</span>
                   <div className="ci-bid-amt">
                     {activeBid.amountCCoin} C <span className="ci-bid-by">oleh {activeBid.bidderName}</span>
                   </div>
                   {myActiveBid && (
                     <>
                       <button className="btn-ghost ci-cancel-btn" onClick={onCancelBid} disabled={busy || isCancelLocked}>
-                        {busy ? "Memproses…" : "Batalkan bid"}
+                        {busy ? "Memproses…" : "Batalkan penawaran"}
                       </button>
                       {isCancelLocked && <div className="ci-cancel-note">Bisa dibatalkan {canCancelLabel}</div>}
                     </>
@@ -336,8 +337,8 @@ export default function CardInfo() {
                       className="input"
                       type="number"
                       min={nextMinBid}
-                      aria-label="Jumlah tawaran C-Coin"
-                      placeholder={`min ${nextMinBid} C`}
+                      aria-label="Jumlah penawaran C-Coin"
+                      placeholder={`Minimal ${nextMinBid} C`}
                       value={bidAmount}
                       onChange={(e) => setBidAmount(e.target.value)}
                       disabled={busy}

@@ -166,7 +166,7 @@ export default function AuthForm() {
 
         {!isSupabaseAuth && (
           <div className="muted" style={{ fontSize: 12 }}>
-            Supabase belum terkonfigurasi — set VITE_SUPABASE_URL & VITE_SUPABASE_ANON_KEY untuk masuk.
+            Layanan masuk belum tersedia. Silakan coba lagi nanti.
           </div>
         )}
 
@@ -208,7 +208,7 @@ export default function AuthForm() {
               disabled={busy || !isSupabaseAuth || (isTurnstileEnabled && !captchaToken)}
               style={{ padding: "12px", width: "100%" }}
             >
-              {busy ? "Memproses…" : "Kirim kode OTP (email)"}
+              {busy ? "Memproses…" : "Kirim kode masuk ke email"}
             </button>
           </form>
         ) : (

@@ -15,6 +15,7 @@ Every `PageHero` prop, nav label, and empty-state string must use these values �
 | `/browse` | `03` | `JELAJAHI` | **Jelajahi** | Jelajahi |
 | `/leaderboard` | `04` | `PERINGKAT` | **Peringkat** | Peringkat |
 | `/u/:username` | `05` | `PROFIL` | `{displayName}` | — |
+| `/badges` | `06` | `LENCANA` | **Lencana** | Lencana |
 | `/c/:username` | `06A` | `KREATOR` | `{displayName}` | — |
 | `/creator` | `06B` | `KREATOR` | **Dasbor Kreator** | Dasbor Kreator |
 | `/creator/drops/:id` | `06C` | `KREATOR` | `{drop.title}` | — |
@@ -52,7 +53,48 @@ Rules:
 | Order table | **Pesanan** | `<th>Order</th>` → `Pesanan`. |
 | Currency | **C** (inline), **C-Coin** (balance label) | Consistent: `1 C = Rp…`, never mixed `C`/`C-Coin` in same card without reason. |
 | Earnings balance | **C-Gems** | Saldo penghasilan (hasil jual, royalti, Dukungan diterima) — separate from C-Coin (saldo belanja); non-transferable. |
-| Gem lock status | **Bisa dicair** / **Terkunci 24 jam** | Status lot C-Gems; Penarikan hanya untuk lot **Bisa dicair**. |
+| Gem lock status | **Bisa dicairkan** / **Terkunci 24 jam** | Status lot C-Gems; Penarikan hanya untuk lot **Bisa dicairkan**. |
+| Harga Marketplace | **Harga jual**, **Harga terendah**, **Harga tertinggi** | Tombol pembelian: **Beli langsung**. Hindari `buyout` dan terjemahan `floor` menjadi `Lantai`. |
+| Penawaran harga | **Penawaran**, **Tawar**, **Terima penawaran**, **Batalkan penawaran** | Ganti `bid` dan `outbid` dengan tindakan atau keadaan yang dijelaskan langsung. |
+| Pilihan kartu | **Pilih jenis kartu** | Ganti `Pilih Pool`; jelaskan Reguler tanpa tanda tangan dan Signed dengan tanda tangan kreator. |
+| Isi saldo | **Isi saldo** | Gunakan untuk `top-up` pada tombol, konfirmasi, dan riwayat transaksi. |
+| Penukaran saldo | **Tukar C-Gems ke C-Coin**, **Tukar** | Jelaskan bahwa penukaran tidak bisa dibatalkan. |
+| Status transaksi | **Saldo ditahan sementara**, **Penahanan saldo selesai**, **Penyelesaian transaksi** | Padanan label `escrow_hold`, `escrow_release`, dan `settlement`; nilai API tidak berubah. |
+| Kategori lencana | **Kategori**, **Tingkat**, **Syarat** | Hindari `keluarga`, `tier`, `kabinet prestasi`, dan `misi` untuk label navigasi atau tindakan. Nama lencana dan tingkat tetap mengikuti katalog. |
+| Pemeriksaan kartu | **Terdaftar**, **Keaslian terverifikasi**, **Segel terdeteksi berubah** | Terdaftar melalui QR tidak membuktikan keaslian. Gambar yang berhasil dimuat juga bukan bukti verifikasi NFC. |
+| Pemutakhiran daftar | **Muat ulang** | Ganti `Refresh` pada tombol dan label aksesibilitas. |
+
+## Bahasa yang mudah dipahami
+
+Keputusan bahasa UI, 2026-09-05: gunakan bahasa Indonesia yang umum, singkat,
+dan langsung menjelaskan data atau tindakan. Hindari jargon pasar, istilah
+internal sistem, terjemahan harfiah, serta slogan yang tidak membantu pengguna.
+
+- Nama produk seperti C.Card, Drops, Marketplace, Vault, C-Coin, dan C-Gems
+  tetap dipakai. Jelaskan istilah yang belum umum saat pertama dibutuhkan:
+  Raffle adalah undian pembelian; Vault adalah tempat penyimpanan kartu C.Verse.
+- Ringkasan Marketplace memuat jumlah kartu yang ditampilkan dan rentang
+  harganya. Median dihapus dari ringkasan, bukan diganti menjadi rata-rata.
+  Label **Termurah** mengacu pada urutan harga kartu yang sudah dimuat.
+- Teks keadaan kosong menjelaskan hasil dan langkah berikutnya. Hindari kode
+  dekoratif seperti `NO_LISTINGS` dan klaim jadwal rilis yang tidak didukung data.
+- Teks konfirmasi menjelaskan dampak pada kartu atau saldo dengan bahasa umum.
+  Penyederhanaan bahasa tidak mengubah biaya, batas, masa tunggu, persetujuan,
+  atau aturan transaksi.
+- Istilah teknis tetap boleh digunakan dalam kode, API, log, dan dokumen teknis.
+  Jangan menampilkan nama variabel, token pembayaran, atau kode internal sebagai
+  petunjuk bagi pengguna.
+- Halaman publik, termasuk dokumen legal, tidak memuat fase pengembangan
+  (`MVP`, `Y1`, `Y2`), target perekrutan kreator, jumlah minimum pengikut,
+  atau panduan kerja internal. Ketentuan kreator menjelaskan kerja sama,
+  lisensi, pembagian pendapatan, dan kewajiban yang relevan bagi kreator.
+- Status legal belum final dan data identitas operator yang belum tersedia
+  tetap ditampilkan sampai data sah tersedia. Tanggal pembaruan naskah tidak
+  berarti dokumen sudah berlaku.
+- Teks keuangan harus sesuai perhitungan sistem: biaya penarikan 1% dibulatkan
+  ke atas ke C-Gems utuh; ringkasan konfirmasi menampilkan biaya dan perkiraan
+  penerimaan. Batas 500 C-Coin sebelum verifikasi diterapkan saat isi saldo,
+  bukan menghapus hak atas pengembalian dana atau penukaran C-Gems.
 
 ## Redundancy rule
 
@@ -67,5 +109,6 @@ claims. Space Arcade is a visual direction, not a reason to rename product actio
 
 ## Sumber
 
+- Arahan pemilik dan peninjauan bahasa halaman publik, akun, transaksi, serta kreator, 2026-09-05.
 - Implementasi PageHero, AuthForm, dan viewer C.Card, ditinjau 2026-09-05.
 - [Peta halaman](02_pages.md) dan [keputusan teknis](06_tech_decisions.md).

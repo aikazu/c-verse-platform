@@ -246,7 +246,7 @@ test.describe("Secondary transfer — accept-bid & buyout (F6/F7)", () => {
     await page.goto(`/cards/${BID_CARD_ID}`);
     await expect(page).toHaveURL(`http://localhost:5173/cards/${BID_CARD_ID}`);
 
-    const bidInput = page.locator('input[aria-label="Jumlah tawaran C-Coin"]');
+    const bidInput = page.locator('input[aria-label="Jumlah penawaran C-Coin"]');
     await expect(bidInput).toBeVisible({ timeout: 10000 });
     await bidInput.fill(String(bidAmount));
     await page.locator("button:has-text('Tawar')").first().click();
@@ -280,11 +280,11 @@ test.describe("Secondary transfer — accept-bid & buyout (F6/F7)", () => {
     // Surface owner: incoming bid terlihat + modal konfirmasi wajib (D8) muncul.
     await rivalEntry
       .locator("summary")
-      .filter({ hasText: `Terima Tawaran ${bidAmount} C` })
+      .filter({ hasText: `Terima Penawaran ${bidAmount} C` })
       .click();
     await rivalEntry.locator("button:has-text('Terima →')").click();
     const acceptConfirm = rivalPage.locator(".cfm-card");
-    await expect(acceptConfirm).toContainText(`Terima tawaran ${bidAmount} C?`);
+    await expect(acceptConfirm).toContainText(`Terima penawaran ${bidAmount} C?`);
     const acceptButton = acceptConfirm.locator("button:has-text('Terima')");
     await expect(acceptButton).toBeDisabled();
     await acceptConfirm.getByRole("checkbox").check();
@@ -371,7 +371,7 @@ test.describe("Secondary transfer — accept-bid & buyout (F6/F7)", () => {
     await rivalEntry.locator('input[aria-label="Harga jual C-Coin"]').fill(String(buyoutPrice));
     await rivalEntry.locator("button:has-text('Simpan')").click();
     const listingConfirm = rivalPage.locator(".cfm-card", { hasText: `Pasang harga ${buyoutPrice} C?` });
-    const listingButton = listingConfirm.getByRole("button", { name: "Publikasikan" });
+    const listingButton = listingConfirm.getByRole("button", { name: "Pasang harga" });
     await expect(listingButton).toBeDisabled();
     await listingConfirm.getByRole("checkbox").check();
     await listingButton.click();
@@ -395,7 +395,7 @@ test.describe("Secondary transfer — accept-bid & buyout (F6/F7)", () => {
 
     const pricePanel = page.locator(".ci-price-panel");
     await expect(pricePanel).toContainText(`${buyoutPrice} C`);
-    await page.locator("button:has-text('Beli di harga buyout')").click();
+    await page.locator("button:has-text('Beli langsung')").click();
     await page.locator(`button:has-text('Beli ${buyoutPrice} C')`).click();
     const buyConfirm = page.locator(".cfm-card");
     await expect(buyConfirm).toContainText(`Beli ${buyoutPrice} C?`);
@@ -403,7 +403,7 @@ test.describe("Secondary transfer — accept-bid & buyout (F6/F7)", () => {
     await expect(buyButton).toBeDisabled();
     await buyConfirm.getByRole("checkbox").check();
     await buyButton.click();
-    await expect(page.locator(".toast-success").filter({ hasText: "C.Card dibeli" })).toBeVisible();
+    await expect(page.locator(".toast-success").filter({ hasText: "Pembelian berhasil" })).toBeVisible();
 
     // Saldo demo via UI: -harga buyout persis.
     await page.goto("/wallet");
