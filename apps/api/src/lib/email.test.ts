@@ -28,9 +28,7 @@ function makeBinding(): SendEmailBinding & { send: ReturnType<typeof vi.fn> } {
 }
 
 function enabledEnv(overrides: Partial<EmailBindings> = {}): EmailBindings {
-  const g = globalThis as unknown as Record<string, string | undefined>;
-  g.EMAIL_ENABLED = "true";
-  return { EMAIL: makeBinding(), EMAIL_FROM: "no-reply@c-verse.co", ...overrides };
+  return { EMAIL_ENABLED: "true", EMAIL: makeBinding(), EMAIL_FROM: "no-reply@c-verse.co", ...overrides };
 }
 
 describe("lib/email sendEmail (Cloudflare Email Service binding)", () => {
@@ -61,14 +59,13 @@ describe("lib/email sendEmail (Cloudflare Email Service binding)", () => {
     expect(logged).toMatch(/^.*s\*+@gmail\.com\b/);
   });
 
-  it("EMAIL_ENABLED=false eksplisit -> tetap { sent:false }", async () => {
+  it("EMAIL_ENABLED=false pada binding Worker -> tetap { sent:false }", async () => {
     resetEnv();
-    (globalThis as unknown as Record<string, string | undefined>).EMAIL_ENABLED = "false";
-    const res = await sendEmail({ to: "creator@example.com", subject: "s", text: "t", html: "<p>t</p>" });
+    const res = await sendEmail({ to: "creator@example.com", subject: "s", text: "t", html: "<p>t</p>" }, { EMAIL_ENABLED: "false" });
     expect(res).toEqual({ sent: false, reason: "email_disabled" });
   });
 
-  it("enabled + binding -> send dipanggil dengan from { email: EMAIL_FROM, name: 'C.Verse' } + text + html", async () => {
+  it("EMAIL_ENABLED dari binding Worker tanpa global -> send dipanggil dengan from { email: EMAIL_FROM, name: 'C.Verse' } + text + html", async () => {
     const env = enabledEnv();
     const infoSpy = vi.spyOn(console, "info").mockImplementation(() => undefined);
     const binding = env.EMAIL as SendEmailBinding & { send: ReturnType<typeof vi.fn> };
@@ -109,8 +106,6 @@ describe("lib/email sendEmail (Cloudflare Email Service binding)", () => {
   });
 
   it("enabled + binding tidak tersedia (Node dev) -> payload di-log, reason 'email_binding_unavailable'", async () => {
-    const g = globalThis as unknown as Record<string, string | undefined>;
-    g.EMAIL_ENABLED = "true";
     const infoSpy = vi.spyOn(console, "info").mockImplementation(() => undefined);
     const res = await sendEmail(
       {
@@ -121,7 +116,7 @@ describe("lib/email sendEmail (Cloudflare Email Service binding)", () => {
         text: "login dengan email ini: secretperson@gmail.com",
         html: "<p>login dengan email ini: <strong>secretperson@gmail.com</strong></p>",
       },
-      { EMAIL_FROM: "no-reply@c-verse.co" },
+      { EMAIL_ENABLED: "true", EMAIL_FROM: "no-reply@c-verse.co" },
     );
     expect(res).toEqual({ sent: false, reason: "email_binding_unavailable" });
     const logged = infoSpy.mock.calls.map((c) => String(c[0] ?? "")).join("\n");

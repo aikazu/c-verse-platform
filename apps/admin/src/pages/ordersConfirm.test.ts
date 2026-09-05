@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { shipmentConfirmOptions } from "./Orders";
+import { shipmentActionsForStatus, shipmentConfirmOptions, shipmentDestination } from "./Orders";
 
 // Pure-logic tests untuk opsi konfirmasi D8 transisi pengiriman
 // (pola kycRows.test.ts). Import Orders.tsx aman tanpa DOM — modul level
@@ -25,5 +25,18 @@ describe("shipmentConfirmOptions", () => {
 
   it("transisi tanpa aksi admin -> null (tanpa modal)", () => {
     expect(shipmentConfirmOptions("unknown_status", undefined)).toBeNull();
+  });
+
+  it("aksi ditentukan langsung dari status shipment, tanpa order terkait", () => {
+    expect(shipmentActionsForStatus("requested")).toEqual(["packed", "cancelled", "shipped"]);
+    expect(shipmentActionsForStatus("packed")).toEqual(["shipped", "cancelled"]);
+    expect(shipmentActionsForStatus("shipped")).toEqual(["delivered"]);
+    expect(shipmentActionsForStatus("delivered")).toEqual([]);
+    expect(shipmentActionsForStatus("cancelled")).toEqual([]);
+  });
+
+  it("menampilkan tujuan shipment dari destination dan alamat operasional", () => {
+    expect(shipmentDestination({ to_dest: "platform_vault", address: null })).toBe("platform_vault");
+    expect(shipmentDestination({ to_dest: "buyer_address", address: { street: "Jl. C.Verse 1" } })).toBe("buyer_address · Jl. C.Verse 1");
   });
 });

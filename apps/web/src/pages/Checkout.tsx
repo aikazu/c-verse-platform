@@ -5,7 +5,8 @@ import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom"
 import { useConfirm } from "../components/ConfirmProvider";
 import { LEGAL_CONSENTS } from "../components/LegalConsentCheckbox";
 import { PageHero } from "../components/PageHero";
-import { api, ccoinToIdr, formatIdr } from "../lib/api";
+import type { ApiDropCardRow } from "../lib/api";
+import { ApiError, api, ccoinToIdr, formatIdr } from "../lib/api";
 import type { ApiDrop, ApiDropDetailResponse } from "../lib/api-types";
 import { useAuth } from "../lib/auth";
 import { useToast } from "../lib/toast";
@@ -22,9 +23,14 @@ export default function Checkout() {
   const nav = useNavigate();
   const confirm = useConfirm();
   const [buying, setBuying] = useState(false);
-  const { data, isLoading } = useQuery<ApiDropDetailResponse>({
+  const { data, isLoading, isError } = useQuery<ApiDropDetailResponse>({
     queryKey: ["drop", id],
     queryFn: () => api.drop(id!),
+    enabled: !!id,
+  });
+  const cardsQuery = useQuery<{ cards: ApiDropCardRow[] }>({
+    queryKey: ["drop-cards", id],
+    queryFn: () => api.dropCards(id!),
     enabled: !!id,
   });
   if (isLoading)
@@ -33,7 +39,7 @@ export default function Checkout() {
         Memuat…
       </div>
     );
-  if (!data)
+  if (isError || !data)
     return (
       <div className="card card-pad">
         Drop tidak ditemukan.{" "}
@@ -52,10 +58,41 @@ export default function Checkout() {
   const priceRegular = drop.priceCcoin ?? drop.priceUnsignedCCoin ?? AOV_UNSIGNED_CCOIN;
   const price =
     pool === "premium" ? (drop.priceSignedCCoin ?? drop.priceCcoin ?? drop.priceUnsignedCCoin ?? AOV_UNSIGNED_CCOIN) : priceRegular;
+  const phaseAllowsFcfs =
+    !!drop.drawnAt &&
+    !["sold_out", "closed", "cancelled"].includes(drop.status) &&
+    (!drop.dropEndAt || new Date(drop.dropEndAt).getTime() > Date.now());
+  const selectedVariant = pool === "premium" ? "signed" : "unsigned";
+  const selectedPoolAvailable = (cardsQuery.data?.cards ?? []).some(
+    (card) => card.variant === selectedVariant && card.status === "inventory",
+  );
+  const canCheckout = phaseAllowsFcfs && selectedPoolAvailable;
+
+  if (cardsQuery.isLoading) {
+    return (
+      <div className="muted" style={{ padding: 24, textAlign: "center" }}>
+        Memeriksa ketersediaan…
+      </div>
+    );
+  }
+
+  if (cardsQuery.isError || !canCheckout) {
+    return (
+      <div className="cm-shell">
+        <PageHero channel="14" channelLabel="CHECKOUT" title="Checkout belum tersedia" />
+        <div className="card card-pad">
+          <p className="muted">Pool ini belum memasuki fase FCFS atau unitnya sudah habis. Pilih pool yang tersedia dari detail Drop.</p>
+          <Link to={`/drops/${drop.id}`} className="btn-gold">
+            Kembali ke {drop.title}
+          </Link>
+        </div>
+      </div>
+    );
+  }
   async function onCheckout() {
     if (!user) {
       push("Masuk untuk melanjutkan pembelian", "info");
-      nav("/login");
+      nav("/login", { state: { from: `/drops/${drop.id}/checkout${pool === "premium" ? "?pool=premium" : ""}` } });
       return;
     }
     if (
@@ -75,9 +112,18 @@ export default function Checkout() {
       push(`Pembelian berhasil (${price} C). Kartu disimpan di Vault.`, "success");
       nav(`/orders/${res.order.id}`);
     } catch (e: unknown) {
-      // Raw server text tidak untuk user — catat di console, tampilkan fallback generik.
-      console.error("checkout gagal", e);
-      push(GENERIC_ERROR, "error");
+      const err = e instanceof ApiError ? e : null;
+      if (err?.code === "INSUFFICIENT" || err?.status === 402) {
+        push("Saldo C-Coin tidak cukup. Isi saldo untuk melanjutkan.", "error");
+        nav("/wallet");
+      } else if (["SOLD_OUT", "INVALID_POOL", "DROP_NOT_FCFS"].includes(err?.code ?? "")) {
+        push("Unit sudah habis atau pool tidak lagi tersedia.", "error");
+        nav(`/drops/${drop.id}`);
+      } else {
+        // Raw server text tidak untuk user — catat di console, tampilkan fallback generik.
+        console.error("checkout gagal", e);
+        push(GENERIC_ERROR, "error");
+      }
     } finally {
       setBuying(false);
     }

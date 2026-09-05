@@ -1,4 +1,10 @@
 import { defineConfig } from "@playwright/test";
+import { appServerEnv, browserEnv, localAppOrigins, reuseExistingServers } from "./e2e/env";
+
+const origins = localAppOrigins();
+const apiEnv = appServerEnv();
+const browserRuntimeEnv = browserEnv(origins.api);
+const reuseServer = reuseExistingServers();
 
 /**
  * Config HARUS di root: Playwright hanya mencari playwright.config.* di cwd,
@@ -20,29 +26,33 @@ export default defineConfig({
     ? [["github"], ["html", { open: "never", outputFolder: "e2e/playwright-report" }]]
     : [["html", { outputFolder: "e2e/playwright-report", open: "never" }]],
   use: {
-    baseURL: "http://localhost:5173",
+    baseURL: origins.web,
     trace: process.env.CI ? "on-first-retry" : "on",
     screenshot: "only-on-failure",
   },
-  // Auto-start (CI / mesin kosong) atau reuse server yang sudah jalan (lokal).
+  // Database tetap remote; yang dijalankan hanya tiga aplikasi lokal.
+  // Reuse perlu opt-in agar endpoint lama dengan konfigurasi database berbeda
+  // tidak diam-diam dipakai.
   webServer: [
     {
-      command: "pnpm --filter @c-verse/api dev",
-      url: "http://127.0.0.1:8787/health",
-      reuseExistingServer: true,
+      command: "pnpm --filter @c-verse/api dev:node",
+      url: `${origins.api}/health`,
+      reuseExistingServer: reuseServer,
+      env: { ...apiEnv, PORT: new URL(origins.api).port },
       timeout: 120_000,
     },
     {
       command: "pnpm --filter @c-verse/web dev",
-      url: "http://127.0.0.1:5173",
-      reuseExistingServer: true,
-      env: { VITE_TURNSTILE_SITE_KEY: "" },
+      url: origins.web,
+      reuseExistingServer: reuseServer,
+      env: browserRuntimeEnv,
       timeout: 120_000,
     },
     {
       command: "pnpm --filter @c-verse/admin dev",
-      url: "http://127.0.0.1:3000",
-      reuseExistingServer: true,
+      url: origins.admin,
+      reuseExistingServer: reuseServer,
+      env: browserRuntimeEnv,
       timeout: 120_000,
     },
   ],
@@ -50,7 +60,7 @@ export default defineConfig({
   projects: [
     // testIgnore: admin specs dimiliki project `admin` saja — tanpa ini
     // admin specs jalan 2× (sekali dengan baseURL web yang salah).
-    { name: "web", testMatch: "**/*.spec.ts", testIgnore: "**/admin/**", use: { baseURL: "http://localhost:5173" } },
-    { name: "admin", testMatch: "**/admin/*.spec.ts", use: { baseURL: "http://localhost:3000" } },
+    { name: "web", testMatch: "**/*.spec.ts", testIgnore: "**/admin/**", use: { baseURL: origins.web } },
+    { name: "admin", testMatch: "**/admin/*.spec.ts", use: { baseURL: origins.admin } },
   ],
 });

@@ -2,12 +2,11 @@ import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import { z } from "zod";
 import { adminGateError, clientIp, requireAdmin, requireUser, tokenFingerprint } from "../../lib/auth.js";
-import { RpcError, rpcAdminFulfillShipment } from "../../lib/db.js";
-import { sanitizeDbError } from "../../lib/errors.js";
+import { RpcError, rpcAdminFulfillShipment, rpcSellerToVault, userDb } from "../../lib/db.js";
 import { getDropById } from "../../lib/reads/drops.js";
 import { logAuditDb } from "../../lib/reads/kyc.js";
-import { getCardById, getShipmentByActiveCard, getShipmentById, listShipmentsByRequester } from "../../lib/reads/orders.js";
-import { mapShipmentRow, type Row, readDb } from "../../lib/reads.js";
+import { getCardById, getShipmentById, listShipmentsByRequester } from "../../lib/reads/orders.js";
+import { mapShipmentRow, type Row } from "../../lib/reads.js";
 import { getSupabase } from "../../lib/supabase.js";
 
 const app = new Hono();
@@ -21,10 +20,7 @@ app.get("/", async (c) => {
   return c.json({ shipments: mine });
 });
 
-// P0-6 (audit 2026-08-24): seller mengirim kartu miliknya (location='with_owner')
-// ke platform vault untuk verifikasi — bagian dari US-USR-07d / docs/02_pages PG-USR-07b.
-// Hanya insert shipments + audit; cards.qc_status & cards.location tetap 'with_owner' sampai
-// admin menerima + verifikasi di ADM-04 (admin route lain, di luar web publik).
+// Returning a card locks custody and queues the shipment in one transaction.
 app.post(
   "/seller-to-vault",
   zValidator(
@@ -38,79 +34,33 @@ app.post(
   async (c) => {
     const authRes = await requireUser(c);
     if ("error" in authRes) return c.json({ error: authRes.error === 403 ? "Akun disuspend" : "Unauthorized" }, authRes.error);
-    const user = authRes.user;
-    const body = c.req.valid("json");
-    const db = readDb();
-    const card = await getCardById(body.cardId);
-    if (!card) return c.json({ error: "Kartu tidak ditemukan" }, 404);
-    if (card.ownerId !== user.id) return c.json({ error: "Kamu bukan pemilik kartu ini" }, 403);
-    if (card.location !== "with_owner") {
-      return c.json({ error: `Kartu lokasi ${card.location} — tidak perlu kirim ke vault dari sisi seller` }, 400);
-    }
-    // Tolak kartu non-tradable (tampered/defect/lost) — payout tidak eligible.
-    // Sinkron dengan CARD_NOT_TRADABLE di RPC accept_bid/buyout_card/set_buyout
-    // + trigger unlist_card_if_non_tradable (03_rls): kartu cacat auto-unlist.
-    if (card.status && ["tampered", "defect", "lost"].includes(card.status)) {
-      return c.json({ error: "Kartu non-tradable — tidak eligible untuk dijual" }, 400);
-    }
-    // Tolak kartu yang terikat transaksi aktif (paritas SALE_IN_PROGRESS di
-    // RPC accept_bid/buyout_card/set_buyout): listed_buyout (live di
-    // marketplace) dan bid_pending (ada bid aktif / seed PHASE-1 lock).
-    // Tanpa ini seller bisa mengantrekan kartu yang sedang dilisting —
-    // buyer buyout mid-transit lalu kepemilikan pindah sementara fisiknya
-    // dikirim atas nama seller lama.
-    if (card.status && ["listed_buyout", "bid_pending"].includes(card.status)) {
-      return c.json({ error: "Kartu sedang dalam transaksi aktif — selesaikan dulu sebelum kirim ke vault" }, 409);
-    }
-    // Cegah antrean ganda sebelum insert: satu kartu = satu shipment aktif
-    // (paritas partial unique index uq_shipments_active_per_card — terminal
-    // delivered/cancelled boleh kirim ulang).
-    const activeShipment = await getShipmentByActiveCard(body.cardId);
-    if (activeShipment) {
-      return c.json({ error: "Sudah ada pengiriman aktif untuk kartu ini" }, 409);
-    }
-    // Insert shipment type='secondary_seller_to_vault' (queue admin via /api/admin/.../shipments).
-    // Seller-to-vault gratis (fee 0, tanpa debit wallet) — check shipments_fee_ccoin_check.
-    const { uid } = await import("../../lib/store.js");
-    const shipId = uid("ship-");
-    const { data: shipRow, error: shipError } = await db
-      .from("shipments")
-      .insert({
-        id: shipId,
-        card_id: body.cardId,
-        requester_id: user.id,
-        type: "secondary_seller_to_vault",
-        from_location: "with_owner",
-        to_dest: "platform_vault",
-        address: { street: body.address },
-        fee_ccoin: 0,
-        status: "requested",
-        tracking_number: body.trackingNumber ?? null,
-        platform_check: null,
-      })
-      .select("*")
-      .maybeSingle();
-    if (shipError) {
-      // Race precheck di atas vs insert: partial unique index
-      // uq_shipments_active_per_card menolak shipment aktif ganda → 409.
-      // Enum shipment_type / shipment_from_location yang belum kenal nilai baru
-      // (migrasi 06 belum di-apply) → 500 via sanitizer (tanpa echo skema).
-      if (/duplicate|uq_shipments_active_per_card/i.test(shipError.message)) {
-        return c.json({ error: "Sudah ada pengiriman aktif untuk kartu ini" }, 409);
+    const { cardId, address, trackingNumber } = c.req.valid("json");
+    try {
+      const shipment = await rpcSellerToVault(userDb(authRes.token), cardId, address, trackingNumber ?? null);
+      await logAuditDb(
+        authRes.user.id,
+        "create",
+        "shipments",
+        String(shipment.id),
+        { cardId, type: "secondary_seller_to_vault" },
+        clientIp(c),
+        await tokenFingerprint(c.req.header("authorization")),
+      );
+      return c.json({ ok: true, shipment: mapShipmentRow(shipment as Row) }, 201);
+    } catch (err) {
+      if (err instanceof RpcError) {
+        const status =
+          err.code === "CARD_NOT_FOUND"
+            ? 404
+            : err.code === "FORBIDDEN"
+              ? 403
+              : ["SHIPMENT_ACTIVE", "SALE_IN_PROGRESS", "INVALID_TRANSITION"].includes(err.code)
+                ? 409
+                : 400;
+        return c.json({ error: err.message, code: err.code }, status);
       }
-      return c.json({ error: sanitizeDbError(shipError) }, 500);
+      throw err;
     }
-    if (!shipRow) throw new Error("Shipment insert returned no row");
-    await logAuditDb(
-      user.id,
-      "create",
-      "shipments",
-      shipId,
-      { cardId: body.cardId, type: "secondary_seller_to_vault" },
-      clientIp(c),
-      await tokenFingerprint(c.req.header("authorization")),
-    );
-    return c.json({ ok: true, shipment: mapShipmentRow(shipRow as Row) }, 201);
   },
 );
 

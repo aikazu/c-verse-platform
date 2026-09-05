@@ -3,7 +3,6 @@ import { useEffect, useState } from "react";
 import { useConfirm } from "../components/ConfirmProvider";
 import { StatusBadge } from "../components/StatusBadge";
 import { apiFetch } from "../lib/api";
-import { supabase } from "../lib/supabase";
 import type { PayoutBatchRow, PayoutRow } from "../lib/types";
 import { errMessage } from "../lib/utils";
 
@@ -15,20 +14,9 @@ export function PayoutsPage() {
   const [msg, setMsg] = useState<string | null>(null);
 
   async function load() {
-    const [{ data: b }, { data: p }] = await Promise.all([
-      supabase
-        .from("payout_batches")
-        .select("id,batch_code,status,total_ccoin,total_idr")
-        .order("created_at", { ascending: false })
-        .limit(500),
-      supabase
-        .from("payouts")
-        .select("id,user_id,type,ccoin_amount,idr_amount,status,batch_id")
-        .order("batch_id", { ascending: false })
-        .limit(500),
-    ]);
-    setBatches((b ?? []) as PayoutBatchRow[]);
-    setPayouts((p ?? []) as PayoutRow[]);
+    const result = await apiFetch<{ batches: PayoutBatchRow[]; payouts: PayoutRow[] }>("/api/admin/payouts");
+    setBatches(result.batches);
+    setPayouts(result.payouts);
   }
   useEffect(() => {
     load().catch(() => setMsg("Gagal memuat data payout — periksa koneksi lalu refresh."));

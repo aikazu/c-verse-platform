@@ -243,6 +243,7 @@ export interface ApiVerifyNfcResponse {
   counter: number;
   verifyStatus: "verified" | "registered" | "tamper_detected" | "unknown";
   tamperFlagged: boolean;
+  redirectTo?: string;
 }
 
 // ── Marketplace (buyout on card) ───────────────────────────────────────────
@@ -304,7 +305,7 @@ export interface ApiAcceptBidResponse {
 
 // ── Profile ────────────────────────────────────────────────────────────────
 export interface ApiProfileEnrichedCard extends Card {
-  drop: { id: string; title: string; series: string; artworkUrl: string } | null;
+  drop: { id: string; title: string; series: string; artworkUrl: string; isSeed?: boolean } | null;
   activeBid: Bid | null;
 }
 

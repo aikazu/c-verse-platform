@@ -1,7 +1,7 @@
 import { BALANCE_CAP_CCOIN, GEMS_LOCK_HOURS, PAYOUT_FEE_PCT, walletTxTypeLabel } from "@c-verse/shared";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useConfirm } from "../components/ConfirmProvider";
 import { LEGAL_CONSENTS, LegalConsentCheckbox } from "../components/LegalConsentCheckbox";
 import { PageHero } from "../components/PageHero";
@@ -28,7 +28,16 @@ function WalletInner() {
   const { user } = useAuth();
   const { push } = useToast();
   const confirm = useConfirm();
+  const location = useLocation();
   const nav = useNavigate();
+  const returnTo =
+    typeof location.state === "object" &&
+    location.state != null &&
+    "returnTo" in location.state &&
+    typeof location.state.returnTo === "string" &&
+    /^\/drops\/[^/?#]+$/.test(location.state.returnTo)
+      ? location.state.returnTo
+      : null;
   const [amount, setAmount] = useState(50);
   const [payoutAmt, setPayoutAmt] = useState(10);
   const payoutFeeGems = Math.ceil(payoutAmt * PAYOUT_FEE_PCT);
@@ -167,7 +176,18 @@ function WalletInner() {
   const payoutHoldUntil: string | null = data.payoutHoldUntil ?? null;
   return (
     <div className="page-stack">
-      <PageHero channel="08" channelLabel="DOMPET" title="Dompet" />
+      <PageHero
+        channel="08"
+        channelLabel="DOMPET"
+        title="Dompet"
+        actions={
+          returnTo ? (
+            <Link to={returnTo} className="btn-ghost" style={{ fontFamily: "var(--font-mono)", fontSize: 12 }}>
+              ← Kembali ke drop
+            </Link>
+          ) : undefined
+        }
+      />
 
       {payoutHeld && (
         <div className="card card-pad wa-alert">

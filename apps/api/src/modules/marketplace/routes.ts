@@ -1,4 +1,4 @@
-import { C_COIN_RATE_IDR } from "@c-verse/shared";
+import { C_COIN_RATE_IDR, MIN_SECONDARY_PRICE_CCOIN } from "@c-verse/shared";
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import { z } from "zod";
@@ -22,6 +22,7 @@ app.get("/", async (c) => {
 
   const dropById = new Map<string, Drop>((await listDrops()).map((d) => [d.id, d]));
   let cards = await listMarketplaceCards();
+  cards = cards.filter((card) => card.ownerId && (card.location === "platform_vault" || dropById.get(card.dropId)?.isSeed));
   if (search) {
     cards = cards.filter((ca) => {
       const drop = dropById.get(ca.dropId);
@@ -88,8 +89,8 @@ app.post(
     "json",
     z.object({
       cardId: z.string().min(1),
-      buyoutPriceCcoin: z.number().int().min(1).optional(),
-      priceCCoin: z.number().int().min(1).optional(), // legacy alias
+      buyoutPriceCcoin: z.number().int().min(MIN_SECONDARY_PRICE_CCOIN).optional(),
+      priceCCoin: z.number().int().min(MIN_SECONDARY_PRICE_CCOIN).optional(), // legacy alias
     }),
   ),
   async (c) => {
@@ -111,27 +112,23 @@ app.post(
 );
 
 // POST /buyout — beli kartu di harga buyout (fee 7,5/7,5/85 via RPC).
-// dest buyer_address -> wajib alamat; RPC membuat shipment 'requested' otomatis.
+// Purchases settle to vault. Shipping is a separate owner request afterward.
 app.post(
   "/buyout",
   zValidator(
     "json",
     z.object({
       cardId: z.string().min(1),
-      destination: z.enum(["buyer_address", "platform_vault"]).default("buyer_address"),
-      shippingAddress: z.string().min(10).max(500).optional(),
+      destination: z.literal("platform_vault").optional(),
     }),
   ),
   async (c) => {
     const authRes = await requireUser(c);
     if ("error" in authRes) return c.json({ error: authRes.error === 403 ? "Akun disuspend" : "Unauthorized" }, authRes.error);
-    const { cardId, destination, shippingAddress } = c.req.valid("json");
-    if (destination === "buyer_address" && !shippingAddress) {
-      return c.json({ error: "Alamat pengiriman wajib (min 10 karakter) untuk kirim fisik" }, 400);
-    }
+    const { cardId } = c.req.valid("json");
     const db = userDb(authRes.token);
     try {
-      const card = await rpcBuyoutCard(db, cardId, destination, shippingAddress ?? null);
+      const card = await rpcBuyoutCard(db, cardId, "platform_vault", null);
       return c.json({ ok: true, card, dbPath: "rpc" }, 201);
     } catch (err) {
       if (err instanceof RpcError) {
@@ -151,19 +148,23 @@ app.post(
 );
 
 // PATCH /cards/:id/buyout — ubah/hapus harga buyout
-app.patch("/cards/:id/buyout", zValidator("json", z.object({ buyoutPriceCcoin: z.number().int().min(1).nullable() })), async (c) => {
-  const authRes = await requireUser(c);
-  if ("error" in authRes) return c.json({ error: authRes.error === 403 ? "Akun disuspend" : "Unauthorized" }, authRes.error);
-  const { buyoutPriceCcoin } = c.req.valid("json");
-  const db = userDb(authRes.token);
-  try {
-    const card = await rpcSetBuyout(db, c.req.param("id"), buyoutPriceCcoin);
-    return c.json({ card });
-  } catch (err) {
-    if (err instanceof RpcError) return c.json({ error: err.message, code: err.code }, err.code === "FORBIDDEN" ? 403 : 400);
-    throw err;
-  }
-});
+app.patch(
+  "/cards/:id/buyout",
+  zValidator("json", z.object({ buyoutPriceCcoin: z.number().int().min(MIN_SECONDARY_PRICE_CCOIN).nullable() })),
+  async (c) => {
+    const authRes = await requireUser(c);
+    if ("error" in authRes) return c.json({ error: authRes.error === 403 ? "Akun disuspend" : "Unauthorized" }, authRes.error);
+    const { buyoutPriceCcoin } = c.req.valid("json");
+    const db = userDb(authRes.token);
+    try {
+      const card = await rpcSetBuyout(db, c.req.param("id"), buyoutPriceCcoin);
+      return c.json({ card });
+    } catch (err) {
+      if (err instanceof RpcError) return c.json({ error: err.message, code: err.code }, err.code === "FORBIDDEN" ? 403 : 400);
+      throw err;
+    }
+  },
+);
 
 // DELETE /:cardId — cabut buyout (by card id)
 app.delete("/:id", async (c) => {

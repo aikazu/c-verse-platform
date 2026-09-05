@@ -35,7 +35,7 @@ function cardFixture(over: Record<string, unknown> = {}): Record<string, unknown
     unitNumber: 1,
     variant: "unsigned",
     status: "listed_buyout",
-    location: "user_vault",
+    location: "platform_vault",
     buyoutPriceCcoin: 45,
     nfcConfigured: true,
     qcStatus: "passed",

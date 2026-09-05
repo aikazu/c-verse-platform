@@ -5,28 +5,42 @@ import { getCreatorByHandle, getCreatorByUserId, listCreators, listCreatorUsers 
 import { listDrops } from "../../lib/reads/drops.js";
 import { getUserByUsernameOrId } from "../../lib/reads/profiles.js";
 import { getUserById } from "../../lib/reads/users.js";
-import type { CreatorRec } from "../../lib/store.js";
+import type { CreatorRec, Drop, User } from "../../lib/store.js";
 
 const app = new Hono();
+const PUBLIC_DROP_STATUSES = new Set(["published", "live", "sold_out", "scheduled", "closed"]);
+
+function isPublicCreator(user: User | null, rec: CreatorRec | null): user is User {
+  return (
+    !!user && user.role === "creator" && !user.flagReason && !user.isAnonymous && !!rec && rec.userId === user.id && rec.status === "active"
+  );
+}
+
+function publicCreatorDrops(drops: Drop[], creatorId: string): Drop[] {
+  return drops.filter((drop) => drop.creatorId === creatorId && PUBLIC_DROP_STATUSES.has(drop.status));
+}
 
 // GET / — list public creators (derived from users.role=creator + creators table for handle/followers)
 app.get("/", async (c) => {
   const [creatorUsers, recs, drops] = await Promise.all([listCreatorUsers(), listCreators(), listDrops()]);
   const recByUserId = new Map<string, CreatorRec>(recs.filter((cr) => cr.userId != null).map((cr) => [cr.userId as string, cr]));
-  const creators = creatorUsers.map((u) => {
+  const creators = creatorUsers.flatMap((u) => {
     const rec = recByUserId.get(u.id) ?? null;
-    const myDrops = drops.filter((d) => d.creatorId === u.id);
+    if (!isPublicCreator(u, rec)) return [];
+    const myDrops = publicCreatorDrops(drops, u.id);
     const totalSold = myDrops.reduce((n, d) => n + d.soldCount, 0);
     const totalUnits = myDrops.reduce((n, d) => n + d.totalUnits, 0);
-    return {
-      id: u.id,
-      displayName: u.displayName,
-      username: u.username ?? null,
-      handle: rec?.handle ?? null,
-      totalFollowersCombined: rec?.totalFollowersCombined ?? null,
-      xp: u.totalXp ?? 0,
-      stats: { drops: myDrops.length, totalSold, totalUnits },
-    };
+    return [
+      {
+        id: u.id,
+        displayName: u.displayName,
+        username: u.username ?? null,
+        handle: rec?.handle ?? null,
+        totalFollowersCombined: rec?.totalFollowersCombined ?? null,
+        xp: u.totalXp ?? 0,
+        stats: { drops: myDrops.length, totalSold, totalUnits },
+      },
+    ];
   });
   return c.json({ creators });
 });
@@ -38,12 +52,12 @@ app.get("/:id", async (c) => {
   const recByHandle = await getCreatorByHandle(raw);
   let user = recByHandle?.userId ? await getUserById(recByHandle.userId) : null;
   if (!user && !recByHandle) user = await getUserByUsernameOrId(raw);
-  if (!user || (user.role as string) !== "creator") return c.json({ error: "Creator tidak ditemukan" }, 404);
-  if (user.flagReason) return c.json({ error: "Creator tidak ditemukan" }, 404); // suspended: sembunyikan storefront
+  if (!user) return c.json({ error: "Creator tidak ditemukan" }, 404);
   const rec = recByHandle ?? (await getCreatorByUserId(user.id));
-  const drops = (await listDrops())
-    .filter((d) => d.creatorId === user?.id && ["published", "live", "sold_out", "scheduled", "closed"].includes(d.status))
-    .sort((a, b) => new Date(b.dropStartAt ?? b.createdAt).getTime() - new Date(a.dropStartAt ?? a.createdAt).getTime());
+  if (!isPublicCreator(user, rec)) return c.json({ error: "Creator tidak ditemukan" }, 404);
+  const drops = publicCreatorDrops(await listDrops(), user.id).sort(
+    (a, b) => new Date(b.dropStartAt ?? b.createdAt).getTime() - new Date(a.dropStartAt ?? a.createdAt).getTime(),
+  );
   return c.json({
     creator: {
       id: user.id,
@@ -63,9 +77,8 @@ app.get("/handle/:handle", async (c) => {
   const rec = await getCreatorByHandle(c.req.param("handle"));
   if (!rec) return c.json({ error: "Creator tidak ditemukan" }, 404);
   const user = rec.userId ? await getUserById(rec.userId) : null;
-  if (!user) return c.json({ error: "Creator tidak ditemukan" }, 404);
-  if (user.flagReason) return c.json({ error: "Creator tidak ditemukan" }, 404);
-  const drops = (await listDrops()).filter((d) => d.creatorId === user.id);
+  if (!isPublicCreator(user, rec)) return c.json({ error: "Creator tidak ditemukan" }, 404);
+  const drops = publicCreatorDrops(await listDrops(), user.id);
   return c.json({
     creator: {
       id: user.id,

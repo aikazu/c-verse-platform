@@ -1,9 +1,11 @@
 import type { FullConfig } from "@playwright/test";
+import { remoteSupabaseConfig } from "./env";
 
 async function healthCheck(url: string, label: string, maxRetries = 10): Promise<void> {
   for (let i = 0; i < maxRetries; i++) {
     try {
-      const res = await fetch(url);
+      const { anonKey } = remoteSupabaseConfig();
+      const res = await fetch(url, { headers: { apikey: anonKey } });
       if (res.ok) return;
     } catch {
       // retry
@@ -14,7 +16,7 @@ async function healthCheck(url: string, label: string, maxRetries = 10): Promise
 }
 
 export default async function globalSetup(_config: FullConfig) {
-  // Root gateway Kong (54321) balas 404 → pakai health endpoint GoTrue yang 200.
-  await healthCheck("http://127.0.0.1:54321/auth/v1/health", "Supabase");
-  console.log("✓ Semua service siap — E2E test dimulai");
+  const remote = remoteSupabaseConfig();
+  await healthCheck(`${remote.supabaseUrl}/auth/v1/health`, `Supabase remote (${remote.projectRef})`);
+  console.log(`✓ Aplikasi lokal dan Supabase remote ${remote.projectRef} siap — E2E test dimulai`);
 }

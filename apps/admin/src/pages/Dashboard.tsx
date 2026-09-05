@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { NavLink } from "react-router-dom";
-import { supabase } from "../lib/supabase";
+import { apiFetch } from "../lib/api";
 import { buildWorkQueue, type WorkQueueCounts } from "./workQueue";
 
 // Dashboard now surfaces an operational work queue — counts of items that
@@ -16,19 +16,7 @@ import { buildWorkQueue, type WorkQueueCounts } from "./workQueue";
 // showing "0 menunggu" while /payouts shows refundable rows breaks trust.
 
 type Stats = { drops: number; orders: number; creators: number };
-
-// Wraps a supabase count query so a thrown rejection or `.error` resolves to
-// null. We can't share one helper across queries because the chained builder
-// types differ per call — keep it local and tiny.
-async function safeCount<T extends { error: unknown; count: number | null }>(query: PromiseLike<T>): Promise<number | null> {
-  try {
-    const r = await query;
-    if (r.error) return null;
-    return r.count ?? 0;
-  } catch {
-    return null;
-  }
-}
+type DashboardResponse = { stats: { drops: number | null; orders: number | null; creators: number | null }; counts: WorkQueueCounts };
 
 export function DashboardPage() {
   const [stats, setStats] = useState<Stats>({ drops: 0, orders: 0, creators: 0 });
@@ -45,29 +33,14 @@ export function DashboardPage() {
     async function load() {
       setLoading(true);
       setError(false);
-      // Each query is awaited individually so a failing one returns null (rendered
-      // as "—") instead of poisoning the whole Promise.all result.
-      const [drops, orders, creators, shipments, kyc, disputes, payouts] = await Promise.all([
-        safeCount(supabase.from("drops").select("id", { count: "exact", head: true })),
-        safeCount(supabase.from("orders").select("id", { count: "exact", head: true })),
-        safeCount(supabase.from("creators").select("id", { count: "exact", head: true })),
-        safeCount(supabase.from("shipments").select("id", { count: "exact", head: true }).in("status", ["requested", "packed"])),
-        safeCount(supabase.from("kyc_records").select("id", { count: "exact", head: true }).eq("status", "pending")),
-        safeCount(supabase.from("disputes").select("id", { count: "exact", head: true }).in("status", ["open", "under_review"])),
-        safeCount(supabase.from("payouts").select("id", { count: "exact", head: true }).in("status", ["pending", "processing", "failed"])),
-      ]);
+      const { stats: nextStats, counts: nextCounts } = await apiFetch<DashboardResponse>("/api/admin/dashboard");
 
       if (cancelled) return;
-      if (drops === null || orders === null || creators === null) {
+      if (nextStats.drops === null || nextStats.orders === null || nextStats.creators === null) {
         setError(true);
       }
-      setStats({ drops: drops ?? 0, orders: orders ?? 0, creators: creators ?? 0 });
-      setCounts({
-        shipmentsActionable: shipments,
-        kycPending: kyc,
-        disputesOpen: disputes,
-        payoutsPending: payouts,
-      });
+      setStats({ drops: nextStats.drops ?? 0, orders: nextStats.orders ?? 0, creators: nextStats.creators ?? 0 });
+      setCounts(nextCounts);
       setLoading(false);
     }
     load().catch(() => {

@@ -1,27 +1,49 @@
-# Database dan fixture lokal
+# Database dan fixture pengembangan remote
 
 > Status: [VALIDATED]
 > Diperbarui: 2026-09-05. Data sintetis untuk pengembangan, bukan data bisnis.
 
 ## Baseline
 
-`migrations/` berisi baseline 18 file berurutan ditambah dua migrasi
-forward-only lencana (katalog dan engine, 2026-09-05). Setiap file maksimum
+`migrations/` berisi baseline 18 file berurutan ditambah migrasi
+forward-only lencana dan integritas flow (2026-09-05). Setiap file maksimum
 500 baris fisik, termasuk komentar/baris kosong. Baseline tetap utuh;
 guard Vitest memeriksa urutan, batas baris, serta duplikasi fungsi baseline.
 
-```sh
-npx supabase start
-npx supabase db reset --local
-npx supabase db lint --local
-pnpm seed:assets
+Operasi aplikasi dan E2E memakai project Supabase development remote yang
+terhubung, bukan `supabase start`, Docker, atau database lokal. Sebelum operasi
+data, konfirmasi ref project yang dipilih:
+
+```powershell
+$env:E2E_SUPABASE_PROJECT_REF = "rnsfgbhoahzvrbtvjjtw"
+$env:E2E_SUPABASE_URL = "https://rnsfgbhoahzvrbtvjjtw.supabase.co"
+# Muat E2E_SUPABASE_ANON_KEY dan E2E_SUPABASE_SERVICE_ROLE_KEY dari penyimpanan rahasia lokal.
 ```
 
-Reset lokal menjalankan `migrations/*.sql`, kemudian `seeds/*.sql` secara
-leksikografis sesuai `config.toml`. Jalankan seluruh rangkaian, bukan satu
-potongan seed. Jangan menjalankan ulang seed pada DB berisi transaksi nyata.
-Fixture memakai waktu relatif saat reset agar raffle dan pending flow tetap
-dapat dicoba; ID tetap stabil untuk tes. Reset juga mengembalikan URL aset lokal.
+`playwright.config.ts` hanya memulai API, Web, dan Admin di loopback lokal.
+API menerima kredensial remote lewat environment, dengan `ENV=development`,
+`ENABLE_DEMO_LOGIN=0`, dan `EMAIL_ENABLED=0`. Browser hanya menerima anon key.
+Helper E2E memvalidasi ref serta hostname HTTPS sebelum request database,
+memeriksa user fixture canonical, lalu memakai `admin/generate_link` + `verify`
+server-side. Jadi tidak ada Mailpit, email OTP, atau akun baru yang dibuat oleh
+flow E2E remote. Endpoint yang sudah aktif hanya boleh dipakai bila
+`E2E_REUSE_SERVERS=1` disetel secara eksplisit.
+
+```powershell
+pnpm exec playwright test --project=web
+npx supabase db query --linked --file supabase/tests/flow_integrity_test.sql
+```
+
+`flow_integrity_test.sql` memakai fixture sendiri dalam transaksi rollback.
+Asersi mencakup custody secondary, shipment dua arah, Seed release/abort
+berulang, pool raffle, FCFS, ledger, dan akses RPC akun suspended. Tidak ada
+fixture atau saldo tes tersebut yang menetap setelah selesai.
+
+Reset remote berulang dan seed ulang development telah diotorisasi pemilik bila
+dibutuhkan implementasi atau verifikasi. Jalankan seluruh baseline dan seed,
+bukan potongan file; jangan menjalankan ulang seed pada database berisi transaksi
+nyata. Fixture memakai waktu relatif saat reset agar raffle dan pending flow
+tetap dapat dicoba, sementara ID tetap stabil untuk tes.
 
 ### Remote development sudah di-reset secara terkendali
 
@@ -60,7 +82,7 @@ Enam file terurut membangun 15 akun sintetis (+ treasury), 9 Drop, dan 184 kartu
 | Rival | Pemilik `card-aespa-live-02`, target secondary market |
 | Ghost / Marked | Profil anonim / suspended untuk pengujian masking |
 | Atlas / Luna | Peserta tambahan agar 10 pemenang raffle benar-benar unik |
-| `badge.bronze@cverse.id` sampai `badge.nova@cverse.id` | Lima persona pencapaian dengan 1/5/15/30/75 kartu hadiah, wallet nol, tier Collector I-V; login OTP lokal |
+| `badge.bronze@cverse.id` sampai `badge.nova@cverse.id` | Lima persona pencapaian dengan 1/5/15/30/75 kartu hadiah, wallet nol, tier Collector I-V; sesi fixture remote |
 | Treasury | Akun sistem terpisah, ledger pendapatan platform |
 | Katalog | Live FCFS/raffle, scheduled, signed, sold-out, draft, Creator Seed |
 | Transaksi | Primary ke vault, secondary, ship-out pasca-vault, ledger dua token |
@@ -99,13 +121,15 @@ di daftar Admin dan dapat diaktifkan kembali. Pengguna lama yang baru
 memenuhi syarat setelah pengaktifan dapat dievaluasi pada event berikutnya
 atau melalui backfill service-only.
 
-```sh
-node supabase/tests/badge_engine_test.mjs postgresql://postgres:postgres@127.0.0.1:54322/postgres
+```powershell
+if (-not $env:SUPABASE_DB_URL) { throw "Muat connection string database development remote terlebih dahulu" }
+node supabase/tests/badge_engine_test.mjs $env:SUPABASE_DB_URL
 pnpm test:e2e e2e/specs/18-badges.spec.ts --project=web
 ```
 
 Tes integrasi memakai namespace fixture sendiri dan membersihkannya.
-Jangan jalankan seed maupun tes mutasi tersebut ke database hosted.
+Konfirmasi bahwa connection string menargetkan project development yang
+terhubung. Jangan memakai database produksi atau fallback database lokal.
 
 KYC hanya memakai data dummy dan object key placeholder; file identitas tidak
 dibuat atau diunggah. Preview dokumen KYC seed dapat mengembalikan 404 sampai

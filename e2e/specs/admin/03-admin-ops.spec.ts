@@ -1,7 +1,7 @@
-import { readFileSync } from "node:fs";
-import path from "node:path";
-import { expect, type Page, test } from "@playwright/test";
+import { expect, test } from "@playwright/test";
+import { localAppOrigins } from "../../env";
 import { adminLogin } from "../../helpers";
+import { remoteServiceRest } from "../../helpers/db";
 
 /**
  * Admin operations via admin UI (apps/admin, :3000) — lane e2e 2026-08-29.
@@ -9,51 +9,23 @@ import { adminLogin } from "../../helpers";
  * Current contract: active admin role is enforced server-side; deployed
  * gateways additionally require Access/WARP. Application TOTP is not required.
  * Local demo login remains development-only and does not bypass the role gate.
- * - RLS drops (05_rls `drops_select_public`) hanya memperlihatkan status
- *   publik — drop `draft` tidak muncul di daftar admin (halaman Drops baca
- *   PostgREST langsung via supabase-js). Karena itu transisi status di UI
- *   tidak bisa mengklik baris draft; publish dilakukan via endpoint yang
- *   sama dengan tombol Publish (PATCH /api/drops/:id/status) memakai token
- *   admin sesi sungguhan, lalu hasilnya di-assert di daftar UI + read publik.
+ * The Drops UI reads through the admin API, so drafts must remain visible and
+ * status transitions are exercised through the real confirmation dialog.
  */
 
-const API_BASE = "http://127.0.0.1:8787";
-
-/** Baca satu variabel dari apps/api/.dev.vars (nilai service key TIDAK pernah di-echo). */
-function readDevVar(key: string): string {
-  const raw = readFileSync(path.resolve(process.cwd(), "apps/api/.dev.vars"), "utf8");
-  for (const line of raw.split(/\r?\n/)) {
-    const match = line.match(/^([A-Z_0-9]+)=(.*)$/);
-    if (match && match[1] === key) return match[2].trim();
-  }
-  throw new Error(`Key ${key} tidak ditemukan di apps/api/.dev.vars`);
-}
+const API_BASE = localAppOrigins().api;
+const KARINA_CREATOR_ID = "00000000-0000-4000-8000-000000000003";
+const DEMO_ID = "00000000-0000-4000-8000-000000000001";
+const VAULT_CARD_ID = "card-aespa-live-01";
 
 /** Supabase REST headers dengan service role (fixture rows + cleanup). */
 function serviceHeaders(): Record<string, string> {
-  return {
-    apikey: readDevVar("SUPABASE_SERVICE_ROLE_KEY"),
-    Authorization: `Bearer ${readDevVar("SUPABASE_SERVICE_ROLE_KEY")}`,
-    "Content-Type": "application/json",
-  };
-}
-
-/** access_token sesi admin dari storage supabase-js (origin :3000). */
-async function adminAccessToken(page: Page): Promise<string> {
-  const raw = await page.evaluate(() => {
-    const key = Object.keys(localStorage).find((k) => k.includes("auth-token"));
-    return key ? localStorage.getItem(key) : null;
-  });
-  if (!raw) throw new Error("Sesi admin tidak ditemukan di localStorage origin :3000");
-  const parsed = JSON.parse(raw) as { access_token?: string } | Array<{ access_token?: string }>;
-  const token = Array.isArray(parsed) ? parsed[0]?.access_token : parsed.access_token;
-  if (!token) throw new Error("access_token tidak ditemukan di storage sesi admin");
-  return token;
+  return remoteServiceRest().headers;
 }
 
 /** Hapus drop fixture (kartu ikut cascade) berdasarkan filter PostgREST pada judul. */
 async function cleanupDrops(restTitleFilter: string): Promise<void> {
-  const supabaseUrl = readDevVar("SUPABASE_URL").replace(/\/+$/, "");
+  const supabaseUrl = remoteServiceRest().base;
   const query = await fetch(`${supabaseUrl}/rest/v1/drops?select=id&title=${restTitleFilter}`, {
     headers: serviceHeaders(),
   });
@@ -64,8 +36,38 @@ async function cleanupDrops(restTitleFilter: string): Promise<void> {
   await fetch(`${supabaseUrl}/rest/v1/drops?id=in.(${ids})`, { method: "DELETE", headers: serviceHeaders() });
 }
 
+/** Fixture shipment tidak mengubah kartu: target sudah milik Demo dan berada di vault. */
+async function cleanupShipment(shipmentIdFilter: string): Promise<void> {
+  const rest = remoteServiceRest();
+  const response = await fetch(`${rest.base}/rest/v1/shipments?id=${shipmentIdFilter}`, {
+    method: "DELETE",
+    headers: serviceHeaders(),
+  });
+  if (!response.ok) throw new Error(`Cleanup shipment fixture gagal: HTTP ${response.status}`);
+}
+
+async function createShipmentFixture(shipmentId: string): Promise<void> {
+  const rest = remoteServiceRest();
+  const response = await fetch(`${rest.base}/rest/v1/shipments`, {
+    method: "POST",
+    headers: serviceHeaders(),
+    body: JSON.stringify({
+      id: shipmentId,
+      card_id: VAULT_CARD_ID,
+      requester_id: DEMO_ID,
+      type: "vault_shipout",
+      from_location: "platform",
+      to_dest: "platform_vault",
+      address: { street: "Fixture fulfillment E2E" },
+      fee_ccoin: 0,
+      status: "requested",
+    }),
+  });
+  if (!response.ok) throw new Error(`Buat shipment fixture gagal: HTTP ${response.status}`);
+}
+
 test.describe("Admin ops (UI)", () => {
-  test("login admin via tombol demo (dev): sesi aktif dan Shell berbasis peran", async ({ page }) => {
+  test("login admin via fixture session: Shell berbasis peran aktif", async ({ page }) => {
     await adminLogin(page);
 
     // Shell requires a session; no stale application MFA bypass badge.
@@ -86,6 +88,7 @@ test.describe("Admin ops (UI)", () => {
     await adminLogin(page);
     await page.getByRole("link", { name: "Drops" }).click();
     await expect(page.locator("#drop-title")).toBeVisible();
+    await page.locator("#drop-creator").selectOption(KARINA_CREATOR_ID);
 
     // Form "Buat Drop" (Drops.tsx): judul/seri/deskripsi wajib, unit & harga C-Coin integer.
     await page.locator("#drop-title").fill(title);
@@ -98,28 +101,16 @@ test.describe("Admin ops (UI)", () => {
     // Toast sukses hanya muncul jika POST /api/drops (admin-gated) benar-benar 201.
     await expect(page.locator(".admin-msg")).toContainText("Drop dibuat", { timeout: 15000 });
 
-    // Publish via endpoint yang sama dengan tombol Publish baris tabel (baris draft
-    // tidak dirender karena RLS drops_select_public — lihat catatan di atas).
-    const token = await adminAccessToken(page);
-    const listAdmin = await fetch(`${API_BASE}/api/drops`, { headers: { Authorization: `Bearer ${token}` } });
-    expect(listAdmin.status).toBe(200);
-    const adminBody = (await listAdmin.json()) as { drops: Array<{ id: string; title: string; status: string }> };
-    const created = adminBody.drops.find((drop) => drop.title === title);
-    expect(created, "drop hasil create UI harus ada di read API admin").toBeDefined();
-    expect(created?.status).toBe("draft");
-
-    const publish = await fetch(`${API_BASE}/api/drops/${created?.id}/status`, {
-      method: "PATCH",
-      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ status: "published" }),
-    });
-    expect(publish.status).toBe(200);
-
-    // Setelah published, RLS memperbolehkan read — baris muncul di daftar admin UI.
-    await page.reload();
+    // Baris draft berasal dari named admin read API; publish melalui kontrol UI
+    // dan modal konfirmasi yang dipakai operator.
     const row = page.getByRole("row").filter({ hasText: title });
     await expect(row).toBeVisible({ timeout: 15000 });
-    await expect(row.locator("span.pill").filter({ hasText: "Live" })).toBeVisible();
+    await expect(row.locator("span.pill").filter({ hasText: "Draft" })).toBeVisible();
+    await row.getByRole("button", { name: "Publish", exact: true }).click();
+    const publishDialog = page.getByRole("dialog");
+    await expect(publishDialog.locator("#cfm-title")).toContainText('Ubah status drop menjadi "published"');
+    await publishDialog.getByRole("button", { name: "Ubah", exact: true }).click();
+    await expect(row.locator("span.pill").filter({ hasText: "Live" })).toBeVisible({ timeout: 15000 });
     await expect(row.getByText("0/2")).toBeVisible(); // sold_count/total_units
     await expect(row.getByText("25 C")).toBeVisible(); // harga canonical
 
@@ -149,5 +140,41 @@ test.describe("Admin ops (UI)", () => {
     await expect(karina.getByRole("button", { name: "Review" })).toBeEnabled();
     await expect(page.getByText("Belum ada pengajuan")).toHaveCount(0);
     // Private KYC documents are placeholders, so this checks metadata only.
+  });
+
+  test("antrean shipment: fulfillment UI menjalankan requested → packed → shipped → delivered", async ({ page }) => {
+    test.setTimeout(60_000);
+    const shipmentId = `e2e-admin-fulfill-${Date.now()}`;
+    await cleanupShipment("like.e2e-admin-fulfill-*");
+    await createShipmentFixture(shipmentId);
+
+    try {
+      await adminLogin(page);
+      await page.getByRole("link", { name: "Pesanan" }).click();
+      const row = page.getByRole("row").filter({ hasText: shipmentId.slice(0, 10) });
+      await expect(row).toContainText("vault_shipout");
+      await expect(row).toContainText("platform → platform_vault");
+      await expect(row.getByRole("button", { name: "Packing", exact: true })).toBeVisible();
+
+      await row.getByRole("button", { name: "Packing", exact: true }).click();
+      const dialog = page.getByRole("dialog");
+      await expect(dialog.locator("#cfm-title")).toHaveText("Tandai pengiriman ini sudah dipacking?");
+      await dialog.getByRole("button", { name: "Packing", exact: true }).click();
+      await expect(row).toContainText("Dikemas");
+
+      await row.getByLabel("Nomor resi").fill("E2E-FULFILL-001");
+      await row.getByRole("button", { name: "Kirim", exact: true }).click();
+      await expect(dialog.locator("#cfm-title")).toHaveText("Tandai pengiriman ini dikirim?");
+      await dialog.getByRole("button", { name: "Kirim", exact: true }).click();
+      await expect(row).toContainText("Dikirim");
+      await expect(row).toContainText("E2E-FULFILL-001");
+
+      await row.getByRole("button", { name: "Selesai", exact: true }).click();
+      await expect(dialog.locator("#cfm-title")).toHaveText("Tandai pengiriman ini selesai (diterima)?");
+      await dialog.getByRole("button", { name: "Selesai", exact: true }).click();
+      await expect(row).toContainText("Diterima");
+    } finally {
+      await cleanupShipment(`eq.${encodeURIComponent(shipmentId)}`);
+    }
   });
 });

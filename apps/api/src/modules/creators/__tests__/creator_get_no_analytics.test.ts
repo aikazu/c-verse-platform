@@ -29,8 +29,10 @@ vi.mock("../../../lib/auth.js", () => ({
 }));
 
 vi.mock("../../../lib/reads/creators.js", () => ({
-  getCreatorByHandle: vi.fn((handle: string) => Promise.resolve(handle === "karina" ? { id: "cr-1", userId: creator.id, handle } : null)),
-  getCreatorByUserId: vi.fn(() => Promise.resolve({ id: "cr-1", userId: creator.id, handle: "karina" })),
+  getCreatorByHandle: vi.fn((handle: string) =>
+    Promise.resolve(handle === "karina" ? { id: "cr-1", userId: creator.id, handle, status: "active" } : null),
+  ),
+  getCreatorByUserId: vi.fn(() => Promise.resolve({ id: "cr-1", userId: creator.id, handle: "karina", status: "active" })),
   listCreators: vi.fn(() => Promise.resolve([])),
   listCreatorUsers: vi.fn(() => Promise.resolve([])),
 }));

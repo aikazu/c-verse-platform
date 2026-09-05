@@ -1,12 +1,10 @@
 import { useEffect, useState } from "react";
-import { useConfirm } from "../components/ConfirmProvider";
 import { StatusBadge } from "../components/StatusBadge";
 import { apiFetch } from "../lib/api";
 import type { DisputeRow } from "../lib/types";
 import { errMessage } from "../lib/utils";
 
 export function DisputesPage() {
-  const confirm = useConfirm();
   const [rows, setRows] = useState<DisputeRow[]>([]);
   const [drafts, setDrafts] = useState<Record<string, { status: string; notes: string }>>({});
   const [msg, setMsg] = useState<string | null>(null);
@@ -30,16 +28,6 @@ export function DisputesPage() {
 
   async function decide(id: string) {
     const draft = drafts[id] ?? { status: "under_review", notes: "" };
-    const suspends = draft.status === "resolved_suspend";
-    if (
-      !(await confirm({
-        title: suspends ? "Selesaikan sengketa dengan SUSPEND user?" : `Simpan keputusan sengketa (${draft.status})?`,
-        ...(suspends ? { message: "Akun terkait akan dinonaktifkan." } : {}),
-        confirmLabel: suspends ? "Suspend" : "Simpan",
-        danger: suspends,
-      }))
-    )
-      return;
     setMsg(null);
     setBusy(true);
     try {
@@ -56,13 +44,16 @@ export function DisputesPage() {
     }
   }
 
-  const RESOLUTIONS = ["under_review", "resolved_refund", "resolved_strike", "resolved_suspend"];
+  const RESOLUTIONS = ["under_review"];
 
   return (
     <div className="admin-page">
       <div className="admin-page-head">
         <h2>Sengketa</h2>
-        <p className="muted">Tinjau dan selesaikan laporan (via API, ter-audit)</p>
+        <p className="muted">Tinjau laporan dan catat tindak lanjut (via API, ter-audit)</p>
+        <p className="muted" style={{ fontSize: 12 }}>
+          Refund, strike, dan suspend memerlukan kebijakan pendanaan serta tindakan operasional yang belum diimplementasikan.
+        </p>
       </div>
       {msg && (
         <div className="admin-msg" role="status" aria-live="polite">

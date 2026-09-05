@@ -47,6 +47,7 @@ export class RpcError extends Error {
 
 const ERROR_MESSAGES: Record<string, string> = {
   AUTH_REQUIRED: "Silakan login dulu",
+  ACCOUNT_SUSPENDED: "Akun disuspend",
   DROP_NOT_LIVE: "Drop belum live / sudah selesai",
   SOLD_OUT: "Unit sudah habis",
   LIMIT_1_PER_DROP: "Kamu sudah memiliki kartu dari drop ini (limit 1 kartu/user/drop)",
@@ -85,7 +86,7 @@ const ERROR_MESSAGES: Record<string, string> = {
   NO_PENDING_SALE: "Tidak ada transaksi seed yang menunggu release untuk kartu ini",
   NOT_SEED_CARD: "Kartu bukan Creator Seed C.Card",
   SEED_ABORT_DUPLICATE: "Transaksi seed ini sudah pernah di-abort sebelumnya",
-  CARD_NOT_IN_VAULT: "Kartu belum ada di vault platform — tidak bisa di-shipout dari sini",
+  CARD_NOT_IN_VAULT: "Kartu harus diterima di vault platform sebelum transaksi atau pengiriman keluar",
   SEED_SALE_IN_PROGRESS: "Kartu seed sedang dalam transaksi yang belum selesai",
   SHIPMENT_ACTIVE: "Sudah ada pengiriman aktif untuk kartu ini",
   INVALID_LEADERBOARD_TYPE: "Tipe leaderboard tidak valid (xp|cards|badges|creator)",
@@ -111,7 +112,7 @@ async function callRpc<T>(db: SupabaseClient, fn: string, args: Record<string, u
       // untuk incident response (pola yang sama dengan app.onError).
       console.error(`[db.rpc:${fn}] unmapped error (${error.code ?? "-"}):`, error.message);
     }
-    throw new RpcError(code, mapped ?? FALLBACK);
+    throw new RpcError(mapped ? code : "RPC_FAILED", mapped ?? FALLBACK);
   }
   return data as T;
 }
@@ -131,6 +132,14 @@ export function rpcVaultShipout(db: SupabaseClient, cardId: string, address: str
   return callRpc<Record<string, unknown>>(db, "vault_shipout", {
     p_card_id: cardId,
     p_address: address,
+  });
+}
+
+export function rpcSellerToVault(db: SupabaseClient, cardId: string, address: string, tracking: string | null) {
+  return callRpc<Record<string, unknown>>(db, "seller_to_vault", {
+    p_card_id: cardId,
+    p_address: address,
+    p_tracking: tracking,
   });
 }
 
@@ -162,7 +171,7 @@ export function rpcSetBuyout(db: SupabaseClient, cardId: string, price: number |
 export function rpcBuyoutCard(
   db: SupabaseClient,
   cardId: string,
-  destination: "buyer_address" | "platform_vault" = "buyer_address",
+  destination: "buyer_address" | "platform_vault" = "platform_vault",
   address: string | null = null,
 ) {
   return callRpc<Record<string, unknown>>(db, "buyout_card", { p_card_id: cardId, p_destination: destination, p_address: address });

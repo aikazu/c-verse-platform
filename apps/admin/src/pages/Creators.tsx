@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { useConfirm } from "../components/ConfirmProvider";
 import { StatusBadge } from "../components/StatusBadge";
 import { apiFetch } from "../lib/api";
-import { supabase } from "../lib/supabase";
 import type { CreatorRow, ProvisionResult, UserRow } from "../lib/types";
 import { errMessage } from "../lib/utils";
 
@@ -25,24 +24,24 @@ export function CreatorsPage() {
 
   async function load() {
     setLoading(true);
-    const [cr, us, wl] = await Promise.all([
-      supabase
-        .from("creators")
-        .select("id,user_id,handle,total_followers_combined,status,notes,created_at")
-        .order("created_at", { ascending: false })
-        .limit(500),
-      supabase.from("users").select("id,email,display_name,username,role,flag_reason").order("created_at", { ascending: false }).limit(500),
-      supabase.from("wallets").select("user_id,hold_payout_until").limit(1000),
-    ]);
-    setCreators((cr.data ?? []) as CreatorRow[]);
-    setUsers((us.data ?? []) as UserRow[]);
-    const holdMap: Record<string, string> = {};
-    for (const w of (wl.data ?? []) as { user_id: string; hold_payout_until: string | null }[]) {
-      if (w.hold_payout_until) holdMap[w.user_id] = w.hold_payout_until;
+    try {
+      const result = await apiFetch<{
+        creators: CreatorRow[];
+        users: UserRow[];
+        wallets: { user_id: string; hold_payout_until: string | null }[];
+      }>("/api/admin/creators");
+      setCreators(result.creators);
+      setUsers(result.users);
+      const holdMap: Record<string, string> = {};
+      for (const wallet of result.wallets) {
+        if (wallet.hold_payout_until) holdMap[wallet.user_id] = wallet.hold_payout_until;
+      }
+      setHolds(holdMap);
+    } catch {
+      setMsg("Gagal memuat sebagian data — periksa koneksi lalu refresh.");
+    } finally {
+      setLoading(false);
     }
-    setHolds(holdMap);
-    if (cr.error || us.error || wl.error) setMsg("Gagal memuat sebagian data — periksa koneksi lalu refresh.");
-    setLoading(false);
   }
   useEffect(() => {
     load();

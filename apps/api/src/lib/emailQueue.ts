@@ -10,7 +10,7 @@
 //   - kegagalan kirim lainnya (transport error) -> attempts+1; cap 3 -> 'failed'.
 // Batch kecil (QUEUE_BATCH) + event 1:1 per uang/pemenuhan = lane low volume.
 
-import { type EmailSendInput, sendEmail } from "./email.js";
+import { type EmailBindings, type EmailSendInput, type SendEmailBinding, sendEmail } from "./email.js";
 import { renderNotificationEmail } from "./emailTemplates.js";
 import { getSupabase } from "./supabase.js";
 
@@ -42,7 +42,30 @@ function getEnv(name: string): string | undefined {
   return g[name] ?? processEnv?.[name];
 }
 
-async function listPendingQueue(env?: Record<string, string | undefined>): Promise<EmailQueueRow[]> {
+type WorkerEnv = Record<string, unknown>;
+type DatabaseEnv = Record<string, string | undefined>;
+
+function databaseEnvOf(env?: WorkerEnv): DatabaseEnv | undefined {
+  if (!env) return undefined;
+  return {
+    SUPABASE_URL: typeof env.SUPABASE_URL === "string" ? env.SUPABASE_URL : undefined,
+    SUPABASE_SERVICE_ROLE_KEY: typeof env.SUPABASE_SERVICE_ROLE_KEY === "string" ? env.SUPABASE_SERVICE_ROLE_KEY : undefined,
+  };
+}
+
+function isSendEmailBinding(value: unknown): value is SendEmailBinding {
+  return typeof value === "object" && value !== null && typeof (value as { send?: unknown }).send === "function";
+}
+
+function emailBindingsOf(env?: WorkerEnv): EmailBindings {
+  return {
+    EMAIL: isSendEmailBinding(env?.EMAIL) ? env.EMAIL : undefined,
+    EMAIL_FROM: typeof env?.EMAIL_FROM === "string" ? env.EMAIL_FROM : undefined,
+    EMAIL_ENABLED: typeof env?.EMAIL_ENABLED === "string" ? env.EMAIL_ENABLED : undefined,
+  };
+}
+
+async function listPendingQueue(env?: DatabaseEnv): Promise<EmailQueueRow[]> {
   const db = getSupabase(env);
   const { data, error } = await db
     .from("notifications")
@@ -55,16 +78,16 @@ async function listPendingQueue(env?: Record<string, string | undefined>): Promi
   return (data ?? []) as unknown as EmailQueueRow[];
 }
 
-async function markSent(id: string): Promise<void> {
-  const { error } = await getSupabase().from("notifications").update({ status: "sent" }).eq("id", id);
+async function markSent(id: string, env?: DatabaseEnv): Promise<void> {
+  const { error } = await getSupabase(env).from("notifications").update({ status: "sent" }).eq("id", id);
   if (error) throw new Error(`email queue mark sent failed: ${error.message}`);
 }
 
 /** attempts+1; mencapai MAX_ATTEMPTS -> 'failed' (permanen), selain itu tetap 'pending'. */
-async function markAttempt(row: EmailQueueRow): Promise<"pending" | "failed"> {
+async function markAttempt(row: EmailQueueRow, env?: DatabaseEnv): Promise<"pending" | "failed"> {
   const attempts = row.attempts + 1;
   const status = attempts >= MAX_ATTEMPTS ? "failed" : "pending";
-  const { error } = await getSupabase().from("notifications").update({ attempts, status }).eq("id", row.id);
+  const { error } = await getSupabase(env).from("notifications").update({ attempts, status }).eq("id", row.id);
   if (error) throw new Error(`email queue mark attempt failed: ${error.message}`);
   return status;
 }
@@ -74,26 +97,28 @@ async function markAttempt(row: EmailQueueRow): Promise<"pending" | "failed"> {
  * per-row issues — hanya kegagalan DB/list yang propagate (ditangani lane
  * cron sebagai job failure -> digest admin).
  */
-export async function drainEmailQueue(env?: Record<string, string | undefined>): Promise<DrainResult> {
-  const disabled = getEnv("EMAIL_ENABLED") !== "true";
+export async function drainEmailQueue(env?: WorkerEnv): Promise<DrainResult> {
+  const emailEnv = emailBindingsOf(env);
+  const disabled = (emailEnv.EMAIL_ENABLED ?? getEnv("EMAIL_ENABLED")) !== "true";
+  const databaseEnv = databaseEnvOf(env);
   const result: DrainResult = { disabled, sent: 0, failed: 0, retried: 0, stopped: false };
   if (disabled) return result;
 
-  const rows = await listPendingQueue(env);
+  const rows = await listPendingQueue(databaseEnv);
   for (const row of rows) {
     const rendered = renderNotificationEmail(row.template_key, row.payload);
     const to = row.users?.email;
     if (!rendered || !to) {
       // Permanent by construction (template hilang / user tanpa email) —
       // biarkan cap attempts yang memutus, supaya satu jalur akuntansi.
-      if ((await markAttempt(row)) === "failed") result.failed += 1;
+      if ((await markAttempt(row, databaseEnv)) === "failed") result.failed += 1;
       else result.retried += 1;
       continue;
     }
     const input: EmailSendInput = { to, subject: rendered.subject, text: rendered.text, html: rendered.html };
-    const outcome = await sendEmail(input);
+    const outcome = await sendEmail(input, emailEnv);
     if (outcome.sent) {
-      await markSent(row.id);
+      await markSent(row.id, databaseEnv);
       result.sent += 1;
       continue;
     }
@@ -102,7 +127,7 @@ export async function drainEmailQueue(env?: Record<string, string | undefined>):
       result.stopped = true;
       break;
     }
-    if ((await markAttempt(row)) === "failed") result.failed += 1;
+    if ((await markAttempt(row, databaseEnv)) === "failed") result.failed += 1;
     else result.retried += 1;
   }
   return result;

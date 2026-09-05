@@ -3,12 +3,12 @@ import { useEffect, useRef, useState } from "react";
 import { useConfirm } from "../components/ConfirmProvider";
 import { StatusBadge } from "../components/StatusBadge";
 import { apiFetch } from "../lib/api";
-import { supabase } from "../lib/supabase";
 import type { DropRow } from "../lib/types";
 import { errMessage } from "../lib/utils";
 
 type QueuedArtwork = { dropId: string; file: File };
 type ArtworkEditor = { dropId: string; status: string; currentUrl: string | null; file: File | null; previewUrl: string | null };
+type ActiveCreator = { user_id: string; handle: string | null; users: { display_name: string | null } | null };
 
 function imageError(file: File): string | null {
   if (!PUBLIC_IMAGE_TYPES.some((type) => type === file.type)) return "Gunakan gambar JPEG, PNG, atau WebP.";
@@ -25,8 +25,17 @@ function ArtworkPreview({ src, alt }: { src: string | null; alt: string }) {
 export function DropsPage() {
   const confirm = useConfirm();
   const [rows, setRows] = useState<DropRow[]>([]);
+  const [creators, setCreators] = useState<ActiveCreator[]>([]);
   const [loading, setLoading] = useState(true);
-  const [form, setForm] = useState({ title: "", series: "", narrative: "", totalUnits: 15, priceCcoin: 30, dropStartAt: "" });
+  const [form, setForm] = useState({
+    creatorId: "",
+    title: "",
+    series: "",
+    narrative: "",
+    totalUnits: 15,
+    priceCcoin: 30,
+    dropStartAt: "",
+  });
   const [createArtwork, setCreateArtwork] = useState<{ file: File; previewUrl: string } | null>(null);
   const [pendingArtwork, setPendingArtwork] = useState<QueuedArtwork | null>(null);
   const [artworkEditor, setArtworkEditor] = useState<ArtworkEditor | null>(null);
@@ -54,19 +63,15 @@ export function DropsPage() {
   async function load() {
     setLoading(true);
     setLoadError(false);
-    const { data, error } = await supabase
-      .from("drops")
-      .select(
-        "id,title,series,status,total_units,sold_count,price_ccoin,price_unsigned_ccoin,artwork_url,raffle_end_at,drawn_at,created_at",
-      )
-      .order("created_at", { ascending: false })
-      .limit(500);
-    if (error) {
+    try {
+      const result = await apiFetch<{ drops: DropRow[]; activeCreators: ActiveCreator[] }>("/api/admin/drops");
+      setRows(result.drops);
+      setCreators(result.activeCreators);
+    } catch {
       setLoadError(true);
-    } else {
-      setRows((data ?? []) as DropRow[]);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }
   useEffect(() => {
     void load();
@@ -102,13 +107,14 @@ export function DropsPage() {
           title: form.title,
           series: form.series,
           narrative: form.narrative,
+          creatorId: form.creatorId,
           totalUnits: Number(form.totalUnits),
           priceCcoin: Number(form.priceCcoin),
           ...(form.dropStartAt ? { dropStartAt: new Date(form.dropStartAt).toISOString() } : {}),
         }),
       });
       const createdId = result.drop.id;
-      setForm({ title: "", series: "", narrative: "", totalUnits: 15, priceCcoin: 30, dropStartAt: "" });
+      setForm({ creatorId: "", title: "", series: "", narrative: "", totalUnits: 15, priceCcoin: 30, dropStartAt: "" });
       if (!createArtwork) {
         setMsg("Drop dibuat (draft) — artwork dapat diunggah dari daftar di bawah.");
         await load();
@@ -258,6 +264,24 @@ export function DropsPage() {
       </div>
       <form onSubmit={onCreate} className="card card-pad" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         <div style={{ fontWeight: 700, fontSize: 13 }}>Buat Drop</div>
+        <label className="label" htmlFor="drop-creator">
+          Kreator
+        </label>
+        <select
+          id="drop-creator"
+          className="input"
+          value={form.creatorId}
+          onChange={(e) => setForm((state) => ({ ...state, creatorId: e.target.value }))}
+          required
+        >
+          <option value="">Pilih kreator aktif</option>
+          {creators.map((creator) => (
+            <option key={creator.user_id} value={creator.user_id}>
+              {creator.users?.display_name ?? creator.handle ?? creator.user_id}
+              {creator.handle ? ` · @${creator.handle}` : ""}
+            </option>
+          ))}
+        </select>
         <label className="label" htmlFor="drop-title">
           Judul
         </label>
@@ -353,7 +377,7 @@ export function DropsPage() {
           value={form.dropStartAt}
           onChange={(e) => setForm((state) => ({ ...state, dropStartAt: e.target.value }))}
         />
-        <button className="btn-gold" style={{ alignSelf: "start" }} disabled={creating || uploading || !!pendingArtwork}>
+        <button className="btn-gold" style={{ alignSelf: "start" }} disabled={creating || uploading || !!pendingArtwork || !form.creatorId}>
           {creating ? "Membuat…" : uploading ? "Mengunggah…" : "Buat Draft"}
         </button>
         {pendingArtwork && (

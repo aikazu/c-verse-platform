@@ -11,7 +11,7 @@ insert into public.admin_audit_log (
   ('al-qc-print','00000000-0000-4000-8000-000000000002','update','public.qc_defects','qcd-beta-print','{"resolution":"return_vendor"}','10.0.0.1','sess-qc',now()-interval '1 day'),
   ('al-user-marked','00000000-0000-4000-8000-000000000002','update','public.users','00000000-0000-4000-8000-000000000008','{"flag_reason":"tos_violation_2026_08"}','10.0.0.1','sess-risk',now()-interval '5 days'),
   ('al-dispute','00000000-0000-4000-8000-000000000002','update','public.disputes','dsp-review','{"status":"under_review"}','10.0.0.1','sess-risk',now()-interval '2 days'),
-  ('al-config','00000000-0000-4000-8000-000000000002','config_change','local.seed','asset_contract','{"public_assets":6,"private_kyc":"r2"}','10.0.0.1','sess-config',now()-interval '1 hour')
+  ('al-config','00000000-0000-4000-8000-000000000002','config_change','local.seed','asset_contract','{"public_assets":12,"private_kyc":"r2"}','10.0.0.1','sess-config',now()-interval '1 hour')
 on conflict (id) do nothing;
 
 insert into public.creator_page_views (id,creator_id,viewed_at,referrer,city,user_id) values
@@ -66,7 +66,18 @@ from (values
 -- Fail the reset on fixture drift. These checks intentionally overlap at
 -- domain boundaries so an internally balanced but economically false seed fails.
 do $$
-declare failures text[] := array[]::text[];
+declare
+  failures text[] := array[]::text[];
+  approved_asset_paths constant text[] := array[
+    'https://assets.c-verse.co/mock/v1/artworks/karina.jpg','/mock/v1/artworks/genesis.png','/mock/v1/artworks/aurora.png',
+    '/mock/v1/avatars/demo.png','/mock/v1/avatars/nova.png','/placeholder.obj',
+    'https://assets.c-verse.co/mock/v2/artworks/karina-seraph.png',
+    'https://assets.c-verse.co/mock/v2/artworks/aurora-solstice.png',
+    'https://assets.c-verse.co/mock/v2/artworks/genesis-signal.png',
+    'https://assets.c-verse.co/mock/v2/artworks/karina-velvet.png',
+    'https://assets.c-verse.co/mock/v2/artworks/karina-starlight.png',
+    'https://assets.c-verse.co/mock/v2/artworks/nova-constellation.png'
+  ];
 begin
   if (select count(*) from auth.users where id between '00000000-0000-4000-8000-000000000001' and '00000000-0000-4000-8000-000000000008')<>8 then
     failures:=array_append(failures,'eight core auth personas missing'); end if;
@@ -81,19 +92,14 @@ begin
   if exists (select 1 from public.kyc_records where coalesce(ktp_object_key,'') like 'http%' or coalesce(selfie_object_key,'') like 'http%') then
     failures:=array_append(failures,'KYC must use private R2 object keys'); end if;
 
-  if exists (select path from (values
-      ('https://assets.c-verse.co/mock/v1/artworks/karina.jpg'),('/mock/v1/artworks/genesis.png'),('/mock/v1/artworks/aurora.png'),
-      ('/mock/v1/avatars/demo.png'),('/mock/v1/avatars/nova.png'),('/placeholder.obj')
-    ) expected(path) where not exists (
+  if exists (select path from unnest(approved_asset_paths) expected(path) where not exists (
       select 1 from (select artwork_url path from public.drops union all select artwork_3d_url from public.drops union all select avatar_url from public.users) actual
       where actual.path=expected.path
     )) then failures:=array_append(failures,'approved asset path missing'); end if;
   if exists (select 1 from (
       select artwork_url path from public.drops union all select artwork_3d_url from public.drops union all select avatar_url from public.users
-    ) a where path is not null and path not in (
-      'https://assets.c-verse.co/mock/v1/artworks/karina.jpg','/mock/v1/artworks/genesis.png','/mock/v1/artworks/aurora.png',
-      '/mock/v1/avatars/demo.png','/mock/v1/avatars/nova.png','/placeholder.obj'
-    )) then failures:=array_append(failures,'unmapped public asset URL present'); end if;
+    ) a where path is not null and not (path = any(approved_asset_paths)))
+    then failures:=array_append(failures,'unmapped public asset URL present'); end if;
 
   if (select count(*) from public.drops where id in ('drop-aespa-live','drop-genesis-live','drop-aespa-signed','drop-aespa-2027','drop-genesis-beta'))<>5 then
     failures:=array_append(failures,'stable drop set missing'); end if;

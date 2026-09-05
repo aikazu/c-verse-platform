@@ -12,6 +12,7 @@ import { isPubliclyMasked, type PublicBid, publicDisplayName, toPublicBid } from
 import type { Bid, Card, User } from "../../lib/store.js";
 import { getSupabase } from "../../lib/supabase.js";
 import { getCardByNfcShortId, getCardByNfcUid, listOwnershipByCard } from "./reads.js";
+import { issueViewReceipt, verifyViewReceipt } from "./receipt.js";
 
 // NFC verification (docs/12): SUN/CMAC real verification — never "verified" without crypto match.
 
@@ -309,6 +310,7 @@ app.get("/cards/:cardId", async (c) => {
 
 // GET /cards/:cardId/3d — 3D viewer data. SUN URL params (?uid=&ctr=&c=) trigger CMAC verification.
 app.get("/cards/:cardId/3d", async (c) => {
+  c.header("Cache-Control", "private, no-store");
   const card = await getCardByIdOrNfc(c.req.param("cardId"));
   if (!card) return c.json({ error: "Kartu tidak ditemukan" }, 404);
   const [drop, owner] = await Promise.all([getDropById(card.dropId), card.ownerId ? getUserById(card.ownerId) : Promise.resolve(null)]);
@@ -317,9 +319,13 @@ app.get("/cards/:cardId/3d", async (c) => {
   const uidQ = c.req.query("uid");
   const ctrQ = c.req.query("ctr");
   const cmacQ = c.req.query("c") ?? c.req.query("cmac");
+  const receipt = c.req.query("receipt");
+  const master = masterKeyBytes();
   if (uidQ && ctrQ && cmacQ) {
     const outcome = await verifyTap(card, { uidHex: uidQ, ctrHex: ctrQ, cmacHex: cmacQ, tamperFlag: c.req.query("t") === "1" });
     verifyStatus = outcome.verifyStatus;
+  } else if (receipt && master && card.verifyStatus === "verified" && (await verifyViewReceipt(master, card.id, receipt))) {
+    verifyStatus = "verified";
   } else {
     // Bare visit (QR / link): weaker label — at most "registered", never "verified"
     verifyStatus = card.verifyStatus === "tamper_detected" ? "tamper_detected" : card.ownerId ? "registered" : "unknown";
@@ -405,6 +411,7 @@ app.post(
     }),
   ),
   async (c) => {
+    c.header("Cache-Control", "private, no-store");
     const { uid, counter, cmac, shortId, t } = c.req.valid("json");
     let card = await getCardByNfcUid(uid);
     if (!card && shortId) card = await getCardByNfcShortId(shortId);
@@ -423,6 +430,8 @@ app.post(
     }
 
     const outcome = await verifyTap(card, { uidHex: uid, ctrHex: counter, cmacHex: cmac, tamperFlag: t === "1" });
+    const master = masterKeyBytes();
+    const receipt = outcome.verifyStatus === "verified" && master ? await issueViewReceipt(master, card.id) : null;
     const [drop, owner] = await Promise.all([getDropById(card.dropId), card.ownerId ? getUserById(card.ownerId) : Promise.resolve(null)]);
     return c.json({
       verifyStatus: outcome.verifyStatus,
@@ -432,7 +441,7 @@ app.post(
       drop: drop ? { id: drop.id, title: drop.title, series: drop.series, artworkUrl: drop.artworkUrl, narrative: drop.narrative } : null,
       owner: owner ? { displayName: publicDisplayName(owner) } : null,
       verifyMethod: "nfc_cmac",
-      redirectTo: `/cards/${card.id}/3d`,
+      redirectTo: `/cards/${card.id}/3d${receipt ? `?receipt=${encodeURIComponent(receipt)}` : ""}`,
       verifiedBadge: outcome.verifyStatus === "verified" ? "Verified Card" : null,
     });
   },
@@ -440,6 +449,7 @@ app.post(
 
 // GET /sun-verify — iOS background tap lands here with ?uid=&ctr=&c=
 app.get("/sun-verify", async (c) => {
+  c.header("Cache-Control", "private, no-store");
   const uidParam = c.req.query("uid") ?? c.req.query("UID");
   const shortId = c.req.query("shortId") ?? c.req.query("id");
   let card: Card | null = null;
@@ -455,11 +465,13 @@ app.get("/sun-verify", async (c) => {
   const cmac = c.req.query("c") ?? c.req.query("cmac");
   if (uidParam && ctr && cmac) {
     const outcome = await verifyTap(card, { uidHex: uidParam, ctrHex: ctr, cmacHex: cmac, tamperFlag: c.req.query("t") === "1" });
+    const master = masterKeyBytes();
+    const receipt = outcome.verifyStatus === "verified" && master ? await issueViewReceipt(master, card.id) : null;
     return c.json({
       verifyStatus: outcome.verifyStatus,
       reason: outcome.reason ?? null,
       card: { id: card.id },
-      redirectTo: `/cards/${card.id}/3d`,
+      redirectTo: `/cards/${card.id}/3d${receipt ? `?receipt=${encodeURIComponent(receipt)}` : ""}`,
       verifiedBadge: outcome.verifyStatus === "verified" ? "Verified Card" : null,
     });
   }

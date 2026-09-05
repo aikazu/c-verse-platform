@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { type ConfirmOptions, useConfirm } from "../components/ConfirmProvider";
 import { StatusBadge } from "../components/StatusBadge";
 import { apiFetch } from "../lib/api";
-import { supabase } from "../lib/supabase";
 import type { OrderRow, ShipmentRow } from "../lib/types";
 import { errMessage } from "../lib/utils";
 
@@ -33,6 +32,27 @@ export function shipmentConfirmOptions(status: string, trackingNumber: string | 
   }
 }
 
+export type ShipmentAction = "packed" | "cancelled" | "shipped" | "delivered";
+
+/** Aksi ditentukan status shipment, bukan keberadaan order historis. */
+export function shipmentActionsForStatus(status: string): ShipmentAction[] {
+  switch (status) {
+    case "requested":
+      return ["packed", "cancelled", "shipped"];
+    case "packed":
+      return ["shipped", "cancelled"];
+    case "shipped":
+      return ["delivered"];
+    default:
+      return [];
+  }
+}
+
+export function shipmentDestination(shipment: Pick<ShipmentRow, "to_dest" | "address">): string {
+  const street = shipment.address?.street?.trim();
+  return street ? `${shipment.to_dest} · ${street}` : shipment.to_dest;
+}
+
 export function OrdersPage() {
   const confirm = useConfirm();
   const [rows, setRows] = useState<OrderRow[]>([]);
@@ -46,31 +66,19 @@ export function OrdersPage() {
   async function load() {
     setLoading(true);
     setLoadError(false);
-    const [{ data: o, error: oErr }, { data: s, error: sErr }] = await Promise.all([
-      supabase
-        .from("orders")
-        .select("id,card_id,status,delivery_option,tracking_number,created_at")
-        .order("created_at", { ascending: false })
-        .limit(100),
-      supabase.from("shipments").select("id,card_id,status,tracking_number").order("created_at", { ascending: false }).limit(500),
-    ]);
-    if (oErr || sErr) {
+    try {
+      const result = await apiFetch<{ orders: OrderRow[]; shipments: ShipmentRow[] }>("/api/admin/orders");
+      setRows(result.orders);
+      setShipments(result.shipments);
+    } catch {
       setLoadError(true);
+    } finally {
       setLoading(false);
-      return;
     }
-    setRows((o ?? []) as OrderRow[]);
-    setShipments((s ?? []) as ShipmentRow[]);
-    setLoading(false);
   }
   useEffect(() => {
     load();
   }, []);
-
-  function shipmentFor(order: OrderRow): ShipmentRow | null {
-    if (!order.card_id) return null;
-    return shipments.find((s) => s.card_id === order.card_id) ?? null;
-  }
 
   async function updateShipment(shipmentId: string, status: string, trackingNumber?: string) {
     // D8: setiap aksi mutasi lewat konfirmasi in-app. Kirim TANPA resi =
@@ -92,30 +100,23 @@ export function OrdersPage() {
     }
   }
 
-  function actionsFor(order: OrderRow) {
-    if (order.delivery_option === "vault") {
-      return <span className="muted fs-11">Vault — settled otomatis</span>;
-    }
-    const shipment = shipmentFor(order);
-    if (!shipment) {
-      return <span className="muted fs-11">Tidak ada shipment — order shipping tanpa record pengiriman</span>;
-    }
-    const tracking = trackInputs[shipment.id] ?? "";
+  function actionsForShipment(shipment: ShipmentRow) {
+    const actions = shipmentActionsForStatus(shipment.status);
+    const tracking = trackInputs[shipment.id] ?? shipment.tracking_number ?? "";
     const rowBusy = busyId === shipment.id;
     return (
       <div className="flex-gap-6 flex-wrap" style={{ alignItems: "center" }}>
-        <StatusBadge status={shipment.status} kind="shipment" style={{ fontSize: 10 }} />
-        {shipment.status === "requested" && (
-          <>
-            <button className="btn-ghost admin-mini" onClick={() => updateShipment(shipment.id, "packed")} disabled={rowBusy}>
-              Packing
-            </button>
-            <button className="btn-ghost admin-mini" onClick={() => updateShipment(shipment.id, "cancelled")} disabled={rowBusy}>
-              Batal
-            </button>
-          </>
+        {actions.includes("packed") && (
+          <button className="btn-ghost admin-mini" onClick={() => updateShipment(shipment.id, "packed")} disabled={rowBusy}>
+            Packing
+          </button>
         )}
-        {(shipment.status === "requested" || shipment.status === "packed") && (
+        {actions.includes("cancelled") && (
+          <button className="btn-ghost admin-mini" onClick={() => updateShipment(shipment.id, "cancelled")} disabled={rowBusy}>
+            Batal
+          </button>
+        )}
+        {actions.includes("shipped") && (
           <>
             <input
               className="input"
@@ -134,7 +135,7 @@ export function OrdersPage() {
             </button>
           </>
         )}
-        {shipment.status === "shipped" && (
+        {actions.includes("delivered") && (
           <button className="btn-gold admin-mini" onClick={() => updateShipment(shipment.id, "delivered")} disabled={rowBusy}>
             Selesai
           </button>
@@ -149,7 +150,7 @@ export function OrdersPage() {
     <div className="admin-page">
       <div className="admin-page-head">
         <h2>Pesanan</h2>
-        <p className="muted">Kelola pengiriman — transisi divalidasi server-side via /api/shipments</p>
+        <p className="muted">Kelola riwayat pesanan dan antrean pengiriman.</p>
       </div>
       {msg && (
         <div className="admin-msg" role="status" aria-live="polite">
@@ -157,7 +158,7 @@ export function OrdersPage() {
         </div>
       )}
       <div className="card">
-        <div className="admin-table-head">100 terbaru</div>
+        <div className="admin-table-head">Riwayat pesanan — 100 terbaru</div>
         {loading ? (
           <div style={{ padding: 20 }} className="muted">
             Memuat…
@@ -181,8 +182,7 @@ export function OrdersPage() {
                   <th>ID</th>
                   <th>Status Order</th>
                   <th>Opsi</th>
-                  <th>Resi</th>
-                  <th>Pengiriman</th>
+                  <th>Catatan</th>
                 </tr>
               </thead>
               <tbody>
@@ -193,8 +193,7 @@ export function OrdersPage() {
                       <StatusBadge status={r.status} kind="order" />
                     </td>
                     <td style={{ fontSize: 12 }}>{r.delivery_option ?? "—"}</td>
-                    <td style={{ fontSize: 11 }}>{r.tracking_number ?? "—"}</td>
-                    <td>{actionsFor(r)}</td>
+                    <td className="muted fs-11">Status pengiriman dilacak di antrean shipment.</td>
                   </tr>
                 ))}
               </tbody>
@@ -202,6 +201,56 @@ export function OrdersPage() {
           </div>
         )}
       </div>
+      {!loading && !loadError && (
+        <div className="card" style={{ marginTop: 14 }}>
+          <div className="admin-table-head">Antrean shipment — {shipments.length}</div>
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>C.Card</th>
+                  <th>Pemohon</th>
+                  <th>Jenis / rute</th>
+                  <th>Tujuan</th>
+                  <th>Status</th>
+                  <th>Resi</th>
+                  <th>Aksi</th>
+                </tr>
+              </thead>
+              <tbody>
+                {shipments.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} className="empty-state">
+                      Tidak ada shipment
+                    </td>
+                  </tr>
+                ) : (
+                  shipments.map((shipment) => (
+                    <tr key={shipment.id}>
+                      <td className="mono fs-11">{shipment.id.slice(0, 10)}</td>
+                      <td className="mono fs-11">{shipment.card_id.slice(0, 10)}</td>
+                      <td className="mono fs-11">{shipment.requester_id.slice(0, 10)}</td>
+                      <td style={{ fontSize: 11 }}>
+                        <div>{shipment.type}</div>
+                        <div className="muted">
+                          {shipment.from_location} → {shipment.to_dest}
+                        </div>
+                      </td>
+                      <td style={{ fontSize: 11 }}>{shipmentDestination(shipment)}</td>
+                      <td>
+                        <StatusBadge status={shipment.status} kind="shipment" style={{ fontSize: 10 }} />
+                      </td>
+                      <td className="mono fs-11">{shipment.tracking_number ?? "—"}</td>
+                      <td>{actionsForShipment(shipment)}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

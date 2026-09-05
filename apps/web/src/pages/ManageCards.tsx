@@ -1,4 +1,4 @@
-import { type Card, cardVariantLabel, SHIPMENT_FEE_CCOIN } from "@c-verse/shared";
+import { type Card, cardVariantLabel, MIN_SECONDARY_PRICE_CCOIN, SHIPMENT_FEE_CCOIN, type Shipment } from "@c-verse/shared";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
@@ -31,6 +31,7 @@ function ManageCardsInner() {
   const confirm = useConfirm();
   const [buyout, setBuyout] = useState<Record<string, string>>({});
   const [vaultAddr, setVaultAddr] = useState<Record<string, string>>({});
+  const [returnAddr, setReturnAddr] = useState<Record<string, string>>({});
   const [busyId, setBusyId] = useState<string | null>(null);
   const { data, refetch } = useQuery({ queryKey: ["profile-manage"], queryFn: () => api.profile(), enabled: !!user });
 
@@ -48,6 +49,11 @@ function ManageCardsInner() {
   }, [data]);
 
   const cards: EnrichedCard[] = data?.cards ?? [];
+  const activeShipmentCardIds = new Set(
+    (data?.shipments ?? [])
+      .filter((shipment: Shipment) => !["delivered", "cancelled"].includes(shipment.status))
+      .map((shipment) => shipment.cardId),
+  );
   async function onSetBuyout(card: EnrichedCard) {
     const raw = (buyout[card.id] ?? "").trim();
     const hasExisting = card.buyoutPriceCcoin != null;
@@ -68,9 +74,9 @@ function ManageCardsInner() {
       return;
     }
     const v = Number(raw);
-    // Pattern CreatorPage: integer >= 1 wajib — tolak desimal/Infinity/NaN.
-    if (!Number.isInteger(v) || v < 1) {
-      push("Minimal 1 C", "info");
+    // Floor canonical secondary: split fee harus tetap menyisakan seller >= 1.
+    if (!Number.isInteger(v) || v < MIN_SECONDARY_PRICE_CCOIN) {
+      push(`Minimal ${MIN_SECONDARY_PRICE_CCOIN} C`, "info");
       return;
     }
     if (
@@ -118,6 +124,33 @@ function ManageCardsInner() {
       refetch();
     } catch (e: unknown) {
       console.error("vaultShipout gagal", e);
+      push(GENERIC_ERROR, "error");
+    } finally {
+      setBusyId(null);
+    }
+  }
+  async function onReturnToVault(card: Card) {
+    const addr = returnAddr[card.id] ?? "";
+    if (addr.length < 10) {
+      push("Alamat Vault minimal 10 karakter", "info");
+      return;
+    }
+    if (
+      !(await confirm({
+        title: "Kembalikan C.Card ke Vault?",
+        message: "Pengiriman ke Vault gratis. Transaksi sekunder dapat diselesaikan setelah kartu diterima dan diverifikasi.",
+        confirmLabel: "Kirim ke Vault",
+        requireCheck: LEGAL_CONSENTS.shipout,
+      }))
+    )
+      return;
+    setBusyId(card.id);
+    try {
+      await api.sellerShipToVault(card.id, addr);
+      push("Pengiriman ke Vault dibuat", "success");
+      refetch();
+    } catch (e: unknown) {
+      console.error("sellerShipToVault gagal", e);
       push(GENERIC_ERROR, "error");
     } finally {
       setBusyId(null);
@@ -173,105 +206,161 @@ function ManageCardsInner() {
             // <details> per aksi (buyout, accept-bid, ship-vault) supaya tidak
             // langsung bombardir user dengan 3 form terbuka — visual fokus.
             <div key={card.id} className="card ac-card">
-              <div style={{ fontWeight: 600, fontSize: 13 }}>
-                {card.drop?.title ?? "Tanpa judul"} · #{card.unitNumber}{" "}
-                <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--text-dim)" }}>
-                  · {cardVariantLabel(card.variant)}
-                </span>
-              </div>
-              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                {card.buyoutPriceCcoin ? (
-                  <span className="pill pill-warn" style={{ fontSize: 10 }}>
-                    {card.buyoutPriceCcoin} C · Dijual
-                  </span>
-                ) : (
-                  <span className="pill pill-muted" style={{ fontSize: 10 }}>
-                    Tidak dijual
-                  </span>
-                )}
-                {card.activeBid ? (
-                  <span className="pill pill-success" style={{ fontSize: 10 }}>
-                    Penawaran {card.activeBid.amountCCoin} C
-                  </span>
-                ) : null}
-              </div>
-              <Link
-                to={`/cards/${card.id}`}
-                style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--gold)", fontWeight: 500 }}
-              >
-                Detail →
-              </Link>
-              {/* Aksi 1 — Pasang harga jual */}
-              <details className="ac-card-item">
-                <summary className="ac-card-summary">Pasang / Ubah Harga Jual</summary>
-                <div className="ac-card-row">
-                  <input
-                    className="input"
-                    type="number"
-                    min={1}
-                    aria-label="Harga jual C-Coin"
-                    placeholder="Harga C (kosong = hapus)"
-                    value={buyout[card.id] ?? ""}
-                    onChange={(e) => setBuyout((s) => ({ ...s, [card.id]: e.target.value }))}
-                    style={{ flex: 1, fontSize: 12, fontFamily: "var(--font-mono)" }}
-                  />
-                  <button
-                    className="btn-gold"
-                    onClick={() => onSetBuyout(card)}
-                    disabled={busyId === card.id}
-                    style={{ fontSize: 12, padding: "7px 14px" }}
-                  >
-                    Simpan
-                  </button>
-                </div>
-              </details>
-              {/* Aksi 2 — Terima tawaran aktif */}
-              {card.activeBid && (
-                <details className="ac-card-item">
-                  <summary className="ac-card-summary">
-                    Terima Penawaran {card.activeBid.amountCCoin} C (dari {card.activeBid.bidderName})
-                  </summary>
-                  <div className="ac-card-body">
-                    <div style={{ fontSize: 12, color: "var(--text-dim)" }}>
-                      C.Card fisik disimpan di Vault. Pembeli dapat meminta pengiriman fisik lewat &quot;Kirim dari Vault&quot;.
+              {(() => {
+                const hasActiveShipment = activeShipmentCardIds.has(card.id);
+                // Drop seed tetap dapat settle dari pemilik. Kartu non-seed harus
+                // diterima fisik di platform_vault terlebih dahulu.
+                const needsVaultBeforeSettlement = card.drop?.isSeed !== true && card.location !== "platform_vault";
+                const settlementBlocked = hasActiveShipment || needsVaultBeforeSettlement;
+                const canCreateListing = !hasActiveShipment;
+                return (
+                  <>
+                    <div style={{ fontWeight: 600, fontSize: 13 }}>
+                      {card.drop?.title ?? "Tanpa judul"} · #{card.unitNumber}{" "}
+                      <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--text-dim)" }}>
+                        · {cardVariantLabel(card.variant)}
+                      </span>
                     </div>
-                    <button
-                      className="btn-gold"
-                      onClick={() => onAccept(card)}
-                      disabled={busyId === card.id}
-                      style={{ fontSize: 12, fontFamily: "var(--font-mono)" }}
+                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                      {card.buyoutPriceCcoin ? (
+                        <span className="pill pill-warn" style={{ fontSize: 10 }}>
+                          {card.buyoutPriceCcoin} C · Dijual
+                        </span>
+                      ) : (
+                        <span className="pill pill-muted" style={{ fontSize: 10 }}>
+                          Tidak dijual
+                        </span>
+                      )}
+                      {card.activeBid ? (
+                        <span className="pill pill-success" style={{ fontSize: 10 }}>
+                          Penawaran {card.activeBid.amountCCoin} C
+                        </span>
+                      ) : null}
+                    </div>
+                    <Link
+                      to={`/cards/${card.id}`}
+                      style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--gold)", fontWeight: 500 }}
                     >
-                      Terima →
-                    </button>
-                  </div>
-                </details>
-              )}
-              {/* Aksi 3 — Kirim dari vault */}
-              {card.location === "platform_vault" && (
-                <details className="ac-card-item">
-                  <summary className="ac-card-summary">Kirim dari Vault</summary>
-                  <div className="ac-card-body">
-                    <input
-                      className="input"
-                      aria-label="Alamat pengiriman"
-                      placeholder="Alamat lengkap"
-                      value={vaultAddr[card.id] ?? ""}
-                      onChange={(e) => setVaultAddr((s) => ({ ...s, [card.id]: e.target.value }))}
-                      style={{ fontSize: 12 }}
-                    />
-                    <div className="ac-card-row">
-                      <button
-                        className="btn-gold"
-                        onClick={() => onVaultShip(card)}
-                        disabled={busyId === card.id}
-                        style={{ fontSize: 12, flex: 1 }}
-                      >
-                        Kirim
-                      </button>
-                    </div>
-                  </div>
-                </details>
-              )}
+                      Detail →
+                    </Link>
+                    {hasActiveShipment && (
+                      <div className="muted" style={{ fontSize: 12 }}>
+                        Pengiriman masih aktif. Tunggu selesai sebelum memulai atau menyelesaikan transaksi.
+                      </div>
+                    )}
+                    {needsVaultBeforeSettlement && !hasActiveShipment && (
+                      <div className="muted" style={{ fontSize: 12 }}>
+                        Kembalikan C.Card ke Vault sebelum penjualan atau penawaran non-seed diselesaikan.
+                      </div>
+                    )}
+                    {/* Aksi 1 — Pasang harga jual */}
+                    <details className="ac-card-item">
+                      <summary className="ac-card-summary">Pasang / Ubah Harga Jual</summary>
+                      <div className="ac-card-row">
+                        <input
+                          className="input"
+                          type="number"
+                          min={MIN_SECONDARY_PRICE_CCOIN}
+                          aria-label="Harga jual C-Coin"
+                          placeholder={`Harga min. ${MIN_SECONDARY_PRICE_CCOIN} C (kosong = hapus)`}
+                          value={buyout[card.id] ?? ""}
+                          onChange={(e) => setBuyout((s) => ({ ...s, [card.id]: e.target.value }))}
+                          disabled={!canCreateListing && card.buyoutPriceCcoin == null}
+                          style={{ flex: 1, fontSize: 12, fontFamily: "var(--font-mono)" }}
+                        />
+                        <button
+                          className="btn-gold"
+                          onClick={() => onSetBuyout(card)}
+                          disabled={busyId === card.id || (!canCreateListing && card.buyoutPriceCcoin == null)}
+                          style={{ fontSize: 12, padding: "7px 14px" }}
+                        >
+                          Simpan
+                        </button>
+                      </div>
+                    </details>
+                    {/* Aksi 2 — Terima tawaran aktif */}
+                    {card.activeBid && (
+                      <details className="ac-card-item">
+                        <summary className="ac-card-summary">
+                          Terima Penawaran {card.activeBid.amountCCoin} C (dari {card.activeBid.bidderName})
+                        </summary>
+                        <div className="ac-card-body">
+                          <div style={{ fontSize: 12, color: "var(--text-dim)" }}>
+                            {settlementBlocked
+                              ? "Kembalikan C.Card ke Vault dan tunggu pengiriman selesai sebelum menerima penawaran ini."
+                              : 'C.Card fisik disimpan di Vault. Pembeli dapat meminta pengiriman fisik lewat "Kirim dari Vault".'}
+                          </div>
+                          <button
+                            className="btn-gold"
+                            onClick={() => onAccept(card)}
+                            disabled={busyId === card.id || settlementBlocked}
+                            style={{ fontSize: 12, fontFamily: "var(--font-mono)" }}
+                          >
+                            Terima →
+                          </button>
+                        </div>
+                      </details>
+                    )}
+                    {/* Aksi 3 — Kembalikan dari pemilik ke vault. Tetap tersedia untuk
+                  seed bid_pending agar seller dapat memenuhi custody sebelum settle. */}
+                    {card.location === "with_owner" && (
+                      <details className="ac-card-item">
+                        <summary className="ac-card-summary">Kembalikan ke Vault</summary>
+                        <div className="ac-card-body">
+                          <div style={{ fontSize: 12, color: "var(--text-dim)" }}>
+                            Gratis. Masukkan alamat penerimaan Vault; transaksi menunggu kartu diterima dan diverifikasi.
+                          </div>
+                          <input
+                            className="input"
+                            aria-label="Alamat penerimaan Vault"
+                            placeholder="Alamat penerimaan Vault"
+                            value={returnAddr[card.id] ?? ""}
+                            onChange={(e) => setReturnAddr((s) => ({ ...s, [card.id]: e.target.value }))}
+                            disabled={hasActiveShipment}
+                            style={{ fontSize: 12 }}
+                          />
+                          <div className="ac-card-row">
+                            <button
+                              className="btn-gold"
+                              onClick={() => onReturnToVault(card)}
+                              disabled={busyId === card.id || hasActiveShipment}
+                              style={{ fontSize: 12, flex: 1 }}
+                            >
+                              Kirim ke Vault
+                            </button>
+                          </div>
+                        </div>
+                      </details>
+                    )}
+                    {/* Aksi 4 — Kirim dari vault */}
+                    {card.location === "platform_vault" && (
+                      <details className="ac-card-item">
+                        <summary className="ac-card-summary">Kirim dari Vault</summary>
+                        <div className="ac-card-body">
+                          <input
+                            className="input"
+                            aria-label="Alamat pengiriman"
+                            placeholder="Alamat lengkap"
+                            value={vaultAddr[card.id] ?? ""}
+                            onChange={(e) => setVaultAddr((s) => ({ ...s, [card.id]: e.target.value }))}
+                            style={{ fontSize: 12 }}
+                          />
+                          <div className="ac-card-row">
+                            <button
+                              className="btn-gold"
+                              onClick={() => onVaultShip(card)}
+                              disabled={busyId === card.id}
+                              style={{ fontSize: 12, flex: 1 }}
+                            >
+                              Kirim
+                            </button>
+                          </div>
+                        </div>
+                      </details>
+                    )}
+                  </>
+                );
+              })()}
             </div>
           ))}
         </div>

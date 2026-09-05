@@ -49,7 +49,7 @@ app.get("/", async (c) => {
     const drop = dropById.get(ca.dropId);
     return {
       ...ca,
-      drop: drop ? { id: drop.id, title: drop.title, series: drop.series, artworkUrl: drop.artworkUrl } : null,
+      drop: drop ? { id: drop.id, title: drop.title, series: drop.series, artworkUrl: drop.artworkUrl, isSeed: drop.isSeed } : null,
       activeBid: activeBidByCard.get(ca.id) ?? null,
     };
   });

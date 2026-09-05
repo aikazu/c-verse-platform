@@ -1,9 +1,11 @@
 import { useQueryClient } from "@tanstack/react-query";
 import type React from "react";
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { api, setApiToken } from "./api";
 import type { ApiUser } from "./api-types";
 import { shouldClearCache } from "./auth-cache";
+import { clearOAuthContinuation, consumeOAuthContinuation, saveOAuthContinuation } from "./auth-continuation";
 import { isSupabaseEnabled, supabase } from "./supabase";
 
 // Auth (docs/10): Supabase Auth — Google OAuth + email OTP 6 digit + captcha Turnstile.
@@ -41,7 +43,7 @@ interface AuthContextValue {
   token: string | null;
   loading: boolean;
   isSupabaseAuth: boolean;
-  loginGoogle: () => Promise<void>;
+  loginGoogle: (redirectPath?: string) => Promise<void>;
   sendOtp: (email: string, captchaToken?: string, displayName?: string) => Promise<void>;
   verifyOtp: (email: string, code: string) => Promise<void>;
   verifyMagicLink: (tokenHash: string) => Promise<void>;
@@ -62,15 +64,15 @@ const AuthCtx = createContext<AuthContextValue>({
   refresh: async () => {},
 });
 
-async function loadProfile(setUser: (u: User) => void, token: string | null) {
+async function loadProfile(setUser: (u: User) => void, token: string | null): Promise<User> {
   setApiToken(token);
   if (!token) {
     setUser(null);
-    return;
+    return null;
   }
   try {
     const u = await api.me();
-    setUser({
+    const profile = {
       id: u.id,
       email: u.email,
       displayName: u.displayName,
@@ -78,9 +80,12 @@ async function loadProfile(setUser: (u: User) => void, token: string | null) {
       username: u.username ?? null,
       usernameIsAuto: u.usernameIsAuto ?? false,
       avatarUrl: u.avatarUrl ?? null,
-    });
+    };
+    setUser(profile);
+    return profile;
   } catch {
     setUser(null);
+    return null;
   }
 }
 
@@ -89,36 +94,55 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
+  const oauthContinuationHandled = useRef(false);
   const isConfigured = isSupabaseEnabled && !!supabase;
 
   useEffect(() => {
     const sb = supabase;
     if (!isSupabaseEnabled || !sb) return; // config error is rendered below — never fake a session
-    sb.auth
-      .getSession()
-      .then(async ({ data }) => {
-        trackViewerUserId(queryClient, data.session?.user.id ?? null);
-        const t = data.session?.access_token ?? null;
-        setToken(t);
-        await loadProfile(setUser, t);
-      })
-      .finally(() => setLoading(false));
-    const { data: sub } = sb.auth.onAuthStateChange(async (_event, session) => {
+    async function applySession(session: { access_token: string; user: { id: string } } | null) {
       trackViewerUserId(queryClient, session?.user.id ?? null);
       const t = session?.access_token ?? null;
       setToken(t);
-      await loadProfile(setUser, t);
+      const profile = await loadProfile(setUser, t);
+      // The continuation exists only for an OAuth full-page callback. It is
+      // consumed after the authenticated profile has loaded, never from URL data.
+      if (profile && !oauthContinuationHandled.current) {
+        const continuation = consumeOAuthContinuation(window.sessionStorage, window.location.origin);
+        if (continuation) {
+          oauthContinuationHandled.current = true;
+          navigate(continuation, { replace: true });
+        }
+      }
+    }
+    sb.auth
+      .getSession()
+      .then(async ({ data }) => {
+        await applySession(data.session);
+      })
+      .finally(() => setLoading(false));
+    const { data: sub } = sb.auth.onAuthStateChange(async (_event, session) => {
+      await applySession(session);
     });
     return () => sub.subscription.unsubscribe();
-  }, []);
+  }, [navigate, queryClient]);
 
-  async function loginGoogle() {
+  async function loginGoogle(redirectPath = "/") {
     if (!supabase) throw new Error("Supabase belum terkonfigurasi");
+    // Supabase only allowlists the application origin. Preserve a safe internal
+    // target in sessionStorage and restore it after the callback session/profile.
+    if (!saveOAuthContinuation(redirectPath, window.sessionStorage, window.location.origin)) {
+      throw new Error("Tujuan kembali tidak valid");
+    }
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: { redirectTo: window.location.origin },
     });
-    if (error) throw new Error(friendlyAuthError(error));
+    if (error) {
+      clearOAuthContinuation(window.sessionStorage);
+      throw new Error(friendlyAuthError(error));
+    }
   }
 
   async function sendOtp(email: string, captchaToken?: string, displayName?: string) {

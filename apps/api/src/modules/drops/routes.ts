@@ -101,8 +101,8 @@ app.get("/", async (c) => {
   }));
   const page = parsePageParams(c.req.query());
   const paged = slicePage(enriched, page);
-  // data publik yang jarang berubah — cache edge/browser 60 detik
-  c.header("Cache-Control", "public, max-age=60");
+  // Authenticated lists can contain private drafts and must never enter shared caches.
+  c.header("Cache-Control", viewer ? "private, no-store" : "public, max-age=60");
   return c.json({ drops: paged, ...pageMeta(enriched.length, page) });
 });
 
@@ -205,10 +205,10 @@ app.post(
       priceSignedCCoin: z.number().int().min(1).optional(),
       dropStartAt: z.string().optional(),
       dropEndAt: z.string().optional(),
-      // M9 (audit 2026-08-24): drop the misleading `creatorId` field — the route
-      // always assigns creator_id from the authenticated user, so accepting
-      // the field gave callers a false impression they could create drops on
-      // behalf of another creator.
+      // Drops are administered by ops, but their creator attribution must be
+      // explicit so revenue, royalties, and creator analytics reach the
+      // recruited creator instead of the admin operating the dashboard.
+      creatorId: z.string().uuid(),
     }),
   ),
   async (c) => {
@@ -219,6 +219,24 @@ app.post(
     // dashboard kreator read-only analytics, tidak ada self-serve drop.
     if (user.role !== "admin") return c.json({ error: "Hanya admin yang bisa membuat drop" }, 403);
     const body = c.req.valid("json");
+    const db = getSupabase();
+    const { data: creatorRecord, error: creatorError } = await db
+      .from("creators")
+      .select("user_id,status")
+      .eq("user_id", body.creatorId)
+      .maybeSingle();
+    if (creatorError) return c.json({ error: sanitizeDbError(creatorError) }, 400);
+    if (creatorRecord?.status !== "active") return c.json({ error: "Kreator aktif tidak ditemukan" }, 422);
+
+    const { data: creatorUser, error: creatorUserError } = await db
+      .from("users")
+      .select("id,display_name,role,flag_reason")
+      .eq("id", body.creatorId)
+      .maybeSingle();
+    if (creatorUserError) return c.json({ error: sanitizeDbError(creatorUserError) }, 400);
+    if (creatorUser?.role !== "creator" || creatorUser.flag_reason) {
+      return c.json({ error: "Kreator aktif tidak ditemukan" }, 422);
+    }
     const { calcSignedCount, calcUnsignedCount, calcSignedPrice } = await import("@c-verse/shared");
     const signedCount = calcSignedCount(body.totalUnits);
     const unsignedCount = calcUnsignedCount(body.totalUnits);
@@ -232,7 +250,6 @@ app.post(
     // Drop selalu raffle: window entry 24 jam sejak rilis, draw otomatis via cron (docs 03 Flow 5)
     const raffleEndAt = new Date(new Date(dropStartAt).getTime() + 24 * 3600 * 1000).toISOString();
     const id = `drop-${Date.now().toString(36)}-${randomHex(3)}`;
-    const db = getSupabase();
     const { error: dropError } = await db.from("drops").insert({
       id,
       title: body.title,
@@ -250,8 +267,8 @@ app.post(
       drop_start_at: dropStartAt,
       raffle_end_at: raffleEndAt,
       drop_end_at: body.dropEndAt ?? null,
-      creator_id: user.id,
-      creator_name: user.displayName,
+      creator_id: creatorUser.id,
+      creator_name: creatorUser.display_name,
       created_by: user.id,
     });
     if (dropError) {

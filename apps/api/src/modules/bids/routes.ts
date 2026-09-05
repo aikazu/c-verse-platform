@@ -1,4 +1,4 @@
-import { acceptBidSchema } from "@c-verse/shared";
+import { acceptBidSchema, MIN_SECONDARY_PRICE_CCOIN } from "@c-verse/shared";
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import { z } from "zod";
@@ -68,9 +68,9 @@ app.post(
     "json",
     z.object({
       cardId: z.string().min(1).optional(),
-      amountCCoin: z.number().int().min(1).optional(),
-      amountCcoin: z.number().int().min(1).optional(),
-      amount_ccoin: z.number().int().min(1).optional(),
+      amountCCoin: z.number().int().min(MIN_SECONDARY_PRICE_CCOIN).optional(),
+      amountCcoin: z.number().int().min(MIN_SECONDARY_PRICE_CCOIN).optional(),
+      amount_ccoin: z.number().int().min(MIN_SECONDARY_PRICE_CCOIN).optional(),
     }),
   ),
   async (c) => {

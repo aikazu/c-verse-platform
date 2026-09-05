@@ -8,7 +8,7 @@ import { LEGAL_CONSENTS } from "../components/LegalConsentCheckbox";
 import { PageHero } from "../components/PageHero";
 import { StatusBadge } from "../components/StatusBadge";
 import type { ApiDropCardRow, ApiDropDetailWithWinners } from "../lib/api";
-import { api } from "../lib/api";
+import { ApiError, api } from "../lib/api";
 import type { ApiDrop } from "../lib/api-types";
 import { useAuth } from "../lib/auth";
 import { ErrorState, LoadingState } from "../lib/QueryStates";
@@ -112,8 +112,8 @@ export default function DropDetail() {
   const allCards = cardsQuery.data?.cards ?? [];
   const signedUnits = allCards.filter((row) => row.variant === "signed");
   const unsignedUnits = allCards.filter((row) => row.variant === "unsigned");
-  // Pemenang hanya tersedia (server) setelah draw; tampilkan di phase ended.
-  const winners = ph === "ended" ? (data.winners ?? []) : [];
+  // Pemenang tersedia setelah draw, termasuk saat sisa unit masih FCFS.
+  const winners = drop.drawnAt ? (data.winners ?? []) : [];
   return (
     <div className="page-stack">
       <PageHero
@@ -208,10 +208,11 @@ export default function DropDetail() {
           priceSigned={priceSigned}
           userLoggedIn={!!user}
           myEntry={data.myEntry ?? null}
-          onLoginRequired={() => nav("/login")}
+          onLoginRequired={() => nav("/login", { state: { from: `/drops/${id}` } })}
           onRefetchDrop={() => refetch()}
           onPush={(msg, kind) => push(msg, kind)}
           onNavHome={() => nav("/home")}
+          onWalletRequired={() => nav("/wallet", { state: { returnTo: `/drops/${id}` } })}
         />
       </div>
       <section className="dd-units" aria-label="Semua C.Card dalam drop ini">
@@ -300,6 +301,7 @@ function ActionPanel(props: {
   onRefetchDrop: () => void;
   onPush: (msg: string, kind: "info" | "error" | "success") => void;
   onNavHome: () => void;
+  onWalletRequired: () => void;
 }) {
   const [pool, setPool] = useState<"regular" | "premium" | "both">("regular");
   // Pool pembelian FCFS (post-draw) — terpisah dari pool raffle: checkout hanya
@@ -333,7 +335,13 @@ function ActionPanel(props: {
       props.onNavHome();
     } catch (e: unknown) {
       console.error("entryRaffle gagal", e);
-      props.onPush(GENERIC_ERROR, "error");
+      const err = e instanceof ApiError ? e : null;
+      if (err?.status === 402 || err?.code === "INSUFFICIENT") {
+        props.onPush("C-Coin tidak cukup. Isi saldo untuk mengikuti raffle.", "info");
+        props.onWalletRequired();
+      } else {
+        props.onPush(GENERIC_ERROR, "error");
+      }
     } finally {
       setBusy(false);
     }

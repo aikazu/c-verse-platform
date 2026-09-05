@@ -1,11 +1,11 @@
 import { expect, test } from "@playwright/test";
 import { clearMailbox, loginAs } from "../helpers";
-import { backdateActiveBids, isDbFixtureAvailable } from "../helpers/db";
+import { backdateActiveBids } from "../helpers/db";
 
 // Cooldown cancel bid 24 jam (founder 2026-09-01): bid segar TIDAK bisa
 // dibatalkan lewat UI (tombol disabled + info "Bisa dibatalkan …"). Untuk
-// cancel via UI, `created_at` bid di-backdate dulu langsung di DB lokal
-// (service role — e2e/helpers/db.ts) supaya cooldown dianggap lewat.
+// cancel via UI, `created_at` bid di-backdate lewat service-role helper remote
+// supaya cooldown dianggap lewat.
 const BACKDATE_HOURS = 25;
 
 test.describe("Secondary market", () => {
@@ -31,13 +31,14 @@ test.describe("Secondary market", () => {
     await expect(page.locator("body")).not.toContainText("Error");
   });
 
+  test("guest yang membuka kartu secondary mendapat login gate bid dengan return route", async ({ page }) => {
+    await page.goto("/cards/card-aespa-live-02");
+    await page.getByRole("button", { name: "Masuk untuk menawar" }).click();
+    await expect(page).toHaveURL(/\/login/, { timeout: 10000 });
+    await expect(page.locator('input[type="email"]')).toBeVisible();
+  });
+
   test("place bid dengan checklist + cooldown cancel 24 jam (rival@cverse.id)", async ({ page }) => {
-    // Backdate butuh kredensial service role di apps/api/.dev.vars — fixture
-    // availability skip (bukan bug produk), pola yang sama dengan 08-settlement.
-    test.skip(
-      !isDbFixtureAvailable(),
-      "reason: apps/api/.dev.vars tidak ada/ tidak berisi SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY — backdate bid tidak bisa jalan",
-    );
     await loginAs(page, "demo@cverse.id");
 
     // Seed menjamin target bid-able milik user LAIN: card-aespa-live-02 (AESL-002,

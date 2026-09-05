@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { useConfirm } from "../components/ConfirmProvider";
 import { StatusBadge } from "../components/StatusBadge";
 import { apiFetch } from "../lib/api";
-import { supabase } from "../lib/supabase";
 import type { CardRow, NfcBatchRow } from "../lib/types";
 import { errMessage } from "../lib/utils";
 
@@ -22,30 +21,12 @@ export function NfcPage() {
   const [busyId, setBusyId] = useState<string | null>(null);
 
   async function load() {
-    const { data: b, error: bErr } = await supabase
-      .from("nfc_batches")
-      .select("id,batch_code,qty,status")
-      .order("created_at", { ascending: false });
-    setBatches((b ?? []) as NfcBatchRow[]);
-    const { data: c, error: cErr } = await supabase
-      .from("cards")
-      .select("id,nfc_uid,nfc_short_id,verify_status,nfc_configured,qc_status")
-      .limit(50);
-    setCards((c ?? []) as CardRow[]);
-    // Stuck seed PHASE-1 sales (bid_pending cards from seed drops) — admin
-    // can release (PHASE-2) atau abort (PHASE-1 refund) dari sini.
-    const { data: sp, error: spErr } = await supabase
-      .from("cards")
-      .select("id,nfc_uid,nfc_short_id,verify_status,status,location,drop_id,drops!inner(is_seed)")
-      .eq("status", "bid_pending")
-      .eq("drops.is_seed", true)
-      .order("created_at", { ascending: false })
-      .limit(50);
-    setSeedPending((sp ?? []) as unknown as SeedPendingRow[]);
-    const err = bErr ?? cErr ?? spErr;
-    // Aturan repo: teks error mentah (PostgREST/Supabase) tidak boleh tampil di UI.
-    if (err) {
-      console.error("nfc load failed:", err);
+    try {
+      const result = await apiFetch<{ batches: NfcBatchRow[]; cards: CardRow[]; seedPending: SeedPendingRow[] }>("/api/admin/nfc");
+      setBatches(result.batches);
+      setCards(result.cards);
+      setSeedPending(result.seedPending);
+    } catch {
       setMsg("Gagal memuat data NFC — periksa koneksi lalu refresh.");
     }
   }

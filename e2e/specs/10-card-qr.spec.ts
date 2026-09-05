@@ -61,4 +61,42 @@ test.describe("Card QR fallback (/cards/:cardId)", () => {
       await context2.close();
     }
   });
+
+  test("mock Web NFC meneruskan SUN ke verifier lalu membuka viewer server-selected", async ({ page }) => {
+    let verificationBody: Record<string, unknown> | undefined;
+    await page.addInitScript(() => {
+      class FakeNdefReader {
+        scan() {
+          return Promise.resolve();
+        }
+
+        addEventListener(_type: string, listener: (event: unknown) => void) {
+          window.setTimeout(() => {
+            listener({
+              message: {
+                records: [
+                  {
+                    recordType: "url",
+                    data: new TextEncoder().encode(
+                      "https://c-verse.co/cards/card-aespa-live-02/3d?uid=04aabbccddeeff&ctr=000001&c=feedface&t=0",
+                    ),
+                  },
+                ],
+              },
+              serialNumber: null,
+            });
+          }, 0);
+        }
+      }
+      Object.defineProperty(window, "NDEFReader", { configurable: true, value: FakeNdefReader });
+    });
+    await page.route("**/api/nfc/verify-nfc", async (route) => {
+      verificationBody = route.request().postDataJSON() as Record<string, unknown>;
+      await route.fulfill({ json: { verifyStatus: "verified", redirectTo: "/cards/card-aespa-live-02/3d" } });
+    });
+
+    await page.goto("/cards/card-aespa-live-02");
+    await expect(page).toHaveURL(/\/cards\/card-aespa-live-02\/3d$/, { timeout: 10000 });
+    expect(verificationBody).toMatchObject({ uid: "04aabbccddeeff", counter: "000001", cmac: "feedface", t: "0" });
+  });
 });

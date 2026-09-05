@@ -30,8 +30,9 @@
 > provision akun kreator admin — keputusan 2026-08-20)
 > Previous: 2026-08-15 (Flow 1 → raffle hybrid + pilihan pool;
 > audit konsistensi: harga signed eksplisit di decision point SALDO)
-> Semua fitur dibangun penuh. Top-up uang riil bisa diterima
-> setelah T&C final + cap saldo diimplementasi.
+> Cakupan implementasi tidak sama dengan kesiapan operasional. Evaluasi
+> 2026-09-05 menemukan penyelesaian dispute, provisioning NFC fisik, dan
+> validasi provider/perangkat yang masih membutuhkan pekerjaan lanjutan.
 
 ## Flow 1: Primary Sale Drop — Raffle Hybrid (user)
 
@@ -130,6 +131,12 @@ Status order:
 
 ## Flow 2: Fulfillment (ops/admin)
 
+Pembacaan operasional admin memakai API dengan pemeriksaan session, peran
+admin, dan suspension. Respons bersifat `private, no-store`; kredensial
+service-role tetap di server. RLS pengguna tetap membatasi data milik sendiri,
+sehingga panel admin tidak memakai pembacaan pengguna untuk statistik atau
+daftar lintas akun.
+
 ```
 [ADMIN] order baru (PAID) -> production batch
    -> NFC provisioning (ADM-04): assign UUID<->UID, config NDEF/SDM
@@ -146,11 +153,13 @@ SOP fulfillment: admin packing, panggil kurir, input no resi, update status orde
 > Admin update status shipment (`PATCH /api/shipments/:id/status`) dilakukan
 > secara **atomik** via RPC `admin_fulfill_shipment(p_id, p_status, p_tracking)`
 > di RPC `07`–`17` (sebelumnya `20260823010000_admin_fulfill_shipment.sql`,
-> dilebur saat konsolidasi): update shipments dalam satu transaksi +
-> `cards.location='with_owner'` (saat delivered) — shipment kini hanya
-> `vault_shipout` (purchase → vault only, founder 2026-08-28).
-> service_role only. Precheck transisi
-> tetap di route untuk respons 409 yang ramah.
+> dilebur saat konsolidasi): delivery ke pemilik menetapkan `with_owner`,
+> sedangkan pengembalian ke vault menetapkan `platform_vault`. Keduanya
+> memeriksa kepemilikan dan transisi dalam transaksi yang sama. Tracking
+> tersimpan pada shipment; order historis tidak ditulis ulang. Request
+> ship-out bukan hasil QC dan tidak boleh otomatis menetapkan QC passed.
+> `seller_to_vault` menerima pengembalian owner, termasuk Seed PHASE-1,
+> mengunci kartu, dan menolak shipment aktif kedua.
 
 ## Flow 3: Payment & Settlement (C-Coin)
 
@@ -212,6 +221,11 @@ tap kartu -> Web NFC API baca NDEF (URL SUN + UID + counter + CMAC)
 - Wajib Chrome Android 89+ untuk Web NFC (scan terprogram).
 - Status verify: `verified` (CMAC match) / `tamper` / `unknown`
   (database match tanpa CMAC).
+- Hasil scan terprogram membawa receipt bertanda tangan yang terikat pada
+  kartu dan berlaku 60 detik menuju viewer. Receipt mempertahankan hasil
+  tap tanpa mengulang SUN counter. Viewer tetap memeriksa status kartu
+  terkini; receipt tidak mengalahkan tamper. URL tanpa proof tetap maksimal
+  Registered, walaupun kartu pernah terverifikasi sebelumnya.
 
 ## Flow 5: Fallback (iOS & non-Chrome)
 
@@ -283,6 +297,15 @@ tampil sebagai "Anonim" (privacy masking; sama di marketplace
 sellerName dan winners drop).
 
 Settlement:
+
+Guard implementasi (2026-09-05): non-Seed harus sudah berada di vault sebelum
+buyout/accept dapat settle. Owner mengembalikan kartu lebih dahulu bila masih
+`with_owner`. Shipment aktif memblokir trade dan listing baru. Seed tetap
+mengikuti PHASE-1/PHASE-2 di Flow 10. Harga listing dan bid minimum 3 C-Coin
+agar split pembulatan menghasilkan bagian seller positif; nominal aktivitas
+lain tetap mengikuti minimum masing-masing. Perubahan listing hanya melalui
+RPC, termasuk pemeriksaan akun suspended; direct PATCH kartu tidak diizinkan.
+
 ```
    -> split: 7,5% platform + 7,5% royalti kreator LIFETIME
    + 85% owner — ketiganya DIREKAM di platform_revenue
@@ -331,7 +354,12 @@ Aturan:
 Anti-fraud Y1 (rule-based, bukan ML):
 - Rate limit bid: max 3 bid aktif per user (founder 2026-08-16,
   dienforce RPC; max 50 bid/hari menyusul di layer API).
-- Strike system: 3 strike = suspend 30 hari.
+- Target strike system: 3 strike = suspend 30 hari. [BLOCKED implementasi]
+  Pencatatan target/strike dan suspension berbatas waktu belum tersedia.
+  Admin saat ini hanya bisa menyimpan review dispute. Resolusi refund,
+  strike, atau suspend ditolak 409 sebelum mutasi, agar status selesai tidak
+  mendahului tindakan. Refund order yang sudah settled memerlukan keputusan
+  sumber dana dan aturan pembalikan ledger; abort Seed PHASE-1 tetap tersedia.
 - Shill detection: cross-check IP + device fingerprint + payment
   method. Flag jika bidder dan owner punya pola sama.
 - **Blok rebuy seller 1 hari**: owner sebelumnya tidak bisa membeli
@@ -500,8 +528,12 @@ ADM-06: dispute masuk -> review bukti -> keputusan
       `amount=bid.amount_ccoin type='seed_abort'`. Path B (order
       pending buyout PHASE-1): orders.status → 'refunded' +
       wallet_credit buyer `amount=order.total_ccoin`. Kartu kembali
-      ke status 'inventory'.
-    - Idempotent: p_idem='seed-abort-'||card_id, replay aman.
+      ke status 'bound', buyout dibersihkan, dan escrow order dilepas.
+    - Idempotent per transaksi: `seed-abort-bid-<bid_id>` atau
+      `seed-abort-order-<order_id>`. Lock kartu mendahului pemeriksaan retry,
+      sehingga abort lama tidak menghalangi refund sale berikutnya.
+      Release/abort mengabaikan accepted bid yang sudah tercatat settled
+      dalam ownership_history.
     - Tidak touch treasury/platform_revenue — PHASE-1 menulis tidak
       ada revenue leg (settlement 85/7,5/7,5 hanya di PHASE-2).
     - Error mapping: NOT_FOUND 404, NOT_SEED_CARD 400,
@@ -608,7 +640,7 @@ status workflow, serta audit; bukan untuk binary dokumen KYC.
   two-phase settlement) — Flow 10: produksi 1-of-1 → tanda tangan →
   serah + pitch → daftar ownership kreator → listing → bid publik →
   accept (PHASE-1 LOCK: bid_pending) → vault-in wajib + verifikasi NFC
-  → release admin (PHASE-2: settle 85/7,5/7,5 + ownership + shipment).
+  → release admin (PHASE-2: settle 85/7,5/7,5 + ownership ke vault).
 - Akun kreator admin-provisioned (keputusan 2026-08-20, [VALIDATED])
   — Flow 11: endpoint `POST /api/admin/users/provision` (create auth
   user tanpa password, `profiles.role='creator'`, isi `creators.user_id`,

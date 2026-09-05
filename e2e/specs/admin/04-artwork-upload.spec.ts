@@ -1,24 +1,15 @@
-import { readFileSync } from "node:fs";
 import path from "node:path";
 import { expect, type Page, test } from "@playwright/test";
+import { localAppOrigins } from "../../env";
 import { adminLogin } from "../../helpers";
+import { remoteServiceRest } from "../../helpers/db";
 
-const API_BASE = "http://127.0.0.1:8787";
+const API_BASE = localAppOrigins().api;
 const GENESIS_ARTWORK_FIXTURE = path.resolve(process.cwd(), "apps/web/public/mock/v1/artworks/genesis.png");
-
-function readDevVar(key: string): string {
-  const raw = readFileSync(path.resolve(process.cwd(), "apps/api/.dev.vars"), "utf8");
-  const match = raw
-    .split(/\r?\n/)
-    .map((line) => line.match(/^([A-Z_0-9]+)=(.*)$/))
-    .find((entry) => entry?.[1] === key);
-  if (!match?.[2]) throw new Error(`Key ${key} tidak tersedia untuk fixture e2e`);
-  return match[2].trim();
-}
+const KARINA_CREATOR_ID = "00000000-0000-4000-8000-000000000003";
 
 function serviceHeaders(): Record<string, string> {
-  const serviceKey = readDevVar("SUPABASE_SERVICE_ROLE_KEY");
-  return { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, "Content-Type": "application/json" };
+  return remoteServiceRest().headers;
 }
 
 async function adminAccessToken(page: Page): Promise<string> {
@@ -35,9 +26,7 @@ async function adminAccessToken(page: Page): Promise<string> {
 
 async function cleanupDrop(title: string): Promise<void> {
   if (!title.startsWith("e2e-artwork-")) throw new Error("Cleanup hanya diizinkan untuk fixture e2e-artwork-");
-  const base = readDevVar("SUPABASE_URL").replace(/\/+$/, "");
-  const host = new URL(base).hostname;
-  if (host !== "localhost" && host !== "127.0.0.1") throw new Error("Cleanup fixture hanya diizinkan terhadap Supabase lokal");
+  const base = remoteServiceRest().base;
   const headers = serviceHeaders();
   const result = await fetch(`${base}/rest/v1/drops?select=id&title=eq.${encodeURIComponent(title)}`, { headers });
   if (!result.ok) throw new Error(`Lookup cleanup drop gagal: HTTP ${result.status}`);
@@ -51,6 +40,7 @@ async function cleanupDrop(title: string): Promise<void> {
 }
 
 async function fillDraftForm(page: Page, title: string): Promise<void> {
+  await page.locator("#drop-creator").selectOption(KARINA_CREATOR_ID);
   await page.locator("#drop-title").fill(title);
   await page.locator("#drop-series").fill(`Series ${Date.now()}`);
   await page.locator("#drop-narrative").fill("Fixture artwork upload admin dengan deskripsi yang cukup panjang.");
@@ -120,8 +110,7 @@ test.describe("Artwork drop publik", () => {
       const replacementArtwork = (await replacementResponse.json()) as { artworkUrl: string };
       expect((await request.get(replacementArtwork.artworkUrl)).status()).toBe(200);
       expect((await request.get(firstArtwork.artworkUrl)).status()).toBe(404);
-      const auditBase = readDevVar("SUPABASE_URL").replace(/\/+$/, "");
-      if (!["localhost", "127.0.0.1"].includes(new URL(auditBase).hostname)) throw new Error("Audit test requires local Supabase");
+      const auditBase = remoteServiceRest().base;
       const audits = await fetch(
         `${auditBase}/rest/v1/admin_audit_log?select=action,payload_summary&target_id=eq.${created?.id}&action=eq.update`,
         { headers: serviceHeaders() },

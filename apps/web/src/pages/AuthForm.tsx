@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
+import { safeAppPath } from "../lib/auth-continuation";
 import { useToast } from "../lib/toast";
 import { isTurnstileEnabled, mountTurnstile, type TurnstileHandle } from "../lib/turnstile";
 import "./creator-console.css";
@@ -31,9 +32,7 @@ const RESEND_MAX_SECONDS = 300;
 function redirectTarget(state: unknown): string {
   if (state && typeof state === "object" && "from" in state) {
     const from = (state as { from?: unknown }).from;
-    if (typeof from === "string" && from.length > 0 && from.startsWith("/") && !from.startsWith("//")) {
-      return from;
-    }
+    return safeAppPath(from, window.location.origin) ?? "/home";
   }
   return "/home";
 }
@@ -131,7 +130,9 @@ export default function AuthForm() {
   async function onGoogle() {
     setBusy(true);
     try {
-      await loginGoogle(); // redirect ke Google; onAuthStateChange menangani session
+      // OAuth kembali ke origin yang diizinkan Supabase; AuthProvider memulihkan
+      // continuation app-local hanya setelah sesi dan profil siap.
+      await loginGoogle(target);
     } catch (err: unknown) {
       push(errorMessage(err) || "Gagal membuka Google", "error");
       setBusy(false);

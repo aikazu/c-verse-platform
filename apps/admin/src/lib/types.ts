@@ -41,10 +41,19 @@ export type OrderRow = {
   card_id: string | null;
   status: string;
   delivery_option: string | null;
-  tracking_number: string | null;
   created_at: string;
 };
-export type ShipmentRow = { id: string; card_id: string; status: string; tracking_number: string | null };
+export type ShipmentRow = {
+  id: string;
+  card_id: string;
+  requester_id: string;
+  type: string;
+  from_location: string;
+  to_dest: string;
+  address: { street?: string } | null;
+  status: string;
+  tracking_number: string | null;
+};
 export type DisputeRow = {
   id: string;
   order_id: string | null;

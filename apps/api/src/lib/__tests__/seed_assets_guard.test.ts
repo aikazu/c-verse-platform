@@ -53,6 +53,10 @@ describe("mock asset delivery contract", () => {
       .join("\n");
     const referenced = [...sql.matchAll(/'((?:\/|https:\/\/)[^']+\.(?:png|jpg|jpeg|webp|obj))'/g)].map((match) => match[1]);
     expect(new Set(referenced)).toEqual(paths);
+    const assertions = readFileSync(join(root, "supabase/seeds/30_assertions.sql"), "utf8");
+    const allowlist = assertions.match(/approved_asset_paths\s+constant\s+text\[\]\s*:=\s*array\[([\s\S]*?)\];/i)?.[1];
+    expect(allowlist, "reset assertions must cover the current asset manifest").toBeDefined();
+    expect(new Set([...(allowlist ?? "").matchAll(/'([^']+)'/g)].map((match) => match[1]))).toEqual(paths);
     const seededDropIds = [...sql.matchAll(/\(\s*'((?:drop)-[^']+)'/g)].map((match) => match[1]);
     expect(new Set(atlases.map((asset) => asset.dropId))).toEqual(new Set(seededDropIds));
   });

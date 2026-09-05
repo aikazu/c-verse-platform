@@ -1,7 +1,7 @@
 import { cardVariantLabel, MIN_SECONDARY_PRICE_CCOIN } from "@c-verse/shared";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { CardThumb } from "../components/CardThumb";
 import { useConfirm } from "../components/ConfirmProvider";
 import { LEGAL_CONSENTS } from "../components/LegalConsentCheckbox";
@@ -35,12 +35,25 @@ const BUYOUT_ERRORS: Record<string, string> = {
 // friendly (teks cooldown dari route) — dipakai apa adanya, bukan raw Postgres.
 const CANCEL_BID_COOLDOWN = "BID_CANCEL_COOLDOWN";
 
+function trustedNfcViewerPath(redirectTo: string | undefined): string | null {
+  if (!redirectTo || typeof window === "undefined") return null;
+  try {
+    const target = new URL(redirectTo, window.location.origin);
+    if (target.origin !== window.location.origin || !/^\/cards\/[^/]+\/3d$/.test(target.pathname)) return null;
+    return `${target.pathname}${target.search}${target.hash}`;
+  } catch {
+    return null;
+  }
+}
+
 // Lane C: payload publik tidak lagi membawa UUID — server mengganti
 // personalisasi dengan flag isOwner (owner) / isMine (bid) viewer-scoped;
 // shape-nya dimodelkan langsung di api-types (ApiCardOwnerRef/ApiPublicBid).
 
 export default function CardInfo() {
   const { cardId } = useParams();
+  const location = useLocation();
+  const navigate = useNavigate();
   const { user } = useAuth();
   const { push } = useToast();
   const [buyoutOpen, setBuyoutOpen] = useState(false);
@@ -68,7 +81,8 @@ export default function CardInfo() {
   // Hooks dulu sebelum early-return agar urutan konsisten.
   const buyoutPrice = data?.card?.buyoutPriceCcoin ?? null;
   const isOwnerDerived = data?.owner?.isOwner === true;
-  const canBuyoutDerived = buyoutPrice != null && !!user && !isOwnerDerived;
+  const needsVaultForBuyout = data?.drop?.isSeed !== true && data?.card?.location !== "platform_vault";
+  const canBuyoutDerived = buyoutPrice != null && !!user && !isOwnerDerived && !needsVaultForBuyout;
   useEffect(() => {
     if (typeof window === "undefined") return;
     if (canBuyoutDerived && window.location.hash === "#beli") setBuyoutOpen(true);
@@ -100,6 +114,14 @@ export default function CardInfo() {
       api
         .verifyNfc(payload)
         .then((res) => {
+          // Verification is completed server-side by this request. Navigate only
+          // to the local card viewer returned by it; do not replay the same SUN
+          // counter in the viewer or infer a verified state in the browser.
+          const viewerPath = trustedNfcViewerPath(res.redirectTo);
+          if (viewerPath) {
+            navigate(viewerPath);
+            return;
+          }
           refetch();
           const badge = VERIFY_BADGES[res.verifyStatus] ?? VERIFY_BADGES.unknown;
           push(badge.label, res.verifyStatus === "verified" ? "success" : res.verifyStatus === "tamper_detected" ? "error" : "info");
@@ -108,7 +130,7 @@ export default function CardInfo() {
           // Silent: unregistered UID / network error must not nag.
         });
     });
-  }, [push, refetch]);
+  }, [navigate, push, refetch]);
   if (isLoading) return <div className="muted ci-note">Memuat…</div>;
   if (!data)
     return (
@@ -128,12 +150,20 @@ export default function CardInfo() {
   const history: ApiCardOwnershipRow[] = data.ownershipHistory ?? [];
   const bids: ApiPublicBid[] = data.bids ?? [];
   const verifyBadge = VERIFY_BADGES[card.verifyStatus ?? "unknown"] ?? VERIFY_BADGES.unknown;
+  // Non-seed secondary sale settles only after the physical card is in the
+  // platform vault. Bid may still be placed; seller receives the same custody
+  // guidance before it can accept the bid.
+  const needsVaultBeforeSettlement = needsVaultForBuyout;
   // isOwner / canBuyout dibaca oleh JSX di bawah; useEffect pakai derived.
-  const canBuyout = canBuyoutDerived;
+  const canBuyout = canBuyoutDerived && !needsVaultBeforeSettlement;
   const myActiveBid = activeBid?.isMine ? activeBid : null;
   const isCancelLocked = canCancelAtMs != null && canCancelAtMs > nowMs;
   const canCancelLabel =
     canCancelAtMs != null ? new Date(canCancelAtMs).toLocaleString("id-ID", { dateStyle: "short", timeStyle: "short" }) : "";
+
+  function continueAfterLogin() {
+    navigate("/login", { state: { from: location.pathname + location.search } });
+  }
 
   async function onBuyout() {
     if (
@@ -299,6 +329,16 @@ export default function CardInfo() {
                       Beli langsung
                     </button>
                   )}
+                  {!user && !isOwnerDerived && (
+                    <button className="btn-gold ci-buy-btn" onClick={continueAfterLogin}>
+                      Masuk untuk membeli
+                    </button>
+                  )}
+                  {needsVaultBeforeSettlement && (
+                    <div className="muted ci-note">
+                      C.Card non-seed harus kembali dan diterima di Vault sebelum pembelian langsung dapat diselesaikan.
+                    </div>
+                  )}
                   {canBuyout && buyoutOpen && (
                     <div className="ci-form">
                       <div className="muted ci-note">Kartu disimpan di Vault. Kamu bisa meminta pengiriman melalui Kelola C.Card.</div>
@@ -332,6 +372,11 @@ export default function CardInfo() {
               )}
               {user && !isOwnerDerived && (
                 <div className="ci-form">
+                  {needsVaultBeforeSettlement && (
+                    <div className="muted ci-note">
+                      Kamu tetap dapat menawar. Penjual perlu mengembalikan C.Card ke Vault sebelum menerima penawaran.
+                    </div>
+                  )}
                   <div className="ci-actions">
                     <input
                       className="input"
@@ -347,6 +392,13 @@ export default function CardInfo() {
                       Tawar
                     </button>
                   </div>
+                </div>
+              )}
+              {!user && !isOwnerDerived && (
+                <div className="ci-form">
+                  <button className="btn-ghost ci-btn-sm" onClick={continueAfterLogin}>
+                    Masuk untuk menawar
+                  </button>
                 </div>
               )}
             </div>

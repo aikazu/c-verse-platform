@@ -9,6 +9,13 @@ const control = vi.hoisted(() => ({
   // docs 03 ADM-02) — dashboard kreator read-only analytics.
   role: "creator" as string,
   userId: "creator-1" as string,
+  selectedCreator: { user_id: "11111111-1111-4111-8111-111111111111", status: "active" } as Record<string, unknown> | null,
+  selectedCreatorUser: {
+    id: "11111111-1111-4111-8111-111111111111",
+    display_name: "Creator Aktif",
+    role: "creator",
+    flag_reason: null,
+  } as Record<string, unknown> | null,
   insertDrop: null as Record<string, unknown> | null,
   updateStatus: null as string | null,
 }));
@@ -38,6 +45,12 @@ vi.mock("../../../lib/reads/kyc.js", () => ({
 vi.mock("../../../lib/supabase.js", () => ({
   getSupabase: () => ({
     from: (table: string) => ({
+      select: () => ({
+        eq: () => ({
+          maybeSingle: () =>
+            Promise.resolve({ data: table === "creators" ? control.selectedCreator : control.selectedCreatorUser, error: null }),
+        }),
+      }),
       insert: (row: Record<string, unknown>) => {
         if (table === "drops") {
           control.insertDrop = row;
@@ -74,6 +87,7 @@ const CREATE_BODY = {
   narrative: "A meaningful narrative for the test drop",
   totalUnits: 5,
   priceCcoin: 30,
+  creatorId: "11111111-1111-4111-8111-111111111111",
 };
 
 function postDrop() {
@@ -96,6 +110,13 @@ describe("Drop mutations admin-only (founder 2026-08-29)", () => {
   beforeEach(() => {
     control.role = "creator";
     control.userId = "creator-1";
+    control.selectedCreator = { user_id: "11111111-1111-4111-8111-111111111111", status: "active" };
+    control.selectedCreatorUser = {
+      id: "11111111-1111-4111-8111-111111111111",
+      display_name: "Creator Aktif",
+      role: "creator",
+      flag_reason: null,
+    };
     control.insertDrop = null;
     control.updateStatus = null;
   });
@@ -116,12 +137,12 @@ describe("Drop mutations admin-only (founder 2026-08-29)", () => {
     expect(control.insertDrop).toBeNull();
   });
 
-  it("admin POST /api/drops → 201 dengan creator_id = admin", async () => {
+  it("admin POST /api/drops may create a drop for the selected creator", async () => {
     control.role = "admin";
     control.userId = "admin-1";
     const res = await postDrop();
     expect(res.status).toBe(201);
-    expect(control.insertDrop?.creator_id).toBe("admin-1");
+    expect(control.insertDrop?.creator_id).toBe(CREATE_BODY.creatorId);
   });
 
   it("creator OWNER pun PATCH /:id/status → 403 (cancel/publish bukan wewenang kreator)", async () => {

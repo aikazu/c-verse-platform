@@ -63,7 +63,7 @@ function isSendEmailBinding(value: unknown): value is SendEmailBinding {
 /** Narrow the loose cron env into the slice sendEmail needs (EMAIL binding + sender). */
 function emailBindingsOf(env: EnvLike): EmailBindings {
   const email = (env as { EMAIL?: unknown }).EMAIL;
-  return { EMAIL: isSendEmailBinding(email) ? email : undefined, EMAIL_FROM: env.EMAIL_FROM };
+  return { EMAIL: isSendEmailBinding(email) ? email : undefined, EMAIL_FROM: env.EMAIL_FROM, EMAIL_ENABLED: env.EMAIL_ENABLED };
 }
 
 /**

@@ -1,13 +1,13 @@
 import { expect, type Page, test } from "@playwright/test";
 import { clearMailbox, loginAs } from "../helpers";
-import { creditLockedGemsFixture, isDbFixtureAvailable, restoreGemsBalance } from "../helpers/db";
 
 const KARINA_EMAIL = "karina@creator.id";
-// UUID fixed seeds/*.sql (pola 13-support-winners) — karina, KYC approved.
-const KARINA_USER_ID = "00000000-0000-4000-8000-000000000003";
-// Dual-token (docs/07): seed karina = 45 C-Gems, SEMUA lot matured
-// Event-closed seed includes royalty/settlement/payout history; gemsLocked = 0.
-const SEED_GEMS_MATURED = 45;
+const HYPE_EMAIL = "hype@creator.id";
+// Karina's balance changes when the payout/conversion E2E flows run. Keep the
+// assertions tied to the rendered current ledger while requiring enough matured
+// Gems for the actual payout flow.
+const MIN_PAYOUT_GEMS = 10;
+const SEED_GEMS_LOCKED = 7;
 
 /** Kartu saldo spesifik di /wallet — Wallet.tsx grid-2 (C-Coin lalu C-Gems). */
 function balanceCard(page: Page, token: "C-Coin" | "C-Gems") {
@@ -131,15 +131,16 @@ test.describe("Wallet dual-token (C-Gems)", () => {
     await expect(page.locator("text=Saldo C-Gems").first()).toBeVisible();
 
     const gemsCard = balanceCard(page, "C-Gems");
-    await expect(gemsCard.locator(".wa-balance-value")).toHaveText(String(SEED_GEMS_MATURED));
-    // Seed: semua lot matured → chip bisa-cair 45, chip terkunci absen.
-    await expect(gemsCard.locator(".pill-success")).toHaveText(/Bisa dicairkan\s*·\s*45$/);
+    const currentGems = await readCardValue(page, "C-Gems");
+    expect(currentGems).toBeGreaterThanOrEqual(MIN_PAYOUT_GEMS);
+    // Karina's current lots are all matured; no locked chip should appear.
+    await expect(gemsCard.locator(".pill-success")).toHaveText(new RegExp(`Bisa dicairkan\\s*·\\s*${currentGems}$`));
     await expect(gemsCard.locator(".pill-warn", { hasText: "Terkunci" })).toHaveCount(0);
 
     // Blok konversi tampil (balanceGems > 0) + hint rate 1:1 + batas MAKS.
     await expect(page.locator("text=Tukar C-Gems ke C-Coin").first()).toBeVisible();
     await expect(page.locator("text=1 C-Gems = 1 C-Coin")).toBeVisible();
-    await expect(page.locator(".wa-min-label", { hasText: `MAKS ${SEED_GEMS_MATURED}` })).toBeVisible();
+    await expect(page.locator(".wa-min-label", { hasText: `MAKS ${currentGems}` })).toBeVisible();
     await expect(page.locator('input[aria-label="Jumlah C-Gems yang ditukar"]')).toBeVisible();
 
     // Kreator: blok payout beroperasi pada C-Gems (dual-token), bukan C-Coin.
@@ -184,7 +185,7 @@ test.describe("Wallet dual-token (C-Gems)", () => {
       await expect(row.locator(".wa-td-balance")).toHaveText(`${transaction.balanceAfterGems} Gems`);
       if (labels[transaction.refType]) await expect(row.locator(".pill")).toHaveText(labels[transaction.refType]);
     }
-    await expect(rows.first().locator(".wa-td-balance")).toHaveText(`${SEED_GEMS_MATURED} Gems`);
+    await expect(rows.first().locator(".wa-td-balance")).toHaveText(`${await readCardValue(page, "C-Gems")} Gems`);
   });
 
   test("payout sukses dari gems matured: gems -10 persis, C-Coin tak tersentuh", async ({ page }) => {
@@ -193,8 +194,7 @@ test.describe("Wallet dual-token (C-Gems)", () => {
 
     const gemsBefore = await readCardValue(page, "C-Gems");
     const ccoinBefore = await readCardValue(page, "C-Coin");
-    // Seed fresh = 45 matured ≥ min payout 10 — jalur e2e standar.
-    expect(gemsBefore).toBeGreaterThanOrEqual(SEED_GEMS_MATURED);
+    expect(gemsBefore).toBeGreaterThanOrEqual(MIN_PAYOUT_GEMS);
 
     await page.fill('input[aria-label="Jumlah penarikan C-Gems"]', "10");
     await page.getByRole("button", { name: "Tarik", exact: true }).click();
@@ -261,7 +261,9 @@ test.describe("Wallet dual-token (C-Gems)", () => {
     await page.goto("/wallet");
 
     const matured = await readMaturedChip(page);
-    await page.fill('input[aria-label="Jumlah penarikan C-Gems"]', String(matured + 1));
+    // Amount must pass the minimum-10 gate first, then exercise the distinct
+    // insufficient-matured client guard even after earlier E2E payouts.
+    await page.fill('input[aria-label="Jumlah penarikan C-Gems"]', String(Math.max(matured + 1, MIN_PAYOUT_GEMS)));
     await page.getByRole("button", { name: "Tarik", exact: true }).click();
 
     // Guard client Wallet.tsx (payoutAmt > gemsMatured) → toast info, TIDAK
@@ -270,31 +272,16 @@ test.describe("Wallet dual-token (C-Gems)", () => {
     await expect(page.getByRole("dialog")).toHaveCount(0);
   });
 
-  test("gems terkunci: chip Terkunci 24 jam muncul, matured tak bergeser (fixture DB)", async ({ page }) => {
-    test.skip(!isDbFixtureAvailable(), "Fixture DB butuh SUPABASE_URL + service role di apps/api/.dev.vars");
-    await loginAs(page, KARINA_EMAIL);
+  test("gems terkunci: persona fixture terisolasi menampilkan chip 24 jam", async ({ page }) => {
+    await loginAs(page, HYPE_EMAIL);
     await page.goto("/wallet");
 
-    const maturedBefore = await readMaturedChip(page);
-    const totalBefore = await readCardValue(page, "C-Gems");
-
-    // Lot terkunci +7 lewat RPC produksi wallet_credit_gems (p_matured=false →
-    // mature_at now + 24 jam; chip copy pakai GEMS_LOCK_HOURS dari shared).
-    const LOCKED_GEMS = 7;
-    const REF_ID = `e2e-wallet-locked-${Date.now()}`;
-    const balanceFromDb = await creditLockedGemsFixture(KARINA_USER_ID, LOCKED_GEMS, REF_ID);
-    try {
-      await page.reload();
-      const gemsCard = balanceCard(page, "C-Gems");
-      // Total naik 7, matured tetap — lot baru terkunci.
-      await expect(gemsCard.locator(".wa-balance-value")).toHaveText(String(totalBefore + LOCKED_GEMS), {
-        timeout: 15000,
-      });
-      await expect(gemsCard.locator(".pill-success")).toHaveText(new RegExp(`Bisa dicairkan\\s*·\\s*${maturedBefore}$`));
-      const lockedChip = gemsCard.locator(".pill-warn", { hasText: "Terkunci" });
-      await expect(lockedChip).toHaveText(new RegExp(`Terkunci\\s+\\d+ jam\\s*·\\s*${LOCKED_GEMS}$`));
-    } finally {
-      await restoreGemsBalance(KARINA_USER_ID, balanceFromDb, REF_ID);
-    }
+    // Seed Hype adalah persona khusus locked Gems: kredit support berumur satu
+    // jam menghasilkan satu lot 7 C-Gems yang belum cair. Test hanya membaca
+    // fixture sehingga tidak mengubah lot FIFO atau ledger bersama.
+    const gemsCard = balanceCard(page, "C-Gems");
+    expect(await readCardValue(page, "C-Gems")).toBeGreaterThanOrEqual(SEED_GEMS_LOCKED);
+    const lockedChip = gemsCard.locator(".pill-warn", { hasText: "Terkunci" });
+    await expect(lockedChip).toHaveText(new RegExp(`Terkunci\\s+\\d+ jam\\s*·\\s*${SEED_GEMS_LOCKED}$`));
   });
 });

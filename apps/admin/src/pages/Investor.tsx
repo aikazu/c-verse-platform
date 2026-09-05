@@ -1,12 +1,11 @@
 import { ccoinToIdr, formatIdr } from "@c-verse/shared";
 import { useEffect, useState } from "react";
 import { StatusBadge } from "../components/StatusBadge";
-import { supabase } from "../lib/supabase";
+import { apiFetch } from "../lib/api";
 
-// Audit batch 3 (lane I): agregat GMV/secondary/users kini dihitung server-side
-// via RPC get_investor_stats (supabase/migrations/04_rpc.sql — is_admin
-// body-guarded). Sebelumnya aproksimasi client-side memakai wallet_transactions
-// + users dengan .limit(1000) sehingga UNDERCOUNT di data nyata.
+// Agregat GMV/secondary/users dihitung server-side oleh get_investor_stats;
+// halaman memanggil gateway admin agar daftar drop dan metrik memakai jalur
+// autentikasi yang sama.
 
 type InvestorStats = { users: number; gmvCcoin: number; secondaryVolCcoin: number; txCount: number };
 type DropPerfRow = { id: string; title: string; status: string; sold_count: number | null; total_units: number };
@@ -20,18 +19,15 @@ export function InvestorPage() {
   async function load() {
     setError(false);
     setLoading(true);
-    const [statsRes, dropsRes] = await Promise.all([
-      supabase.rpc("get_investor_stats"),
-      supabase.from("drops").select("id,title,status,total_units,sold_count").order("created_at", { ascending: false }).limit(100),
-    ]);
-    if (statsRes.error || dropsRes.error) {
+    try {
+      const result = await apiFetch<{ stats: InvestorStats | null; drops: DropPerfRow[] }>("/api/admin/investor");
+      setStats(result.stats);
+      setDrops(result.drops);
+    } catch {
       setError(true);
+    } finally {
       setLoading(false);
-      return;
     }
-    setStats((statsRes.data ?? null) as InvestorStats | null);
-    setDrops((dropsRes.data ?? []) as DropPerfRow[]);
-    setLoading(false);
   }
   useEffect(() => {
     load();

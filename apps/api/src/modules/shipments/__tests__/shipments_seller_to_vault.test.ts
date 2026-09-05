@@ -5,76 +5,65 @@ vi.hoisted(() => {
 });
 
 const control = vi.hoisted(() => ({
-  card: null as null | { id: string; location: string; status: string; ownerId: string },
-  activeShipment: null as null | Record<string, unknown>,
-  inserted: null as null | Record<string, unknown>,
-  insertError: null as null | { message: string },
+  authError: null as 401 | 403 | null,
+  rpcData: {
+    id: "ship-1",
+    card_id: "card-1",
+    requester_id: "u-1",
+    type: "secondary_seller_to_vault",
+    from_location: "with_owner",
+    to_dest: "platform_vault",
+    address: "Vault C.Verse, Jl. Industri No. 99, Jakarta",
+    fee_ccoin: 0,
+    status: "requested",
+    tracking_number: "JNEX123456",
+    platform_check: null,
+    created_at: "2026-09-05T00:00:00.000Z",
+  } as Record<string, unknown>,
+  rpcError: null as { message: string; code?: string } | null,
+  rpcCalls: [] as Array<{ fn: string; args: Record<string, unknown> }>,
+  userDbTokens: [] as string[],
+  auditCalls: [] as unknown[][],
 }));
 
 vi.mock("../../../lib/auth.js", () => ({
-  requireUser: () =>
-    Promise.resolve({
-      user: {
-        id: "u-1",
-        email: "u@x.id",
-        displayName: "U One",
-        role: "user",
-        username: null,
-        usernameIsAuto: true,
-        totalXp: 0,
-        level: 1,
-        cumulativeSpendCcoin: 0,
-        isAnonymous: false,
-        flagReason: null,
-        consentAnalyticsDetail: false,
-        consentDataMarket: false,
-        createdAt: new Date().toISOString(),
-      },
-      token: "t",
-      aal: "aal1",
-    }),
+  requireUser: () => {
+    if (control.authError) return Promise.resolve({ error: control.authError });
+    return Promise.resolve({
+      user: { id: "u-1", email: "u@cverse.id", displayName: "User", role: "user" },
+      token: "user-jwt",
+    });
+  },
   clientIp: () => "127.0.0.1",
   tokenFingerprint: () => Promise.resolve("sha256:test"),
 }));
 
-vi.mock("../../../lib/reads/kyc.js", () => ({ logAuditDb: () => Promise.resolve() }));
-
-vi.mock("../../../lib/reads/orders.js", () => ({
-  getCardById: () => Promise.resolve(control.card),
-  getShipmentByActiveCard: () => Promise.resolve(control.activeShipment),
+vi.mock("../../../lib/reads/kyc.js", () => ({
+  logAuditDb: (...args: unknown[]) => {
+    control.auditCalls.push(args);
+    return Promise.resolve();
+  },
 }));
 
-vi.mock("../../../lib/supabase.js", () => {
-  const fakeFrom = vi.fn((table: string) => {
-    if (table === "shipments") {
+// Keep the real rpcSellerToVault wrapper and RpcError mapping. Only the
+// user-scoped transport is captured, so the route boundary stays covered.
+vi.mock("../../../lib/db.js", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../../../lib/db.js")>();
+  return {
+    ...actual,
+    userDb: (token: string) => {
+      control.userDbTokens.push(token);
       return {
-        insert: (row: Record<string, unknown>) => {
-          control.inserted = row;
-          return {
-            select: () => ({
-              maybeSingle: () =>
-                control.insertError
-                  ? Promise.resolve({ data: null, error: control.insertError })
-                  : Promise.resolve({ data: row, error: null }),
-            }),
-          };
+        rpc: (fn: string, args: Record<string, unknown>) => {
+          control.rpcCalls.push({ fn, args });
+          return Promise.resolve({ data: control.rpcData, error: control.rpcError });
         },
       };
-    }
-    return { select: () => ({}) };
-  });
-  return { getSupabase: () => ({ from: fakeFrom }), readDb: () => ({ from: fakeFrom }) };
+    },
+  };
 });
 
 const { app } = await import("../../../index.js");
-
-function post(body: Record<string, unknown>) {
-  return app.request("/api/shipments/seller-to-vault", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: "Bearer t" },
-    body: JSON.stringify(body),
-  });
-}
 
 const BASE = {
   cardId: "card-1",
@@ -82,71 +71,107 @@ const BASE = {
   trackingNumber: "JNEX123456",
 };
 
-describe("POST /api/shipments/seller-to-vault (P0-6)", () => {
+function sellerToVault(body: Record<string, unknown>) {
+  return app.request("/api/shipments/seller-to-vault", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: "Bearer user-jwt" },
+    body: JSON.stringify(body),
+  });
+}
+
+describe("POST /api/shipments/seller-to-vault — atomic seller_to_vault RPC", () => {
   beforeEach(() => {
-    control.card = null;
-    control.activeShipment = null;
-    control.inserted = null;
-    control.insertError = null;
+    control.authError = null;
+    control.rpcData = {
+      id: "ship-1",
+      card_id: "card-1",
+      requester_id: "u-1",
+      type: "secondary_seller_to_vault",
+      from_location: "with_owner",
+      to_dest: "platform_vault",
+      address: BASE.address,
+      fee_ccoin: 0,
+      status: "requested",
+      tracking_number: BASE.trackingNumber,
+      platform_check: null,
+      created_at: "2026-09-05T00:00:00.000Z",
+    };
+    control.rpcError = null;
+    control.rpcCalls = [];
+    control.userDbTokens = [];
+    control.auditCalls = [];
   });
 
-  it("card dengan with_owner + owner cocok → 201 dengan shipment type secondary_seller_to_vault", async () => {
-    control.card = { id: "card-1", location: "with_owner", status: "sold", ownerId: "u-1" };
-    const res = await post(BASE);
+  it("meneruskan identitas user, card, address, dan tracking ke RPC; response serta audit tercatat", async () => {
+    const res = await sellerToVault(BASE);
     expect(res.status).toBe(201);
-    expect(control.inserted?.type).toBe("secondary_seller_to_vault");
-    expect(control.inserted?.from_location).toBe("with_owner");
-    expect(control.inserted?.fee_ccoin).toBe(0);
-    expect(control.inserted?.tracking_number).toBe("JNEX123456");
+    expect(control.userDbTokens).toEqual(["user-jwt"]);
+    expect(control.rpcCalls).toEqual([
+      {
+        fn: "seller_to_vault",
+        args: { p_card_id: "card-1", p_address: BASE.address, p_tracking: "JNEX123456" },
+      },
+    ]);
+    const body = (await res.json()) as { ok: boolean; shipment: { id: string; cardId: string; trackingNumber: string | null } };
+    expect(body).toMatchObject({ ok: true, shipment: { id: "ship-1", cardId: "card-1", trackingNumber: "JNEX123456" } });
+    expect(control.auditCalls).toEqual([
+      expect.arrayContaining(["u-1", "create", "shipments", "ship-1", { cardId: "card-1", type: "secondary_seller_to_vault" }]),
+    ]);
   });
 
-  it("card bukan milik user → 403", async () => {
-    control.card = { id: "card-1", location: "with_owner", status: "sold", ownerId: "u-other" };
-    const res = await post(BASE);
-    expect(res.status).toBe(403);
+  it("seed bid_pending tetap diserahkan ke SQL, tanpa precheck route", async () => {
+    const res = await sellerToVault(BASE);
+    expect(res.status).toBe(201);
+    expect(control.rpcCalls[0]).toMatchObject({ fn: "seller_to_vault" });
   });
 
-  it("card location bukan with_owner (mis. sudah di vault) → 400", async () => {
-    control.card = { id: "card-1", location: "platform_vault", status: "sold", ownerId: "u-1" };
-    const res = await post(BASE);
-    expect(res.status).toBe(400);
+  it("tanpa tracking meneruskan null", async () => {
+    const { trackingNumber: _trackingNumber, ...withoutTracking } = BASE;
+    const res = await sellerToVault(withoutTracking);
+    expect(res.status).toBe(201);
+    expect(control.rpcCalls[0]?.args).toMatchObject({ p_tracking: null });
   });
 
-  it("kartu tampered/defect/lost → 400 (paritas CARD_NOT_TRADABLE di RPC)", async () => {
-    for (const status of ["tampered", "defect", "lost"]) {
-      control.card = { id: "card-1", location: "with_owner", status, ownerId: "u-1" };
-      const res = await post(BASE);
-      expect(res.status, `status ${status}`).toBe(400);
+  it("unauthenticated atau suspended diblok sebelum RPC dan audit", async () => {
+    for (const expected of [401, 403] as const) {
+      control.authError = expected;
+      const res = await sellerToVault(BASE);
+      expect(res.status).toBe(expected);
+      expect(control.rpcCalls).toHaveLength(0);
+      expect(control.auditCalls).toHaveLength(0);
+      control.authError = null;
     }
   });
 
-  it("kartu listed_buyout/bid_pending → 409 (paritas SALE_IN_PROGRESS di RPC)", async () => {
-    for (const status of ["listed_buyout", "bid_pending"]) {
-      control.card = { id: "card-1", location: "with_owner", status, ownerId: "u-1" };
-      const res = await post(BASE);
-      expect(res.status, `status ${status}`).toBe(409);
-      expect(control.inserted, `status ${status}`).toBeNull();
-    }
+  it.each([
+    ["CARD_NOT_FOUND", 404],
+    ["FORBIDDEN", 403],
+    ["CARD_NOT_TRADABLE", 400],
+    ["SHIPMENT_ACTIVE", 409],
+    ["SALE_IN_PROGRESS", 409],
+    ["INVALID_TRANSITION", 409],
+  ])("RPC %s dipetakan ke HTTP %i tanpa audit", async (code, expectedStatus) => {
+    control.rpcError = { message: code };
+    const res = await sellerToVault(BASE);
+    expect(res.status).toBe(expectedStatus);
+    const body = (await res.json()) as { code: string };
+    expect(body.code).toBe(code);
+    expect(control.auditCalls).toHaveLength(0);
   });
 
-  it("sudah ada shipment aktif → 409 sebelum insert", async () => {
-    control.card = { id: "card-1", location: "with_owner", status: "sold", ownerId: "u-1" };
-    control.activeShipment = { id: "ship-active" };
-    const res = await post(BASE);
-    expect(res.status).toBe(409);
-    expect(control.inserted).toBeNull();
-  });
-
-  it("race precheck vs insert (unique violation) → 409, bukan 500", async () => {
-    control.card = { id: "card-1", location: "with_owner", status: "sold", ownerId: "u-1" };
-    control.insertError = { message: 'duplicate key value violates unique constraint "uq_shipments_active_per_card"' };
-    const res = await post(BASE);
-    expect(res.status).toBe(409);
-  });
-
-  it("alamat < 10 karakter → 400 (zValidator)", async () => {
-    control.card = { id: "card-1", location: "with_owner", status: "inventory", ownerId: "u-1" };
-    const res = await post({ ...BASE, address: "pendek" });
+  it("error RPC tak dikenal memakai pesan fallback yang disanitasi", async () => {
+    control.rpcError = { message: "relation internal_payments does not exist", code: "42P01" };
+    const res = await sellerToVault(BASE);
     expect(res.status).toBe(400);
+    const body = (await res.json()) as { error: string };
+    expect(body.error).toBe("Operasi gagal");
+    expect(body.error).not.toContain("internal_payments");
+    expect(control.auditCalls).toHaveLength(0);
+  });
+
+  it("body invalid ditolak sebelum RPC", async () => {
+    const res = await sellerToVault({ ...BASE, address: "singkat" });
+    expect(res.status).toBe(400);
+    expect(control.rpcCalls).toHaveLength(0);
   });
 });

@@ -300,12 +300,14 @@ function CardInspection({ data }: { data: ApiCard3dResponse }) {
 export default function Card3D() {
   const { cardId } = useParams();
   const [searchParams] = useSearchParams();
-  // Forward SUN parameters from NFC taps; loading artwork never verifies a card.
+  // Forward opaque NFC tap values or the short-lived server receipt. The browser
+  // never infers verification locally; GET /3d verifies either server-side.
   const tapParams = {
     uid: searchParams.get("uid") ?? undefined,
     ctr: searchParams.get("ctr") ?? undefined,
     cmac: searchParams.get("c") ?? searchParams.get("cmac") ?? undefined,
     t: searchParams.get("t") ?? undefined,
+    receipt: searchParams.get("receipt") ?? undefined,
   };
   const { data, isLoading, error, refetch } = useQuery<ApiCard3dResponse>({
     queryKey: ["card3d", cardId, searchParams.toString()],

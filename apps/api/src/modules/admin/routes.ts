@@ -1,5 +1,5 @@
 import { zValidator } from "@hono/zod-validator";
-import { Hono } from "hono";
+import { type Context, Hono } from "hono";
 import { z } from "zod";
 import { adminGateError, clientIp, requireAdmin, tokenFingerprint } from "../../lib/auth.js";
 import { RpcError, rpcCancelSeedSale, rpcReleaseSeedSale } from "../../lib/db.js";
@@ -9,14 +9,45 @@ import { logAuditDb } from "../../lib/reads/kyc.js";
 import { readDb } from "../../lib/reads.js";
 import { uid } from "../../lib/store.js";
 import { getSupabase } from "../../lib/supabase.js";
+import {
+  getAdminCreators,
+  getAdminDashboard,
+  getAdminDrops,
+  getAdminInvestor,
+  getAdminNfc,
+  getAdminOrders,
+  getAdminPayouts,
+} from "./reads.js";
 
 // Admin mutations (role-gated; jalankan server-side dengan service-role client).
-// Reads tetap via Supabase RLS di admin SPA — mutasi sensitif (role/suspend/dispute)
-// WAJIB lewat sini agar ter-audit di admin_audit_log (append-only).
+// Read dan mutasi data operasional harus lewat sini: anon client hanya memiliki
+// akses RLS milik sendiri, sedangkan semua endpoint ini menegakkan admin server-side.
 
 // Env slice typed to EmailBindings so handlers can pass `c.env` into the email
 // module — the EMAIL binding / EMAIL_FROM var exist only on the Workers env.
 const app = new Hono<{ Bindings: EmailBindings }>();
+
+async function adminRead(c: Context<{ Bindings: EmailBindings }>, read: (adminToken: string) => Promise<unknown>) {
+  c.header("Cache-Control", "private, no-store");
+  const authRes = await requireAdmin(c);
+  if ("error" in authRes) {
+    const error = adminGateError(authRes);
+    return c.json(error.body, error.status);
+  }
+  try {
+    return c.json(await read(authRes.token));
+  } catch (error) {
+    return c.json({ error: sanitizeDbError(error instanceof Error ? error : { message: String(error) }) }, 500);
+  }
+}
+
+app.get("/dashboard", (c) => adminRead(c, () => getAdminDashboard()));
+app.get("/drops", (c) => adminRead(c, () => getAdminDrops()));
+app.get("/creators", (c) => adminRead(c, () => getAdminCreators()));
+app.get("/orders", (c) => adminRead(c, () => getAdminOrders()));
+app.get("/payouts", (c) => adminRead(c, () => getAdminPayouts()));
+app.get("/nfc", (c) => adminRead(c, () => getAdminNfc()));
+app.get("/investor", (c) => adminRead(c, (token) => getAdminInvestor(token)));
 
 // GET /audit — admin baca audit log (RLS deny utk authenticated; API = service-role)
 app.get("/audit", async (c) => {
@@ -128,7 +159,8 @@ app.get("/disputes", async (c) => {
   return c.json({ disputes: data ?? [] });
 });
 
-// PATCH /disputes/:id — admin putuskan dispute (refund/strike/suspend)
+// PATCH /disputes/:id — admin catat tindak lanjut dispute.
+// Keputusan final memerlukan aksi pendanaan atau target operasional yang belum tersedia.
 app.patch(
   "/disputes/:id",
   zValidator(
@@ -146,6 +178,15 @@ app.patch(
     }
     const admin = authRes.user;
     const { status, decisionNotes } = c.req.valid("json");
+    if (["resolved_refund", "resolved_strike", "resolved_suspend"].includes(status)) {
+      return c.json(
+        {
+          error:
+            "Refund, strike, dan suspend belum dapat diselesaikan karena pendanaan atau target tindakan operasional belum diimplementasikan. Gunakan under_review dan catat tindak lanjut.",
+        },
+        409,
+      );
+    }
     const db = getSupabase();
     const { data, error } = await db
       .from("disputes")
@@ -155,18 +196,6 @@ app.patch(
       .maybeSingle();
     if (error) return c.json({ error: sanitizeDbError(error) }, 400);
     if (!data) return c.json({ error: "Dispute tidak ditemukan" }, 404);
-    // resolved_suspend -> suspend user pelaku (reporter bukan target; target = user_order)
-    if (status === "resolved_suspend") {
-      const orderId = (data as { order_id?: string | null }).order_id;
-      if (orderId) {
-        const { data: order } = await db.from("orders").select("user_id").eq("id", orderId).maybeSingle();
-        if (order)
-          await db
-            .from("users")
-            .update({ flag_reason: `dispute:${c.req.param("id")}` })
-            .eq("id", order.user_id);
-      }
-    }
     await logAuditDb(
       admin.id,
       "update",

@@ -162,7 +162,8 @@ describe("GET /api/nfc/cards/:id/3d — SUN params reach CMAC verification", () 
     expect(verifiedCalls[0].guards).toMatchObject({ id: "card-1", last_ctr__lt: 5 });
   });
 
-  it("bare visit (no SUN params) never writes and stays QR-grade", async () => {
+  it("bare visit without a receipt never replays verified status and stays QR-grade", async () => {
+    control.card = makeCard({ verifyStatus: "verified", lastCtr: 5 });
     const res = await verifyCard3d("card-1", {});
     expect(res.status).toBe(200);
     const body = (await res.json()) as { card: { verifyStatus: string } };
@@ -206,5 +207,38 @@ describe("POST /api/nfc/verify-nfc — persistence + tamper flag", () => {
     const res = await verifyNfc({ uid: "04a1b2c3d4e580", counter: "000005", cmac });
     const body = (await res.json()) as { verifyStatus: string };
     expect(body.verifyStatus).toBe("verified");
+  });
+
+  it("forwards a verified POST receipt to GET 3d without replaying the SUN counter", async () => {
+    const cmac = await validCmacHex(MASTER_HEX, "04a1b2c3d4e580", "000005");
+    const post = await verifyNfc({ uid: "04a1b2c3d4e580", counter: "000005", cmac });
+    const postBody = (await post.json()) as { verifyStatus: string; redirectTo: string };
+    expect(postBody.verifyStatus).toBe("verified");
+    const receipt = new URL(postBody.redirectTo, "https://c-verse.co").searchParams.get("receipt");
+    expect(receipt).toBeTruthy();
+    if (!receipt) throw new Error("Receipt NFC tidak dikembalikan");
+
+    // Mock read state after the atomic server write. The viewer receives only
+    // its proof, so it cannot advance/reuse this physical counter again.
+    control.card = makeCard({ verifyStatus: "verified", lastCtr: 5 });
+    const viewer = await verifyCard3d("card-1", { receipt });
+    const viewerBody = (await viewer.json()) as { card: { verifyStatus: string }; verifiedBadge: string | null };
+    expect(viewerBody.card.verifyStatus).toBe("verified");
+    expect(viewerBody.verifiedBadge).toBe("Verified Card");
+  });
+
+  it("never restores verified with a receipt once the card is tamper-detected", async () => {
+    const cmac = await validCmacHex(MASTER_HEX, "04a1b2c3d4e580", "000005");
+    const post = await verifyNfc({ uid: "04a1b2c3d4e580", counter: "000005", cmac });
+    const postBody = (await post.json()) as { redirectTo: string };
+    const receipt = new URL(postBody.redirectTo, "https://c-verse.co").searchParams.get("receipt");
+    expect(receipt).toBeTruthy();
+    if (!receipt) throw new Error("Receipt NFC tidak dikembalikan");
+
+    control.card = makeCard({ verifyStatus: "tamper_detected", lastCtr: 5 });
+    const viewer = await verifyCard3d("card-1", { receipt });
+    const viewerBody = (await viewer.json()) as { card: { verifyStatus: string }; verifiedBadge: string | null };
+    expect(viewerBody.card.verifyStatus).toBe("tamper_detected");
+    expect(viewerBody.verifiedBadge).toBe("Tamper Detected");
   });
 });

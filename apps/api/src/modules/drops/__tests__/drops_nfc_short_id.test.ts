@@ -7,6 +7,13 @@ vi.hoisted(() => {
 const control = vi.hoisted(() => ({
   insertCall: null as Record<string, unknown> | null,
   postInsertCardCalls: [] as Array<Record<string, unknown>>,
+  creator: { user_id: "00000000-0000-4000-8000-000000000003", status: "active" } as Record<string, unknown> | null,
+  creatorUser: {
+    id: "00000000-0000-4000-8000-000000000003",
+    display_name: "Karina Aespa",
+    role: "creator",
+    flag_reason: null,
+  } as Record<string, unknown> | null,
   // Simulasi DB constraint error (e2e bug 2026-08-29): insert drops/cards gagal.
   dropInsertError: null as { message: string } | null,
   cardsInsertError: null as { message: string } | null,
@@ -37,19 +44,27 @@ vi.mock("../../../lib/reads/kyc.js", () => ({
 
 vi.mock("../../../lib/supabase.js", () => ({
   getSupabase: () => ({
-    from: (table: string) => ({
-      insert: (row: Record<string, unknown>) => {
-        if (table === "drops") {
-          control.insertCall = row;
-          return Promise.resolve({ error: control.dropInsertError });
-        }
-        if (table === "cards") {
-          control.postInsertCardCalls.push(row);
-          return Promise.resolve({ error: control.cardsInsertError });
-        }
-        return Promise.resolve({ error: null });
-      },
-    }),
+    from: (table: string) => {
+      const db = {
+        select: () => ({
+          eq: () => ({
+            maybeSingle: () => Promise.resolve({ data: table === "creators" ? control.creator : control.creatorUser, error: null }),
+          }),
+        }),
+        insert: (row: Record<string, unknown>) => {
+          if (table === "drops") {
+            control.insertCall = row;
+            return Promise.resolve({ error: control.dropInsertError });
+          }
+          if (table === "cards") {
+            control.postInsertCardCalls.push(row);
+            return Promise.resolve({ error: control.cardsInsertError });
+          }
+          return Promise.resolve({ error: null });
+        },
+      };
+      return db;
+    },
   }),
   _resetSupabaseCache: () => undefined,
 }));
@@ -76,6 +91,7 @@ const VALID_BODY = {
   narrative: "A meaningful narrative for the test drop",
   totalUnits: 5,
   priceCcoin: 30,
+  creatorId: "00000000-0000-4000-8000-000000000003",
 };
 
 function shortIdsFrom(batches: Array<Record<string, unknown>>): string[] {
@@ -87,6 +103,8 @@ describe("POST /api/drops nfc_short_id unik (e2e bug 2026-08-29)", () => {
   beforeEach(() => {
     control.insertCall = null;
     control.postInsertCardCalls = [];
+    control.creator = { user_id: "00000000-0000-4000-8000-000000000003", status: "active" };
+    control.creatorUser = { id: "00000000-0000-4000-8000-000000000003", display_name: "Karina Aespa", role: "creator", flag_reason: null };
     control.dropInsertError = null;
     control.cardsInsertError = null;
   });

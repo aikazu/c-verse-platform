@@ -168,12 +168,13 @@ export const api = {
   // iOS SUN tap appends ?uid=&ctr=&c=&t= to the NDEF URL — forwarding them lets
   // the 3d endpoint run CMAC verification instead of capping at QR-grade
   // "registered". Values are opaque pass-through from the tag's URL.
-  card3d: (cardId: string, tap?: { uid?: string; ctr?: string; cmac?: string; t?: string }) => {
+  card3d: (cardId: string, tap?: { uid?: string; ctr?: string; cmac?: string; t?: string; receipt?: string }) => {
     const params = new URLSearchParams();
     if (tap?.uid) params.set("uid", tap.uid);
     if (tap?.ctr) params.set("ctr", tap.ctr);
     if (tap?.cmac) params.set("cmac", tap.cmac);
     if (tap?.t) params.set("t", tap.t);
+    if (tap?.receipt) params.set("receipt", tap.receipt);
     const qs = params.toString();
     return req<ApiCard3dResponse>(`/nfc/cards/${encodeURIComponent(cardId)}/3d${qs ? `?${qs}` : ""}`);
   },

@@ -1,9 +1,8 @@
 # 04 — User Stories MVP
 
 > Status: [VALIDATED]
-> Last updated: 2026-08-15 (audit konsistensi: F020→F037; header
-> naik VALIDATED — semua stories sudah encode keputusan final
-> termasuk KYC validasi lawyer 2026-08-13)
+> Last updated: 2026-09-05 (status implementasi custody, dispute, dan
+> pembacaan operasional admin; acceptance criteria tetap menjadi target)
 > Format: Given / When / Then. ID: US-{AREA}-{NNN}.
 > Mapping ke halaman: `02_pages.md`. Mapping ke fitur:
 > `01_scope.md`.
@@ -267,6 +266,13 @@ And lokasi kartu berubah ke 'with_owner' saat delivered
 ```
 
 ### US-USR-007d — Secondary: seller kirim ke vault, verified, baru payout
+
+Status implementasi 2026-09-05: non-Seed harus kembali ke vault sebelum
+buyout/accept dapat settle. Pengembalian menggunakan shipment terpisah;
+shipment aktif memblokir settlement. Seed mendukung escrow PHASE-1 sebelum
+pengembalian dan wajib NFC verified sebelum release. SOP verifikasi fisik
+dan QC tetap diperlukan; request shipment bukan bukti QC passed.
+
 ```
 Given kartu terjual di secondary (buyout / bid accept)
 When settlement diproses
@@ -442,6 +448,13 @@ And rekonsiliasi harian: top-up webhook vs ledger vs float
 ```
 
 ### US-ADM-006 — Tangani dispute
+
+[BLOCKED implementasi penyelesaian, 2026-09-05] Review dan catatan tersedia.
+Refund/strike/suspend belum memenuhi acceptance criteria di bawah dan ditolak
+409 sebelum mengubah status atau akun. Refund setelah settlement memerlukan
+keputusan sumber dana serta aturan ledger; strike/suspend memerlukan target
+yang jelas dan pencatatan tindakan. Reporter tidak otomatis menjadi target.
+
 ```
 Given kolektor mengajukan dispute
 When admin membuka /disputes
@@ -464,7 +477,8 @@ And user yang memenuhi kriteria otomatis mendapat badge + XP
 Given founder telah lolos Cloudflare Access allowlist dan posture WARP
 When admin login dengan Supabase email OTP
 Then session membuka UI admin
-And pembacaan data mengikuti policy RLS
+And data operasional dibaca melalui API yang memeriksa role admin dan suspension
+And respons privat tidak masuk cache bersama; RLS pengguna tetap berlaku
 And route privileged ditolak API bila role bukan admin atau akun disuspend
 And semua mutasi dan akses data sensitif dicatat di admin_audit_log
 And MFA/TOTP aplikasi tidak diminta sebagai syarat login

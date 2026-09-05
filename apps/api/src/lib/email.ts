@@ -37,6 +37,7 @@ export interface SendEmailBinding {
 export interface EmailBindings {
   EMAIL?: SendEmailBinding;
   EMAIL_FROM?: string;
+  EMAIL_ENABLED?: string;
 }
 
 export interface EmailSendInput {
@@ -127,6 +128,10 @@ function resolveEmailFrom(env?: EmailBindings): string | undefined {
   return env?.EMAIL_FROM ?? getEnv("EMAIL_FROM");
 }
 
+function isEmailEnabled(env?: EmailBindings): boolean {
+  return (env?.EMAIL_ENABLED ?? getEnv("EMAIL_ENABLED")) === "true";
+}
+
 function extractSendErrorCode(err: unknown): string {
   if (typeof err === "object" && err !== null && "code" in err) {
     const code = (err as { code?: unknown }).code;
@@ -144,7 +149,7 @@ function extractSendErrorCode(err: unknown): string {
  * 5. send throws -> raw error logged server-side, mapped reason — never rethrown.
  */
 export async function sendEmail(input: EmailSendInput, env?: EmailBindings): Promise<EmailSendResult> {
-  if (getEnv("EMAIL_ENABLED") !== "true") {
+  if (!isEmailEnabled(env)) {
     console.info(`[email] kirim ke ${redactEmail(input.to)} di-skip (EMAIL_ENABLED nonaktif)`);
     return { sent: false, reason: "email_disabled" };
   }

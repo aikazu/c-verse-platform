@@ -6,6 +6,11 @@ vi.hoisted(() => {
 
 const control = vi.hoisted(() => ({
   authenticatedAs: "auth-user-1" as string,
+  creator: { user_id: "11111111-1111-4111-8111-111111111111", status: "active" } as Record<string, unknown> | null,
+  creatorUser: { id: "11111111-1111-4111-8111-111111111111", display_name: "Creator Aktif", role: "creator", flag_reason: null } as Record<
+    string,
+    unknown
+  > | null,
   insertCall: null as Record<string, unknown> | null,
   auditCalls: [] as Array<Record<string, unknown>>,
   postInsertCardCalls: [] as Array<Record<string, unknown>>,
@@ -41,6 +46,11 @@ vi.mock("../../../lib/reads/kyc.js", () => ({
 vi.mock("../../../lib/supabase.js", () => ({
   getSupabase: () => ({
     from: (table: string) => ({
+      select: () => ({
+        eq: () => ({
+          maybeSingle: () => Promise.resolve({ data: table === "creators" ? control.creator : control.creatorUser, error: null }),
+        }),
+      }),
       insert: (row: Record<string, unknown>) => {
         if (table === "drops") {
           control.insertCall = row;
@@ -73,39 +83,49 @@ function postDrop(body: Record<string, unknown>) {
   });
 }
 
-describe("POST /api/drops schema (M9 audit 2026-08-24)", () => {
+describe("POST /api/drops creator attribution", () => {
   beforeEach(() => {
     control.authenticatedAs = "auth-user-1";
+    control.creator = { user_id: "11111111-1111-4111-8111-111111111111", status: "active" };
+    control.creatorUser = { id: "11111111-1111-4111-8111-111111111111", display_name: "Creator Aktif", role: "creator", flag_reason: null };
     control.insertCall = null;
     control.auditCalls = [];
     control.postInsertCardCalls = [];
   });
 
-  it("body tanpa creatorId: route assigns creator_id from authenticated user", async () => {
-    const res = await postDrop({
-      title: "Drop Test",
-      series: "Series Test",
-      narrative: "A meaningful narrative for the test drop",
-      totalUnits: 5,
-      priceCcoin: 30,
-    });
+  const body = {
+    title: "Drop Test",
+    series: "Series Test",
+    narrative: "A meaningful narrative for the test drop",
+    totalUnits: 5,
+    priceCcoin: 30,
+    creatorId: "11111111-1111-4111-8111-111111111111",
+  };
+
+  it("assigns the selected active creator instead of the operating admin", async () => {
+    const res = await postDrop(body);
     expect(res.status).toBe(201);
-    expect(control.insertCall?.creator_id).toBe("auth-user-1");
-    expect(control.insertCall?.creator_name).toBe("Auth User");
+    expect(control.insertCall?.creator_id).toBe(body.creatorId);
+    expect(control.insertCall?.creator_name).toBe("Creator Aktif");
   });
 
-  it("body dengan foreign creatorId: diabaikan — creator_id tetap dari auth user", async () => {
-    const res = await postDrop({
-      title: "Drop Test",
-      series: "Series Test",
-      narrative: "A meaningful narrative for the test drop",
-      totalUnits: 5,
-      priceCcoin: 30,
-      // M9: field ini dihapus dari schema — harus diabaikan, BUKAN dipakai.
-      creatorId: "some-other-user",
-    });
-    expect(res.status).toBe(201);
-    expect(control.insertCall?.creator_id).toBe("auth-user-1");
-    expect(control.insertCall?.creator_id).not.toBe("some-other-user");
+  it("rejects a missing creatorId before creating a drop", async () => {
+    const { creatorId: _creatorId, ...withoutCreator } = body;
+    const res = await postDrop(withoutCreator);
+    expect(res.status).toBe(400);
+    expect(control.insertCall).toBeNull();
+  });
+
+  it("rejects an inactive or non-creator target", async () => {
+    control.creator = { user_id: body.creatorId, status: "inactive" };
+    const inactive = await postDrop(body);
+    expect(inactive.status).toBe(422);
+    expect(control.insertCall).toBeNull();
+
+    control.creator = { user_id: body.creatorId, status: "active" };
+    control.creatorUser = { id: body.creatorId, display_name: "User Biasa", role: "user", flag_reason: null };
+    const nonCreator = await postDrop(body);
+    expect(nonCreator.status).toBe(422);
+    expect(control.insertCall).toBeNull();
   });
 });

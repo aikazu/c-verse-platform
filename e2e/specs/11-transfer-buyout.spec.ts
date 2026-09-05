@@ -1,7 +1,6 @@
-import { readFileSync } from "node:fs";
-import path from "node:path";
 import { expect, type Page, test } from "@playwright/test";
 import { loginAs } from "../helpers";
+import { type RemoteServiceRest, remoteServiceRest } from "../helpers/db";
 
 /**
  * F6/F7 — accept-bid ownership transfer + buyout purchase via UI PENGGUNA ASLI.
@@ -54,40 +53,13 @@ interface OwnershipRow {
   transferred_at: string;
 }
 
-/** Baca satu variabel dari apps/api/.dev.vars (null jika file/key absen/kosong). */
-function readDevVar(key: string): string | null {
-  try {
-    const raw = readFileSync(path.resolve(process.cwd(), "apps/api/.dev.vars"), "utf8");
-    for (const line of raw.split(/\r?\n/)) {
-      const match = line.match(/^([A-Z_0-9]+)=(.*)$/);
-      if (match && match[1] === key) {
-        const value = match[2].trim();
-        return value.length > 0 ? value : null;
-      }
-    }
-  } catch {
-    // .dev.vars absen (gitignored)
-  }
-  return null;
-}
-
-function supabaseRest(): { base: string; headers: Record<string, string> } | null {
-  const base = readDevVar("SUPABASE_URL");
-  const serviceKey = readDevVar("SUPABASE_SERVICE_ROLE_KEY");
-  if (!base || !serviceKey) return null;
-  return {
-    base,
-    headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, "Content-Type": "application/json" },
-  };
-}
-
-async function restRows(rest: { base: string; headers: Record<string, string> }, table: string, query: string): Promise<unknown[]> {
+async function restRows(rest: RemoteServiceRest, table: string, query: string): Promise<unknown[]> {
   const res = await fetch(`${rest.base}/rest/v1/${table}?${query}`, { headers: rest.headers });
   if (!res.ok) throw new Error(`REST select ${table} gagal: HTTP ${res.status}`);
   return (await res.json()) as unknown[];
 }
 
-async function restInsert(rest: { base: string; headers: Record<string, string> }, table: string, row: object): Promise<void> {
+async function restInsert(rest: RemoteServiceRest, table: string, row: object): Promise<void> {
   const res = await fetch(`${rest.base}/rest/v1/${table}`, {
     method: "POST",
     headers: rest.headers,
@@ -97,18 +69,13 @@ async function restInsert(rest: { base: string; headers: Record<string, string> 
 }
 
 /** Hapus kartu fixture (bids + ownership_history ikut via ON DELETE CASCADE). */
-async function restDeleteCard(rest: { base: string; headers: Record<string, string> }, cardId: string): Promise<boolean> {
+async function restDeleteCard(rest: RemoteServiceRest, cardId: string): Promise<boolean> {
   const res = await fetch(`${rest.base}/rest/v1/cards?id=eq.${cardId}`, { method: "DELETE", headers: rest.headers });
   return res.ok;
 }
 
 /** Insert kartu fixture milik rival + ownership history (transferred_at = now → C-12 aktif). */
-async function insertFixtureCard(
-  rest: { base: string; headers: Record<string, string> },
-  cardId: string,
-  shortId: string,
-  unit: number,
-): Promise<void> {
+async function insertFixtureCard(rest: RemoteServiceRest, cardId: string, shortId: string, unit: number): Promise<void> {
   await restInsert(rest, "cards", {
     id: cardId,
     drop_id: DROP_ID,
@@ -133,14 +100,14 @@ async function insertFixtureCard(
   });
 }
 
-async function readBalance(rest: { base: string; headers: Record<string, string> }, userId: string): Promise<number> {
+async function readBalance(rest: RemoteServiceRest, userId: string): Promise<number> {
   const rows = (await restRows(rest, "wallets", `user_id=eq.${userId}&select=user_id,balance_ccoin`)) as WalletRow[];
   if (rows.length !== 1) throw new Error(`Wallet ${userId} tidak tepat 1 baris (${rows.length})`);
   return rows[0].balance_ccoin;
 }
 
 /** Dual-token (docs/07): saldo C-Gems — seller share secondary dibayar gems. */
-async function readGemsBalance(rest: { base: string; headers: Record<string, string> }, userId: string): Promise<number> {
+async function readGemsBalance(rest: RemoteServiceRest, userId: string): Promise<number> {
   const rows = (await restRows(rest, "wallets", `user_id=eq.${userId}&select=user_id,balance_gems`)) as Array<{
     balance_gems: number;
   }>;
@@ -155,7 +122,7 @@ async function readGemsBalance(rest: { base: string; headers: Record<string, str
  * wallets agar invarian "balance = sum(ledger)" tetap tertutup. Baris ledger
  * tidak bisa dihapus (guard) → leftover kecil, dideklarasikan di report.
  */
-async function ensureBalance(rest: { base: string; headers: Record<string, string> }, userId: string, minBalance: number): Promise<number> {
+async function ensureBalance(rest: RemoteServiceRest, userId: string, minBalance: number): Promise<number> {
   const currentBalance = await readBalance(rest, userId);
   if (currentBalance >= minBalance) return currentBalance;
   const credit = minBalance - currentBalance;
@@ -178,14 +145,13 @@ async function ensureBalance(rest: { base: string; headers: Record<string, strin
   return minBalance;
 }
 
-async function readCardRow(rest: { base: string; headers: Record<string, string> }, cardId: string): Promise<CardRow> {
+async function readCardRow(rest: RemoteServiceRest, cardId: string): Promise<CardRow> {
   const rows = (await restRows(rest, "cards", `id=eq.${cardId}&select=id,owner_id,status,location,buyout_price_ccoin`)) as CardRow[];
   if (rows.length !== 1) throw new Error(`Kartu ${cardId} tidak tepat 1 baris (${rows.length})`);
   return rows[0];
 }
 
-async function cleanupFixtureRows(rest: { base: string; headers: Record<string, string> } | null): Promise<void> {
-  if (!rest) return;
+async function cleanupFixtureRows(rest: RemoteServiceRest): Promise<void> {
   for (const cardId of [BID_CARD_ID, BUY_CARD_ID]) {
     const isDeleted = await restDeleteCard(rest, cardId);
     if (!isDeleted) console.log(`[11-transfer-buyout] leftover kartu ${cardId} gagal dihapus (FK/trigger) — dideklarasikan di report`);
@@ -215,7 +181,7 @@ test.describe("Secondary transfer — accept-bid & buyout (F6/F7)", () => {
   // 2 login magic-link + alur UI ganda dalam satu test.
   test.setTimeout(240_000);
 
-  const rest: { base: string; headers: Record<string, string> } | null = supabaseRest();
+  const rest = remoteServiceRest();
 
   test.beforeEach(async () => {
     // Idempoten antar-run: sisa fixture run sebelumnya (crash mid-test) dihapus dulu.
@@ -227,7 +193,6 @@ test.describe("Secondary transfer — accept-bid & buyout (F6/F7)", () => {
   });
 
   test("F6: accept-bid rival memindahkan kartu ke demo (owner, saldo, C-12)", async ({ page, browser }) => {
-    if (!rest) test.skip(true, "fixture unavailable: SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY absen di apps/api/.dev.vars");
     await insertFixtureCard(rest, BID_CARD_ID, BID_SHORT_ID, BID_UNIT);
 
     // Benchmark bersama: pastikan saldo demo cukup untuk bid (biasanya sudah).
@@ -341,7 +306,6 @@ test.describe("Secondary transfer — accept-bid & buyout (F6/F7)", () => {
   });
 
   test("F7: buyout demo membeli kartu rival (saldo -harga persis, keluar marketplace)", async ({ page, browser }) => {
-    if (!rest) test.skip(true, "fixture unavailable: SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY absen di apps/api/.dev.vars");
     await insertFixtureCard(rest, BUY_CARD_ID, BUY_SHORT_ID, BUY_UNIT);
 
     // Benchmark bersama: pastikan saldo demo cukup untuk buyout (biasanya sudah).

@@ -1,7 +1,6 @@
-import { readFileSync } from "node:fs";
-import path from "node:path";
 import { expect, type Page, test } from "@playwright/test";
 import { loginAs } from "../helpers";
+import { type RemoteServiceRest, remoteServiceRest } from "../helpers/db";
 
 /**
  * Dukungan (fan → creator C-Coin support) + drop winners list.
@@ -32,91 +31,65 @@ interface UserRow {
   total_xp: number;
 }
 
-/** Read one variable from apps/api/.dev.vars (null when file/key absent/empty). */
-function readDevVar(key: string): string | null {
-  try {
-    const raw = readFileSync(path.resolve(process.cwd(), "apps/api/.dev.vars"), "utf8");
-    for (const line of raw.split(/\r?\n/)) {
-      const match = line.match(/^([A-Z_0-9]+)=(.*)$/);
-      if (match && match[1] === key) {
-        const value = match[2].trim();
-        return value.length > 0 ? value : null;
-      }
-    }
-  } catch {
-    // .dev.vars absent (gitignored)
-  }
-  return null;
+interface BadgeRewardRow {
+  xp_reward_snapshot: number;
 }
 
-function supabaseRest(): { base: string; headers: Record<string, string> } | null {
-  const base = readDevVar("SUPABASE_URL");
-  const serviceKey = readDevVar("SUPABASE_SERVICE_ROLE_KEY");
-  if (!base || !serviceKey) return null;
-  return {
-    base,
-    headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, "Content-Type": "application/json" },
-  };
-}
-
-async function restSelect<T>(rest: { base: string; headers: Record<string, string> }, table: string, query: string): Promise<T[]> {
+async function restSelect<T>(rest: RemoteServiceRest, table: string, query: string): Promise<T[]> {
   const res = await fetch(`${rest.base}/rest/v1/${table}?${query}`, { headers: rest.headers });
   if (!res.ok) throw new Error(`REST select ${table} gagal: HTTP ${res.status}`);
   return (await res.json()) as T[];
 }
 
-async function readBalance(rest: { base: string; headers: Record<string, string> }, userId: string): Promise<number> {
+async function readBalance(rest: RemoteServiceRest, userId: string): Promise<number> {
   const rows = await restSelect<WalletRow>(rest, "wallets", `user_id=eq.${userId}&select=user_id,balance_ccoin`);
   if (rows.length !== 1) throw new Error(`Wallet ${userId} tidak tepat 1 baris (${rows.length})`);
   return rows[0].balance_ccoin;
 }
 
 /** Dual-token (docs/07): saldo C-Gems kreator (dukungan mengalir sebagai gems). */
-async function readGemsBalance(rest: { base: string; headers: Record<string, string> }, userId: string): Promise<number> {
+async function readGemsBalance(rest: RemoteServiceRest, userId: string): Promise<number> {
   const rows = await restSelect<{ balance_gems: number }>(rest, "wallets", `user_id=eq.${userId}&select=user_id,balance_gems`);
   if (rows.length !== 1) throw new Error(`Wallet ${userId} tidak tepat 1 baris (${rows.length})`);
   return rows[0].balance_gems;
 }
 
-async function readTotalXp(rest: { base: string; headers: Record<string, string> }, userId: string): Promise<number> {
+async function readTotalXp(rest: RemoteServiceRest, userId: string): Promise<number> {
   const rows = await restSelect<UserRow>(rest, "users", `id=eq.${userId}&select=total_xp`);
   if (rows.length !== 1) throw new Error(`User ${userId} tidak tepat 1 baris (${rows.length})`);
   return rows[0].total_xp;
 }
 
+async function readBadgeXp(rest: RemoteServiceRest, userId: string): Promise<number> {
+  const rows = await restSelect<BadgeRewardRow>(rest, "user_badges", `user_id=eq.${userId}&select=xp_reward_snapshot`);
+  return rows.reduce((total, row) => total + row.xp_reward_snapshot, 0);
+}
+
 /**
- * Shared-bench guard (pola 11-transfer-buyout): top up saldo demo via ledger
- * (append-only INSERT + wallets PATCH) hanya bila kurang dari minBalance.
+ * Shared-bench guard: kredit hanya bila perlu lewat RPC kernel wallet, agar
+ * wallet cache dan ledger berubah atomik tanpa PATCH langsung.
  */
-async function ensureBalance(rest: { base: string; headers: Record<string, string> }, userId: string, minBalance: number): Promise<number> {
+async function ensureBalance(rest: RemoteServiceRest, userId: string, minBalance: number): Promise<number> {
   const currentBalance = await readBalance(rest, userId);
   if (currentBalance >= minBalance) return currentBalance;
   const credit = minBalance - currentBalance;
-  const insertRes = await fetch(`${rest.base}/rest/v1/wallet_transactions`, {
+  const creditRes = await fetch(`${rest.base}/rest/v1/rpc/wallet_credit`, {
     method: "POST",
     headers: rest.headers,
     body: JSON.stringify({
-      id: `e2e-sup-topup-${Date.now()}`,
-      user_id: userId,
-      type: "adjustment",
-      amount_ccoin: credit,
-      balance_after_ccoin: minBalance,
-      ref_type: "e2e-fixture",
-      ref_id: "13-support-winners",
-      note: "e2e fixture top-up — bench bersama, saldo seed terkuras run lane lain",
+      p_user: userId,
+      p_amount: credit,
+      p_type: "adjustment",
+      p_ref_type: "e2e-fixture",
+      p_ref_id: "13-support-winners",
+      p_idem: `e2e-sup-credit-${Date.now()}`,
     }),
   });
-  if (!insertRes.ok) throw new Error(`Fixture top-up ledger gagal: HTTP ${insertRes.status}`);
-  const patchRes = await fetch(`${rest.base}/rest/v1/wallets?user_id=eq.${userId}`, {
-    method: "PATCH",
-    headers: rest.headers,
-    body: JSON.stringify({ balance_ccoin: minBalance }),
-  });
-  if (!patchRes.ok) throw new Error(`Fixture top-up wallets gagal: HTTP ${patchRes.status}`);
-  return minBalance;
+  if (!creditRes.ok) throw new Error(`Fixture credit wallet gagal: HTTP ${creditRes.status}`);
+  return readBalance(rest, userId);
 }
 
-/** Login dengan retry (magic-link satu pakai bisa terpakai lane lain di bench bersama). */
+/** Retry terbatas untuk kegagalan jaringan GoTrue remote; tidak mengirim email. */
 async function loginWithRetry(page: Page, email: string, attempts = 3): Promise<void> {
   let lastError: unknown = null;
   for (let attempt = 1; attempt <= attempts; attempt++) {
@@ -132,15 +105,14 @@ async function loginWithRetry(page: Page, email: string, attempts = 3): Promise<
 }
 
 test.describe("Dukungan kreator & daftar pemenang drop", () => {
-  const rest: { base: string; headers: Record<string, string> } | null = supabaseRest();
+  const rest = remoteServiceRest();
 
   test("Dukungan: kirim 1 C ke kreator via /c/:handle (transfer penuh + XP pengirim)", async ({ page }) => {
-    if (!rest) test.skip(true, "fixture unavailable: SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY absen di apps/api/.dev.vars");
-
     const demoBalanceBefore = await ensureBalance(rest, DEMO_ID, 2);
     const creatorBalanceBefore = await readBalance(rest, CREATOR_ID);
     const creatorGemsBefore = await readGemsBalance(rest, CREATOR_ID);
     const demoXpBefore = await readTotalXp(rest, DEMO_ID);
+    const demoBadgeXpBefore = await readBadgeXp(rest, DEMO_ID);
 
     await loginWithRetry(page, "demo@cverse.id");
     await page.goto(`/c/${CREATOR_HANDLE}`);
@@ -165,11 +137,13 @@ test.describe("Dukungan kreator & daftar pemenang drop", () => {
     await expect(page.locator(".toast-success").filter({ hasText: "Dukungan 1 C terkirim" })).toBeVisible();
 
     // DB truth dual-token (docs/07): pengirim -1 C-Coin; kreator +1 C-GEMS
-    // (send_support → wallet_credit_gems, ccoin kreator tidak berubah); XP +1.
+    // (send_support → wallet_credit_gems, ccoin kreator tidak berubah); XP
+    // includes the 1 C spend plus any newly unlocked badge reward.
     expect(await readBalance(rest, DEMO_ID)).toBe(demoBalanceBefore - 1);
     expect(await readGemsBalance(rest, CREATOR_ID)).toBe(creatorGemsBefore + 1);
     expect(await readBalance(rest, CREATOR_ID)).toBe(creatorBalanceBefore);
-    expect(await readTotalXp(rest, DEMO_ID)).toBe(demoXpBefore + 1);
+    const demoBadgeXpAfter = await readBadgeXp(rest, DEMO_ID);
+    expect(await readTotalXp(rest, DEMO_ID)).toBe(demoXpBefore + 1 + demoBadgeXpAfter - demoBadgeXpBefore);
   });
 
   test("Pemenang: drop selesai menampilkan nomor kartu + Premium/Regular + nama", async ({ page }) => {
@@ -185,5 +159,39 @@ test.describe("Dukungan kreator & daftar pemenang drop", () => {
     // Seed: unit 10 = kartu signed → baris Premium.
     await expect(rows.filter({ hasText: "#10" }).first()).toContainText("Signed");
     await expect(rows.filter({ hasText: "#10" }).first().locator(".dd-winner-name")).not.toBeEmpty();
+  });
+
+  test("Pemenang tetap tampil ketika hasil draw masuk fase FCFS", async ({ page }) => {
+    const drop = {
+      id: "drop-e2e-fcfs",
+      title: "Drop FCFS setelah draw",
+      series: "E2E",
+      narrative: "Fixture hasil draw yang masih memiliki unit FCFS.",
+      artworkUrl: "",
+      totalUnits: 2,
+      signedCount: 0,
+      unsignedCount: 2,
+      priceCcoin: 30,
+      priceUnsignedCCoin: 30,
+      priceSignedCCoin: 50,
+      status: "live",
+      dropStartAt: "2026-01-01T05:00:00.000Z",
+      dropEndAt: "2099-01-01T05:00:00.000Z",
+      raffleEndAt: "2026-01-02T05:00:00.000Z",
+      drawnAt: "2026-01-02T05:01:00.000Z",
+      creatorId: "creator-e2e",
+      creatorName: "Creator E2E",
+      soldCount: 1,
+      createdAt: "2026-01-01T05:00:00.000Z",
+      isSeed: false,
+      winners: [{ unitNumber: 1, variant: "unsigned", displayName: "Pemenang E2E" }],
+    };
+    await page.route("**/api/drops/drop-e2e-fcfs", (route) => route.fulfill({ json: drop }));
+    await page.route("**/api/drops/drop-e2e-fcfs/cards", (route) =>
+      route.fulfill({ json: { cards: [{ id: "card-e2e-fcfs-1", unitNumber: 1, variant: "unsigned", status: "bound", isOwned: true }] } }),
+    );
+    await page.goto("/drops/drop-e2e-fcfs");
+    await expect(page.locator("section.dd-winners")).toContainText("Pemenang E2E", { timeout: 10000 });
+    await expect(page.locator("a.cm-cta", { hasText: "Beli Sekarang" })).toBeVisible();
   });
 });
