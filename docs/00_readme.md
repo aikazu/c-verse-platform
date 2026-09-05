@@ -1,7 +1,9 @@
 # 00 — README: Development Strategy C.Verse MVP
 
 > Status: [VALIDATED]
-> Last updated: 2026-09-05 (kontrol akses admin tanpa MFA/TOTP wajib;
+> Last updated: 2026-09-06 (backlog pengalaman kolektor dan konten
+> opsional dicatat di `09_recommendations.md` §7; implementasi ditunda)
+> Previous: 2026-09-05 (kontrol akses admin tanpa MFA/TOTP wajib;
 > email OTP + Access/WARP + role/suspension server-side; dual-token tetap)
 > Konteks: foundation code sudah ada di
 > `C:\Users\iqbal\Documents\C-Verse\Platform` (mulai 2026-08-12).
@@ -28,7 +30,7 @@
 ### Kelompok C — EXECUTION (spec eksekusi, hasil audit foundation 2026-08-15)
 | # | Dok | Isi | Status foundation saat audit |
 |---|-----|-----|------------------------------|
-| 9 | `09_recommendations.md` | Prioritas build, operasional manual, risiko | acuan umum |
+| 9 | `09_recommendations.md` | Prioritas build, operasional manual, risiko; §7 backlog etalase, panduan, cerita C.Card & kampanye Seed | acuan umum; backlog §7 ditunda |
 | 10 | `10_auth_migration.md` | Supabase Auth Google+OTP+Turnstile ganti auth plaintext | IMPLEMENTED |
 | 11 | `11_rls_policy.md` | Matriks RLS + test T1-T10 ganti allow-all | IMPLEMENTED |
 | 12 | `12_nfc_cmac_verify.md` | CMAC verify + anti-replay + TagTamper (SUN/SDM) | kode terimplementasi; validasi perangkat fisik C-03 masih pending |
@@ -68,6 +70,7 @@ semua dok sekaligus (mubazir token, AI kehilangan fokus):
 | NFC | `12`, `06` (D2, D4) | test vector NXP AN12196 — larang mengarang byte layout |
 | Payments | `14`, `07` (C-08, C-09b) | webhook idempotent + signature |
 | Halaman/UX | `02`, `04`, `03` | istilah glossary §5 |
+| Backlog etalase, panduan & konten opsional | `09` §7, `02`, `03`, `04` | Catatan untuk tugas Codex berikutnya; status ditunda, belum diimplementasikan |
 | Review PR | `15` §5 (DoD) + `07` §6 (FINAL) | — |
 
 ## 4. Aturan Hard untuk AI Executor
@@ -246,4 +249,6 @@ Dok di folder ini meng-override dokumen sumber workspace:
   2026-08-20, dok sumber brainstorm di atas).
 - Diskusi founder 2026-08-12 (keputusan threshold, onboarding
   off-platform, admin app terpisah, struktur folder).
+- Keputusan founder 2026-09-06: catat empat pengembangan di
+  `09_recommendations.md` §7 untuk dikerjakan nanti melalui Codex.
 - Audit foundation `Platform` repo 2026-08-15 (lahiran spec 10-16).

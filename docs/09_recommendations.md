@@ -1,7 +1,9 @@
 # 09 — Rekomendasi Development
 
 > Status: [VALIDATED]
-> Last updated: 2026-09-05 (admin/funds always-on di Cloudflare
+> Last updated: 2026-09-06 (§7 backlog etalase, panduan pengguna baru,
+> cerita C.Card opsional, dan kampanye Creator Seed opsional; ditunda)
+> Previous: 2026-09-05 (admin/funds always-on di Cloudflare
 > Workers, fail-closed melalui Access + posture WARP)
 > Previous: 2026-08-31 (§2.5: pool SIGNED dipilih EKSPLISIT —
 > raffle hybrid C-15, bukan alokasi random)
@@ -237,6 +239,86 @@ tetap manual:
 - Minimum: blok rebuy seller 1 hari + creator self-dealing 30 hari +
   rate limit bid + multiple account detection.
 
+## 7. Backlog Disepakati — Dikerjakan Nanti Melalui Codex
+
+> Keputusan founder: 2026-09-06.
+> Status: arah produk disepakati; implementasi DITUNDA.
+> Instruksi saat pencatatan: "catat aja dulu", dikerjakan nanti
+> melalui Codex. Bagian ini mencatat rencana, bukan fitur yang sudah
+> tersedia atau tambahan gate rilis MVP.
+
+Urutan pengerjaan yang disepakati:
+
+| Urutan | Pengembangan | Prioritas / sifat | Status |
+|--------|--------------|-------------------|--------|
+| 1 | Etalase koleksi pribadi | Prioritas | Belum dikerjakan |
+| 2 | Panduan pengguna baru | Prioritas; dapat dilewati pengguna | Belum dikerjakan |
+| 3 | Cerita di balik C.Card | Konten opsional per Drop | Belum dikerjakan |
+| 4 | Kampanye Creator Seed | Kampanye opsional per Seed | Belum dikerjakan |
+
+### 7.1 Etalase Koleksi Pribadi
+
+- Perluas koleksi dan profil publik yang sudah ada: kolektor memilih
+  sampai tiga kartu miliknya sebagai unggulan dan memberi judul koleksi.
+- Sediakan cara membagikan etalase, termasuk gambar siap dibagikan ke
+  media sosial dengan tautan menuju profil publik.
+- Publikasi mengikuti pengaturan privasi dan status akun; profil anonim
+  atau suspended tetap terlindungi, termasuk pada pratinjau tautan.
+- Kartu unggulan harus mencerminkan kepemilikan saat ini. Tentukan
+  penanganan kartu yang sudah dijual ketika merinci implementasi.
+- Acuan halaman: `02_pages.md` PG-PROF-01 dan PG-USR-06.
+
+### 7.2 Panduan Pengguna Baru
+
+- Panduan singkat mengikuti konteks perjalanan pembelian pertama:
+  memilih pool, memahami C-Coin yang ditahan saat Raffle, melihat hasil
+  pengundian, kartu masuk Vault, lalu meminta pengiriman bila diinginkan.
+- Pengguna bisa melewati panduan dan membukanya kembali.
+- Jelaskan harga C-Coin bersama padanan rupiahnya sesuai rate kanonik.
+- Panduan menjelaskan proses; persetujuan transaksi, pilihan pool,
+  aturan saldo, dan konfirmasi wajib tetap mengikuti flow yang berlaku.
+- Acuan: `02_pages.md` PG-USR-02/05/07, `03_flows.md`, dan
+  `04_user_stories.md` untuk perjalanan pengguna terkait.
+
+### 7.3 Cerita di Balik C.Card — Opsional
+
+- Kembangkan narasi Drop yang sudah ada dengan cerita makna karya,
+  foto/sketsa proses, atau video singkat kreator. Media pendukung opsional.
+- Ops mengelola konten per Drop; konten dapat diisi belakangan.
+- Tampilkan bagian cerita hanya jika ada konten yang dipublikasikan.
+  Konten kosong tidak menampilkan bagian kosong atau menghalangi rilis
+  Drop dan penggunaan fitur inti.
+- Cerita ditempatkan pada detail Drop; halaman 3D tetap mengikuti
+  batas informasi di `02_pages.md` PG-CARD-02.
+- Acuan: `01_scope.md` F003 dan `02_pages.md` PG-DROP-02/PG-ADM-03.
+
+### 7.4 Kampanye Creator Seed — Opsional
+
+- Ops memilih kartu Seed yang mendapat kampanye; kampanye tidak wajib
+  untuk setiap kreator atau kartu Seed.
+- Konten mendokumentasikan awal kolaborasi: proses pembuatan,
+  penandatanganan, penyerahan kepada kreator, serta tautan menuju kartu
+  terkait di platform.
+- Kampanye dapat memakai pola konten cerita C.Card agar pengelolaannya
+  sederhana. Cerita C.Card berfokus pada makna karya; kampanye Seed
+  berfokus pada perjalanan awal kolaborasi.
+- Opsional berlaku pada konten kampanye. Mekanisme Creator Seed yang
+  sudah disepakati tetap mengikuti `01_scope.md` dan `03_flows.md`
+  Flow 10, termasuk verifikasi dan proses transaksi.
+
+### 7.5 Titik Mulai Tugas Codex Berikutnya
+
+- Mulai dari `00_readme.md`, bagian ini, dan dokumen acuan fitur yang
+  dipilih; periksa implementasi terkini sebelum mengubah kode.
+- Rincian UI, penyimpanan konten/media, dan persistensi preferensi
+  panduan dirumuskan saat tugas implementasi dimulai.
+- Kerjakan sesuai urutan di atas ketika diminta melanjutkan backlog;
+  perbarui status tiap fitur setelah implementasi dan verifikasi selesai.
+- Sinkronkan dokumen halaman, flow, dan user stories yang terdampak;
+  ikuti gate pengujian serta pemeriksaan mirror saat implementasi.
+- Pengingat Drop dan daftar pantauan kartu dari diskusi awal belum
+  dipilih untuk backlog ini.
+
 ## Sumber
 
 - `01_scope.md` (fitur MVP).
@@ -248,3 +330,6 @@ tetap manual:
 - Diskusi user 2026-08-13 (domain final, vault default, min payout).
 - Keputusan founder 2026-09-05 (admin/funds di Workers, WARP wajib,
   API privat melalui Service Binding).
+- Keputusan founder 2026-09-06: prioritaskan etalase dan panduan;
+  cerita C.Card serta kampanye Creator Seed opsional. Catat dahulu
+  untuk implementasi berikutnya melalui Codex.
