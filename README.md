@@ -1,6 +1,6 @@
 # C.Verse Platform — C.Card MVP
 
-> **Creator Verse** — platform kartu koleksi kreator edisi terbatas (63×88mm, holo, acrylic, NTAG 424 TagTamper). Satu harga, satu kartu per orang, vault-first, provenance NFC.
+> **Creator Verse** — platform kartu koleksi kreator edisi terbatas (63×88mm, holo, acrylic, NTAG 424 TagTamper). Raffle per pool, pembelian masuk Vault, secondary market antarkolektor, dan provenance NFC.
 
 [![Stack](https://img.shields.io/badge/stack-React%2019%20%7C%20Hono%204%20%7C%20Supabase-blue)](#stack)
 [![C-Coin](https://img.shields.io/badge/C--Coin-1%20%3D%20Rp%2010.000-gold)](#angka-kunci)
@@ -226,7 +226,7 @@ Belum diimplementasi: notifikasi in-app/push (F010, F013). Email transaksional A
 | `/marketplace` | Marketplace | kartu dengan buyout |
 | `/browse` | Browse | grid tile per-drop → detail drop |
 | `/cards/:cardId` | Info kartu | sertifikat + ownership history |
-| `/cards/:cardId/3d` | 3D viewer | badge Verified (hanya via NFC tap) |
+| `/cards/:cardId/3d` | Inspeksi 3D Space Arcade | kontrol sisi/rotasi/zoom, model netral saat artwork gagal; status NFC berasal dari API, bukan keberhasilan render |
 | `/leaderboard` | Peringkat | F019, tab `Level`\|`Kolektor`\|`Lencana` + `?tab=` |
 | `/c/:username` | Kreator publik | handle + bio + link sosmed + list drop + tombol Dukungan |
 | `/u/:username` | Kolektor publik | hidden jika privacy anonymous |
@@ -293,7 +293,7 @@ Gate berlapis: tanpa env Supabase → layar config error; tanpa session → logi
 
 Status implementasi per item (`[done]` = ada di code + test; `[spec NN]` = spec docs/NN siap, eksekusi bertahap).
 
-- **Auth Supabase (JWT + Turnstile)** — Google OAuth + email OTP 6 digit, **tanpa password**; API verify JWKS `jose`. `[done — docs/10]` (aktifasi provider Google/Turnstile = config dashboard).
+- **Auth Supabase (JWT + Turnstile)** — Google OAuth + tautan masuk email OTP, **tanpa password**; API verify JWKS `jose`. `[done — docs/10]` (aktifasi provider Google/Turnstile = config dashboard).
 - **RLS default-deny** — matriks policy per tabel + guard trigger (buyout-only update, ledger & audit append-only). `[done — docs/11]` (verifikasi `supabase/tests/rls_test.sql` butuh Docker).
 - **NFC CMAC (SUN AN12196)** — AES-CMAC RFC 4493 + anti-replay counter + tamper permanen. `[done — docs/12]` (provisioning tag fisik = ops TapLinx).
 - **Atomic money RPC** — wallet/checkout/raffle/bid/buyout single-transaction + idempotency ledger. `[done — docs/13]` (semua route read lewat facade `lib/reads`, tanpa fallback in-memory).

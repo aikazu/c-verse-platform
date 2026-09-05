@@ -7,7 +7,7 @@ Every `PageHero` prop, nav label, and empty-state string must use these values �
 
 | Route | `channel` | `channelLabel` | `title` (h1) | Nav / UserMenu label |
 |---|---|---|---|---|
-| `/` | — | — | — (Landing, no hero) | — |
+| `/` | — | — | **C.Card** | — |
 | `/home` | `00` | `BERANDA` | **Beranda** | Beranda |
 | `/drops` | `01` | `DROPS` | **Drops** | Drops |
 | `/drops/:id` | `01` | `DROPS` | `{drop.title}` (data-driven) | — |
@@ -19,7 +19,7 @@ Every `PageHero` prop, nav label, and empty-state string must use these values �
 | `/creator` | `06B` | `KREATOR` | **Dasbor Kreator** | Dasbor Kreator |
 | `/creator/drops/:id` | `06C` | `KREATOR` | `{drop.title}` | — |
 | `/creator/payouts` | `06D` | `KREATOR` | **Riwayat Penarikan** | Penarikan & Royalti |
-| `/cards/:id` | `07` | `C.CARD` | `{drop.title} · #N` | — |
+| `/cards/:id` | `07A` | `C.CARD` | `{drop.title} · #N` | — |
 | `/cards/:id/3d` | `07B` | `C.CARD` | `{drop.title} · #N` | — |
 | `/wallet` | `08` | `DOMPET` | **Dompet** | Dompet |
 | `/collection` | `09` | `KOLEKSI` | **Koleksi** | Koleksi |
@@ -34,7 +34,7 @@ Every `PageHero` prop, nav label, and empty-state string must use these values �
 
 Rules:
 - Channel numbers are unique per route (no `CH:06` ×4 or `CH:10` ×2).
-- `extra` (rail-extra) is **not rendered** unless it carries live data (e.g. ticker). Static decoration strings like `PILOT DECK`, `TREASURY LINK`, `STEALTH PROTOCOL` are removed.
+- PageHero renders a visible h1, useful context, actions, and an optional data ticker. It has no `extra` or `heroVisual` prop, animated illustration, or static ready indicator.
 - Hero `sub` is only used when it adds context not in the title (e.g. handle `@karina` above a display name). Never repeat the title as sub/eyebrow.
 - Card 3D uses a dedicated Space Arcade inspection header, retaining channel `07B / C.CARD` and the canonical data-driven h1. Controls: **Depan**, **Belakang**, **Jeda/Putar**, **Zoom**, **Reset tampilan**, **Mode fokus**. Artwork availability must never imply NFC verification.
 
@@ -56,5 +56,16 @@ Rules:
 
 ## Redundancy rule
 
-No word may appear twice in the vertical stack `rail → h1 → next eyebrow/h2` within one viewport fold.
-If `channelLabel` equals the title word, the next section's eyebrow must name the section's content (e.g. level, count), not the page name.
+Navigation and a visible page title may share a name. Do not hide the h1 to avoid
+that repetition. Section headings should identify their own content rather than
+repeat a decorative eyebrow.
+
+Use ink surfaces, thin cyan borders, amber primary actions, and compact corners
+across Web/Admin. Keep status/tier colors semantic. Copy must describe data,
+state, or an action; omit decorative slogans, fake telemetry, and unverifiable
+claims. Space Arcade is a visual direction, not a reason to rename product actions.
+
+## Sumber
+
+- Implementasi PageHero, AuthForm, dan viewer C.Card, ditinjau 2026-09-05.
+- [Peta halaman](02_pages.md) dan [keputusan teknis](06_tech_decisions.md).

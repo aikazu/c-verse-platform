@@ -1,8 +1,8 @@
 # 15 — Quality Gates: Testing, Lint, CI, DoD
 
 > Status: [VALIDATED]
-> Created: 2026-08-15; updated: 2026-09-05 (guard baseline 18 file,
-> batas 500 baris, seed/asset contract dan Playwright image decode)
+> Created: 2026-08-15; updated: 2026-09-05 (baseline 500 baris,
+> kontrak aset/timeout viewer, layout responsif dan error handling Admin)
 > Vitest, Biome, typecheck, build dan CI aktif. Klaim 0 test/lint no-op
 > berasal dari audit awal 2026-08-15, bukan keadaan sekarang. Target
 > coverage >70% pada `01_scope.md` belum diukur sebagai gate otomatis;
@@ -14,8 +14,10 @@
 1. **Uang & stok tidak boleh regress** — test menarget area berisiko
    (wallet math, checkout race, bid release, fee split, RLS), bukan
    mengejar angka coverage di UI.
-2. AI menulis code = AI menulis test di PR yang sama. DoD tanpa test
-   = PR ditolak.
+2. Perubahan perilaku disertai test terfokus bila infrastrukturnya tersedia.
+   Copy/CSS tidak memerlukan test yang sekadar menyalin teks implementasi;
+   verifikasi tampilan dan alur terkait. Test harus gagal jika perilaku rusak,
+   bukan sekadar mencetak jumlah elemen atau memastikan body ada.
 3. Tools sesuai preferensi founder: **Biome** (lint + format, satu
    alat) + **Vitest** (unit/integration). Tidak tambah tool lain.
 
@@ -97,7 +99,7 @@ Reset/seed remote tidak menjadi bagian rutin quality gate lokal.
 6. Tap NFC sample (Android Chrome) → Verified Card.
 7. QR dus → Registered.
 8. Ship-from-vault → ongkir tercatat.
-9. Admin login 2FA → buat drop → provisioning 1 tag.
+9. Admin login email OTP di balik Access/WARP → role admin tervalidasi → buat drop → provisioning 1 tag.
 10. `/investor` menampilkan GMV sesuai transaksi di atas.
 11. A11y & state: keyboard-only bisa capai konten via skip link,
     input punya label (screen reader), toast diumumkan; matikan
@@ -111,14 +113,14 @@ Reset/seed remote tidak menjadi bagian rutin quality gate lokal.
 | `packages/shared` | ≥ 90% lines (murni fungsi, murah) |
 | `apps/api/src/lib` (cmac, auth, payments) | ≥ 80% |
 | `apps/api/src/modules` | happy path + error utama per route (angka bebas, review manual) |
-| Web/admin UI | tanpa unit test Y1 (smoke manual cukup) |
+| Web/admin UI | Playwright untuk alur dan batas akses; unit Admin untuk auth/error handling. Tidak mengejar coverage visual 100% |
 | Biome lint | 0 error 0 warning di CI (hard gate) |
 
 ## 5. Definition of Done per PR (checklist reviewer)
 
 - [ ] Typecheck 4 workspace lulus.
 - [ ] Biome 0 warning.
-- [ ] Test baru untuk logic yang diubah (merah → hijau).
+- [ ] Regression test untuk perilaku yang diubah, atau bukti pemeriksaan yang sesuai risikonya.
 - [ ] Tidak ada angka C-Coin/fee hardcode (pakai shared).
 - [ ] Migration (jika ada) idempotent + backward compatible
       (add nullable dulu, drop nanti).
@@ -141,13 +143,13 @@ Reset/seed remote tidak menjadi bagian rutin quality gate lokal.
       hijau di CI pada PR pertama setelah spec ini diterapkan.
 - [ ] Matriks 3,1-3,3 terpenuhi minimal 90% butir.
 - [ ] CI block merge saat lint warning / test merah.
-- [ ] Smoke checklist 3,4 dijalankan + dicatat sebelum tiap deploy
-      ke preview environment.
+- [ ] Butir smoke 3,4 yang terdampak dijalankan + dicatat sebelum deploy
+      ke preview environment; cakupan mengikuti risiko perubahan.
 
 ## 8. Sumber
 
-- Global founder preference: TDD red-green-refactor; formatter+lint+
-  test wajib sebelum commit.
+- Preferensi founder: pemeriksaan sesuai risiko, test regresi untuk
+  perilaku yang berubah, serta formatter/lint untuk kode.
 - `01_scope.md` DoD (coverage >70%, review 2 reviewer).
 - `08_deployment.md` CI/CD pipeline.
 - Audit Platform 2026-08-15: saat itu terdapat 0 test file, lint no-op,

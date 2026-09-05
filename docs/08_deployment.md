@@ -185,15 +185,22 @@ tidak membacanya (env email API hanya `EMAIL_ENABLED`/`EMAIL_FROM`/
 - Bucket `cverse-qr` (opsional) dan upload icon badge belum diimplementasikan.
 
 Snapshot deployment 2026-09-05: API `e91ff93c-295f-4878-b86c-a0d71dd4aadf`,
-web `2cacac97-a3c6-4913-83eb-534025c90711`, admin
-`ca45df01-52d2-452f-aa5b-78c0d7c41c19`. Avatar tersedia di `/me/privacy`,
+web `e992e8fa-d26a-4eb1-a28a-b5b32cbd2ec4`, admin
+`9c3d9f27-4cc5-451d-9daf-27ce1b3cedd8`. Avatar tersedia di `/me/privacy`,
 artwork di `/drops` admin. API tetap privat; gateway tetap Access/WARP.
-Quality gates terakhir lulus (552 unit test); 21 tes browser koleksi/aset/3D
-lulus, termasuk cache gambar Genesis #8, Karina dari R2 tanpa file bundle,
-kontrol Space Arcade, mobile, reduced motion, keyboard, dan WebGL context loss
-saat loading maupun setelah render. Screenshot desktop/mobile diperiksa.
-CI GitHub run `33947930428` lulus setelah perbaikan guard rate limiter;
-workflow tetap menjalankan seluruh quality gate, tanpa skip test bermasalah.
+Quality gates lulus (560 unit test); 46 skenario browser terkait dijalankan
+dalam suite terfokus: halaman publik, auth, secondary, koleksi, aset R2,
+viewer, layout responsif, login/operasi Admin, dan upload artwork. Artwork
+yang menggantung dibatasi 15 detik, lalu model netral tetap dapat dikontrol;
+respons texture terlambat tidak mengganti state. Test regresinya gagal pada
+kode lama dan lulus setelah perbaikan. Kasus R2 Aurora yang sempat gagal
+menunjukkan body gambar macet sesudah header 200, bukan error CORS; pengujian
+ulang aset/viewer lulus 19/19 tanpa melonggarkan assertion.
+Smoke live memeriksa render dan kontrol Genesis #8 pada desktop/mobile,
+copy baru, serta halaman login Admin; operasi admin dan upload diuji lokal.
+CI GitHub run `33947930428` adalah bukti historis perbaikan rate limiter;
+workflow quality tetap aktif pada PR/main dan E2E pada PR, tanpa guard yang
+mengubah kegagalan boot Admin menjadi skip.
 Pada cutover upload sebelumnya, suite browser menyeluruh 53 lulus/3 skip,
 lalu delapan tes aset/upload terfokus lulus termasuk R2 lintas origin dan
 fallback 3D. Dua tes artwork diulang dengan assertion audit DB nyata: aksi

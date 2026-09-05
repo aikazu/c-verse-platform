@@ -60,7 +60,7 @@ membatalkan komitmen yang sudah ada.
 |---------|------|
 | **Drop** | Primary sale (platform-produced, 70/30) |
 | **Marketplace** | Secondary: kartu yang owner-nya pasang **buyout price** |
-| **Browse** | Secondary: cari berdasarkan kartu + **bid langsung di kartu** walau owner tidak pasang harga (1 active tertinggi; outbid/cancel release C-Coin) |
+| **Browse** | Discovery tile per-drop; buka detail drop lalu kartu untuk mengajukan bid. Bid tidak dilakukan langsung di grid Browse |
 | **Buyout** | Beli langsung di harga yang owner pasang |
 | **Bid (offer)** | Tawaran ke owner — C-Coin di-hold; outbid/cancel balik ke bidder; owner accept only (tanpa reject) |
 
@@ -68,7 +68,7 @@ membatalkan komitmen yang sudah ada.
 
 | ID | Route | Halaman | Komponen kunci |
 |----|-------|---------|----------------|
-| PG-LAND-01 | `/` | Landing page | Hero, drop terbaru, cara kerja, CTA register |
+| PG-LAND-01 | `/` | Landing page | Identitas C.Card, diagram format kartu 63x88 mm, tautan Drops/Marketplace, alur raffle -> Vault -> secondary. Tanpa kartu atau status verifikasi fiktif, jadwal drop rekaan, dan CTA berulang |
 | PG-DROP-01 | `/drops` | Daftar drop (primary) | Grid drop aktif + upcoming, filter kreator |
 | PG-DROP-02 | `/drops/:dropId` | Detail drop | Countdown fase (raffle entry window / FCFS), artwork, harga per pool (reguler/premium), jumlah entry live per pool + unit tersisa; fase raffle: tombol "Ikuti" (pilih pool, login gate); fase FCFS (setelah draw): tombol "Beli" (login gate); **grid SEMUA kartu drop** — group Premium (Signed) → Regular (Unsigned) via `GET /api/drops/:id/cards` — + **section Pemenang** setelah draw (`GET /api/drops/:id` → `winners`: unitNumber, variant, displayName; nama anonim/suspended = "Anonim") |
 | PG-MARKET-01 | `/marketplace` | Marketplace (secondary buyout) | Kartu dengan buyout price, filter, beli langsung; sellerName anonim/suspended = "Anonim"; **badge holografik "✦ Seed 1-of-1"** untuk kartu dari seed drop (Flow 10) |
@@ -89,9 +89,19 @@ membatalkan komitmen yang sudah ada.
 Viewer 3D (2026-09-05): layout satu kolom di mobile; `prefers-reduced-motion`
 memulai viewer tanpa rotasi otomatis. Jeda menghentikan animasi dekoratif;
 tab tersembunyi menghentikan loop render. Resize mempertahankan framing kartu
-tanpa membuat ulang canvas. Artwork gagal memakai model netral dengan pesan,
-bukan artwork kartu lain; WebGL gagal menampilkan error dan link detail.
+tanpa membuat ulang canvas. Artwork gagal atau belum selesai dimuat dalam
+15 detik memakai model netral dengan pesan, bukan artwork kartu lain;
+texture yang datang terlambat dibuang. WebGL gagal menampilkan error dan link detail.
 API 404 dibedakan dari gangguan koneksi dengan tombol coba lagi.
+
+Penyelarasan visual 2026-09-05: Web dan Admin memakai permukaan ink,
+garis cyan, aksi utama amber, serta sudut kecil mengikuti viewer 3D.
+Judul h1 terlihat; header hanya berisi identitas, konteks data, dan aksi.
+Ilustrasi header animasi dan indikator kesiapan statis dihapus.
+Copy menerangkan keadaan atau tindakan, bukan slogan dimensi/eksplorasi
+atau metafora game. Warna status dan badge tetap bermakna.
+`/login` memuat AuthForm langsung; `/register` adalah redirect ke
+`/login`, tanpa dua komponen pembungkus tambahan.
 
 ## 4. Halaman Verifikasi TIDAK ADA (di-merge)
 
