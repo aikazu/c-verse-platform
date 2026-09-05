@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  ARTWORK_MAX_BYTES,
+  AVATAR_MAX_BYTES,
   BALANCE_CAP_CCOIN,
   BID_CANCEL_COOLDOWN_HOURS,
   calcLevel,
@@ -22,6 +24,7 @@ import {
   MAX_ACTIVE_BIDS_PER_USER,
   MIN_SECONDARY_PRICE_CCOIN,
   orderStatusLabel,
+  PUBLIC_IMAGE_TYPES,
   placeBidSchema,
   setBuyoutSchema,
   shipmentToDestLabel,
@@ -30,6 +33,14 @@ import {
   walletTxTypeLabel,
   xpForNextLevel,
 } from "./index";
+
+describe("public image upload contract", () => {
+  it("keeps MIME types and byte limits canonical across API and UI", () => {
+    expect(PUBLIC_IMAGE_TYPES).toEqual(["image/jpeg", "image/png", "image/webp"]);
+    expect(AVATAR_MAX_BYTES).toBe(3 * 1024 * 1024);
+    expect(ARTWORK_MAX_BYTES).toBe(10 * 1024 * 1024);
+  });
+});
 
 // Matriks wajib docs/15 §3.1 — uang & stok tidak boleh regress.
 

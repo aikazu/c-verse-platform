@@ -1,8 +1,19 @@
-import { C_COIN_RATE_IDR } from "@c-verse/shared";
+import { AVATAR_MAX_BYTES, C_COIN_RATE_IDR } from "@c-verse/shared";
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import { z } from "zod";
 import { requireUser } from "../../lib/auth.js";
+import {
+  buildAvatarObjectKey,
+  casUpdatePublicAssetUrl,
+  cleanupPublicObject,
+  managedKeyFromPublicUrl,
+  type PublicAssetBindings,
+  parseBoundedImageForm,
+  publicAssetUrl,
+  UploadRequestError,
+  validatePublicImage,
+} from "../../lib/publicAssets.js";
 import { listBids } from "../../lib/reads/bids.js";
 import { listCards, listDrops } from "../../lib/reads/drops.js";
 import { getKycByUser } from "../../lib/reads/kyc.js";
@@ -13,7 +24,7 @@ import { readDb } from "../../lib/reads.js";
 import { redactKycForOwner } from "../../lib/redact.js";
 import type { Bid } from "../../lib/store.js";
 
-const app = new Hono();
+const app = new Hono<{ Bindings: PublicAssetBindings }>();
 
 // GET / — my profile, cards, orders, shipments, badges, kyc, level
 app.get("/", async (c) => {
@@ -57,6 +68,7 @@ app.get("/", async (c) => {
       id: user.id,
       email: user.email,
       displayName: user.displayName,
+      avatarUrl: user.avatarUrl ?? null,
       username: (user as unknown as { username?: string }).username ?? null,
       role: user.role,
       level,
@@ -84,6 +96,100 @@ app.get("/", async (c) => {
       totalOrders: myOrders.length,
     },
   });
+});
+
+// POST /avatar — immutable R2 object + CAS users.avatar_url update. The URL in
+// the authenticated DB row is only a comparison value; it is never trusted as
+// an object key unless it parses back to this user's managed namespace.
+app.post("/avatar", async (c) => {
+  const authRes = await requireUser(c);
+  if ("error" in authRes) return c.json({ error: authRes.error === 403 ? "Akun disuspend" : "Unauthorized" }, authRes.error);
+  const bucket = c.env.ASSETS;
+  if (!bucket) return c.json({ error: "Public asset storage belum terkonfigurasi" }, 503);
+
+  let file: File;
+  try {
+    file = await parseBoundedImageForm(c.req.raw, AVATAR_MAX_BYTES);
+  } catch (error) {
+    if (error instanceof UploadRequestError) return c.json({ error: error.message }, error.status);
+    return c.json({ error: "Form upload tidak valid" }, 400);
+  }
+
+  let image: Awaited<ReturnType<typeof validatePublicImage>>;
+  try {
+    image = await validatePublicImage(file, AVATAR_MAX_BYTES);
+  } catch (error) {
+    return c.json({ error: error instanceof Error ? error.message : "File gambar tidak valid" }, 400);
+  }
+
+  const previousUrl = authRes.user.avatarUrl ?? null;
+  const key = buildAvatarObjectKey(authRes.user.id, image.extension);
+  const avatarUrl = publicAssetUrl(c.req.url, c.env, key);
+  let uploaded: R2Object | null;
+  try {
+    uploaded = await bucket.put(key, image.buffer, {
+      httpMetadata: {
+        contentType: image.contentType,
+        contentDisposition: `inline; filename="avatar.${image.extension}"`,
+        cacheControl: "no-store",
+      },
+      customMetadata: { kind: "avatar", userId: authRes.user.id, width: String(image.width), height: String(image.height) },
+    });
+  } catch (error) {
+    console.error(JSON.stringify({ event: "avatar_put_failed", key, error: error instanceof Error ? error.message : String(error) }));
+    await cleanupPublicObject(bucket, key, "avatar_put_cleanup_failed");
+    return c.json({ error: "Upload avatar gagal" }, 503);
+  }
+  if (!uploaded) {
+    await cleanupPublicObject(bucket, key, "avatar_empty_put_cleanup_failed");
+    return c.json({ error: "Upload avatar gagal" }, 503);
+  }
+
+  const outcome = await casUpdatePublicAssetUrl(readDb(), {
+    table: "users",
+    idColumn: "id",
+    id: authRes.user.id,
+    urlColumn: "avatar_url",
+    previousUrl,
+    newUrl: avatarUrl,
+  });
+  if (outcome === "ambiguous") {
+    return c.json({ error: "Status penyimpanan avatar belum dapat dipastikan — coba muat ulang profil" }, 503);
+  }
+  if (outcome === "not_committed") {
+    await cleanupPublicObject(bucket, key, "avatar_cas_cleanup_failed");
+    return c.json({ error: "Avatar berubah oleh permintaan lain — coba lagi" }, 409);
+  }
+
+  const oldKey = managedKeyFromPublicUrl(c.req.url, c.env, previousUrl, { kind: "avatar", ownerId: authRes.user.id });
+  if (oldKey && oldKey !== key) await cleanupPublicObject(bucket, oldKey, "avatar_old_object_cleanup_failed");
+  return c.json({ avatarUrl });
+});
+
+app.delete("/avatar", async (c) => {
+  const authRes = await requireUser(c);
+  if ("error" in authRes) return c.json({ error: authRes.error === 403 ? "Akun disuspend" : "Unauthorized" }, authRes.error);
+  const bucket = c.env.ASSETS;
+  if (!bucket) return c.json({ error: "Public asset storage belum terkonfigurasi" }, 503);
+  const previousUrl = authRes.user.avatarUrl ?? null;
+  if (!previousUrl) return c.json({ avatarUrl: null });
+
+  const outcome = await casUpdatePublicAssetUrl(readDb(), {
+    table: "users",
+    idColumn: "id",
+    id: authRes.user.id,
+    urlColumn: "avatar_url",
+    previousUrl,
+    newUrl: null,
+  });
+  if (outcome === "ambiguous") {
+    return c.json({ error: "Status penghapusan avatar belum dapat dipastikan — coba muat ulang profil" }, 503);
+  }
+  if (outcome === "not_committed") return c.json({ error: "Avatar berubah oleh permintaan lain — coba lagi" }, 409);
+
+  const oldKey = managedKeyFromPublicUrl(c.req.url, c.env, previousUrl, { kind: "avatar", ownerId: authRes.user.id });
+  if (oldKey) await cleanupPublicObject(bucket, oldKey, "avatar_delete_object_cleanup_failed");
+  return c.json({ avatarUrl: null });
 });
 
 app.get("/cards", async (c) => {

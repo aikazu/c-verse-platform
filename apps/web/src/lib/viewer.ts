@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import type * as THREE_TYPES from "three";
 
 // Imperative Three.js card viewer — mounted by Card3D page.
@@ -11,9 +11,8 @@ const CARD_W = 0.63;
 const CARD_H = 0.88;
 const CARD_THICK = 0.03;
 
-// Public assets — placeholder mesh + artwork for cards without their own.
+// Public assets — bundled neutral mesh for cards without their own OBJ.
 const PLACEHOLDER_OBJ_URL = "/placeholder.obj";
-const PLACEHOLDER_TEXTURE_URL = "/textures/karina.jpg";
 
 // Alias namespace Three untuk mempersingkat deklarasi tipe di bawah.
 type Three = typeof THREE_TYPES;
@@ -47,18 +46,21 @@ function ensurePlanarUvs(THREE: Three, geometry: THREE_TYPES.BufferGeometry): vo
   geometry.setAttribute("uv", new THREE.BufferAttribute(uvs, 2));
 }
 
-// Load a card OBJ, apply faceUrl as its material map (placeholder artwork
-// when the face fails to load), and normalize it: centered, fitted to the
-// standard card height — export units vary per modeling tool.
-async function loadCardObj(THREE: Three, objUrl: string, faceUrl: string): Promise<THREE_TYPES.Group> {
+// Load a card OBJ, apply its own artwork when available, and normalize it:
+// centered and fitted to the standard card height — export units vary per
+// modeling tool. A failed/missing artwork deliberately keeps a neutral material;
+// never substitute another drop's identity.
+async function loadCardObj(
+  THREE: Three,
+  objUrl: string,
+  faceUrl: string | null,
+): Promise<{ object: THREE_TYPES.Group; artworkStatus: "ready" | "unavailable" }> {
   const { OBJLoader } = await import("three/examples/jsm/loaders/OBJLoader.js");
   const obj = await new OBJLoader().loadAsync(objUrl);
   let map: THREE_TYPES.Texture | null = null;
-  try {
-    map = await loadTexture(THREE, faceUrl);
-  } catch {
+  if (faceUrl) {
     try {
-      map = await loadTexture(THREE, PLACEHOLDER_TEXTURE_URL);
+      map = await loadTexture(THREE, faceUrl);
     } catch {
       map = null;
     }
@@ -82,7 +84,7 @@ async function loadCardObj(THREE: Three, objUrl: string, faceUrl: string): Promi
   const fit = CARD_H / (size.y || 1);
   obj.scale.setScalar(fit);
   obj.position.set(-center.x * fit, -center.y * fit, -center.z * fit);
-  return obj;
+  return { object: obj, artworkStatus: map ? "ready" : "unavailable" };
 }
 
 // Paint a procedural radial gradient into a CanvasTexture — powers the scene
@@ -178,11 +180,17 @@ export function useCardViewer(
   // [null, null] sehingga effect tidak pernah jalan ulang (host kosong —
   // jalur placeholder.obj tidak pernah dieksekusi).
   isReady = true,
-) {
+): "loading" | "ready" | "unavailable" {
   const rafRef = useRef<number | null>(null);
+  const [artworkStatus, setArtworkStatus] = useState<"loading" | "ready" | "unavailable">("loading");
   useEffect(() => {
+    if (!isReady) {
+      setArtworkStatus("loading");
+      return;
+    }
     if (!containerRef.current) return;
     let disposed = false;
+    setArtworkStatus("loading");
     // Every GPU resource this effect creates — disposed in cleanup so
     // unmount / HMR re-runs never leak WebGL textures, geometries, materials.
     const disposables: Array<{ dispose: () => void }> = [];
@@ -235,19 +243,22 @@ export function useCardViewer(
       scene.add(amb, dir, rim, fillCyan, fillMagenta);
 
       // The 3D card is always an OBJ mesh — the drop's own when it has one,
-      // the bundled placeholder otherwise. The face artwork is the drop
-      // image, falling back to the placeholder texture. The plain box stays
-      // only as an emergency when mesh loading fails outright.
+      // the bundled neutral placeholder otherwise. Its artwork is only the
+      // requested drop's own image. The plain box stays only as an emergency
+      // when mesh loading fails outright.
       const wantsCustomObj = !!meshUrl && meshUrl.toLowerCase().endsWith(".obj");
       const objUrl = wantsCustomObj ? meshUrl : PLACEHOLDER_OBJ_URL;
-      const faceUrl = wantsCustomObj ? textureUrl || PLACEHOLDER_TEXTURE_URL : textureUrl || meshUrl || PLACEHOLDER_TEXTURE_URL;
+      const faceUrl = textureUrl || (wantsCustomObj ? null : meshUrl);
       try {
-        mesh = await loadCardObj(THREE, objUrl, faceUrl);
+        const loadedCard = await loadCardObj(THREE, objUrl, faceUrl);
+        mesh = loadedCard.object;
+        if (!disposed) setArtworkStatus(loadedCard.artworkStatus);
       } catch {
         mesh = new THREE.Mesh(
           new THREE.BoxGeometry(CARD_W, CARD_H, CARD_THICK),
           new THREE.MeshStandardMaterial({ color: 0x1e1e32, roughness: 0.5 }),
         );
+        if (!disposed) setArtworkStatus("unavailable");
       }
       // Unmount raced the async OBJ load — cleanup already ran and will never
       // run again, so nothing downstream would dispose. Free the mesh subtree
@@ -378,4 +389,5 @@ export function useCardViewer(
       disposables.length = 0;
     };
   }, [meshUrl, textureUrl, isReady]);
+  return artworkStatus;
 }

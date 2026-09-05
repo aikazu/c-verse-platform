@@ -65,6 +65,13 @@ export const PRIMARY_DOMAIN = "c-verse.co"; // 00-README: must lock before NFC p
 export const SECONDARY_DOMAIN = "c-verse.id";
 export const CREATOR_THRESHOLD_FOLLOWERS = 100_000; // combined — off-platform validated
 
+// Public image uploads (avatar + drop artwork). The readonly tuple is also the
+// browser accept-list; byte limits remain server-enforced canonical values.
+export const PUBLIC_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
+export type PublicImageType = (typeof PUBLIC_IMAGE_TYPES)[number];
+export const AVATAR_MAX_BYTES = 3 * 1024 * 1024;
+export const ARTWORK_MAX_BYTES = 10 * 1024 * 1024;
+
 // ── Enums (align docs/05-data-model) ──────────────────────────────────────
 export const userRoleSchema = z.enum(["user", "creator", "admin"]);
 export type UserRole = z.infer<typeof userRoleSchema>;

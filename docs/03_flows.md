@@ -384,7 +384,9 @@ KONVERSI GEMS -> C-COIN (satu arah, 2026-09-03 — D3b):
 ## Flow 9: Admin Intra-day (ops)
 
 ```
-ADM-02: buat drop -> set artwork final, harga (C-Coin), unit,
+ADM-02: buat draft drop -> upload artwork final melalui endpoint admin
+   (JPEG/PNG/WebP, maks. 10 MiB; retry memakai ID draft sama; ganti artwork
+   drop publik memerlukan konfirmasi) -> set harga (C-Coin), unit,
    signed_units = ceil(total/10), raffle_end_at (default
    drop_start + 24 jam), waktu drop -> publish (H-7)
 ADM-01: register kreator baru (hasil rekrutan off-platform)

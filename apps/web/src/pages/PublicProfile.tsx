@@ -1,6 +1,7 @@
 import type { UserBadge as SharedUserBadge } from "@c-verse/shared";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useParams } from "react-router-dom";
+import { Avatar } from "../components/Avatar";
 import { ProfilVisual } from "../components/HeroVisuals";
 import { LevelBar } from "../components/LevelBar";
 import { PageHero } from "../components/PageHero";
@@ -127,7 +128,6 @@ export default function PublicProfile() {
   const level = user.level ?? 1;
   const pct = user.levelProgressPct ?? 0;
   const rank = user.rank;
-  const sigil = getSigil(user.displayName, user.username);
   const handle = user.username ? `@${user.username}` : `@${username ?? ""}`;
 
   const tickerItems = [
@@ -174,8 +174,8 @@ export default function PublicProfile() {
 
       <section className="card card-pad pp-operator" aria-label="Identitas kolektor">
         <div className="pp-operator-row">
-          <div className="pp-sigil" aria-hidden="true">
-            <span className="pp-sigil-letter">{sigil}</span>
+          <div className="pp-sigil">
+            <Avatar src={user.avatarUrl} name={user.displayName} className="pp-avatar" />
             <span className="pp-sigil-sheen" aria-hidden="true" />
           </div>
           <div className="pp-operator-meta">

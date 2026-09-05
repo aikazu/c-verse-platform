@@ -1,0 +1,22 @@
+{
+  "rules": [
+    {
+      "id": "Public asset reads",
+      "allowed": {
+        "origins": [
+          "https://c-verse.co",
+          "https://www.c-verse.co",
+          "https://dev.c-verse.co",
+          "https://admin.c-verse.co",
+          "http://localhost:5173",
+          "http://localhost:3000",
+          "http://127.0.0.1:5173",
+          "http://127.0.0.1:3000"
+        ],
+        "methods": ["GET", "HEAD"]
+      },
+      "exposeHeaders": ["ETag"],
+      "maxAgeSeconds": 3600
+    }
+  ]
+}

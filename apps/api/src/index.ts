@@ -5,6 +5,7 @@ import { clientIp, tokenFingerprint } from "./lib/auth.js";
 import { runCron } from "./lib/cron.js";
 import type { EmailBindings } from "./lib/email.js";
 import { clientErrorMessage } from "./lib/errors.js";
+import { type PublicAssetBindings, serveLocalPublicAsset } from "./lib/publicAssets.js";
 import admin from "./modules/admin/index.js";
 import auth from "./modules/auth/index.js";
 import bids from "./modules/bids/index.js";
@@ -24,13 +25,15 @@ import shipments from "./modules/shipments/index.js";
 import wallet from "./modules/wallet/index.js";
 
 export type Bindings = EmailBindings &
-  KycBindings & {
+  KycBindings &
+  PublicAssetBindings & {
     ENV?: string;
     ADMIN_ALERT_EMAIL?: string; // cron failure digest recipient (lib/cron.ts)
     AUTH_RATE_LIMITER?: RateLimit;
     GLOBAL_RATE_LIMITER?: RateLimit;
     KYC_RATE_LIMITER?: RateLimit;
     NFC_RATE_LIMITER?: RateLimit;
+    UPLOAD_RATE_LIMITER?: RateLimit;
   };
 
 // Fail-fast (F-08 diperketat): tanpa SUPABASE_URL API menolak start — tidak ada
@@ -92,7 +95,7 @@ const supabaseIsLocal = (typeof process !== "undefined" ? process.env.SUPABASE_U
 const isProduction = !isTsxDev && envMode !== "development" && !supabaseIsLocal;
 
 if (isProduction) {
-  type LimiterName = "AUTH_RATE_LIMITER" | "GLOBAL_RATE_LIMITER" | "KYC_RATE_LIMITER" | "NFC_RATE_LIMITER";
+  type LimiterName = "AUTH_RATE_LIMITER" | "GLOBAL_RATE_LIMITER" | "KYC_RATE_LIMITER" | "NFC_RATE_LIMITER" | "UPLOAD_RATE_LIMITER";
   const limitWith = (name: LimiterName, message: string) => async (c: Context<{ Bindings: Bindings }>, next: Next) => {
     // `app.request()` unit tests and Node-local execution do not inject Worker
     // bindings. Production is fail-closed because Wrangler always supplies
@@ -115,12 +118,18 @@ if (isProduction) {
   app.use("/api/payments/*", limitWith("AUTH_RATE_LIMITER", "Too many requests — coba lagi nanti"));
   app.use("/api/kyc", limitWith("KYC_RATE_LIMITER", "Terlalu banyak pengajuan KYC — coba lagi nanti"));
   app.use("/api/nfc/*", limitWith("NFC_RATE_LIMITER", "Terlalu banyak percobaan verifikasi — coba lagi nanti"));
+  app.use("/api/profile/avatar", limitWith("UPLOAD_RATE_LIMITER", "Terlalu banyak upload gambar — coba lagi nanti"));
+  app.use("/api/drops/:id/artwork", limitWith("UPLOAD_RATE_LIMITER", "Terlalu banyak upload gambar — coba lagi nanti"));
   app.use("*", limitWith("GLOBAL_RATE_LIMITER", "Too many requests — coba lagi nanti"));
 }
 
 app.get("/", (c) => c.json({ name: "C.Verse API", tagline: "Revolusi Ekonomi Kreator", status: "ok" }));
 app.get("/health", (c) => c.json({ ok: true, ts: new Date().toISOString() }));
 app.get("/api/health", (c) => c.json({ ok: true, ts: new Date().toISOString() }));
+app.get("/api/assets/*", async (c) => {
+  const response = await serveLocalPublicAsset(c.req.raw, c.env as PublicAssetBindings);
+  return response ?? c.json({ error: "Not found" }, 404);
+});
 
 app.route("/api/auth", auth);
 app.route("/api/drops", drops);

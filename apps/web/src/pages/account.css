@@ -126,6 +126,40 @@
 	cursor: not-allowed;
 }
 
+.ac-avatar {
+	display: flex;
+	flex-direction: column;
+	gap: 14px;
+}
+.ac-avatar-preview {
+	display: flex;
+	align-items: center;
+	gap: 14px;
+}
+.ac-avatar-image {
+	width: 72px;
+	height: 72px;
+	border-radius: 50%;
+	object-fit: cover;
+	border: 1px solid var(--gold-border);
+	background: var(--surface-3);
+	color: var(--gold);
+	display: grid;
+	place-items: center;
+	font-family: var(--font-display);
+	font-size: 24px;
+}
+.ac-avatar h2 { margin: 0; font-size: 14px; }
+.ac-avatar p { margin: 4px 0 0; font-size: 11px; line-height: 1.5; }
+.ac-avatar-note { color: var(--gold); }
+.ac-file-input { position: absolute; inline-size: 1px; block-size: 1px; opacity: 0; pointer-events: none; }
+.ac-avatar-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.ac-avatar-actions .btn-ghost[aria-disabled="true"] { opacity: 0.5; pointer-events: none; }
+.ac-avatar-remove { color: var(--alert); }
+.ac-avatar-status { font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); }
+.ac-avatar-status-error { color: var(--alert); }
+.ac-avatar-status-success { color: var(--signal); }
+
 /* Manage Cards — responsive card grid + <details> accordion (details/summary
    semantics untouched; only the marker is restyled to the arcade glyph). */
 .ac-grid-cards {

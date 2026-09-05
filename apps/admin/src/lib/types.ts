@@ -31,6 +31,7 @@ export type DropRow = {
   sold_count: number | null;
   price_ccoin: number | null;
   price_unsigned_ccoin: number | null;
+  artwork_url: string | null;
   raffle_end_at: string | null;
   drawn_at: string | null;
   created_at: string;

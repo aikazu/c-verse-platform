@@ -113,7 +113,7 @@ membatalkan komitmen yang sudah ada.
 | PG-USR-07b | `/me/manage/verify-shipment` | Verifikasi kiriman secondary | Halaman USER untuk SELLER secondary input resi pengiriman kartu ke platform (jalur vault). Input hasil verifikasi NFC + QC dilakukan di ADMIN app (ADM-04), BUKAN di web publik — release payout otomatis setelah verifikasi admin |
 | PG-USR-08 | `/notifications` | Notifikasi | List notif (email/FCM) |
 | PG-USR-09 | `/me/kyc` | KYC | Upload multipart KTP/selfie/NPWP ke Worker → private Cloudflare R2 (maks. 5 MiB/file; trigger: payout/disbursement ke IDR + akumulasi top-up besar; tidak perlu KYC untuk pasang buyout atau accept bid) |
-| PG-USR-10 | `/me/privacy` | Privacy settings | Toggle **privacy anonymous** (profil tidak tampil publik) |
+| PG-USR-10 | `/me/privacy` | Privacy settings | Toggle **privacy anonymous** (profil tidak tampil publik) + upload, preview, dan hapus avatar; JPEG/PNG/WebP maksimal 3 MiB melalui API same-origin; URL avatar bersifat publik meskipun profil disembunyikan |
 
 ## 6. Sitemap — KREATOR (login, role creator)
 
@@ -134,7 +134,7 @@ membatalkan komitmen yang sudah ada.
 |----|-------|---------|-------|----------------|
 | PG-ADM-01 | `/` | Admin dashboard | ADM-01..10 | Ringkasan: count drop/order/kreator + antrian kerja (Pengiriman perlu diproses [shipment requested/packed], KYC pending, dispute open/under_review, Payout perlu tindakan [payout pending/processing/failed]) link ke /orders, /kyc, /disputes, /payouts |
 | PG-ADM-02 | `/creators` | Kelola kreator | ADM-01 | CRUD data kreator (hasil rekrutan off-platform), status akun, payment info |
-| PG-ADM-03 | `/drops` | Kelola drop | ADM-02 | Buat drop (artwork final, harga, unit, waktu), schedule, publish, tutup |
+| PG-ADM-03 | `/drops` | Kelola drop | ADM-02 | Buat draft drop dahulu, lalu upload artwork final (JPEG/PNG/WebP maksimal 10 MiB) dan retry terhadap ID draft yang sama agar tidak menduplikasi drop; penggantian artwork drop publik meminta konfirmasi; schedule, publish, tutup |
 | PG-ADM-04 | `/orders` | Kelola order | ADM-03 | Semua order, update status, no resi, return |
 | PG-ADM-05 | `/nfc` | NFC provisioning & QC | ADM-04 | Batch tag, assign UUID↔UID, config NDEF/SDM, QC report + **seed sale ops** (kartu seed `bid_pending`): tombol **Vault-in** (`PATCH /api/admin/cards/:id/vault-in`), **Release** (`POST /api/admin/cards/:id/release-seed-sale`), **Batalkan sale** (`POST /api/admin/cards/:id/cancel-seed-sale`) — semua dengan modal konfirmasi D8 |
 | PG-ADM-06 | `/payouts` | Payout & rekonsiliasi | ADM-05 | Escrow, trigger payout batch, rekonsiliasi harian |

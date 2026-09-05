@@ -39,7 +39,7 @@ flowchart LR
     RT["Realtime"]
   end
   subgraph StorageBox["Cloudflare R2"]
-    R2["cverse-kyc aktif/private<br/>cverse-assets direncanakan: artwork, 3D, avatar"]
+    R2["cverse-kyc private<br/>cverse-assets public: assets.c-verse.co"]
   end
   Web -->|Service Binding| Api
   Admin -->|Service Binding| Api
@@ -47,12 +47,12 @@ flowchart LR
   Api --> Auth
   Api --> R2
   Admin -->|read: anon + RLS| DB
-  Admin -->|mutasi: /api/admin/* role-gated| Api
+  Admin -->|mutasi: /api/* role-gated| Api
 ```
 
 - **Web development** → Worker `c-verse-web-dev` di `dev.c-verse.co`, dilindungi Access + posture WARP. Worker menyajikan Static Assets, menginjeksi `og:*` + `JSON-LD`, dan meneruskan `/api/*` ke API privat lewat Service Binding. Root `c-verse.co` tetap halaman Coming Soon.
 - **API** → Hono Worker `c-verse-api` tanpa custom domain, `workers.dev`, atau preview URL. Hanya gateway web/admin yang memanggilnya lewat Service Binding; cron tetap berjalan langsung pada Worker. Supabase wajib — tanpa `SUPABASE_URL` API mati keras di startup (`src/index.ts:27`), tidak ada mode in-memory.
-- **Admin** → Worker `c-verse-admin` di `admin.c-verse.co`, dilindungi Access founder allowlist + posture WARP. Login aplikasi memakai Supabase email OTP; baca lewat anon key + RLS policy admin, dan **semua mutasi** lewat `/api/admin/*` dengan pemeriksaan role admin serta suspension di server supaya ter-audit. Audit log append-only.
+- **Admin** → Worker `c-verse-admin` di `admin.c-verse.co`, dilindungi Access founder allowlist + posture WARP. Login aplikasi memakai Supabase email OTP; baca lewat anon key + RLS policy admin, dan **semua mutasi** lewat API same-origin (termasuk `/api/admin/*` dan `/api/drops/*`) dengan pemeriksaan role admin serta suspension di server supaya ter-audit. Audit log append-only.
 
 ---
 
@@ -115,7 +115,7 @@ npx supabase db reset --local  # migrations/*.sql + seeds/*.sql
 pnpm seed:assets              # validasi file dan mapping R2, tidak upload
 ```
 
-Storage: Cloudflare R2 (`cverse-kyc` private sudah aktif melalui binding `KYC`; `cverse-assets` belum dibuat — lihat `08_deployment.md` §3.4).
+Storage: Cloudflare R2 (`cverse-kyc` private melalui binding `KYC`; `cverse-assets` public di `https://assets.c-verse.co`, TLS minimum 1.2 dan `r2.dev` nonaktif — lihat `08_deployment.md` §3.4).
 
 ### Akun Seed (dev)
 
@@ -130,8 +130,11 @@ Login **tanpa password** — email OTP atau Google. UUID fixed di `supabase/seed
 Seed juga mencakup kreator lain, rival, persona anonim/suspended, dan treasury.
 Rincian skenario, batas baseline, serta transisi remote ada di
 [runbook database](supabase/README.md). Empat aset ImageGen baru dan referensi
-`karina.jpg` dipetakan di `supabase/seed-assets.json`; file mock saat ini dilayani
-Static Assets, bukan R2. Upload artwork/avatar belum diimplementasikan.
+`karina.jpg` dipetakan di `supabase/seed-assets.json`; enam object manifest sudah
+diunggah dan diverifikasi di R2. Mapping remote telah diterapkan untuk 8 URL
+artwork, 8 model, dan 2 avatar; reset lokal tetap mengembalikan path Static
+Assets sampai mapping fixture sengaja diterapkan. Upload/hapus avatar tersedia
+di `/me/privacy`; upload/ganti artwork tersedia di halaman Drops admin.
 
 ---
 
@@ -143,7 +146,7 @@ Static Assets, bukan R2. Upload artwork/avatar belum diimplementasikan.
 | API | Hono 4 + Zod (`@hono/zod-validator`) → private Cloudflare Worker via Service Binding |
 | Admin | React 19 + Vite → Cloudflare Workers Static Assets + Access/WARP |
 | DB / Auth / Realtime | Supabase Postgres (SG) + pgcrypto |
-| Storage | Cloudflare R2 — `cverse-kyc` private aktif via Worker binding; `cverse-assets` belum dibuat |
+| Storage | Cloudflare R2 — `cverse-kyc` private via Worker binding; `cverse-assets` public di `https://assets.c-verse.co` |
 | Shared | `packages/shared` — Zod schemas + constants canonical |
 | Email OTP | Supabase Auth (GoTrue) — sender OTP diatur di Dashboard |
 | Monorepo | pnpm workspaces (`pnpm -r`, tanpa Turborepo) |
@@ -239,7 +242,7 @@ Belum diimplementasi: notifikasi in-app/push (F010, F013). Email transaksional A
 | `/wallet` | Saldo + ledger + top-up (cap non-KYC 500 C-Coin) + payout (min 10 C-Gems, fee 1%) |
 | `/collection` · `/me` | Koleksi + level/badge |
 | `/me/manage` | Kelola kartu — buyout, bid accept, ship-from-vault |
-| `/me/privacy` | `is_anonymous` + 2 consent toggles |
+| `/me/privacy` | Avatar publik (upload/hapus, maks. 3 MiB), `is_anonymous` + 2 consent toggles |
 | `/me/kyc` | KTP/NIK/alamat (hanya untuk payout) |
 | `/creator` · `/creator/drops` | Traffic + pendapatan (platform-produced 70/30) |
 
@@ -251,7 +254,7 @@ Guard login dilakukan per halaman (`if (!user)`), bukan lewat wrapper route.
 |-------|-----|-----------|
 | `/` | — | Ringkasan ops |
 | `/creators` | ADM-01 | CRUD kreator (off-platform) |
-| `/drops` | ADM-02 | Buat/publish drop |
+| `/drops` | ADM-02 | Buat/publish drop + upload/ganti artwork (maks. 10 MiB) |
 | `/orders` | ADM-03 | Fulfillment + resi |
 | `/nfc` | ADM-04 | Batch + QC kartu + seed ops (vault-in / release / batalkan sale) |
 | `/payouts` | ADM-05 | Escrow + rekonsiliasi |
@@ -294,7 +297,7 @@ Status implementasi per item (`[done]` = ada di code + test; `[spec NN]` = spec 
 - **Atomic money RPC** — wallet/checkout/raffle/bid/buyout single-transaction + idempotency ledger. `[done — docs/13]` (semua route read lewat facade `lib/reads`, tanpa fallback in-memory).
 - **Payments Midtrans** — Snap top-up + webhook signature + payout disbursement. `[done — docs/14]` (sandbox keys + e2e = ops; gate C-08 sebelum uang riil).
 - **Rate limit HTTP** — native Cloudflare bindings: auth/payments 30,
-  NFC 60, KYC submit 10, dan global 600 request/menit per actor +
+  NFC 60, KYC submit 10, upload gambar publik 10, dan global 600 request/menit per actor +
   lokasi edge (aktif production; tidak memakai in-memory timer). `[done]`
 - **Limit bid** — max **3 bid aktif/user** (RPC `BID_LIMIT`). `[done]`
 - **Wash trading** — blok rebuy seller **1×24 jam** (`COOLING_PERIOD_24H`; menggantikan cooling 14 hari). `[done]`

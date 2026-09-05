@@ -1,10 +1,21 @@
-import { AOV_UNSIGNED_CCOIN, C_COIN_RATE_IDR } from "@c-verse/shared";
+import { AOV_UNSIGNED_CCOIN, ARTWORK_MAX_BYTES, C_COIN_RATE_IDR } from "@c-verse/shared";
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import { z } from "zod";
 import { adminGateError, clientIp, getOptionalUser, requireAdmin, requireUser, tokenFingerprint } from "../../lib/auth.js";
 import { RpcError, rpcDropEntry, userDb } from "../../lib/db.js";
 import { sanitizeDbError } from "../../lib/errors.js";
+import {
+  buildArtworkObjectKey,
+  casUpdatePublicAssetUrl,
+  cleanupPublicObject,
+  managedKeyFromPublicUrl,
+  type PublicAssetBindings,
+  parseBoundedImageForm,
+  publicAssetUrl,
+  UploadRequestError,
+  validatePublicImage,
+} from "../../lib/publicAssets.js";
 import { getCreatorByUserId } from "../../lib/reads/creators.js";
 import { type DropFilter, getDropById, listCardsByDrop, listDrops } from "../../lib/reads/drops.js";
 import { logAuditDb } from "../../lib/reads/kyc.js";
@@ -14,7 +25,7 @@ import type { Card, Drop } from "../../lib/store.js";
 import { randomHex } from "../../lib/store.js";
 import { getSupabase } from "../../lib/supabase.js";
 
-const app = new Hono();
+const app = new Hono<{ Bindings: PublicAssetBindings }>();
 
 // Status yang boleh dilihat publik (paritas RLS drops_select_public).
 const PUBLIC_DROP_STATUSES = ["live", "published", "sold_out", "closed", "scheduled"];
@@ -227,7 +238,7 @@ app.post(
       title: body.title,
       series: body.series,
       narrative: body.narrative,
-      artwork_url: body.artworkUrl || "/textures/genesis.jpg",
+      artwork_url: body.artworkUrl || "/mock/v1/artworks/genesis.png",
       artwork_3d_url: body.artwork3dUrl || null,
       total_units: body.totalUnits,
       signed_count: signedCount,
@@ -296,6 +307,96 @@ app.post(
 // Founder 2026-08-29: transisi status drop (publish/cancel) HANYA admin —
 // sama dengan pembuatan drop (docs 03 ADM-02). scheduled -> live tetap otomatis
 // cron activate_scheduled_drops saat drop_start_at tiba.
+
+app.post("/:id/artwork", async (c) => {
+  const authRes = await requireAdmin(c);
+  if ("error" in authRes) {
+    const error = adminGateError(authRes);
+    return c.json(error.body, error.status);
+  }
+  const bucket = c.env.ASSETS;
+  if (!bucket) return c.json({ error: "Public asset storage belum terkonfigurasi" }, 503);
+
+  const drop = await getDropById(c.req.param("id"));
+  if (!drop) return c.json({ error: "Drop tidak ditemukan" }, 404);
+
+  let file: File;
+  try {
+    file = await parseBoundedImageForm(c.req.raw, ARTWORK_MAX_BYTES);
+  } catch (error) {
+    if (error instanceof UploadRequestError) return c.json({ error: error.message }, error.status);
+    return c.json({ error: "Form upload tidak valid" }, 400);
+  }
+
+  let image: Awaited<ReturnType<typeof validatePublicImage>>;
+  try {
+    image = await validatePublicImage(file, ARTWORK_MAX_BYTES);
+  } catch (error) {
+    return c.json({ error: error instanceof Error ? error.message : "File gambar tidak valid" }, 400);
+  }
+
+  let key: string;
+  try {
+    key = buildArtworkObjectKey(drop.id, image.extension);
+  } catch {
+    return c.json({ error: "Drop ID tidak valid untuk penyimpanan artwork" }, 400);
+  }
+  const previousUrl = drop.artworkUrl || null;
+  const artworkUrl = publicAssetUrl(c.req.url, c.env, key);
+  let uploaded: R2Object | null;
+  try {
+    uploaded = await bucket.put(key, image.buffer, {
+      httpMetadata: {
+        contentType: image.contentType,
+        contentDisposition: `inline; filename="artwork.${image.extension}"`,
+        cacheControl: "public, max-age=31536000, immutable",
+      },
+      customMetadata: { kind: "artwork", dropId: drop.id, width: String(image.width), height: String(image.height) },
+    });
+  } catch (error) {
+    console.error(JSON.stringify({ event: "artwork_put_failed", key, error: error instanceof Error ? error.message : String(error) }));
+    await cleanupPublicObject(bucket, key, "artwork_put_cleanup_failed");
+    return c.json({ error: "Upload artwork gagal" }, 503);
+  }
+  if (!uploaded) {
+    await cleanupPublicObject(bucket, key, "artwork_empty_put_cleanup_failed");
+    return c.json({ error: "Upload artwork gagal" }, 503);
+  }
+
+  const outcome = await casUpdatePublicAssetUrl(getSupabase(), {
+    table: "drops",
+    idColumn: "id",
+    id: drop.id,
+    urlColumn: "artwork_url",
+    previousUrl,
+    newUrl: artworkUrl,
+  });
+  if (outcome === "ambiguous") {
+    return c.json({ error: "Status penyimpanan artwork belum dapat dipastikan — coba muat ulang drop" }, 503);
+  }
+  if (outcome === "not_committed") {
+    await cleanupPublicObject(bucket, key, "artwork_cas_cleanup_failed");
+    return c.json({ error: "Artwork berubah oleh permintaan lain — coba lagi" }, 409);
+  }
+
+  const oldKey = managedKeyFromPublicUrl(c.req.url, c.env, previousUrl, { kind: "artwork", dropId: drop.id });
+  if (oldKey && oldKey !== key) await cleanupPublicObject(bucket, oldKey, "artwork_old_object_cleanup_failed");
+  try {
+    const sessionId = await tokenFingerprint(c.req.header("authorization"));
+    await logAuditDb(
+      authRes.user.id,
+      "update",
+      "drops",
+      drop.id,
+      { operation: "update_artwork", artworkUrl, previousArtworkUrl: previousUrl },
+      clientIp(c),
+      sessionId,
+    );
+  } catch (error) {
+    console.error(JSON.stringify({ event: "artwork_audit_failed", dropId: drop.id, error: String(error) }));
+  }
+  return c.json({ artworkUrl });
+});
 
 app.patch(
   "/:id/status",

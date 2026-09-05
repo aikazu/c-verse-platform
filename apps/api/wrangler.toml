@@ -11,6 +11,7 @@ preview_urls = false
 [vars]
 ENV = "production"
 SUPABASE_URL = "https://rnsfgbhoahzvrbtvjjtw.supabase.co"
+ASSETS_PUBLIC_URL = "https://assets.c-verse.co"
 
 # Secrets (set via `wrangler secret put` — see docs/08 §3.3 + §7):
 # SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY,
@@ -27,10 +28,13 @@ SUPABASE_URL = "https://rnsfgbhoahzvrbtvjjtw.supabase.co"
 [[send_email]]
 name = "EMAIL"
 
+# Public immutable artwork and user-avatar objects. In local development the
+# API serves only managed public namespaces through GET /api/assets/*.
+[[r2_buckets]]
+binding = "ASSETS"
+bucket_name = "cverse-assets"
+
 # R2 KYC bucket is private and accessed only through the Worker binding.
-# [[r2_buckets]]
-# binding = "ASSETS"
-# bucket_name = "cverse-assets"
 [[r2_buckets]]
 binding = "KYC"
 bucket_name = "cverse-kyc"
@@ -63,6 +67,13 @@ period = 60
 [[ratelimits]]
 name = "KYC_RATE_LIMITER"
 namespace_id = "1004"
+[ratelimits.simple]
+limit = 10
+period = 60
+
+[[ratelimits]]
+name = "UPLOAD_RATE_LIMITER"
+namespace_id = "1005"
 [ratelimits.simple]
 limit = 10
 period = 60

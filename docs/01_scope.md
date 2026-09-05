@@ -55,7 +55,7 @@ loyalty (semua post-MVP).
 |----|-------|------|---------|
 | F001 | Registrasi (Google OAuth + email OTP) — **email OTP wajib captcha anti-spam** | 240 | Supabase Auth |
 | F002 | Onboarding & kurasi kreator | 80 | **Off-platform**: ops input data kreator hasil rekrutan manual. TIDAK ada form aplikasi publik. **Quality gate**: engagement rate dari 10 post terakhir — IG/Twitter ≥ 5%, TikTok ≥ 10%; ER < 3% = skip (detail `07_constraints.md` C-05) — filter manual oleh founder. **2026-08-20: admin juga PROVISION akun login kreator** (auth user passwordless + `profiles.role='creator'` + `creators.user_id`; kreator login OTP/OAuth) |
-| F003 | Upload artwork + narasi | 60 | Ops/designer upload atas nama kreator (artwork sudah di-approve off-platform) |
+| F003 | Upload artwork + narasi | 60 | Ops/designer upload artwork yang sudah di-approve off-platform melalui API admin; JPEG/PNG/WebP maks. 10 MiB, key immutable, update URL terotorisasi; penggantian artwork drop yang sudah tampil publik meminta konfirmasi |
 | F004 | Drop scheduling & listing | 200 | Admin bikin drop (set `raffle_end_at`, default +24 jam); publik lihat di catalog. **Harga per tier kreator**: emerging (100-300k) = 20 C-Coin, established (300k-1jt) = 30 C-Coin, top (1jt+) = 50 C-Coin, hype = 40-60 C-Coin. Signed variant = unsigned + 20 C-Coin **FLAT** (founder 2026-08-16). Primary = flat price per pool |
 | F005 | Drop purchase: raffle hybrid + FCFS sisa | 250 | **Raffle 24 jam pertama**: pilih pool reguler/premium/keduanya + hold C-Coin (escrow) → draw otomatis idempotent; **sisa unit FCFS race-safe**; limit 1 entry + 1 kartu/user; **settle langsung ke vault — tanpa alamat/ongkir; kirim fisik hanya pasca-vault via ship-out** (C-15; founder 2026-08-28: purchase → vault only) |
 | F006 | Payment gateway top-up + disbursement | 200 | Midtrans/Xendit. **Top-up uang riil bisa diterima setelah T&C final + cap saldo diimplementasi** (legal resolved 2026-08-13) |
@@ -102,7 +102,7 @@ loyalty (semua post-MVP).
 | ID | Fitur | Deskripsi |
 |----|-------|-----------|
 | ADM-01 | Kelola kreator | CRUD data kreator hasil rekrutan off-platform (bukan approval). Set status akun, payment info, threshold terpenuhi. **2026-08-20: + "Buat akun kreator"** — provision akun login passwordless (Supabase Auth admin API create user TANPA password + `email_confirm=true`, `user_metadata.role='creator'`, set `profiles.role='creator'`, isi `creators.user_id`, kirim akses login via Cloudflare Email Service — binding `send_email`, gate `EMAIL_ENABLED`). Endpoint dan form admin ter-audit; aksesnya mensyaratkan role admin aktif di server, bukan AAL2. |
-| ADM-02 | Kelola drop | Buat drop (artwork final yang sudah di-approve off-platform, harga, unit, waktu), schedule, publish, tutup drop |
+| ADM-02 | Kelola drop | Buat draft drop, lalu upload artwork final yang sudah di-approve off-platform; retry upload memakai ID draft yang sama agar tidak membuat drop ganda, penggantian artwork drop publik meminta konfirmasi; atur harga, unit, waktu, schedule, publish, tutup drop |
 | ADM-03 | Kelola order & fulfillment | Lihat semua order, update status (paid → QC → shipped → delivered), handle return, input no resi |
 | ADM-04 | NFC provisioning & QC | Register batch tag (assign UUID↔UID), konfigurasi NDEF/SDM, catat hasil QC + defect |
 | ADM-05 | Payout & rekonsiliasi | Lihat escrow/settlement, trigger payout batch (H+1, fee 1%, withholding), rekonsiliasi top-up vs ledger harian |

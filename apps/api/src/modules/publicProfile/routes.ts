@@ -169,6 +169,7 @@ app.get("/u/:username", async (c) => {
     user: {
       id: user.id,
       displayName: user.displayName,
+      avatarUrl: user.avatarUrl ?? null,
       username: user.username ?? null,
       level,
       tier,

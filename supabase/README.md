@@ -23,18 +23,20 @@ potongan seed. Jangan menjalankan ulang seed pada DB berisi transaksi nyata.
 Fixture memakai waktu relatif saat reset agar raffle dan pending flow tetap
 dapat dicoba; ID tetap stabil untuk tes. Reset juga mengembalikan URL aset lokal.
 
-### Remote tidak otomatis mengikuti konsolidasi
+### Remote development sudah di-reset secara terkendali
 
-Pemeriksaan baca-saja 2026-09-05 menunjukkan remote masih mencatat 21 versi
-migrasi lama. `db push` tidak menjalankan ulang file applied yang diedit.
-Jangan menghapus migration history saja atau menganggap reset sebelumnya
-berarti schema kosong. Untuk target development disposable, minta persetujuan
-reset remote baru, pastikan project/environment, backup bila perlu, lalu
-terapkan baseline dan seed bersama. Untuk DB yang harus mempertahankan data,
-pakai migrasi forward-only terpisah; jangan gunakan baseline ini sebagai upgrade
-in-place. Pekerjaan ini tidak menjalankan reset, seed, atau repair remote.
-Reset Postgres juga tidak membersihkan R2. Review referensi object secara
-terpisah; jangan menghapus prefix profil/KYC atau bucket otomatis saat reset.
+Setelah persetujuan eksplisit, project Supabase `rnsfgbhoahzvrbtvjjtw` di-reset
+dengan `npx supabase db reset --linked --yes` pada 2026-09-05. Hasilnya
+18 baseline migration dan seed: 10 `auth.users`, 11 profil (termasuk treasury),
+8 drop, dan 58 kartu. Backup schema serta data `public`/`auth` sebelum reset
+tersimpan lokal di `supabase/.temp/public-assets-reset/` yang diabaikan Git.
+
+`db push` tidak menjalankan ulang file baseline yang telah diterapkan. Untuk DB
+yang harus mempertahankan data, gunakan migrasi forward-only; jangan gunakan
+baseline ini sebagai upgrade in-place. Reset Postgres tidak membersihkan R2,
+dan reset ini tidak menghapus object R2 mana pun. Review referensi object
+secara terpisah; jangan menghapus prefix profil/KYC atau bucket otomatis saat
+reset.
 
 ## Skenario seed
 
@@ -99,12 +101,16 @@ Avatar Demo/Nova tersedia; avatar null pada persona lain menguji fallback.
 
 `pnpm seed:assets` memvalidasi file dan signature image serta menampilkan
 SHA-256/ukuran/MIME dan mapping. Tidak terhubung ke jaringan atau mengunggah.
-Setelah bucket/CDN benar-benar disiapkan dan SEMUA objek diverifikasi HTTP:
+Enam object manifest sudah berada di `cverse-assets` (APAC) dan terverifikasi
+HTTP 200, SHA-256 lokal cocok, serta CORS GET/HEAD di origin publik
+`https://assets.c-verse.co`. Custom domain itu memakai TLS minimum 1.2 dan
+`r2.dev` tetap nonaktif; `cverse-kyc` tetap private tanpa public domain.
+Manifest memuat `publicBaseUrl` tersebut. `pnpm seed:assets` tetap hanya
+memvalidasi dan mencetak rencana:
 
 ```sh
-# Ganti host contoh dengan origin aset HTTPS yang telah diverifikasi.
-pnpm seed:assets --base-url https://assets.example.test
-pnpm seed:assets --base-url https://assets.example.test --sql
+pnpm seed:assets --base-url https://assets.c-verse.co
+pnpm seed:assets --base-url https://assets.c-verse.co --sql
 ```
 
 Opsi `--sql` hanya mencetak SQL untuk ditinjau operator, bukan mengeksekusi.
@@ -113,11 +119,13 @@ Mapping mengubah URL lokal yang cocok persis pada `drops.artwork_url`,
 Upload harus mempertahankan object key/MIME manifest. Jangan menyimpan file
 ke bucket KYC atau mengganti URL DB sebelum objek dapat dibaca.
 
-Alur target: file tervalidasi -> R2 `cverse-assets` -> origin aset HTTPS ->
-URL di Postgres -> browser. Saat ini file mock dilayani Static Assets web;
-bucket `cverse-assets` dan fitur upload artwork/avatar belum diaktifkan.
-Runbook lengkap (termasuk namespace profil dan privasi) ada di
-`docs/08_deployment.md` bagian R2.
+Alur fixture: file tervalidasi -> R2 `cverse-assets` -> origin aset HTTPS ->
+URL di Postgres -> browser. Mapping remote sudah diterapkan setelah verifikasi
+untuk 8 URL artwork, 8 model, dan 2 avatar. Reset lokal tetap mengembalikan
+path Static Assets sampai SQL mapping fixture sengaja diterapkan. Endpoint/UI
+upload artwork admin dan upload/hapus avatar user memakai bucket publik yang
+sama, terpisah dari KYC. Runbook lengkap (termasuk namespace profil dan
+privasi) ada di `docs/08_deployment.md` bagian R2.
 
 ## Sumber
 

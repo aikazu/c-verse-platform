@@ -1,8 +1,9 @@
 # 08 — Deployment Runbook (Step-by-Step)
 
 > Status: [VALIDATED]
-> Last updated: 2026-09-05 (baseline SQL final <=500 baris/file,
-> seed modular dan mapping R2 artwork/model/avatar; belum diterapkan remote)
+> Last updated: 2026-09-05 (remote Supabase reset terkendali ke baseline
+> 18 migration; `cverse-assets` public di `assets.c-verse.co` dengan
+> enam fixture terverifikasi; upload avatar/artwork dan viewer 3D ter-deploy)
 > Previous: 2026-09-05 (aplikasi dana dikonsolidasikan
 > menjadi satu native Worker; Access mewajibkan posture WARP; API
 > utama tetap privat melalui Service Binding; cutover dana terverifikasi
@@ -45,8 +46,9 @@ batas kapabilitas database terpisah. Cutover dan penghapusan Worker API lama
 selesai pada 2026-09-05 setelah verifikasi berhasil.
 
 Infra pendukung: Supabase (Postgres/Auth/Realtime/Supavisor), R2
-`cverse-kyc` privat, Cloudflare Email Service, D1 `c-verse-funds`, Cron
-Triggers, dan Midtrans sandbox. Cloudflare Queues dan FCM belum aktif.
+`cverse-kyc` privat dan `cverse-assets` public, Cloudflare Email Service,
+D1 `c-verse-funds`, Cron Triggers, dan Midtrans sandbox. Cloudflare Queues
+dan FCM belum aktif.
 
 Environment saat ini:
 - `development edge` = branch `main`, deploy manual ke host WARP-only.
@@ -153,14 +155,22 @@ tidak membacanya (env email API hanya `EMAIL_ENABLED`/`EMAIL_FROM`/
    `SUPABASE_URL` adalah environment variable non-rahasia di
    `wrangler.toml`; autentikasi user diverifikasi melalui JWKS Supabase.
 6. Native Rate Limiting bindings aktif di `wrangler.toml`:
-   auth/payment 30, NFC 60, KYC submit 10, global 600 request per
+   auth/payment 30, NFC 60, KYC submit 10, upload gambar publik 10, global 600 request per
    menit per actor + lokasi edge. Ini menggantikan limiter in-memory
    Node yang tidak kompatibel dengan Workers global scope.
 
 ### 3.4 Cloudflare R2
-- Bucket target `cverse-assets`: artwork, model 3D, avatar profil, dan icon
-  badge. Pemeriksaan API 2026-09-05: belum dibuat; binding API belum aktif.
-  Mock saat ini memakai file Static Assets web, bukan URL R2 yang belum hidup.
+- Bucket `cverse-assets` aktif di lokasi APAC dengan custom domain public
+  `https://assets.c-verse.co`; TLS minimum 1.2 dan `r2.dev` nonaktif. Enam
+  object manifest fixture (artwork, model, avatar) telah diunggah dan
+  diverifikasi HTTP 200, SHA-256 lokal, serta CORS GET/HEAD. Mapping remote
+  sudah diterapkan untuk 8 URL artwork, 8 model, dan 2 avatar; reset lokal
+  tetap mengembalikan path Static Assets sampai mapping fixture dijalankan.
+- Delivery host memakai response transform khusus host dengan `nosniff`, CSP
+  `default-src 'none'; sandbox`, `Referrer-Policy: no-referrer`, dan HSTS satu
+  tahun. `scripts/r2-assets.headers.json` adalah konfigurasi referensi; review
+  ruleset yang ada lalu tambahkan rule tanpa menimpa rule masa depan. Belum ada
+  CLI otomatis append-safe.
 - Bucket `cverse-kyc` (PRIVATE, dibuat ulang pada account produksi
   2026-09-04; location hint APAC): KTP, selfie,
   NPWP. Binding `KYC` memakai Workers API `put/get/head/delete`.
@@ -168,47 +178,79 @@ tidak membacanya (env email API hanya `EMAIL_ENABLED`/`EMAIL_FROM`/
   upload multipart diproksi Worker (maks. 5 MiB/file), review admin
   lewat endpoint streaming role admin aktif, `Cache-Control:
   private, no-store`, dan audit log per dokumen.
-- Bucket `cverse-qr` (opsional): fallback QR statik per kartu.
+- Bucket `cverse-qr` (opsional) dan upload icon badge belum diimplementasikan.
 
-#### Mapping aset publik dan profil (rancangan, belum fitur upload)
+Snapshot deployment 2026-09-05: API `37431ff3-44ab-40d2-9eec-6ea8d0f40663`,
+web `599863a7-75c3-47c7-a1a6-bf2dca1dd509`, admin
+`ca45df01-52d2-452f-aa5b-78c0d7c41c19`. Avatar tersedia di `/me/privacy`,
+artwork di `/drops` admin. API tetap privat; gateway tetap Access/WARP.
+Quality gates lulus (547 unit test); suite browser menyeluruh 53 lulus/3 skip,
+lalu delapan tes aset/upload terfokus lulus termasuk R2 lintas origin dan
+fallback 3D. Dua tes artwork diulang dengan assertion audit DB nyata: aksi
+`update`, payload `operation=update_artwork`, kedua URL upload tercatat.
+Smoke object avatar live membuktikan `no-store`/cache BYPASS,
+kemudian key sementara dihapus dan HTTP 404 diverifikasi. Tes upload dengan
+sesi aplikasi berjalan lokal; login Access sendiri bukan login aplikasi.
+
+#### Mapping aset publik dan profil
 
 | Jenis | Object key target di `cverse-assets` | Referensi Postgres |
 |---|---|---|
-| Artwork/atlas kartu | `drops/<drop-id>/<version>/artwork.png` | `drops.artwork_url` |
+| Artwork/atlas kartu | Fixture `mock/v1/artworks/*`; upload baru `drops/<drop-id>/artwork/<uuid>.<ext>` | `drops.artwork_url` |
 | Mesh OBJ dan file pendamping | `drops/<drop-id>/<version>/model.obj` | `drops.artwork_3d_url` |
-| Avatar user/kreator | `profiles/<user-uuid>/<version>/avatar.png` | `users.avatar_url` |
+| Avatar user/kreator | Fixture `mock/v1/avatars/*`; upload baru `profiles/<user-uuid>/avatar/<uuid>.<ext>` | `users.avatar_url` |
 | Icon badge | `badges/<badge-id>/<version>/icon.png` | `badges.icon_url` |
 | Fixture development | `mock/v1/artworks/`, `mock/v1/models/`, `mock/v1/avatars/` | Kolom yang sama, bukan tabel mock baru |
 | KTP/selfie/NPWP | Bucket PRIVATE `cverse-kyc`, namespace owner | `kyc_records.*_object_key`, bukan URL publik |
 
-Alur target upload: browser -> gateway same-origin -> API verifikasi JWT,
-role/ownership dan MIME/signature/ukuran -> key dibentuk server -> R2 PUT ->
-update URL DB setelah PUT sukses -> browser GET dari origin aset HTTPS.
-Artwork/model/icon hanya ops/admin; avatar hanya pemilik profil aktif.
-URL input bebas tidak boleh menjadi pengganti pemeriksaan ownership. Bila
-update DB gagal, hapus object baru yang belum direferensikan. Penggantian
-memakai versi baru, lalu pembersihan object lama setelah tidak direferensikan.
+Kontrak endpoint: `POST /api/profile/avatar`
+(multipart `file`) mengembalikan `{ avatarUrl }`; `DELETE` endpoint yang sama
+mengembalikan `{ avatarUrl: null }`; `POST /api/drops/:id/artwork` (multipart
+`file`) mengembalikan `{ artworkUrl }` dan hanya admin aktif yang boleh
+memakainya. Avatar menerima JPEG/PNG/WebP maksimum 3 MiB; artwork maksimum
+10 MiB. Stream/body dibatasi dan divalidasi sebelum key immutable dibentuk.
 
-Origin publik harus diaktifkan secara sengaja lewat custom domain/CDN, bukan
-membuka bucket KYC atau mengaktifkan `r2.dev` tanpa review. Set MIME yang benar,
-`nosniff`, ETag, dan cache versioned untuk artwork/model. Avatar perlu kebijakan
-cache/penghapusan yang mendukung perubahan privasi; URL publik tetap dapat
-disalin/disimpan pihak lain meski profil kemudian anonim. UI harus menjelaskan
-bahwa avatar yang dipublikasikan bukan dokumen privat. API publik tetap wajib
-menyembunyikan avatar/link identitas persona anonim atau suspended.
+Alur upload: browser -> gateway same-origin -> API verifikasi JWT,
+role/ownership dan MIME/signature/ukuran -> R2 PUT -> update URL DB atomik
+berbasis URL sebelumnya -> browser GET dari origin aset HTTPS. Avatar hanya
+pemilik profil aktif; artwork hanya ops/admin. URL input bebas tidak boleh
+menjadi pengganti pemeriksaan ownership. Bila update DB pasti ditolak, object
+baru dibersihkan; object lama dibersihkan hanya setelah update berhasil dan
+kepemilikannya terverifikasi. Timeout/kegagalan transport yang tidak memastikan
+hasil commit dibaca ulang. Bila masih ambigu, object dipertahankan dan event
+`public_asset_db_outcome_ambiguous` dicatat. Operator mencocokkan URL pada log
+dengan record DB sebelum menghapus key orphan; jangan menghapus object yang
+masih direferensikan. Kegagalan cleanup mencatat event khusus untuk retry
+terarah. Fixture `mock/v1/*` dan URL eksternal tidak ikut auto-cleanup.
 
-Three.js memuat texture/model lintas origin: CORS GET/HEAD origin aset harus
-mengizinkan origin web yang dipakai. Jangan menaruh credential upload di
-browser atau mencampur CORS delivery dengan izin upload. Development tetap
-di belakang perimeter Access/WARP; publikasi asset mock bukan langkah otomatis.
+Origin publik telah diaktifkan secara sengaja melalui custom domain, tanpa
+membuka bucket KYC atau `r2.dev`. Cache artwork/model memakai key versioned;
+avatar memakai `Cache-Control: no-store` agar penghapusan tidak menyisakan
+salinan baru di cache delivery. Artwork baru memakai cache immutable satu tahun;
+salinan yang sudah di-cache dapat bertahan setelah penggantian.
+URL publik tetap dapat disalin/disimpan pihak lain meski profil kemudian anonim.
+UI harus menjelaskan bahwa avatar yang dipublikasikan bukan dokumen privat. API
+publik tetap wajib menyembunyikan avatar/link identitas persona anonim atau
+suspended.
+
+Three.js memuat texture/model lintas origin: CORS GET/HEAD origin aset telah
+mengizinkan origin aplikasi serta localhost yang diperlukan. Allowlist canonical
+ada di `scripts/r2-assets.cors.json`. Jangan menaruh credential upload di
+browser atau mencampur CORS delivery dengan izin upload. Development tetap di
+belakang perimeter Access/WARP.
+
+Viewer hanya memakai artwork drop yang diminta. Texture hilang/gagal tidak
+diganti foto Karina atau artwork drop lain: model netral dan pesan status
+ditampilkan. Smoke CDN opsional memakai `TEST_PUBLIC_ASSETS=1` saat menjalankan
+tes `e2e/specs/14-seed-assets.spec.ts`; suite default tidak bergantung pada
+ketersediaan R2 remote. Tes lokal juga mencakup Genesis, Aurora, dan texture gagal.
 
 Manifest fixture repository menyimpan path file nyata, MIME, object key target
 dan prompt/provenance; validator menghitung SHA-256 dari file saat dijalankan.
-Urutan aktivasi: siapkan bucket dan
-origin -> upload sesuai manifest -> verifikasi HTTP + CORS + gambar/mesh ->
-review dan jalankan mapping URL fixture pada DB development. Jangan mengubah
-URL DB sebelum object tersedia. Belum ada endpoint upload artwork/avatar atau
-route delivery R2 publik; mapping ini tidak mengklaim keduanya sudah aktif.
+Aktivasi fixture telah menyelesaikan upload, verifikasi delivery, dan mapping
+remote untuk 8 artwork, 8 model, serta 2 avatar. Mapping URL fixture pada reset
+lokal tetap tindakan eksplisit terpisah; jangan mengubah URL DB sebelum object
+tersedia.
 
 Reset Postgres tidak menghapus object R2. Sesudah reset development, cocokkan
 kembali key manifest/metadata dengan bucket sebelum membersihkan orphan.
@@ -258,11 +300,12 @@ retensi yang sesuai. R2 menyimpan binary, Postgres menyimpan relasi/otorisasi.
    `npx supabase db reset --local` menerapkan baseline lalu seed modular
    berurutan; `npx supabase db lint --local` memeriksa masalah fungsi SQL.
    Lint bukan pembanding drift schema; bandingkan dump/catalog bila diperlukan.
-   Remote masih mencatat 21 versi applied pada pemeriksaan 2026-09-05.
+   Remote development `rnsfgbhoahzvrbtvjjtw` sudah di-reset dengan persetujuan
+   eksplisit pada 2026-09-05 dan kini memakai baseline 18 migration + seed.
    `db push` tidak menerapkan ulang file applied yang diedit. Reset remote
    development memerlukan persetujuan baru dan verifikasi target; jangan
    menghapus migration history saja. DB berdata yang dipertahankan memerlukan
-   migrasi forward-only terpisah. Konsolidasi ini belum dijalankan di remote.
+   migrasi forward-only terpisah.
 5. RLS: apply policy per tabel (lihat `05_data_model.md` RLS) —
    verifikasi dengan tes di `supabase/tests/` pada target yang telah disetujui.
 6. Realtime: enable broadcast untuk channel `drop_countdown` &
@@ -290,6 +333,10 @@ test endpoint `/health` & CMAC verify di device nyata (C-03).
 npx supabase db push
 
 # 2) Backend utama privat lebih dulu, lalu gateway
+# Build web/admin harus memakai VITE_SUPABASE_URL remote, anon key remote,
+# VITE_API_URL kosong (same-origin), dan VITE_TURNSTILE_SITE_KEY yang sesuai.
+# Override env proses saat deploy bila .env.local masih menunjuk stack lokal;
+# jangan mengunggah dist hasil test lokal.
 pnpm --filter @c-verse/api run deploy
 pnpm --filter @c-verse/web run deploy
 pnpm --filter @c-verse/admin run deploy

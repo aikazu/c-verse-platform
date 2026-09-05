@@ -228,6 +228,8 @@ export const api = {
   // Body validated server-side by `profileSchema` + `displayNameSchema` (L1 audit).
   patchProfile: (body: Record<string, unknown>) =>
     req<ApiPatchProfileResponse>("/profile", { method: "PATCH", body: JSON.stringify(body) }),
+  uploadAvatar: (body: FormData) => req<{ avatarUrl: string }>("/profile/avatar", { method: "POST", body }),
+  removeAvatar: () => req<{ avatarUrl: null }>("/profile/avatar", { method: "DELETE" }),
 
   // shipments — P0-6 (audit 2026-08-24): seller → vault flow.
   shipments: () => req<{ shipments: Shipment[] }>("/shipments"),

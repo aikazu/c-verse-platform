@@ -1,0 +1,19 @@
+{
+  "rules": [
+    {
+      "ref": "cverse_assets_safe_headers",
+      "description": "Public R2 assets: safe content delivery",
+      "expression": "http.host eq \"assets.c-verse.co\"",
+      "action": "rewrite",
+      "action_parameters": {
+        "headers": {
+          "x-content-type-options": { "operation": "set", "value": "nosniff" },
+          "content-security-policy": { "operation": "set", "value": "default-src 'none'; sandbox" },
+          "referrer-policy": { "operation": "set", "value": "no-referrer" },
+          "strict-transport-security": { "operation": "set", "value": "max-age=31536000" }
+        }
+      },
+      "enabled": true
+    }
+  ]
+}

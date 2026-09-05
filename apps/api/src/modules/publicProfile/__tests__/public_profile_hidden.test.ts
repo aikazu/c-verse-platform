@@ -55,15 +55,23 @@ describe("GET /api/public/u/:username — hidden profile (lane P2 anon leak)", (
     expect(body.user.displayName).toBe("Anonim");
     expect(body.user.isAnonymous).toBe(true);
     expect("id" in body.user).toBe(false);
+    expect("avatarUrl" in body.user).toBe(false);
   });
 
   it("user publik → payload tetap membawa id + displayName asli (regression guard)", async () => {
-    control.user = { ...ANON_USER, id: "pub-uuid-5678", displayName: "Budi Publik", isAnonymous: false };
+    control.user = {
+      ...ANON_USER,
+      id: "pub-uuid-5678",
+      displayName: "Budi Publik",
+      avatarUrl: "https://assets.c-verse.co/profiles/pub/avatar/example.png",
+      isAnonymous: false,
+    };
     const res = await app.request("/api/public/u/budi");
     expect(res.status).toBe(200);
     const body = (await res.json()) as { user: Record<string, unknown>; hidden?: boolean };
     expect(body.hidden).toBeUndefined();
     expect(body.user.id).toBe("pub-uuid-5678");
     expect(body.user.displayName).toBe("Budi Publik");
+    expect(body.user.avatarUrl).toBe("https://assets.c-verse.co/profiles/pub/avatar/example.png");
   });
 });

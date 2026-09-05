@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import React, { lazy, Suspense, useState } from "react";
 import { BrowserRouter, Link, Navigate, NavLink, Route, Routes, useNavigate, useParams } from "react-router-dom";
+import { Avatar } from "./components/Avatar";
 import { ConfirmProvider } from "./components/ConfirmProvider";
 import { api } from "./lib/api";
 import { AuthProvider, useAuth } from "./lib/auth";
@@ -78,7 +79,6 @@ function UserMenu() {
     };
   }, [user]);
   if (!user) return null;
-  const initial = (user.displayName || user.username || user.email || "U").slice(0, 1).toUpperCase();
   const isCreator = user.role === "creator" || user.role === "admin";
   return (
     <div ref={ref} style={{ position: "relative" }}>
@@ -98,10 +98,13 @@ function UserMenu() {
           transition: "border-color var(--motion-fast)",
         }}
       >
-        <span
+        <Avatar
+          src={user.avatarUrl}
+          name={user.displayName || user.username || user.email}
           style={{
             width: 28,
             height: 28,
+            objectFit: "cover",
             borderRadius: 99,
             background: "var(--gold)",
             color: "#0A0A0A",
@@ -112,9 +115,7 @@ function UserMenu() {
             fontSize: 12,
             fontFamily: "var(--font-mono)",
           }}
-        >
-          {initial}
-        </span>
+        />
         <span style={{ fontSize: 13, fontWeight: 500, maxWidth: 130, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
           {user.displayName ?? user.username ?? user.email}
         </span>
