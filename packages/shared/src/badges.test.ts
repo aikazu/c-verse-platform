@@ -1,10 +1,30 @@
 import { describe, expect, it } from "vitest";
-import { BADGE_FAMILIES, BADGE_TIERS, badgeAssetPath, badgeProgressTarget, parseBadgeCriteria } from "./badges";
+import {
+  ASSETS_PUBLIC_URL,
+  BADGE_FAMILIES,
+  BADGE_TIERS,
+  badgeAssetPath,
+  badgeIconSrc,
+  badgeProgressTarget,
+  parseBadgeCriteria,
+} from "./badges";
 
 describe("badge presentation contract", () => {
   it("separates five achievement tiers and eight reusable emblems", () => {
     expect(BADGE_TIERS.map((tier) => tier.tier)).toEqual([1, 2, 3, 4, 5]);
     expect(new Set(BADGE_FAMILIES.map((family) => badgeAssetPath(family.id))).size).toBe(8);
+  });
+  it("serves emblems from the public R2 origin with DB icon_url override", () => {
+    for (const family of BADGE_FAMILIES) {
+      expect(badgeAssetPath(family.id)).toBe(`${ASSETS_PUBLIC_URL}/badges/v1/${family.id}.webp`);
+    }
+    expect(badgeIconSrc(undefined, "collector")).toBe(`${ASSETS_PUBLIC_URL}/badges/v1/collector.webp`);
+    expect(badgeIconSrc({ iconUrl: "/badges/collector.webp", code: "collector_5" }, "collector")).toBe(
+      `${ASSETS_PUBLIC_URL}/badges/v1/collector.webp`,
+    );
+    expect(badgeIconSrc({ iconUrl: `${ASSETS_PUBLIC_URL}/badges/v1/collector.webp`, code: "x" }, "trader", "whale")).toBe(
+      `${ASSETS_PUBLIC_URL}/badges/v1/collector.webp`,
+    );
   });
   it("rejects unknown or malformed criteria rather than inventing progress", () => {
     for (const value of [

@@ -3,7 +3,10 @@
 43 achievements: eight families with five tiers plus three one-time specials. Created with the built-in imagegen tool on 2026-09-05.
 
 - Master artwork: `source/*.png` (eight metallic cosmic emblems).
-- Runtime artwork: `apps/web/public/badges/*.webp` and byte-identical Admin copies, 320x320, about 103 KiB combined per app.
+- Runtime artwork: R2 `badges/v1/*.webp` pada `https://assets.c-verse.co`
+  (immutable, `Cache-Control` satu tahun), 320x320. Bundle `public/badges/`
+  di web/admin sudah dihapus 2026-09-06; `badges.icon_url` menyimpan URL R2
+  absolut via migrasi `20260905200101_badge_icon_r2.sql`.
 - The final masters have a black matte. Render them with `mix-blend-mode: screen` on an isolated dark surface; they do not have an alpha channel. Checkerboard draft outputs are not part of this asset pack.
 - One family image is reused by Bronze (I), Silver (II), Gold (III), Astral (IV), and Nova (V). The reusable BadgeEmblem component adds the tier border, accents and glow; keep the artwork unobstructed.
 - Achievement tiers are independent of the account's Galactic Rank Ladder. Each badge awards XP once. Earned XP uses the stored snapshot, including older rewards.

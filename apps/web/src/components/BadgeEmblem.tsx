@@ -1,5 +1,5 @@
 import type { Badge, BadgeFamily, BadgeTier } from "@c-verse/shared";
-import { BADGE_TIERS, badgeAssetPath, parseBadgeCriteria } from "@c-verse/shared";
+import { BADGE_TIERS, badgeIconSrc, parseBadgeCriteria } from "@c-verse/shared";
 import type { CSSProperties } from "react";
 import "./badge-emblem.css";
 
@@ -36,7 +36,7 @@ export function BadgeEmblem({ badge, family, tier, size = "standard", className 
     >
       <span className="badge-emblem__halo" aria-hidden="true" />
       <span className="badge-emblem__frame" aria-hidden="true">
-        <img src={badgeAssetPath(resolvedFamily, badge?.code)} alt="" loading="lazy" decoding="async" />
+        <img src={badgeIconSrc(badge, resolvedFamily, badge?.code)} alt="" loading="lazy" decoding="async" />
       </span>
       <span className="badge-emblem__tier" aria-hidden="true">
         {tierMeta.roman}

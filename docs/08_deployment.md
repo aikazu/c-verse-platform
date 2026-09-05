@@ -184,7 +184,9 @@ tidak membacanya (env email API hanya `EMAIL_ENABLED`/`EMAIL_FROM`/
   upload multipart diproksi Worker (maks. 5 MiB/file), review admin
   lewat endpoint streaming role admin aktif, `Cache-Control:
   private, no-store`, dan audit log per dokumen.
-- Bucket `cverse-qr` (opsional) dan upload icon badge belum diimplementasikan.
+- Bucket `cverse-qr` (opsional) belum diimplementasikan. Emblem lencana
+  keluarga (`badges/v1/*.webp`, immutable, `Cache-Control` satu tahun)
+  sudah di R2 sejak 2026-09-06; `badges.icon_url` menyimpan URL R2 absolut.
 
 Snapshot deployment 2026-09-05: API `e91ff93c-295f-4878-b86c-a0d71dd4aadf`,
 web `e992e8fa-d26a-4eb1-a28a-b5b32cbd2ec4`, admin
@@ -218,7 +220,7 @@ sesi aplikasi berjalan lokal; login Access sendiri bukan login aplikasi.
 | Artwork/atlas kartu | Fixture `mock/v1/artworks/*`; upload baru `drops/<drop-id>/artwork/<uuid>.<ext>` | `drops.artwork_url` |
 | Mesh OBJ dan file pendamping | `drops/<drop-id>/<version>/model.obj` | `drops.artwork_3d_url` |
 | Avatar user/kreator | Fixture `mock/v1/avatars/*`; upload baru `profiles/<user-uuid>/avatar/<uuid>.<ext>` | `users.avatar_url` |
-| Icon badge | `badges/<badge-id>/<version>/icon.png` | `badges.icon_url` |
+| Icon badge | `badges/v1/<family>.webp` (delapan emblem keluarga, `image/webp`, immutable) | `badges.icon_url` (URL R2 absolut) |
 | Fixture development | `mock/v1/artworks/`, `mock/v1/models/`, `mock/v1/avatars/` | Kolom yang sama, bukan tabel mock baru |
 | KTP/selfie/NPWP | Bucket PRIVATE `cverse-kyc`, namespace owner | `kyc_records.*_object_key`, bukan URL publik |
 

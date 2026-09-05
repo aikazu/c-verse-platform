@@ -1,4 +1,4 @@
-import { BADGE_FAMILIES, BADGE_TIERS, type Badge, badgeAssetPath, parseBadgeCriteria } from "@c-verse/shared";
+import { BADGE_FAMILIES, BADGE_TIERS, type Badge, badgeIconSrc, parseBadgeCriteria } from "@c-verse/shared";
 import { useEffect, useState } from "react";
 import { useConfirm } from "../components/ConfirmProvider";
 import { apiFetch } from "../lib/api";
@@ -110,7 +110,13 @@ export function BadgesPage() {
                       <tr key={r.id}>
                         <td>
                           <span className="admin-badge-art" style={{ borderColor: tier?.color }}>
-                            <img src={badgeAssetPath(criteria?.family ?? "special", r.code)} alt="" width={64} height={64} loading="lazy" />
+                            <img
+                              src={badgeIconSrc(r, criteria?.family ?? "special", r.code)}
+                              alt=""
+                              width={64}
+                              height={64}
+                              loading="lazy"
+                            />
                           </span>
                         </td>
                         <td>

@@ -1,5 +1,5 @@
 import type { UserBadge as SharedUserBadge } from "@c-verse/shared";
-import { cardLocationLabel } from "@c-verse/shared";
+import { badgeIconSrc, cardLocationLabel, parseBadgeCriteria } from "@c-verse/shared";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link } from "react-router-dom";
@@ -74,7 +74,16 @@ function CollectionInner() {
           <div className="kl-badges">
             {badges.map((ub) => (
               <span key={ub.badgeId} className="pill pill-warn kl-badge" title={ub.badge?.description}>
-                {ub.badge?.icon} {ub.badge?.name}
+                {ub.badge ? (
+                  <img
+                    src={badgeIconSrc(ub.badge, parseBadgeCriteria(ub.badge.criteria)?.family ?? "special", ub.badge.code)}
+                    alt=""
+                    width={18}
+                    height={18}
+                    loading="lazy"
+                  />
+                ) : null}{" "}
+                {ub.badge?.name ?? ub.badgeId}
               </span>
             ))}
           </div>

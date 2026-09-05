@@ -1,4 +1,5 @@
 /** Badge rarity is separate from the account's Galactic Rank Ladder. */
+export const ASSETS_PUBLIC_URL = "https://assets.c-verse.co";
 export const BADGE_TIERS = [
   { tier: 1, name: "Bronze", color: "#dda67b", roman: "I" },
   { tier: 2, name: "Silver", color: "#9dd9ee", roman: "II" },
@@ -56,7 +57,19 @@ export function parseBadgeCriteria(value: unknown): BadgeCriteria | null {
 
 export function badgeAssetPath(family: BadgeFamily | "special", code?: string): string {
   const asset = family === "special" ? (code === "verified" ? "explorer" : "trader") : family;
-  return `/badges/${asset}.webp`;
+  return `${ASSETS_PUBLIC_URL}/badges/v1/${asset}.webp`;
+}
+
+export interface BadgeIconSource {
+  iconUrl?: string | null;
+  code?: string;
+}
+
+/** DB icon_url wins when it is an absolute HTTPS URL; otherwise the R2 family emblem. */
+export function badgeIconSrc(badge: BadgeIconSource | undefined, family: BadgeFamily | "special", code?: string): string {
+  const url = badge?.iconUrl;
+  if (url && /^https:\/\/[^/]+\//.test(url)) return url;
+  return badgeAssetPath(family, code ?? badge?.code);
 }
 
 /** Strict bid thresholds use the next whole C-Coin for an honest progress bar. */
