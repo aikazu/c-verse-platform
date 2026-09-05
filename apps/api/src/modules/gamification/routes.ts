@@ -1,12 +1,12 @@
 import { calcLevel, type LeaderboardEntry, type LeaderboardType, leaderboardQuerySchema } from "@c-verse/shared";
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
-import { adminGateError, clientIp, requireAdmin, tokenFingerprint } from "../../lib/auth.js";
+import { adminGateError, clientIp, requireAdmin, requireUser, tokenFingerprint } from "../../lib/auth.js";
 import { sanitizeDbError } from "../../lib/errors.js";
 import { logAuditDb } from "../../lib/reads/kyc.js";
 import { getUserById } from "../../lib/reads/users.js";
 import { readDb } from "../../lib/reads.js";
-import { listBadges, listLeaderboard, listUserBadges } from "./reads.js";
+import { getBadgeProgress, listBadges, listLeaderboard, listUserBadges } from "./reads.js";
 
 const app = new Hono();
 
@@ -51,8 +51,26 @@ app.get("/leaderboard", zValidator("query", leaderboardQuerySchema), async (c) =
 });
 
 app.get("/badges", async (c) => {
-  c.header("Cache-Control", "public, max-age=86400");
+  c.header("Cache-Control", "public, max-age=60");
   return c.json({ badges: await listBadges() });
+});
+
+app.get("/badges/me/progress", async (c) => {
+  c.header("Cache-Control", "private, no-store");
+  const authRes = await requireUser(c);
+  if ("error" in authRes) return c.json({ error: authRes.error === 403 ? "Akun disuspend" : "Unauthorized" }, authRes.error);
+  const [progress, badges] = await Promise.all([getBadgeProgress(authRes.user.id), listUserBadges(authRes.user.id)]);
+  return c.json({ progress, badges: badges.map(({ userId: _userId, ...badge }) => badge) });
+});
+
+app.get("/badges/admin/catalog", async (c) => {
+  c.header("Cache-Control", "private, no-store");
+  const authRes = await requireAdmin(c);
+  if ("error" in authRes) {
+    const e = adminGateError(authRes);
+    return c.json(e.body, e.status);
+  }
+  return c.json({ badges: await listBadges(true) });
 });
 
 app.get("/badges/:userId", async (c) => {

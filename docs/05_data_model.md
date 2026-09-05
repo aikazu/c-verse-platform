@@ -1,7 +1,9 @@
 # 05 — Data Model (Skema Logis)
 
 > Status: [VALIDATED]
-> Last updated: 2026-09-05 (`cverse-assets` public aktif untuk fixture
+> Last updated: 2026-09-05 (rework 43 lencana, lima tingkat, XP snapshot,
+> evaluasi atomik dan seed pencapaian; dua migrasi forward-only)
+> Previous: 2026-09-05 (`cverse-assets` public aktif untuk fixture
 > artwork/model/avatar; mapping remote R2 aktif, seed Karina memakai R2,
 > lima aset lain lokal di Static Assets, baseline SQL final 18 file)
 > Previous: 2026-09-03 (dual-token: `wallets.balance_gems` +
@@ -483,12 +485,10 @@ badges
   name text                     -- contoh: "Collector Starter"
   description text              -- "Berhasil beli 1 kartu"
   criteria jsonb                -- Kriteria yang dievaluasi:
-     {type: 'collect_count', min: 1}       -- jumlah koleksi
-     {type: 'collect_count', min: 10}      -- 10 kartu
-     {type: 'level', min: 5}               -- level tertentu
-     {type: 'creator_cards', min: 10}                   -- ≥10 kartu dari SATU kreator (seed: kreator mana pun)
-     {type: 'creator_cards', creator_id: 'uuid', min: 3}  -- koleksi kreator tertentu (spec form, opsional)
-     {type: 'xp_total', min: 100}          -- total XP
+     {type: 'collect_count', min: 1, family: 'collector', tier: 1}
+     {type: 'creator_cards', min: 10, family: 'devotee', tier: 3}
+     -- Jenis metrik yang didukung dijelaskan dalam katalog v2 di bawah.
+     -- Tidak ada hadiah berdasar XP/level yang memicu dirinya sendiri.
   icon text not null
   icon_url text
   xp int default 0              -- alias legacy kolom xp_reward
@@ -509,8 +509,69 @@ user_badges
 > dicabut meskipun criteria tidak lagi terpenuhi (misal sudah
 > menjual kartunya). Evaluasi badge: event-driven via trigger
 > Postgres DALAM transaksi yang sama dengan event kualifikasi
-> (transaksi/level-up) — award instan + atomic (tidak ada window
+> (ownership/bid/KYC/Dukungan) — award instan + atomic (tidak ada window
 > event hilang), TANPA cron catch-up (keputusan user 2026-08-15).
+
+### Katalog lencana v2 (2026-09-05)
+
+Katalog memiliki **43 lencana**: delapan jalur, masing-masing lima tingkat,
+dan tiga lencana khusus. Tingkat lencana adalah Bronze, Silver, Gold,
+Astral, dan Nova; terpisah dari tier level akun. Nilai berikut adalah
+keputusan desain implementasi rework, belum hasil eksperimen pengguna.
+
+| Jalur/aset | Metrik | Target I / II / III / IV / V | XP I / II / III / IV / V |
+|---|---|---|---|
+| collector | collect_count | 1 / 5 / 15 / 30 / 75 | 5 / 10 / 20 / 40 / 80 |
+| devotee | creator_cards | 1 / 3 / 10 / 25 / 50 | 5 / 10 / 25 / 50 / 100 |
+| explorer | creator_count | 2 / 4 / 8 / 12 / 20 | 5 / 15 / 30 / 50 / 90 |
+| archivist | drop_count | 2 / 5 / 10 / 20 / 40 | 5 / 10 / 25 / 45 / 85 |
+| autograph | signed_count | 1 / 3 / 7 / 15 / 30 | 10 / 20 / 35 / 60 / 100 |
+| pioneer | primary_count | 1 / 3 / 10 / 25 / 50 | 5 / 10 / 20 / 40 / 80 |
+| trader | secondary_count | 1 / 3 / 10 / 25 / 50 | 5 / 10 / 20 / 40 / 80 |
+| patron | support_creators | 1 / 3 / 5 / 10 / 20 | 3 / 8 / 15 / 30 / 60 |
+
+- `collect_count`: jumlah C.Card unik yang pernah dimiliki;
+  `creator_cards`: jumlah terbesar C.Card unik dari satu kreator;
+  `creator_count` dan `drop_count`: jumlah kreator/Drop berbeda;
+  `signed_count`: jumlah C.Card signed unik yang pernah dimiliki.
+- `primary_count`: C.Card unik dari pembelian primer yang selesai;
+  `secondary_count`: C.Card unik dari buyout/bid yang sudah diselesaikan.
+  Kartu hadiah dapat memenuhi jalur koleksi, tetapi tidak dihitung sebagai
+  pembelian primer atau sekunder. Membeli ulang kartu yang sama tidak
+  menambah hitungan pada metrik yang sama.
+- `support_creators`: penerima kreator berbeda pada debit Dukungan yang
+  berhasil. Nominal Dukungan dan pengulangan ke kreator sama tidak
+  menambah jumlah penerima. Dukungan diri sendiri tetap ditolak RPC.
+- Lencana khusus: First Signal (`first_bid`, satu bid valid, 3 XP),
+  Big Signal (`single_bid_gt`, bid >100 C-Coin, 15 XP), Verified Identity
+  (`kyc_verified`, KYC disetujui, 10 XP). Dua lencana bid diberikan sekali
+  saat bid valid dibuat; pembatalan/outbid tidak mencabutnya atau memberi
+  hadiah berulang. KYC tetap opsional untuk koleksi dan wajib untuk payout.
+- Hadiah bertingkat bersifat kumulatif per lencana, bukan selisih antartingkat.
+  Total seluruh katalog adalah 1.384 XP; hadiah per lencana 3-100 XP.
+  Rumus level tetap 10 XP per level, maksimum level 100; XP terus dicatat.
+- Enam ID/kode lama dipertahankan, termasuk First Light (`first_drop`),
+  Collector (`collector_5`), dan Curator (`curator`). Perubahan hadiah
+  hanya berlaku untuk perolehan baru. Snapshot XP, tanggal, dan XP yang
+  sudah diperoleh tidak ditulis ulang oleh migrasi atau evaluasi ulang.
+- Evaluator membaca metrik sekali per event, memvalidasi jenis kriteria,
+  lalu menyimpan seluruh hadiah baru dan XP dalam transaksi yang sama.
+  Kunci pengguna tidak memblokir pembacaan foreign key. Konflik/ulang
+  evaluasi tidak memberikan XP dua kali; kriteria tidak valid dilewati.
+- Trigger: insert ownership, insert bid, persetujuan KYC, dan debit
+  Dukungan. Backfill migrasi menjalankan evaluator yang sama untuk data
+  lama. Akun suspended dan treasury tidak memperoleh hadiah baru.
+- `/badges` menampilkan galeri publik, filter, detail, dan contoh visual
+  lima tingkat. Progres pribadi memakai sesi pemilik, tidak dapat dibaca
+  dengan mengganti ID pengguna, serta tidak boleh masuk cache publik.
+  Profil anonymous tetap menyembunyikan lencana dari pengunjung lain.
+- Admin dapat melihat seluruh definisi melalui API berotorisasi, termasuk
+  yang nonaktif. Katalog publik hanya berisi yang aktif; lencana nonaktif
+  yang sudah diperoleh tetap terlihat pada catatan pemilik. Pengaktifan
+  kembali memungkinkan evaluasi pada aktivitas berikutnya/backfill.
+- Delapan lambang metalik kosmik dipakai ulang, dengan bingkai dan glow
+  makin kaya. Teks tingkat dan angka Romawi tetap terlihat; perbedaan
+  tidak hanya mengandalkan warna.
 
 ### admin_audit_log (append-only, tidak bisa edit/hapus)
 ```
@@ -634,6 +695,8 @@ profiles 1─N user_badges
 
 ## Sumber
 
+- Rework lencana atas arahan founder, 2026-09-05; 43 definisi,
+  delapan jalur, lima tingkat, dan seed pengembangan diperbarui.
 - `03_flows.md` (Flow 1-9 → struktur data).
 - 05_mvp_flow (Wallet + WalletTransaction ledger, escrow, payout,
   Flow 8.1 provisioning akun kreator).

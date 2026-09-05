@@ -399,6 +399,11 @@ export interface ApiBadgesResponse {
   badges: Badge[];
 }
 
+export interface ApiBadgeProgressResponse {
+  progress: Record<string, number>;
+  badges: UserBadge[];
+}
+
 // ── KYC ────────────────────────────────────────────────────────────────────
 export interface ApiKycResponse {
   kyc: {

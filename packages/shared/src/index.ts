@@ -415,15 +415,18 @@ export interface Badge {
   name: string;
   description: string;
   icon: string;
+  iconUrl?: string | null;
   xp: number;
   xpReward?: number;
   criteria?: unknown;
+  isActive?: boolean;
 }
 
 export interface UserBadge {
   badgeId: string;
   earnedAt: string;
   badge: Badge;
+  xpRewardSnapshot?: number;
 }
 
 // ── Gamification ───────────────────────────────────────────────────────────
@@ -642,3 +645,5 @@ const CARD_VARIANT_LABELS: Record<string, string> = {
 export function cardVariantLabel(variant: string): string {
   return labelFrom(CARD_VARIANT_LABELS, variant);
 }
+
+export * from "./badges";

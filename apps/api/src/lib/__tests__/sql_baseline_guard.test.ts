@@ -36,11 +36,12 @@ function readMigrations(): { file: string; content: string; lines: number }[] {
 }
 
 describe("SQL baseline migration guard", () => {
-  it("keeps exactly the ordered 18-file baseline, each at most 500 physical LOC", () => {
+  it("keeps the ordered 18-file baseline and permits bounded forward migrations", () => {
     const migrations = readMigrations();
 
-    expect(migrations).toHaveLength(18);
-    expect(migrations.map(({ file }) => file)).toEqual(EXPECTED_FILES);
+    expect(migrations.map(({ file }) => file).slice(0, EXPECTED_FILES.length)).toEqual(EXPECTED_FILES);
+    const forwardMigrations = migrations.slice(EXPECTED_FILES.length);
+    expect(forwardMigrations.every(({ file }) => /^\d{14}_[a-z0-9_]+\.sql$/.test(file))).toBe(true);
     for (const { file, lines } of migrations) {
       expect(lines, `${file} must stay within the 500 physical LOC ceiling`).toBeLessThanOrEqual(500);
     }
@@ -57,7 +58,7 @@ describe("SQL baseline migration guard", () => {
       }
     }
 
-    const duplicates = [...definitions.entries()].filter(([, files]) => files.length > 1);
+    const duplicates = [...definitions.entries()].filter(([, files]) => files.filter((file) => EXPECTED_FILES.includes(file)).length > 1);
     expect(duplicates, "clean baseline must not rely on later function overrides").toEqual([]);
   });
 

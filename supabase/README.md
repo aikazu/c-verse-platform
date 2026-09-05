@@ -5,10 +5,10 @@
 
 ## Baseline
 
-`migrations/` berisi 18 file final berurutan, maksimum 500 baris fisik
-per file (termasuk komentar/baris kosong). Hardening grant, masking bid
-anonim, dan object key KYC R2 sudah dilebur; tidak ada override 19/20
-atau migrasi KYC tambahan. Guard Vitest memeriksa batas dan duplikasi.
+`migrations/` berisi baseline 18 file berurutan ditambah dua migrasi
+forward-only lencana (katalog dan engine, 2026-09-05). Setiap file maksimum
+500 baris fisik, termasuk komentar/baris kosong. Baseline tetap utuh;
+guard Vitest memeriksa urutan, batas baris, serta duplikasi fungsi baseline.
 
 ```sh
 npx supabase start
@@ -40,14 +40,15 @@ reset.
 
 ## Skenario seed
 
-Lima file terurut membangun 10 akun sintetis (+ treasury), 8 drop, dan 58 kartu:
+Enam file terurut membangun 15 akun sintetis (+ treasury), 9 Drop, dan 184 kartu:
 
 | File | Tanggung jawab |
 |---|---|
-| `seeds/00_identities.sql` | Akun OTP, profil/avatar, kreator, KYC dummy, badge |
+| `seeds/00_identities.sql` | Akun OTP, profil/avatar, kreator, KYC dummy; katalog 43 lencana berasal dari migrasi |
 | `seeds/10_catalog.sql` | Artwork/mesh, fase drop, stok dan kondisi kartu |
 | `seeds/20_economy.sql` | Order, raffle, ownership, bid, shipment, QC, dispute |
 | `seeds/25_ledgers.sql` | C-Coin, C-Gems, lot matang, payout, treasury, XP |
+| `seeds/27_achievements.sql` | Arsip 126 kartu hadiah, lima persona Bronze-Nova, backfill lencana berdasarkan kriteria |
 | `seeds/30_assertions.sql` | Read model admin/notifikasi dan assertion lintas domain |
 
 | Persona / fixture | Cakupan |
@@ -59,6 +60,7 @@ Lima file terurut membangun 10 akun sintetis (+ treasury), 8 drop, dan 58 kartu:
 | Rival | Pemilik `card-aespa-live-02`, target secondary market |
 | Ghost / Marked | Profil anonim / suspended untuk pengujian masking |
 | Atlas / Luna | Peserta tambahan agar 10 pemenang raffle benar-benar unik |
+| `badge.bronze@cverse.id` sampai `badge.nova@cverse.id` | Lima persona pencapaian dengan 1/5/15/30/75 kartu hadiah, wallet nol, tier Collector I-V; login OTP lokal |
 | Treasury | Akun sistem terpisah, ledger pendapatan platform |
 | Katalog | Live FCFS/raffle, scheduled, signed, sold-out, draft, Creator Seed |
 | Transaksi | Primary ke vault, secondary, ship-out pasca-vault, ledger dua token |
@@ -80,6 +82,30 @@ cache yang berdiri sendiri. Fixture payout mengurangi lot matang secara FIFO;
 setiap royalty/settlement/support memiliki sumber pembayar, setiap pendapatan
 platform memiliki kredit treasury, dan refund raffle/bid memiliki hold awal.
 Nilai ini berlaku tepat setelah reset, sebelum tes yang memutasi saldo.
+
+### Rework lencana dan seed pencapaian
+
+Migrasi `20260905071602_badge_catalog.sql` menyimpan 43 definisi dan
+`20260905071652_badge_engine.sql` memasang evaluator atomik serta backfill.
+Keduanya mempertahankan snapshot XP dan perolehan yang sudah ada. Reset
+seed pengembangan memakai reward baru; tidak ada insert hadiah XP buatan
+ke `user_badges`. Arsip Nova berisi kartu hadiah, sehingga tidak menambah
+spend, order, atau progres pembelian primer/sekunder. NFC arsip berstatus
+`unknown`, bukan klaim pernah diverifikasi dengan perangkat nyata.
+
+Tingkat lencana yang diharapkan dapat dilihat di `/badges` dan profil
+`/u/badge-bronze` sampai `/u/badge-nova`. Lencana nonaktif tetap terlihat
+di daftar Admin dan dapat diaktifkan kembali. Pengguna lama yang baru
+memenuhi syarat setelah pengaktifan dapat dievaluasi pada event berikutnya
+atau melalui backfill service-only.
+
+```sh
+node supabase/tests/badge_engine_test.mjs postgresql://postgres:postgres@127.0.0.1:54322/postgres
+pnpm test:e2e e2e/specs/18-badges.spec.ts --project=web
+```
+
+Tes integrasi memakai namespace fixture sendiri dan membersihkannya.
+Jangan jalankan seed maupun tes mutasi tersebut ke database hosted.
 
 KYC hanya memakai data dummy dan object key placeholder; file identitas tidak
 dibuat atau diunggah. Preview dokumen KYC seed dapat mengembalikan 404 sampai

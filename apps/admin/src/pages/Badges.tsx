@@ -1,32 +1,33 @@
+import { BADGE_FAMILIES, BADGE_TIERS, type Badge, badgeAssetPath, parseBadgeCriteria } from "@c-verse/shared";
 import { useEffect, useState } from "react";
 import { useConfirm } from "../components/ConfirmProvider";
 import { apiFetch } from "../lib/api";
-import { supabase } from "../lib/supabase";
-import type { BadgeRow } from "../lib/types";
 import { errMessage } from "../lib/utils";
+import "./badges.css";
 
 export function BadgesPage() {
   const confirm = useConfirm();
-  const [rows, setRows] = useState<BadgeRow[]>([]);
+  const [rows, setRows] = useState<Badge[]>([]);
+  const [search, setSearch] = useState("");
   const [msg, setMsg] = useState<string | null>(null);
   const [loadError, setLoadError] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
 
   async function load() {
     setLoadError(false);
-    const { data, error } = await supabase.from("badges").select("*").order("created_at", { ascending: false });
-    if (error) {
+    try {
+      const data = await apiFetch<{ badges: Badge[] }>("/api/gamification/badges/admin/catalog");
+      setRows(data.badges);
+    } catch {
       setLoadError(true);
-      return;
     }
-    setRows((data ?? []) as BadgeRow[]);
   }
   useEffect(() => {
     load();
   }, []);
 
-  async function toggleActive(b: BadgeRow) {
-    const isCurrentlyActive = b.is_active ?? true;
+  async function toggleActive(b: Badge) {
+    const isCurrentlyActive = b.isActive ?? true;
     const willDeactivate = isCurrentlyActive;
     if (
       !(await confirm({
@@ -41,7 +42,7 @@ export function BadgesPage() {
     setBusyId(b.id);
     try {
       await apiFetch(`/api/gamification/badges/${b.id}`, { method: "PATCH", body: JSON.stringify({ isActive: !isCurrentlyActive }) });
-      load();
+      await load();
     } catch (err) {
       setMsg(errMessage(err));
     } finally {
@@ -53,7 +54,9 @@ export function BadgesPage() {
     <div className="admin-page">
       <div className="admin-page-head">
         <h2>Lencana</h2>
-        <p className="muted">Aktifkan/nonaktifkan lencana (via API, ter-audit)</p>
+        <p className="muted">
+          Lencana bertingkat dan hadiah XP. Menonaktifkan lencana menghentikan hadiah baru; pencapaian yang sudah diperoleh tetap tersimpan.
+        </p>
       </div>
       {msg && (
         <div className="admin-msg" role="status" aria-live="polite">
@@ -69,12 +72,18 @@ export function BadgesPage() {
         </div>
       )}
       <div className="card">
-        <div className="admin-table-head">Daftar — {rows.length}</div>
+        <div className="admin-table-head">
+          {rows.length} lencana · {rows.filter((badge) => badge.isActive !== false).length} aktif
+        </div>
+        <label className="admin-badge-search">
+          Cari lencana
+          <input type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Nama, kode, atau kriteria" />
+        </label>
         <div className="table-wrap">
           <table>
             <thead>
               <tr>
-                <th>Kode</th>
+                <th>Lambang</th>
                 <th>Nama</th>
                 <th>XP</th>
                 <th>Kriteria</th>
@@ -83,29 +92,45 @@ export function BadgesPage() {
               </tr>
             </thead>
             <tbody>
-              {rows.length === 0 ? (
+              {rows.filter((badge) => `${badge.name} ${badge.code} ${badge.description}`.toLowerCase().includes(search.toLowerCase()))
+                .length === 0 ? (
                 <tr>
                   <td colSpan={6} className="empty-state">
-                    Belum ada data
+                    {search ? "Tidak ada lencana yang cocok" : "Belum ada data"}
                   </td>
                 </tr>
               ) : (
-                rows.map((r) => (
-                  <tr key={r.id}>
-                    <td style={{ fontWeight: 700, fontFamily: "monospace", fontSize: 11 }}>{r.code}</td>
-                    <td>{r.name}</td>
-                    <td>{r.xp_reward ?? 0}</td>
-                    <td style={{ fontFamily: "monospace", fontSize: 11, maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis" }}>
-                      {typeof r.criteria === "string" ? r.criteria : JSON.stringify(r.criteria)}
-                    </td>
-                    <td>{String(r.is_active ?? true)}</td>
-                    <td>
-                      <button className="btn-ghost admin-mini" onClick={() => toggleActive(r)} disabled={busyId === r.id}>
-                        {(r.is_active ?? true) ? "Nonaktifkan" : "Aktifkan"}
-                      </button>
-                    </td>
-                  </tr>
-                ))
+                rows
+                  .filter((badge) => `${badge.name} ${badge.code} ${badge.description}`.toLowerCase().includes(search.toLowerCase()))
+                  .map((r) => {
+                    const criteria = parseBadgeCriteria(r.criteria);
+                    const tier = BADGE_TIERS.find((entry) => entry.tier === criteria?.tier);
+                    const family = BADGE_FAMILIES.find((entry) => entry.id === criteria?.family);
+                    return (
+                      <tr key={r.id}>
+                        <td>
+                          <span className="admin-badge-art" style={{ borderColor: tier?.color }}>
+                            <img src={badgeAssetPath(criteria?.family ?? "special", r.code)} alt="" width={64} height={64} loading="lazy" />
+                          </span>
+                        </td>
+                        <td>
+                          <strong>{r.name}</strong>
+                          <div className="muted">
+                            {family?.name ?? "Khusus"} · {tier?.name ?? "Lencana"}
+                          </div>
+                          <code>{r.code}</code>
+                        </td>
+                        <td>+{r.xpReward ?? r.xp} XP</td>
+                        <td className="admin-badge-description">{r.description}</td>
+                        <td>{r.isActive !== false ? "Aktif" : "Nonaktif"}</td>
+                        <td>
+                          <button className="btn-ghost admin-mini" onClick={() => toggleActive(r)} disabled={busyId === r.id}>
+                            {(r.isActive ?? true) ? "Nonaktifkan" : "Aktifkan"}
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })
               )}
             </tbody>
           </table>

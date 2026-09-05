@@ -1,0 +1,5 @@
+.admin-badge-search { display: grid; gap: 6px; max-width: 440px; padding: 16px; color: var(--text-muted); }
+.admin-badge-search input { padding: 10px 12px; }
+.admin-badge-art { display: inline-flex; padding: 4px; border: 1px solid; border-radius: 12px; background: #081321; isolation: isolate; }
+.admin-badge-art img { object-fit: contain; mix-blend-mode: screen; }
+.admin-badge-description { min-width: 240px; max-width: 380px; white-space: normal; }

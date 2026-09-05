@@ -1,10 +1,10 @@
-import type { Badge, LeaderboardEntry, LeaderboardType } from "@c-verse/shared";
+import type { LeaderboardEntry, LeaderboardType } from "@c-verse/shared";
 import { LEVEL_TIERS, type LevelTier } from "@c-verse/shared";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useSearchParams } from "react-router-dom";
+import { BadgeEmblem } from "../components/BadgeEmblem";
 import { PageHero } from "../components/PageHero";
 import { api } from "../lib/api";
-import type { ApiBadgesResponse } from "../lib/api-types";
 import { ErrorState, LoadingState } from "../lib/QueryStates";
 
 // Tier validator over the 10-value Galactic Rank Ladder (single source: shared).
@@ -75,16 +75,11 @@ export default function Leaderboard() {
     queryKey: ["leaderboard", activeType],
     queryFn: () => api.leaderboard({ type: activeType, limit: 50 }),
   });
-  const { data: badgesData } = useQuery<ApiBadgesResponse>({
-    queryKey: ["badges"],
-    queryFn: () => api.badges(),
-  });
 
   if (isLoading) return <LoadingState />;
   if (isError) return <ErrorState onRetry={() => refetch()} label="Gagal memuat peringkat" />;
 
   const board: LeaderboardEntry[] = data?.leaderboard ?? [];
-  const badges: Badge[] = badgesData?.badges ?? [];
 
   // Tier coloring is only meaningful on the XP/Level board — on Kolektor or
   // Lencana the tier still reflects the player's XP level, but painting it
@@ -312,30 +307,21 @@ export default function Leaderboard() {
         </>
       )}
 
-      {badges.length > 0 && (
-        <section aria-label="Galeri lencana">
-          <div className="section-head">
-            <span className="section-eyebrow">LENCANA</span>
-            <span className="section-count">{badges.length}</span>
-            <span className="section-rule" aria-hidden="true" />
-          </div>
-          <div className="badge-rail">
-            {badges.map((b) => {
-              const xpValue = b.xpReward ?? b.xp;
-              return (
-                <article key={b.id} className="badge-tile" title={b.description}>
-                  <div className="tile-icon" aria-hidden="true">
-                    {b.icon || "✦"}
-                  </div>
-                  <div className="tile-name">{b.name}</div>
-                  <div className="tile-desc">{b.description}</div>
-                  {xpValue ? <div className="tile-xp">{xpValue} XP</div> : null}
-                </article>
-              );
-            })}
-          </div>
-        </section>
-      )}
+      <section
+        className="card card-pad"
+        aria-label="Katalog lencana"
+        style={{ display: "flex", alignItems: "center", gap: 18, flexWrap: "wrap" }}
+      >
+        <BadgeEmblem family="collector" tier={5} size="hero" label="Contoh emblem lencana Nova" />
+        <div>
+          <span className="section-eyebrow">KABINET PRESTASI</span>
+          <h2 className="section-title">43 lencana dalam delapan keluarga</h2>
+          <p>Pelajari kriteria, rarity, dan kemajuan koleksimu di galeri lencana.</p>
+        </div>
+        <Link className="btn-ghost" to="/badges" style={{ marginLeft: "auto" }}>
+          Buka galeri lencana
+        </Link>
+      </section>
     </div>
   );
 }

@@ -244,6 +244,42 @@ begin
      or (select count(*) from public.qc_defects)<3 or (select count(*) from public.disputes)<5 then
     failures:=array_append(failures,'admin read-model breadth missing'); end if;
 
+  if (select count(*) from public.badges)<>43 or (select count(distinct code) from public.badges)<>43 then
+    failures:=array_append(failures,'achievement catalog must contain 43 distinct definitions'); end if;
+  if exists (select 1 from (values
+      ('first_drop','First Light',1),('collector_5','Collector',5),('collector_tier_3','Card Keeper',15),
+      ('collector_tier_4','Grand Collector',30),('collector_tier_5','Collection Nova',75)
+    ) expected(code,name,min) where not exists (
+      select 1 from public.badges b where b.code=expected.code and b.name=expected.name
+        and (b.criteria->>'min')::integer=expected.min
+    )) then failures:=array_append(failures,'collector tier names or thresholds drifted'); end if;
+  if not exists (select 1 from public.drops where id='drop-nova-archive-gifts' and total_units=126
+    and signed_count=13 and unsigned_count=113 and sold_count=0 and status='closed')
+    or (select count(*) from public.cards where drop_id='drop-nova-archive-gifts')<>126 then
+    failures:=array_append(failures,'achievement archive inventory missing'); end if;
+  if exists (select 1 from (values
+      ('00000000-0000-4000-8000-000000000101'::uuid,1,'first_drop'),
+      ('00000000-0000-4000-8000-000000000102'::uuid,5,'collector_5'),
+      ('00000000-0000-4000-8000-000000000103'::uuid,15,'collector_tier_3'),
+      ('00000000-0000-4000-8000-000000000104'::uuid,30,'collector_tier_4'),
+      ('00000000-0000-4000-8000-000000000105'::uuid,75,'collector_tier_5')
+    ) expected(user_id,cards,highest_code) where
+      (select count(distinct card_id) from public.ownership_history where owner_id=expected.user_id)<>expected.cards
+      or not exists (select 1 from public.user_badges ub join public.badges b on b.id=ub.badge_id
+        where ub.user_id=expected.user_id and b.code=expected.highest_code)
+  ) then failures:=array_append(failures,'achievement tier personas missing their earned collector tier'); end if;
+  if exists (select 1 from public.users u left join public.user_badges ub on ub.user_id=u.id
+    where u.id between '00000000-0000-4000-8000-000000000101' and '00000000-0000-4000-8000-000000000105'
+    group by u.id,u.total_xp,u.cumulative_spend_ccoin
+    having u.total_xp<>u.cumulative_spend_ccoin+coalesce(sum(ub.xp_reward_snapshot),0)) then
+    failures:=array_append(failures,'achievement persona XP lacks badge snapshot accounting'); end if;
+  if exists (select 1 from public.wallet_transactions where user_id between
+      '00000000-0000-4000-8000-000000000101' and '00000000-0000-4000-8000-000000000105')
+    or exists (select 1 from public.wallets where user_id between
+      '00000000-0000-4000-8000-000000000101' and '00000000-0000-4000-8000-000000000105'
+      and (balance_ccoin<>0 or balance_gems<>0 or total_spent_ccoin<>0 or total_topup_ccoin<>0)) then
+    failures:=array_append(failures,'achievement personas must not have wallet activity'); end if;
+
   if cardinality(failures)>0 then
     raise exception 'seed invariant failure: %',array_to_string(failures,'; ');
   end if;

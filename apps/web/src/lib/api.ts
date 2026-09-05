@@ -1,6 +1,7 @@
 import type { Drop, LeaderboardType, Order, Shipment, Wallet } from "@c-verse/shared";
 import type {
   ApiAcceptBidResponse,
+  ApiBadgeProgressResponse,
   ApiBadgesResponse,
   ApiBidResponse,
   ApiBuyoutResponse,
@@ -290,6 +291,7 @@ export const api = {
     return req<ApiLeaderboardResponse>(`/gamification/leaderboard${qs ? `?${qs}` : ""}`);
   },
   badges: () => req<ApiBadgesResponse>("/gamification/badges"),
+  badgeProgress: () => req<ApiBadgeProgressResponse>("/gamification/badges/me/progress"),
 
   // kyc
   // Multipart is proxied through the Worker into private R2; the browser never

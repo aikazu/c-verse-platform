@@ -15,7 +15,12 @@ insert into auth.users (
   ('00000000-0000-4000-8000-000000000007','00000000-0000-0000-0000-000000000000','authenticated','authenticated','ghost@cverse.id',null,now(),'{"provider":"email","providers":["email"]}','{}','','','','',now()-interval '90 days',now()),
   ('00000000-0000-4000-8000-000000000008','00000000-0000-0000-0000-000000000000','authenticated','authenticated','marked@cverse.id',null,now(),'{"provider":"email","providers":["email"]}','{}','','','','',now()-interval '90 days',now()),
   ('00000000-0000-4000-8000-000000000009','00000000-0000-0000-0000-000000000000','authenticated','authenticated','atlas@cverse.id',null,now(),'{"provider":"email","providers":["email"]}','{}','','','','',now()-interval '90 days',now()),
-  ('00000000-0000-4000-8000-00000000000a','00000000-0000-0000-0000-000000000000','authenticated','authenticated','luna@cverse.id',null,now(),'{"provider":"email","providers":["email"]}','{}','','','','',now()-interval '90 days',now())
+  ('00000000-0000-4000-8000-00000000000a','00000000-0000-0000-0000-000000000000','authenticated','authenticated','luna@cverse.id',null,now(),'{"provider":"email","providers":["email"]}','{}','','','','',now()-interval '90 days',now()),
+  ('00000000-0000-4000-8000-000000000101','00000000-0000-0000-0000-000000000000','authenticated','authenticated','badge.bronze@cverse.id',null,now(),'{"provider":"email","providers":["email"]}','{}','','','','',now()-interval '12 days',now()),
+  ('00000000-0000-4000-8000-000000000102','00000000-0000-0000-0000-000000000000','authenticated','authenticated','badge.silver@cverse.id',null,now(),'{"provider":"email","providers":["email"]}','{}','','','','',now()-interval '12 days',now()),
+  ('00000000-0000-4000-8000-000000000103','00000000-0000-0000-0000-000000000000','authenticated','authenticated','badge.gold@cverse.id',null,now(),'{"provider":"email","providers":["email"]}','{}','','','','',now()-interval '12 days',now()),
+  ('00000000-0000-4000-8000-000000000104','00000000-0000-0000-0000-000000000000','authenticated','authenticated','badge.astral@cverse.id',null,now(),'{"provider":"email","providers":["email"]}','{}','','','','',now()-interval '12 days',now()),
+  ('00000000-0000-4000-8000-000000000105','00000000-0000-0000-0000-000000000000','authenticated','authenticated','badge.nova@cverse.id',null,now(),'{"provider":"email","providers":["email"]}','{}','','','','',now()-interval '12 days',now())
 on conflict (id) do nothing;
 
 insert into public.users (
@@ -31,7 +36,12 @@ insert into public.users (
   ('00000000-0000-4000-8000-000000000007','ghost@cverse.id','Ghost Collector','ghost','user',null,true,null,false,false),
   ('00000000-0000-4000-8000-000000000008','marked@cverse.id','Marked Account','marked','user',null,false,'tos_violation_2026_08',false,false),
   ('00000000-0000-4000-8000-000000000009','atlas@cverse.id','Atlas Collector','atlas','user',null,false,null,false,false),
-  ('00000000-0000-4000-8000-00000000000a','luna@cverse.id','Luna Collector','luna','user',null,false,null,false,false)
+  ('00000000-0000-4000-8000-00000000000a','luna@cverse.id','Luna Collector','luna','user',null,false,null,false,false),
+  ('00000000-0000-4000-8000-000000000101','badge.bronze@cverse.id','Badge Bronze','badge-bronze','user',null,false,null,false,false),
+  ('00000000-0000-4000-8000-000000000102','badge.silver@cverse.id','Badge Silver','badge-silver','user',null,false,null,false,false),
+  ('00000000-0000-4000-8000-000000000103','badge.gold@cverse.id','Badge Gold','badge-gold','user',null,false,null,false,false),
+  ('00000000-0000-4000-8000-000000000104','badge.astral@cverse.id','Badge Astral','badge-astral','user',null,false,null,false,false),
+  ('00000000-0000-4000-8000-000000000105','badge.nova@cverse.id','Badge Nova','badge-nova','user',null,false,null,false,false)
 on conflict (id) do update set
   email=excluded.email, display_name=excluded.display_name, username=excluded.username,
   role=excluded.role, avatar_url=excluded.avatar_url, is_anonymous=excluded.is_anonymous,
@@ -48,17 +58,11 @@ where id in (
   '00000000-0000-4000-8000-000000000003','00000000-0000-4000-8000-000000000004',
   '00000000-0000-4000-8000-000000000005','00000000-0000-4000-8000-000000000006',
   '00000000-0000-4000-8000-000000000007','00000000-0000-4000-8000-000000000008',
-  '00000000-0000-4000-8000-000000000009','00000000-0000-4000-8000-00000000000a'
+  '00000000-0000-4000-8000-000000000009','00000000-0000-4000-8000-00000000000a',
+  '00000000-0000-4000-8000-000000000101','00000000-0000-4000-8000-000000000102',
+  '00000000-0000-4000-8000-000000000103','00000000-0000-4000-8000-000000000104',
+  '00000000-0000-4000-8000-000000000105'
 ) on conflict (user_id) do nothing;
-
-insert into public.badges (id,code,name,description,icon,icon_url,xp,xp_reward,criteria,is_active) values
-  ('b1','first_drop','First Drop','Beli kartu pertama','CARD','CARD',100,100,'{"type":"collect_count","min":1}',true),
-  ('b2','first_bid','First Bid','Pasang bid pertama','BID','BID',50,50,'{"type":"first_bid"}',true),
-  ('b3','collector_5','Collector','Miliki lima kartu','FIVE','FIVE',200,200,'{"type":"collect_count","min":5}',true),
-  ('b4','curator','Curator','Miliki sepuluh kartu kreator yang sama','TEN','TEN',300,300,'{"type":"creator_cards","min":10}',true),
-  ('b5','whale','Whale','Pasang bid di atas 100 C-Coin','WHALE','WHALE',500,500,'{"type":"single_bid_gt","min":100}',true),
-  ('b6','verified','Verified','KYC terverifikasi','KYC','KYC',50,50,'{"type":"kyc_verified"}',true)
-on conflict (id) do nothing;
 
 insert into public.creators (
   id,user_id,handle,total_followers_combined,status,bank_account,kyc_completed,notes
@@ -79,11 +83,3 @@ insert into public.kyc_records (
   ('kyc-rival','00000000-0000-4000-8000-000000000006','Rival Kolektor','3174000000000006','Bandung','1991-05-05','00000000-0000-4000-8000-000000000006/ktp-rival.jpg',null,'00000000-0000-4000-8000-000000000006/selfie-rival.jpg','approved'),
   ('kyc-marked','00000000-0000-4000-8000-000000000008','Marked Account','3174000000000008','Bandung','1990-06-06','00000000-0000-4000-8000-000000000008/ktp-marked.jpg',null,'00000000-0000-4000-8000-000000000008/selfie-marked.jpg','rejected')
 on conflict (id) do nothing;
-
--- Approved KYC rows are direct fixtures, so materialize their badge explicitly.
-insert into public.user_badges (user_id,badge_id,earned_at,awarded_at,xp_reward_snapshot) values
-  ('00000000-0000-4000-8000-000000000003','b6',now()-interval '60 days',now()-interval '60 days',50),
-  ('00000000-0000-4000-8000-000000000004','b6',now()-interval '45 days',now()-interval '45 days',50),
-  ('00000000-0000-4000-8000-000000000005','b6',now()-interval '30 days',now()-interval '30 days',50),
-  ('00000000-0000-4000-8000-000000000006','b6',now()-interval '20 days',now()-interval '20 days',50)
-on conflict (user_id,badge_id) do nothing;

@@ -51,15 +51,16 @@ export async function listLeaderboard(type: LeaderboardType, creatorId: string |
   }));
 }
 
-export async function listBadges(): Promise<BadgeDef[]> {
+export async function listBadges(includeInactive = false): Promise<BadgeDef[]> {
   const db = readDb();
-  const { data, error } = await db.from("badges").select("*").order("id");
+  const query = db.from("badges").select("*").order("id");
+  const { data, error } = await (includeInactive ? query : query.eq("is_active", true));
   if (error) throw new Error(error.message);
   return (data ?? []).map((r) => mapBadgeRow(r as Record<string, unknown>));
 }
 
 export async function listUserBadges(userId: string): Promise<(UserBadge & { badge: BadgeDef | undefined })[]> {
-  const badges = await listBadges();
+  const badges = await listBadges(true);
   const badgeById = new Map<string, BadgeDef>(badges.map((b) => [b.id, b]));
   const db = readDb();
   const { data, error } = await db.from("user_badges").select("*").eq("user_id", userId);
@@ -68,4 +69,10 @@ export async function listUserBadges(userId: string): Promise<(UserBadge & { bad
     const ub = mapUserBadgeRow(r as Record<string, unknown>);
     return { ...ub, badge: badgeById.get(ub.badgeId) };
   });
+}
+
+export async function getBadgeProgress(userId: string): Promise<Record<string, number>> {
+  const { data, error } = await readDb().rpc("badge_progress", { p_user: userId });
+  if (error) throw new Error(error.message);
+  return (data ?? {}) as Record<string, number>;
 }

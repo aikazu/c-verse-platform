@@ -30,6 +30,7 @@ const Landing = lazy(() => import("./pages/Landing"));
 const Legal = lazy(() => import("./pages/Legal"));
 const Leaderboard = lazy(() => import("./pages/Leaderboard"));
 const AuthForm = lazy(() => import("./pages/AuthForm"));
+const Badges = lazy(() => import("./pages/Badges"));
 const ManageCards = lazy(() => import("./pages/ManageCards"));
 const Marketplace = lazy(() => import("./pages/Marketplace"));
 const Notifications = lazy(() => import("./pages/Notifications"));
@@ -156,6 +157,7 @@ function UserMenu() {
             <MenuLink to="/notifications" label="Notifikasi" badge={unread} onClick={() => setOpen(false)} />
             <MenuLink to="/orders" label="Pesanan" onClick={() => setOpen(false)} />
             <MenuLink to="/collection" label="Koleksi" onClick={() => setOpen(false)} />
+            <MenuLink to="/badges" label="Lencana" onClick={() => setOpen(false)} />
             <MenuLink to="/me/manage" label="Kelola C.Card" onClick={() => setOpen(false)} />
             <MenuLink to="/me/manage/verify-shipment" label="Kirim ke Vault" onClick={() => setOpen(false)} />
             <MenuLink to="/wallet" label="Dompet" onClick={() => setOpen(false)} />
@@ -351,6 +353,7 @@ function AppRoutes() {
             <Route path="/me/kyc" element={<Kyc />} />
             <Route path="/notifications" element={<Notifications />} />
             <Route path="/leaderboard" element={<Leaderboard />} />
+            <Route path="/badges" element={<Badges />} />
             <Route path="/c/:username" element={<CreatorPage />} />
             <Route path="/u/:username" element={<PublicProfile />} />
             <Route path="/login" element={<AuthForm />} />

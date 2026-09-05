@@ -2,6 +2,7 @@ import type { UserBadge as SharedUserBadge } from "@c-verse/shared";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useParams } from "react-router-dom";
 import { Avatar } from "../components/Avatar";
+import { BadgeEmblem } from "../components/BadgeEmblem";
 import { LevelBar } from "../components/LevelBar";
 import { PageHero } from "../components/PageHero";
 import { ApiError, api } from "../lib/api";
@@ -182,10 +183,15 @@ export default function PublicProfile() {
         {badges.length > 0 && (
           <div className="pp-badges" aria-label="Lencana kolektor">
             {badges.map((ub: SharedUserBadge) => (
-              <span key={ub.badgeId} className="pill pill-warn pp-badge">
-                {ub.badge?.icon ? `${ub.badge.icon} ` : ""}
-                {ub.badge?.name ?? ub.badgeId}
-              </span>
+              <Link
+                key={ub.badgeId}
+                to="/badges"
+                className="pill pill-warn pp-badge"
+                title={`Lihat ${ub.badge?.name ?? "lencana"} di galeri`}
+              >
+                {ub.badge ? <BadgeEmblem badge={ub.badge} size="compact" label={`${ub.badge.name}, lencana kolektor`} /> : null}
+                <span>{ub.badge?.name ?? ub.badgeId}</span>
+              </Link>
             ))}
           </div>
         )}
