@@ -2,7 +2,6 @@ import type { Badge, LeaderboardEntry, LeaderboardType } from "@c-verse/shared";
 import { LEVEL_TIERS, type LevelTier } from "@c-verse/shared";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useSearchParams } from "react-router-dom";
-import { PeringkatVisual } from "../components/HeroVisuals";
 import { PageHero } from "../components/PageHero";
 import { api } from "../lib/api";
 import type { ApiBadgesResponse } from "../lib/api-types";
@@ -189,7 +188,7 @@ export default function Leaderboard() {
 
   return (
     <div className="page-stack">
-      <PageHero heroVisual={<PeringkatVisual />} channel="04" channelLabel="PERINGKAT" title="Peringkat" ticker={heroTicker} />
+      <PageHero channel="04" channelLabel="PERINGKAT" title="Peringkat" ticker={heroTicker} />
       <div className="lb-tabs" role="tablist" aria-label="Papan peringkat">
         {TABS.map((t) => {
           const isActive = t.value === activeType;

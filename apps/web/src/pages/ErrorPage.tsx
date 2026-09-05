@@ -1,4 +1,4 @@
-import { useLocation, useNavigate } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 
 // Error page arcade (docs/02 tone of voice): informatif — WHAT happened,
 // WHY kemungkinan, WHAT yang bisa dilakukan — plus detail teknis yang bisa
@@ -28,7 +28,6 @@ const CODE_LABELS: Record<number, string> = {
 };
 
 export default function ErrorPage({ code, title, message, hint, detail, onRetry }: ErrorPageProps) {
-  const nav = useNavigate();
   const codeLabel = CODE_LABELS[code] ?? "ERROR";
   return (
     <section className="error-page" role="alert" aria-live="assertive">
@@ -42,9 +41,9 @@ export default function ErrorPage({ code, title, message, hint, detail, onRetry 
       <p className="error-message">{message}</p>
       {hint && <p className="error-hint">{hint}</p>}
       <div className="error-actions">
-        <button className="btn-gold" onClick={() => nav("/")}>
-          ◀ Insert Coin — Home
-        </button>
+        <Link className="btn-gold" to="/">
+          Kembali ke beranda
+        </Link>
         {onRetry ? (
           <button className="btn-ghost" onClick={onRetry}>
             ↻ Coba Lagi
@@ -54,9 +53,9 @@ export default function ErrorPage({ code, title, message, hint, detail, onRetry 
             ↻ Muat Ulang
           </button>
         )}
-        <button className="btn-ghost" onClick={() => nav("/drops")}>
+        <Link className="btn-ghost" to="/drops">
           Lihat Drops
-        </button>
+        </Link>
       </div>
       {detail != null && detail.trim() !== "" && (
         <details className="error-detail">
@@ -75,9 +74,9 @@ export function NotFoundPage() {
   return (
     <ErrorPage
       code={404}
-      title="C.Card Tidak Ditemukan di Deck"
-      message={`Halaman "${location.pathname}" tidak ada — mungkin link salah, drop sudah closed, atau C.Card dipindahkan.`}
-      hint="Cek kembali link dari seller/creator, atau kembali ke beranda dan telusuri drops yang sedang live."
+      title="Halaman tidak ditemukan"
+      message={`Alamat "${location.pathname}" tidak terdaftar.`}
+      hint="Periksa tautan atau buka daftar drops."
       detail={`path: ${location.pathname}\nsearch: ${location.search || "-"}\nreferrer: ${document.referrer || "-"}`}
     />
   );

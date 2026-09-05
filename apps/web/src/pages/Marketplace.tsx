@@ -1,7 +1,6 @@
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { MarketVisual } from "../components/HeroVisuals";
 import { PageHero } from "../components/PageHero";
 import { api, ccoinToIdr, formatIdr } from "../lib/api";
 import type { ApiListingsResponse, ApiMarketplaceEntry } from "../lib/api-types";
@@ -77,7 +76,7 @@ export default function Marketplace() {
 
   const heroTicker = (
     <div className="hero-ticker" aria-hidden="true">
-      <span className="ticker-label">Order Book</span>
+      <span className="ticker-label">Listing</span>
       <div className="ticker-track">
         <div className="ticker-scroll">
           <span className="ticker-item">
@@ -160,7 +159,7 @@ export default function Marketplace() {
 
   return (
     <div className="page-stack">
-      <PageHero heroVisual={<MarketVisual />} channel="02" channelLabel="MARKET" title="Marketplace" ticker={heroTicker} />
+      <PageHero channel="02" channelLabel="MARKET" title="Marketplace" ticker={heroTicker} />
 
       <div className="toolbar" role="search">
         <input

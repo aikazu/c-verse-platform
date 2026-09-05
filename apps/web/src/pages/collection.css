@@ -24,7 +24,6 @@
 	font-style: italic;
 	font-weight: 300;
 	color: var(--gold);
-	text-shadow: 0 0 14px rgba(255, 201, 77, 0.42);
 }
 
 .card.kl-level {
@@ -114,13 +113,11 @@
 	overflow: hidden;
 	text-decoration: none;
 	color: inherit;
-	transition:
-		border-color var(--motion-fast) ease,
-		transform var(--motion-fast) ease;
+	transition: border-color var(--motion-fast) ease;
 }
 
 .kl-tile:hover {
-	border-color: var(--border-strong);
+	border-color: var(--info);
 }
 
 .kl-thumb {

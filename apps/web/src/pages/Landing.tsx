@@ -1,200 +1,92 @@
 import { Link } from "react-router-dom";
-
-const TICKER_ITEMS = [
-  "NEW DROP SETIAP MINGGU",
-  "EDISI TERBATAS DARI KREATOR FAVORIT",
-  "KEASLIAN TERVERIFIKASI NFC",
-  "1 C-COIN = RP 10.000",
-  "1 C.CARD PER USER PER DROP",
-  "JUAL & BID DI MARKETPLACE",
-];
-
-// Terminology consistency: marketing copy boleh "C.CARD" all-caps pada hero
-// (brand emblem); prosa UI lain konsisten "C.Card" per docs/00_readme.md §6.
+import "./landing.css";
 
 const STEPS = [
   {
-    num: "01",
-    title: "PILIH DROP",
-    desc: "Masuk ke drop kreator favoritmu dan amankan C.Card edisi terbatas. Satu C.Card per user per drop — begitu habis, tidak ada cetak ulang.",
+    title: "Pilih drop",
+    description: "Ikuti raffle pada pool yang tersedia. Setelah undian, sisa unit dijual langsung.",
+    href: "/drops",
+    action: "Lihat drops",
   },
   {
-    num: "02",
-    title: "TAP NFC",
-    desc: "Sentuh C.Card-mu ke ponsel — keasliannya diverifikasi lewat NFC dalam hitungan detik. Bukan C.Card asli? Tidak akan lolos.",
+    title: "Simpan di Vault",
+    description: "Pembelian masuk ke Vault. Ajukan pengiriman dari koleksi saat ingin menerima kartu fisik.",
+    href: "/legal/shipping",
+    action: "Ketentuan Vault",
   },
   {
-    num: "03",
-    title: "TRADE & LEVEL UP",
-    desc: "Pasang buyout di Marketplace atau bid langsung di Browse. Setiap 1 C-Coin belanja = 1 XP — naik level, buka badge baru.",
-  },
-];
-
-const POWER_UPS = [
-  {
-    icon: "⬡",
-    label: "POWER-UP 1",
-    title: "FISIK PREMIUM",
-    desc: "Bukan sekadar merch. C.Card hadir dalam acrylic 63×88 mm dengan efek holo — bisa dipegang, dipajang, dan dipamerkan.",
-  },
-  {
-    icon: "◈",
-    label: "POWER-UP 2",
-    title: "NFC VERIFIED",
-    desc: "Satu tap ke ponsel, dan C.Card-mu terkonfirmasi asli — instan, di mana saja, tanpa aplikasi tambahan.",
-  },
-  {
-    icon: "₵",
-    label: "POWER-UP 3",
-    title: "C-COIN",
-    desc: "1 C-Coin = Rp 10.000. Top-up dan belanja pakai C-Coin; hasil jual dan royalti masuk sebagai C-Gems.",
+    title: "Jual atau ajukan bid",
+    description: "Beli dari kolektor di Marketplace, atau ajukan bid melalui halaman detail kartu.",
+    href: "/marketplace",
+    action: "Buka Marketplace",
   },
 ];
 
 export default function Landing() {
   return (
     <div className="landing">
-      {/* Coin-slot ticker */}
-      <div className="marquee" aria-hidden="true">
-        <div className="marquee-track">
-          {[0, 1].map((pass) => (
-            <span key={pass}>
-              {TICKER_ITEMS.map((item) => (
-                <span key={`${pass}-${item}`}>★ {item}&nbsp;&nbsp;&nbsp;</span>
-              ))}
-            </span>
-          ))}
-        </div>
-      </div>
-
-      {/* HERO — attract mode */}
-      <section className="hero">
-        <div className="hero-stars" />
-        <div className="hero-stars-2" />
-        <div className="hero-grid-floor" />
-        <div className="hero-inner">
-          <div className="hero-copy">
-            <span className="hero-tag">Perkenalkan C.Card</span>
-            <h1 className="hero-title">
-              C<span className="dot">.</span>VERSE
-            </h1>
-            <p className="hero-sub">Hasil kolaborasi kreator — dicetak terbatas, dibuat untuk dikoleksi</p>
-            <p className="hero-desc">
-              Setiap C.Card tercetak dalam jumlah terbatas bersama kreatornya — acrylic premium dengan efek holo yang enak dipajang. Sentuh
-              ke ponsel, keasliannya langsung terverifikasi lewat <strong>NFC</strong>. Kumpulkan, trade, dan naik level — semuanya di satu
-              tempat.
-            </p>
-            <div className="hero-cta">
-              <Link to="/drops" className="btn-gold btn-xl">
-                ▶ Mulai Koleksimu
-              </Link>
-              <Link to="/marketplace" className="btn-ghost btn-xl">
-                Buka Marketplace
-              </Link>
-            </div>
-            <p className="muted" style={{ marginTop: 10, fontFamily: "var(--font-mono)", fontSize: 12, letterSpacing: "0.04em" }}>
-              Sudah punya akun tapi saldo kosong?{" "}
-              <Link to="/wallet" style={{ color: "var(--gold)", fontWeight: 600 }}>
-                Isi C-Coin →
-              </Link>
-            </p>
-            <p className="insert-coin">
-              Insert coin to continue <span className="coin-slot blink">▮</span>
-            </p>
-          </div>
-
-          <div className="hero-card-scene">
-            <div className="holo-card">
-              <div className="holo-card-top">
-                <span>C.CARD</span>
-                <span>NO.001</span>
-              </div>
-              <span className="holo-emoji">NO.001</span>
-              <span className="holo-name">FIRST DROP</span>
-              <span className="holo-chip">✓ NFC Verified</span>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* HI-SCORE strip */}
-      <div className="hero-score">
-        <div className="hero-score-cell">
-          <div className="hero-score-value">63×88</div>
-          <div className="hero-score-label">MM Acrylic Premium</div>
-        </div>
-        <div className="hero-score-cell">
-          <div className="hero-score-value cyan">1 Tap</div>
-          <div className="hero-score-label">Verifikasi NFC Instan</div>
-        </div>
-        <div className="hero-score-cell">
-          <div className="hero-score-value magenta">Rp 10.000</div>
-          <div className="hero-score-label">Per 1 C-Coin</div>
-        </div>
-      </div>
-
-      <div className="landing-inner">
-        {/* HOW TO PLAY */}
-        <section className="sect">
-          <div className="sect-head">
-            <span className="eyebrow">How to Play</span>
-            <h2 className="h2">
-              Cara Main — <em>3 Langkah</em>
-            </h2>
-          </div>
-          <div className="grid-3">
-            {STEPS.map((s) => (
-              <div key={s.num} className="crt-screen">
-                <div className="step-num">{s.num}</div>
-                <div className="step-title">{s.title}</div>
-                <p className="step-desc">{s.desc}</p>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        {/* POWER-UPS */}
-        <section className="sect">
-          <div className="sect-head">
-            <span className="eyebrow">Power-Ups</span>
-            <h2 className="h2">
-              Kenapa <em>C.Verse</em>
-            </h2>
-          </div>
-          <div className="grid-3">
-            {POWER_UPS.map((p) => (
-              <div key={p.title} className="card card-pad">
-                <div className="power-icon">{p.icon}</div>
-                <div className="power-label">{p.label}</div>
-                <div className="power-title">{p.title}</div>
-                <p className="power-desc">{p.desc}</p>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        {/* ATTRACT MODE CTA */}
-        <section className="attract">
-          <span className="eyebrow" style={{ textAlign: "center" }}>
-            Game Start
-          </span>
-          <h2 className="attract-title" style={{ marginTop: 10 }}>
-            C.Card Pertamamu <em>Sudah Menunggu</em>
-          </h2>
-          <p className="attract-desc">Buat akun gratis, klaim C.Card dari drop berikutnya, dan mulai kumpulkan XP. Papan skor menantimu.</p>
-          <div className="attract-cta">
-            <Link to="/register" className="btn-gold btn-xl">
-              ▶ Buat Akun Gratis
-            </Link>
-            <Link to="/drops" className="btn-ghost btn-xl">
+      <section className="landing-hero" aria-labelledby="landing-title">
+        <div className="landing-copy">
+          <p className="landing-label">C.VERSE / COLLECTIBLE CARD</p>
+          <h1 id="landing-title">C.Card</h1>
+          <p className="landing-description">
+            Kartu fisik edisi terbatas dari kolaborasi kreator. Ikuti drop, simpan di Vault, atau beli dari kolektor lain.
+          </p>
+          <div className="landing-actions">
+            <Link to="/drops" className="btn-gold btn-xl">
               Lihat Drops
             </Link>
+            <Link to="/marketplace" className="btn-ghost btn-xl">
+              Buka Marketplace
+            </Link>
           </div>
-          <p className="press-start">
-            Press Start <span className="blink">▮</span>
-          </p>
-        </section>
-      </div>
+          <p className="landing-payment">Belanja dengan C-Coin. Hasil penjualan dan royalti masuk sebagai C-Gems.</p>
+        </div>
+        <figure className="landing-format">
+          <div className="landing-format-label">FORMAT KARTU</div>
+          <svg viewBox="0 0 320 370" role="img" aria-label="Ukuran kartu 63 kali 88 milimeter">
+            <defs>
+              <pattern id="card-grid" width="20" height="20" patternUnits="userSpaceOnUse">
+                <path d="M20 0H0V20" fill="none" stroke="currentColor" strokeOpacity=".1" />
+              </pattern>
+            </defs>
+            <rect width="320" height="370" fill="url(#card-grid)" />
+            <g fill="none" stroke="currentColor">
+              <rect x="62" y="42" width="196" height="274" rx="6" />
+              <rect x="72" y="52" width="176" height="254" rx="2" strokeOpacity=".25" />
+              <path d="M62 28V16M258 28V16M62 22H258M276 42H288M276 316H288M282 42V316" strokeOpacity=".6" />
+              <path d="M62 329V341M258 329V341M62 335H123M197 335H258" strokeOpacity=".35" />
+            </g>
+            <text x="160" y="14" textAnchor="middle" className="landing-measure">
+              63 MM
+            </text>
+            <text x="306" y="179" textAnchor="middle" transform="rotate(90 306 179)" className="landing-measure">
+              88 MM
+            </text>
+            <text x="160" y="177" textAnchor="middle" className="landing-card-name">
+              C.Card
+            </text>
+            <text x="160" y="337" textAnchor="middle" className="landing-measure">
+              HOLO
+            </text>
+          </svg>
+          <figcaption>Kartu holo dalam pelindung acrylic, dengan chip NFC untuk pemeriksaan keaslian.</figcaption>
+        </figure>
+      </section>
+      <section className="landing-guide" aria-labelledby="landing-guide-title">
+        <h2 id="landing-guide-title">Alur koleksi</h2>
+        <ol>
+          {STEPS.map((step) => (
+            <li key={step.href}>
+              <h3>{step.title}</h3>
+              <p>{step.description}</p>
+              <Link to={step.href}>
+                {step.action} <span aria-hidden="true">↗</span>
+              </Link>
+            </li>
+          ))}
+        </ol>
+      </section>
     </div>
   );
 }

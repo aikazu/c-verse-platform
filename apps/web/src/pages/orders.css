@@ -384,13 +384,13 @@
 	margin-top: 4px;
 }
 
-/* Mono capsule — mirrors global .refresh-btn proportions */
+/* Compact inbox action follows the shared square-corner control language. */
 .od-mark-read {
 	display: inline-flex;
 	align-items: center;
 	gap: 6px;
 	padding: 4px 10px;
-	border-radius: 999px;
+	border-radius: var(--r-1);
 	background: var(--surface-2);
 	border: 1px solid var(--border-strong);
 	color: var(--text-muted);
@@ -398,15 +398,12 @@
 	font-size: 10px;
 	letter-spacing: 0.08em;
 	text-transform: uppercase;
-	transition: color var(--motion-fast), border-color var(--motion-fast), transform var(--motion-fast);
+	transition: color var(--motion-fast), border-color var(--motion-fast), background var(--motion-fast);
 }
 .od-mark-read:hover {
 	color: var(--info);
 	border-color: var(--info);
-	transform: translateY(-1px);
-}
-.od-mark-read:active {
-	transform: translateY(1px);
+	background: var(--info-bg);
 }
 
 .od-empty {

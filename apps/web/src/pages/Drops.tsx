@@ -2,7 +2,6 @@ import { SIGNED_PRICE_DELTA_CCOIN } from "@c-verse/shared";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { DropsVisual } from "../components/HeroVisuals";
 import { PageHero } from "../components/PageHero";
 import { StatusBadge } from "../components/StatusBadge";
 import { api, formatIdr } from "../lib/api";
@@ -195,7 +194,7 @@ export default function Drops() {
 
   const heroTicker = (
     <div className="hero-ticker" aria-hidden="true">
-      <span className="ticker-label">Live Feed</span>
+      <span className="ticker-label">Ringkasan</span>
       <div className="ticker-track">
         <div className="ticker-scroll">
           <span className="ticker-item">
@@ -300,7 +299,7 @@ export default function Drops() {
 
   return (
     <div className="drops-stack">
-      <PageHero heroVisual={<DropsVisual />} channel="01" channelLabel="DROPS" title="Drops" ticker={heroTicker} />
+      <PageHero channel="01" channelLabel="DROPS" title="Drops" ticker={heroTicker} />
 
       <div className="toolbar" role="search">
         <input

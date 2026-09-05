@@ -1,7 +1,6 @@
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { Fragment } from "react";
 import { Link } from "react-router-dom";
-import { JelajahiVisual } from "../components/HeroVisuals";
 import { PageHero } from "../components/PageHero";
 import { StatusBadge } from "../components/StatusBadge";
 import { api, formatIdr } from "../lib/api";
@@ -92,13 +91,12 @@ export default function Browse() {
   return (
     <div className="page-stack">
       <PageHero
-        heroVisual={<JelajahiVisual />}
         channel="03"
         channelLabel="JELAJAHI"
         title="Jelajahi"
         ticker={
           <div className="hero-ticker" aria-hidden="true">
-            <span className="ticker-label">Scan</span>
+            <span className="ticker-label">Ringkasan</span>
             <div className="ticker-track">
               <div className="ticker-scroll">
                 {[0, 1].map((copy) => (

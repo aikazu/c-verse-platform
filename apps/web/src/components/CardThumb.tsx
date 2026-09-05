@@ -4,13 +4,10 @@
 // initials (or diamond glyph) otherwise. Fills its parent box (width/height
 // 100% via .ct-wrap; child <img> uses object-fit: cover). Replaces the
 // hard-coded emoji placeholders that lived inline in Home / DropDetail /
-// Collection / CardInfo. The hero fake card on Landing uses a different
-// visual vocabulary and is intentionally NOT routed through this component.
-
-import type { CSSProperties } from "react";
+// Collection / CardInfo.
 import "./CardThumb.css";
 
-export interface CardThumbProps {
+interface CardThumbProps {
   artworkUrl?: string | null;
   series?: string;
   title?: string;
@@ -40,11 +37,10 @@ export function CardThumb({ artworkUrl, series, title, className, eager }: CardT
   const hasArt = Boolean(artworkUrl);
   const init = monogram(series, title);
   const wrapClass = ["ct-wrap", className].filter(Boolean).join(" ");
-  const artStyle: CSSProperties = hasArt ? { backgroundImage: `url("${(artworkUrl ?? "").replace(/"/g, "%22")}")` } : {};
   return (
     <div className={wrapClass}>
       {hasArt ? (
-        <img className="ct-img" src={artworkUrl ?? ""} alt="" loading={eager ? "eager" : "lazy"} style={artStyle} />
+        <img className="ct-img" src={artworkUrl ?? ""} alt="" loading={eager ? "eager" : "lazy"} />
       ) : (
         <span className="ct-fallback" aria-hidden="true">
           {init ? <span className="ct-fallback-init">{init}</span> : <span className="ct-fallback-glyph">◆</span>}

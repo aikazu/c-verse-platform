@@ -1,6 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link, useParams } from "react-router-dom";
-import { KreatorVisual } from "../components/HeroVisuals";
 import { PageHero } from "../components/PageHero";
 import { RequireAuth } from "../components/RequireAuth";
 import { StatusBadge } from "../components/StatusBadge";
@@ -60,7 +59,6 @@ function CreatorDropAnalyticsInner() {
   return (
     <div className="page-stack">
       <PageHero
-        heroVisual={<KreatorVisual />}
         channel="06C"
         channelLabel="KREATOR"
         title={drop.title}
@@ -103,7 +101,7 @@ function CreatorDropAnalyticsInner() {
           <div className="muted" style={{ fontSize: 11, marginTop: 6, lineHeight: 1.5 }}>
             Share kamu dari primary 70/30. Secondary royalties tampil di{" "}
             <Link to="/creator/payouts" style={{ color: "var(--gold)" }}>
-              Payout
+              Penarikan
             </Link>
             .
           </div>
@@ -119,9 +117,9 @@ function CreatorDropAnalyticsInner() {
           <Row label="Creator share (30%)" value={`${revenue.creatorSharePrimaryCcoin} C · ${formatIdr(revenue.creatorSharePrimaryIdr)}`} />
         </div>
         <div className="muted" style={{ fontSize: 11, marginTop: 12, lineHeight: 1.5 }}>
-          Release instan untuk pembelian vault, setelah kartu terkirim untuk shipping — payout batch mingguan di{" "}
+          Penarikan C-Gems diproses batch mingguan melalui halaman{" "}
           <Link to="/creator/payouts" style={{ color: "var(--gold)" }}>
-            Payout
+            Penarikan
           </Link>
           .
         </div>

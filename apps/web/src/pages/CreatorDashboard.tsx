@@ -1,6 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
-import { KreatorVisual } from "../components/HeroVisuals";
 import { PageHero } from "../components/PageHero";
 import { RequireAuth } from "../components/RequireAuth";
 import { StatusBadge } from "../components/StatusBadge";
@@ -41,7 +40,7 @@ function CreatorDashboardInner() {
 
   return (
     <div className="page-stack">
-      <PageHero heroVisual={<KreatorVisual />} channel="06B" channelLabel="KREATOR" title="Dasbor Kreator" />
+      <PageHero channel="06B" channelLabel="KREATOR" title="Dasbor Kreator" />
 
       <div className="grid-3">
         <div className="card card-pad cx-stat">

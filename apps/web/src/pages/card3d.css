@@ -2,11 +2,9 @@
 .c3d-breadcrumb { display:flex; justify-content:space-between; align-items:center; gap:16px; font:11px var(--font-mono); }
 .c3d-breadcrumb a { color:var(--text-muted); text-decoration:none; padding:10px 0; }
 .c3d-breadcrumb > span { color:#819bb8; font-size:9px; letter-spacing:1.6px; }
-.c3d-breadcrumb i { display:inline-block; width:5px; height:5px; margin-left:8px; border-radius:50%; background:var(--signal); box-shadow:0 0 9px #52f2a055; }
 .c3d-header { display:flex; align-items:center; justify-content:space-between; gap:24px; padding:30px 0 35px; }
 .c3d-eyebrow { margin:0; color:var(--info); font:9px var(--font-mono); letter-spacing:2px; }
-.c3d-header h1 { margin:14px 0 12px; font:clamp(21px,2.5vw,34px)/1.45 var(--font-display); letter-spacing:-.6px; }
-.c3d-subtitle { margin:0; color:var(--text-muted); font-size:14px; }
+.c3d-header h1 { margin:0; font:clamp(21px,2.5vw,34px)/1.45 var(--font-display); letter-spacing:-.6px; }
 .c3d-dimension { color:var(--info); font:52px/1 var(--font-crt); text-align:right; opacity:.8; }
 .c3d-dimension span { display:block; font:9px var(--font-mono); letter-spacing:3px; margin-top:11px; }
 .c3d-layout { display:grid; grid-template-columns:minmax(0,1fr) 286px; gap:28px; align-items:start; }
@@ -96,7 +94,6 @@
   .c3d-header { padding:24px 0; }
   .c3d-header h1 { font-size:23px; }
   .c3d-dimension { font-size:38px; }
-  .c3d-subtitle { font-size:12px; line-height:1.8; }
   .c3d-layout { grid-template-columns:1fr; gap:22px; }
   .c3d-canvas { height:480px; }
   .c3d-dossier { display:grid; grid-template-columns:1fr 1.4fr; }

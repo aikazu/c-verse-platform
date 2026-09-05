@@ -413,10 +413,3 @@ export interface ApiKycResponse {
     dob?: string | null;
   };
 }
-
-// ── Carrier untuk typed error codes dari server ──────────────────────────
-export interface ApiErrorPayload {
-  error?: string;
-  message?: string;
-  code?: string;
-}

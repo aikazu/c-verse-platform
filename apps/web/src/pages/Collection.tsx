@@ -4,7 +4,6 @@ import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { CardThumb } from "../components/CardThumb";
-import { KoleksiVisual } from "../components/HeroVisuals";
 import { LevelBar } from "../components/LevelBar";
 import { PageHero } from "../components/PageHero";
 import { RequireAuth } from "../components/RequireAuth";
@@ -45,13 +44,7 @@ function CollectionInner() {
   const progressLabel: string = data.user?.levelProgressLabel ?? "Progress level berikutnya";
   return (
     <div className="page-stack">
-      <PageHero
-        heroVisual={<KoleksiVisual />}
-        channel="09"
-        channelLabel="KOLEKSI"
-        title="Koleksi"
-        desc={`${cards.length} unit · Level ${level} · ${tier}`}
-      />
+      <PageHero channel="09" channelLabel="KOLEKSI" title="Koleksi" desc={`${cards.length} unit · Level ${level} · ${tier}`} />
 
       <div className="kl-head">
         <div className="kl-head-copy">

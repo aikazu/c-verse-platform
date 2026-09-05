@@ -1,7 +1,6 @@
 import type { Order } from "@c-verse/shared";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
-import { PesananVisual } from "../components/HeroVisuals";
 import { PageHero } from "../components/PageHero";
 import { RequireAuth } from "../components/RequireAuth";
 import { StatusBadge } from "../components/StatusBadge";
@@ -32,7 +31,6 @@ function OrdersInner() {
   return (
     <div className="page-stack">
       <PageHero
-        heroVisual={<PesananVisual />}
         channel="13A"
         channelLabel="PESANAN"
         title="Pesanan"

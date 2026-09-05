@@ -121,7 +121,7 @@ export function DashboardPage() {
         {loading ? (
           <div className="admin-workqueue-empty muted fs-12">Memuat antrian…</div>
         ) : queue.length === 0 ? (
-          <div className="admin-workqueue-empty muted fs-12">Tidak ada item yang menunggu. Semua bersih.</div>
+          <div className="admin-workqueue-empty muted fs-12">Tidak ada item yang menunggu.</div>
         ) : (
           <ul className="admin-workqueue-list">
             {queue.map((entry) => {

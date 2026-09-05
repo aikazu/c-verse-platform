@@ -131,9 +131,7 @@ export function LoginPage() {
           </button>
         )}
 
-        <div style={{ fontSize: 11, color: "var(--dim)", textAlign: "center", marginTop: 16 }}>
-          Butuh bantuan? Hubungi super admin untuk reset.
-        </div>
+        <div className="admin-login-help">Akses belum tersedia? Hubungi super admin.</div>
       </div>
     </div>
   );

@@ -13,13 +13,14 @@ test.describe("Secondary market", () => {
     await clearMailbox("demo@cverse.id");
   });
 
-  test("marketplace menampilkan halaman tanpa error", async ({ page }) => {
+  test("marketplace merender listing atau empty state", async ({ page }) => {
     await loginAs(page, "demo@cverse.id");
     await page.goto("/marketplace");
-    await expect(page.locator("body")).not.toContainText("Error");
-    // Jika ada listing tampilkan, jika tidak halaman tetap ok
-    const count = await page.locator("[class*=card]").count();
-    console.log(`Marketplace: ${count} item ditemukan`);
+    await expect(page.getByRole("heading", { name: "Marketplace", exact: true })).toBeVisible({ timeout: 10000 });
+
+    // Listing dapat kosong pada fixture dasar, tetapi halaman harus menyajikan
+    // salah satu state produk yang eksplisit — bukan sekadar bebas teks "Error".
+    await expect(page.locator("a.market-card").or(page.locator(".empty-msg")).first()).toBeVisible({ timeout: 10000 });
   });
 
   test("browse menampilkan grid tile per-drop", async ({ page }) => {

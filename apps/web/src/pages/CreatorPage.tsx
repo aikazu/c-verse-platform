@@ -4,7 +4,6 @@ import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useConfirm } from "../components/ConfirmProvider";
-import { KreatorVisual } from "../components/HeroVisuals";
 import { LEGAL_CONSENTS } from "../components/LegalConsentCheckbox";
 import { PageHero } from "../components/PageHero";
 import { StatusBadge } from "../components/StatusBadge";
@@ -94,14 +93,7 @@ export default function CreatorPage() {
   if (isLoading) {
     return (
       <div className="page-stack">
-        <PageHero
-          heroVisual={<KreatorVisual />}
-          channel="06A"
-          channelLabel="KREATOR"
-          title="Memuat kreator…"
-          sub={`@${username ?? "—"}`}
-          desc="Menghubungkan ke konsol kreator C.Verse."
-        />
+        <PageHero channel="06A" channelLabel="KREATOR" title="Memuat kreator…" sub={`@${username ?? "—"}`} desc="Memuat profil kreator…" />
         <LoadingState label="Memuat kreator…" />
       </div>
     );
@@ -116,7 +108,6 @@ export default function CreatorPage() {
           title="Kreator tidak ditemukan"
           sub={`@${username ?? "—"}`}
           desc="Handle yang diminta tidak ada di katalog kreator publik."
-          extra="TIDAK DITEMUKAN"
         />
         <div className="empty-arcade cp-empty" role="status">
           <div className="empty-icon" aria-hidden="true">
@@ -137,13 +128,7 @@ export default function CreatorPage() {
   if (isError) {
     return (
       <div className="page-stack">
-        <PageHero
-          channel="06A"
-          channelLabel="KREATOR"
-          title="Gagal memuat kreator"
-          desc="Konsol tidak dapat menghubungi server."
-          extra="ERROR"
-        />
+        <PageHero channel="06A" channelLabel="KREATOR" title="Gagal memuat kreator" desc="Profil kreator belum dapat dimuat." />
         <ErrorState onRetry={retryBoth} label="Gagal memuat profil kreator" />
       </div>
     );
@@ -244,14 +229,7 @@ export default function CreatorPage() {
 
   return (
     <div className="page-stack">
-      <PageHero
-        channel="06A"
-        channelLabel="KREATOR"
-        title={creator.displayName}
-        sub={handleLine}
-        desc="Katalog kreator resmi C.Verse."
-        ticker={heroTicker}
-      />
+      <PageHero channel="06A" channelLabel="KREATOR" title={creator.displayName} sub={handleLine} ticker={heroTicker} />
 
       <section className="card card-pad cp-operator" aria-label="Identitas kreator">
         <div className="cp-operator-row">

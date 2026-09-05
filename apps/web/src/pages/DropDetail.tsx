@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { CardThumb } from "../components/CardThumb";
 import { useConfirm } from "../components/ConfirmProvider";
-import { DropsVisual } from "../components/HeroVisuals";
 import { LEGAL_CONSENTS } from "../components/LegalConsentCheckbox";
 import { PageHero } from "../components/PageHero";
 import { StatusBadge } from "../components/StatusBadge";
@@ -118,7 +117,6 @@ export default function DropDetail() {
   return (
     <div className="page-stack">
       <PageHero
-        heroVisual={<DropsVisual />}
         channel="01"
         channelLabel="DROPS"
         title={drop.title}

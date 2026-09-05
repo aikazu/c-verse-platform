@@ -1,5 +1,5 @@
 import type React from "react";
-import { NavLink, useNavigate } from "react-router-dom";
+import { NavLink } from "react-router-dom";
 
 function Shell({
   email,
@@ -12,7 +12,6 @@ function Shell({
   onLogout: () => void;
   children: React.ReactNode;
 }) {
-  const nav = useNavigate();
   const items = [
     { to: "/", label: "Dashboard", icon: "▦" },
     { to: "/creators", label: "Kreator", icon: "◎" },
@@ -67,15 +66,9 @@ function Shell({
 
       <div className="admin-main">
         <header className="admin-topbar">
-          <div className="admin-topbar-title">Kelola Platform</div>
-          <div style={{ display: "flex", gap: 8 }}>
-            <button className="btn-ghost" style={{ fontSize: 12 }} onClick={() => nav("/")}>
-              Dashboard
-            </button>
-          </div>
+          <div className="admin-topbar-title">C.Verse Admin</div>
         </header>
         <div className="admin-content">{children}</div>
-        <footer className="admin-footer">C.Verse Admin</footer>
       </div>
     </div>
   );

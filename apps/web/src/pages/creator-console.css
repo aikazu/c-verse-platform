@@ -5,11 +5,9 @@
    CreatorPayouts and the pre-auth AuthForm card (no rail on pre-auth). */
 
 /* ── Stat cell — mono label + display value (dashboard / analytics / payouts) ─ */
-/* Gradient recipe mirrors canonical .pp-stat / .ci-stat / .cm-stat panels. */
+/* Cyan telemetry rail keeps dashboards structural; amber remains for actions. */
 .card.cx-stat {
-	background:
-		linear-gradient(180deg, var(--gold-bg-soft) 0%, transparent 100%),
-		var(--surface-2);
+	background: var(--surface-2);
 	border: 1px solid var(--border);
 }
 
@@ -20,8 +18,8 @@
 	top: 0;
 	bottom: 0;
 	width: 2px;
-	background: linear-gradient(180deg, var(--gold) 0%, transparent 100%);
-	opacity: 0.55;
+	background: var(--info);
+	opacity: 0.7;
 }
 
 .cx-stat .label {
@@ -168,11 +166,12 @@
 }
 
 .cx-brand-tag {
-	font-family: var(--font-mono);
-	font-size: 10px;
-	letter-spacing: 0.12em;
-	text-transform: uppercase;
-	color: var(--text-dim);
+	font-family: var(--font-display);
+	font-size: clamp(16px, 3vw, 22px);
+	font-weight: 400;
+	line-height: 1.45;
+	letter-spacing: 0.02em;
+	color: var(--text);
 }
 
 .cx-divider {

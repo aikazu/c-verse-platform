@@ -70,7 +70,7 @@
 }
 
 .hm-action-link:hover {
-	border-color: var(--border-strong);
+	border-color: var(--info);
 }
 
 .hm-action-text {
@@ -102,13 +102,11 @@
 	overflow: hidden;
 	text-decoration: none;
 	color: inherit;
-	transition:
-		border-color var(--motion-fast) ease,
-		transform var(--motion-fast) ease;
+	transition: border-color var(--motion-fast) ease;
 }
 
 .hm-card:hover {
-	border-color: var(--border-strong);
+	border-color: var(--info);
 }
 
 .hm-thumb {

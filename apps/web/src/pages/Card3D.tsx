@@ -85,15 +85,11 @@ function CardInspection({ data }: { data: ApiCard3dResponse }) {
     <div className={`c3d-page${expanded ? " c3d-expanded" : ""}`}>
       <div className="c3d-breadcrumb">
         <Link to={`/cards/${card.id}`}>← Detail kartu</Link>
-        <span>
-          CH:07B / C.CARD <i />
-        </span>
+        <span>CH:07B / C.CARD</span>
       </div>
       <header className="c3d-header">
         <div>
-          <p className="c3d-eyebrow">KOLEKSI DALAM DIMENSI BARU</p>
           <h1>{title}</h1>
-          <p className="c3d-subtitle">Setiap sisi, setiap detail. Jelajahi kartu dari sudut Anda.</p>
         </div>
         <div className="c3d-dimension" aria-hidden="true">
           3D<span>360° VIEW</span>

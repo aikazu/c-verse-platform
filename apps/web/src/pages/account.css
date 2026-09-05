@@ -193,7 +193,7 @@
 }
 .ac-card-summary::before {
 	content: '▸ ' / '';
-	color: var(--magenta);
+	color: var(--info);
 }
 .ac-card-summary:hover,
 .ac-card-item[open] > .ac-card-summary {

@@ -6,14 +6,6 @@ test.describe("Collection & NFC", () => {
     await clearMailbox("demo@cverse.id");
   });
 
-  test("koleksi menampilkan halaman tanpa error", async ({ page }) => {
-    await loginAs(page, "demo@cverse.id");
-    await page.goto("/collection");
-    await expect(page.locator("body")).not.toContainText("Error");
-    const count = await page.locator("[class*=card]").count();
-    console.log(`Koleksi: ${count} kartu ditemukan`);
-  });
-
   test("card detail page bisa diakses", async ({ page }) => {
     await loginAs(page, "demo@cverse.id");
     await page.goto("/collection");
@@ -24,7 +16,9 @@ test.describe("Collection & NFC", () => {
     });
     await cardLink.click();
     await expect(page).toHaveURL(/\/cards\//);
-    await expect(page.locator("body")).not.toContainText("Error");
+    // Detail harus memuat identitas kartu hasil navigasi koleksi, bukan hanya
+    // berhasil mengganti URL.
+    await expect(page.locator(".ci-unit")).toContainText(/#\d+/, { timeout: 10000 });
   });
 
   test("3D viewer memuat canvas", async ({ page }) => {

@@ -2,7 +2,6 @@ import { kycStatusLabel } from "@c-verse/shared";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { useConfirm } from "../components/ConfirmProvider";
-import { KycVisual } from "../components/HeroVisuals";
 import { LEGAL_CONSENTS } from "../components/LegalConsentCheckbox";
 import { PageHero } from "../components/PageHero";
 import { RequireAuth } from "../components/RequireAuth";
@@ -110,7 +109,6 @@ function KycInner() {
   return (
     <div className="page-stack ac-narrow ac-narrow-lg">
       <PageHero
-        heroVisual={<KycVisual />}
         channel="11"
         channelLabel="KYC"
         title="Verifikasi Identitas"

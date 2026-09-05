@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { CardThumb } from "../components/CardThumb";
 import { useConfirm } from "../components/ConfirmProvider";
-import { CardVisual } from "../components/HeroVisuals";
 import { LEGAL_CONSENTS } from "../components/LegalConsentCheckbox";
 import { PageHero } from "../components/PageHero";
 import { ApiError, api } from "../lib/api";
@@ -241,7 +240,7 @@ export default function CardInfo() {
       <Link to="/browse" className="btn-ghost ci-back">
         ← Jelajahi
       </Link>
-      <PageHero heroVisual={<CardVisual />} channel="07A" channelLabel="C.CARD" title={cardHeroTitle} sub={drop?.series ?? undefined} />
+      <PageHero channel="07A" channelLabel="C.CARD" title={cardHeroTitle} sub={drop?.series ?? undefined} />
       <div className="grid-2 ci-align-start">
         <div className="card ci-clip">
           <div className="ci-thumb">

@@ -2,7 +2,6 @@ import type { UserBadge as SharedUserBadge } from "@c-verse/shared";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useParams } from "react-router-dom";
 import { Avatar } from "../components/Avatar";
-import { ProfilVisual } from "../components/HeroVisuals";
 import { LevelBar } from "../components/LevelBar";
 import { PageHero } from "../components/PageHero";
 import { ApiError, api } from "../lib/api";
@@ -33,14 +32,7 @@ export default function PublicProfile() {
   if (isLoading) {
     return (
       <div className="page-stack">
-        <PageHero
-          heroVisual={<ProfilVisual />}
-          channel="05"
-          channelLabel="PROFIL"
-          title="Memuat profil…"
-          sub={`@${username ?? "—"}`}
-          desc="Menghubungkan ke konsol kolektor C.Verse."
-        />
+        <PageHero channel="05" channelLabel="PROFIL" title="Memuat profil…" sub={`@${username ?? "—"}`} desc="Memuat profil kolektor…" />
         <LoadingState label="Memuat profil…" />
       </div>
     );
@@ -55,7 +47,6 @@ export default function PublicProfile() {
           title="Kolektor tidak ditemukan"
           sub={`@${username ?? "—"}`}
           desc="Handle yang diminta tidak ada di katalog kolektor publik."
-          extra="TIDAK DITEMUKAN"
         />
         <div className="empty-arcade pp-empty" role="status">
           <div className="empty-icon" aria-hidden="true">
@@ -76,13 +67,7 @@ export default function PublicProfile() {
   if (isError) {
     return (
       <div className="page-stack">
-        <PageHero
-          channel="05"
-          channelLabel="PROFIL"
-          title="Gagal memuat profil"
-          desc="Konsol tidak dapat menghubungi server."
-          extra="ERROR"
-        />
+        <PageHero channel="05" channelLabel="PROFIL" title="Gagal memuat profil" desc="Profil kolektor belum dapat dimuat." />
         <ErrorState onRetry={() => void refetch()} label="Gagal memuat profil publik" />
       </div>
     );
@@ -100,13 +85,7 @@ export default function PublicProfile() {
     const handleOnly = data.user?.username ? `@${data.user.username}` : `@${username ?? ""}`;
     return (
       <div className="page-stack">
-        <PageHero
-          channel="05"
-          channelLabel="PROFIL"
-          title="Profil disembunyikan"
-          sub={handleOnly}
-          desc="Pemilik memilih untuk menutup berkas publiknya."
-        />
+        <PageHero channel="05" channelLabel="PROFIL" title="Profil disembunyikan" sub={handleOnly} desc="Profil ini privat." />
         <div className="empty-arcade pp-empty" role="status">
           <div className="empty-icon pp-hidden-icon" aria-hidden="true">
             ◌
@@ -163,14 +142,7 @@ export default function PublicProfile() {
 
   return (
     <div className="page-stack">
-      <PageHero
-        channel="05"
-        channelLabel="PROFIL"
-        title={user.displayName}
-        sub={handle}
-        desc="Berkas kolektor resmi C.Verse."
-        ticker={heroTicker}
-      />
+      <PageHero channel="05" channelLabel="PROFIL" title={user.displayName} sub={handle} ticker={heroTicker} />
 
       <section className="card card-pad pp-operator" aria-label="Identitas kolektor">
         <div className="pp-operator-row">

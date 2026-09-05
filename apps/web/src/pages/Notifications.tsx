@@ -1,6 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
-import { NotifikasiVisual } from "../components/HeroVisuals";
 import { PageHero } from "../components/PageHero";
 import { RequireAuth } from "../components/RequireAuth";
 import { api } from "../lib/api";
@@ -74,7 +73,6 @@ function NotificationsInner() {
   return (
     <div className="page-stack">
       <PageHero
-        heroVisual={<NotifikasiVisual />}
         channel="15"
         channelLabel="NOTIFIKASI"
         title="Notifikasi"

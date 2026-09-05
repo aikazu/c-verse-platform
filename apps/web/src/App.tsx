@@ -10,7 +10,6 @@ import { ToastProvider } from "./lib/toast";
 import { NotFoundPage } from "./pages/ErrorPage";
 import UsernameSetupModal from "./pages/UsernameSetupModal";
 import "./styles.css";
-import "./components/hero-visuals.css";
 
 // Code-splitting: tiap halaman jadi chunk terpisah — visitor landing tidak
 // mengunduh kode marketplace/wallet/creator dashboard (audit performance P0).
@@ -30,7 +29,7 @@ const Kyc = lazy(() => import("./pages/Kyc"));
 const Landing = lazy(() => import("./pages/Landing"));
 const Legal = lazy(() => import("./pages/Legal"));
 const Leaderboard = lazy(() => import("./pages/Leaderboard"));
-const Login = lazy(() => import("./pages/Login"));
+const AuthForm = lazy(() => import("./pages/AuthForm"));
 const ManageCards = lazy(() => import("./pages/ManageCards"));
 const Marketplace = lazy(() => import("./pages/Marketplace"));
 const Notifications = lazy(() => import("./pages/Notifications"));
@@ -38,7 +37,6 @@ const OrderDetail = lazy(() => import("./pages/OrderDetail"));
 const Orders = lazy(() => import("./pages/Orders"));
 const Privacy = lazy(() => import("./pages/Privacy"));
 const PublicProfile = lazy(() => import("./pages/PublicProfile"));
-const Register = lazy(() => import("./pages/Register"));
 const VerifyShipment = lazy(() => import("./pages/VerifyShipment"));
 const Wallet = lazy(() => import("./pages/Wallet"));
 
@@ -331,13 +329,7 @@ function AppRoutes() {
       </a>
       <Navbar />
       <main className="main-content" id="main-content">
-        <Suspense
-          fallback={
-            <div className="now-loading">
-              Now Loading<span className="blink">▮</span>
-            </div>
-          }
-        >
+        <Suspense fallback={<div className="now-loading">Memuat…</div>}>
           <Routes>
             <Route path="/" element={<Landing />} />
             <Route path="/drops" element={<Drops />} />
@@ -361,8 +353,8 @@ function AppRoutes() {
             <Route path="/leaderboard" element={<Leaderboard />} />
             <Route path="/c/:username" element={<CreatorPage />} />
             <Route path="/u/:username" element={<PublicProfile />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/register" element={<Register />} />
+            <Route path="/login" element={<AuthForm />} />
+            <Route path="/register" element={<Navigate to="/login" replace />} />
             <Route path="/legal" element={<Legal />} />
             <Route path="/legal/:slug" element={<Legal />} />
             <Route path="/terms" element={<Navigate to="/legal/terms" replace />} />
@@ -387,9 +379,7 @@ function AppRoutes() {
         <div className="footer-inner">
           <div className="footer-brand-block">
             <div className="footer-line">C.Verse — Koleksi Kreator Edisi Terbatas</div>
-            <div className="footer-meta">
-              © 2026 · c-verse.co · Insert Coin <span className="blink">▮</span>
-            </div>
+            <div className="footer-meta">© 2026 · c-verse.co</div>
           </div>
           <nav className="footer-legal-links" aria-label="Informasi legal">
             <Link to="/legal">Pusat Legal</Link>

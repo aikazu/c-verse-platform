@@ -3,7 +3,6 @@ import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useConfirm } from "../components/ConfirmProvider";
-import { CheckoutVisual } from "../components/HeroVisuals";
 import { LEGAL_CONSENTS } from "../components/LegalConsentCheckbox";
 import { PageHero } from "../components/PageHero";
 import { api, ccoinToIdr, formatIdr } from "../lib/api";
@@ -86,7 +85,6 @@ export default function Checkout() {
   return (
     <div className="cm-shell">
       <PageHero
-        heroVisual={<CheckoutVisual />}
         channel="14"
         channelLabel="CHECKOUT"
         title="Checkout"

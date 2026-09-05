@@ -105,20 +105,8 @@ function LegalHub() {
   return (
     <div className="legal-shell legal-hub">
       <header className="legal-hero">
-        <div className="legal-kicker">
-          <span>STATION PROTOCOL</span>
-          <span>PUBLIC ACCESS</span>
-        </div>
-        <p className="legal-code">LEGAL CONTROL DECK / 2026</p>
         <h1>Pusat Legal</h1>
-        <p className="legal-lead">
-          Aturan platform dalam bahasa yang bisa dibaca manusia. Pilih dokumen untuk memahami hak, kewajiban, saldo, data, Vault, dan
-          transaksi di C.Verse.
-        </p>
-        <div className="legal-hero-orbit" aria-hidden="true">
-          <span />
-          <i />
-        </div>
+        <p className="legal-lead">Syarat layanan, privasi, KYC, pengiriman, dan Vault.</p>
       </header>
 
       <section className="legal-launch-notice" aria-labelledby="legal-readiness-title">
@@ -154,8 +142,7 @@ function LegalHub() {
 
       <section className="legal-contact-panel">
         <div>
-          <p className="legal-eyebrow">BUTUH BANTUAN?</p>
-          <h2>Hakmu tidak berhenti di halaman ini.</h2>
+          <h2>Kontak bantuan</h2>
         </div>
         <div className="legal-contact-links">
           <a href="mailto:support@c-verse.co">support@c-verse.co</a>
@@ -179,7 +166,7 @@ function LegalDocumentPage({ document }: { document: LegalDocument }) {
         </div>
         <div className="legal-document-title-row">
           <div>
-            <p className="legal-code">{document.code} / CONTROLLED DOCUMENT</p>
+            <p className="legal-code">{document.code}</p>
             <h1>{document.title}</h1>
             <p className="legal-lead">{document.description}</p>
           </div>
@@ -202,10 +189,6 @@ function LegalDocumentPage({ document }: { document: LegalDocument }) {
             ))}
             <a href="#sumber">Sumber hukum</a>
           </nav>
-          <div className="legal-toc-seal" aria-hidden="true">
-            <span>C.V</span>
-            <small>VERIFIED COPY</small>
-          </div>
         </aside>
 
         <article className="legal-document">

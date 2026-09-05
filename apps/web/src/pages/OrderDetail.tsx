@@ -3,7 +3,6 @@ import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useConfirm } from "../components/ConfirmProvider";
-import { PesananVisual } from "../components/HeroVisuals";
 import { LEGAL_CONSENTS } from "../components/LegalConsentCheckbox";
 import { PageHero } from "../components/PageHero";
 import { RequireAuth } from "../components/RequireAuth";
@@ -85,7 +84,6 @@ function OrderDetailInner() {
   return (
     <div className="page-stack">
       <PageHero
-        heroVisual={<PesananVisual />}
         channel="13B"
         channelLabel="PESANAN"
         title="Detail Pesanan"

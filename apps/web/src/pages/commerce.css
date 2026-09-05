@@ -26,7 +26,7 @@
   gap: 18px;
 }
 
-/* ── Dossier stat boxes (mirrors .pp-stat / .ci-stat panel pattern) ── */
+/* ── Dossier stat boxes — cyan telemetry on restrained ink panels ────────── */
 .cm-stat-row {
   display: flex;
   gap: 12px;
@@ -42,9 +42,7 @@
   gap: 4px;
   padding: 10px 12px;
   border-radius: var(--r-3);
-  background:
-    linear-gradient(180deg, var(--gold-bg-soft) 0%, transparent 100%),
-    var(--surface-2);
+  background: var(--surface-2);
   border: 1px solid var(--border);
   min-width: 96px;
 }
@@ -56,8 +54,8 @@
   top: 0;
   bottom: 0;
   width: 2px;
-  background: linear-gradient(180deg, var(--gold) 0%, transparent 100%);
-  opacity: 0.55;
+  background: var(--info);
+  opacity: 0.7;
 }
 
 .cm-stat .label {
@@ -154,9 +152,9 @@
 }
 
 .cm-pool-option-active {
-  border-color: var(--gold);
-  background: var(--gold-bg-soft);
-  box-shadow: 0 0 0 1px var(--gold-border);
+  border-color: var(--info);
+  background: var(--info-bg);
+  box-shadow: 0 0 0 1px var(--info-border);
 }
 
 .cm-pool-body {
@@ -283,9 +281,9 @@
 }
 
 .cm-radio-card-active {
-  border-color: var(--gold);
-  background: var(--gold-bg-soft);
-  box-shadow: 0 0 0 1px var(--gold-border), 0 0 18px rgba(255, 201, 77, 0.12);
+  border-color: var(--info);
+  background: var(--info-bg);
+  box-shadow: 0 0 0 1px var(--info-border);
 }
 
 .cm-radio-title {
@@ -361,17 +359,18 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
-  transition: transform 0.15s ease;
-}
-.dd-cell:hover {
-  transform: translateY(-2px);
+  transition: border-color var(--motion-fast);
 }
 .dd-cell-art {
   aspect-ratio: 1 / 1;
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--r-3);
   overflow: hidden;
   background: var(--surface-2);
+  transition: border-color var(--motion-fast);
+}
+.dd-cell:hover .dd-cell-art {
+  border-color: var(--info);
 }
 .dd-cell-num {
   font-family: var(--font-mono);
@@ -424,5 +423,5 @@
 @media (max-width: 390px) {
   .cm-stat { min-width: 0; flex: 1 1 100%; }
   .dd-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
-  .dd-cell-art { border-radius: 8px; }
+  .dd-cell-art { border-radius: var(--r-3); }
 }

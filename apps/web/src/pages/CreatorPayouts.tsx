@@ -1,5 +1,4 @@
 import { useQuery } from "@tanstack/react-query";
-import { KreatorVisual } from "../components/HeroVisuals";
 import { PageHero } from "../components/PageHero";
 import { RequireAuth } from "../components/RequireAuth";
 import { api, formatIdr } from "../lib/api";
@@ -52,7 +51,7 @@ function CreatorPayoutsInner() {
   const totalIdr = list.reduce((sum, p) => sum + p.idr_amount, 0);
   return (
     <div className="page-stack">
-      <PageHero heroVisual={<KreatorVisual />} channel="06D" channelLabel="KREATOR" title="Riwayat Penarikan" />
+      <PageHero channel="06D" channelLabel="KREATOR" title="Riwayat Penarikan" />
       <div className="grid-2" style={{ alignItems: "stretch" }}>
         <div className="card card-pad cx-stat">
           <span className="label">Total C-Gems Dicairkan</span>

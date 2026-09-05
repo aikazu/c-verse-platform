@@ -161,7 +161,7 @@ export default function AuthForm() {
           <div className="cx-brand-name">
             C<span style={{ color: "var(--gold)" }}>.</span>Verse
           </div>
-          <div className="cx-brand-tag">Masuk / Daftar — C.Card pertamamu menanti</div>
+          <h1 className="cx-brand-tag">Masuk / Daftar</h1>
         </div>
 
         {!isSupabaseAuth && (

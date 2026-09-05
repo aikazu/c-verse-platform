@@ -33,11 +33,11 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     return (
       <ErrorPage
         code={500}
-        title="Game Crash — Sistem Error"
+        title="Aplikasi tidak dapat dimuat"
         message={
           isChunkFailure
-            ? "Versi aplikasi baru saja dideploy dan halaman ini memuat kode lama. Muat ulang biasanya menyelesaikan."
-            : "Terjadi kesalahan tak terduga saat menampilkan halaman ini. Data transaksi kamu aman — uang & stok selalu diproses atomik di server."
+            ? "Sebagian berkas aplikasi gagal dimuat. Periksa koneksi, lalu muat ulang."
+            : "Terjadi kesalahan saat menampilkan halaman ini. Muat ulang atau laporkan kendala melalui detail teknis di bawah."
         }
         hint="Kalau tetap gagal setelah muat ulang, coba bersihkan cache atau lapor dengan detail teknis di bawah."
         detail={`${error.name}: ${error.message}\n\n${componentStack ?? "(no component stack)"}`}

@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Link, Navigate, useLocation } from "react-router-dom";
+import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "../lib/auth";
 
 /**
@@ -29,22 +29,4 @@ export function RequireAuth({ children }: { children: ReactNode }) {
     return <Navigate to="/login" replace state={{ from: location.pathname + location.search }} />;
   }
   return <>{children}</>;
-}
-
-/**
- * Standalone prompt untuk halaman yang tidak membungkus RequireAuth (mis.
- * komponen yang dipanggil inline seperti `onBid` di Browse). Konsisten
- * dengan copy di halaman lain — pakai "Masuk untuk ..." yang sama.
- */
-export function LoginPrompt({ action }: { action: string }) {
-  return (
-    <div className="card card-pad" style={{ textAlign: "center", padding: 32 }}>
-      <p className="muted" style={{ marginTop: 8 }}>
-        {action}
-      </p>
-      <Link to="/login" style={{ color: "var(--gold)", fontSize: 13, fontWeight: 600, marginTop: 10, display: "inline-block" }}>
-        Masuk →
-      </Link>
-    </div>
-  );
 }
