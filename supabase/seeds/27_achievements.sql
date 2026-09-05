@@ -5,7 +5,7 @@ insert into public.drops (
 ) values (
   'drop-nova-archive-gifts','Nova Archive: Gifted Constellation','Nova Archive',
   'Fixture development archive: 126 C.Card gifts allocated for achievement-tier demos; not a sale or payment record.',
-  '/mock/v1/artworks/aurora.png','/placeholder.obj',126,13,113,20,40,20,'closed',
+  'https://assets.c-verse.co/mock/v2/artworks/nova-constellation.png','/placeholder.obj',126,13,113,20,40,20,'closed',
   '00000000-0000-4000-8000-000000000005','Nova Studio',0,'00000000-0000-4000-8000-000000000002'
 ) on conflict (id) do nothing;
 

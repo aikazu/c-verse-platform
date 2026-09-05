@@ -280,6 +280,10 @@ begin
       and (balance_ccoin<>0 or balance_gems<>0 or total_spent_ccoin<>0 or total_topup_ccoin<>0)) then
     failures:=array_append(failures,'achievement personas must not have wallet activity'); end if;
 
+  if exists (select 1 from public.drops group by artwork_url having count(*)>1)
+    or exists (select 1 from public.drops where artwork_url is null or artwork_url='') then
+    failures:=array_append(failures,'every seeded drop must have its own artwork'); end if;
+
   if cardinality(failures)>0 then
     raise exception 'seed invariant failure: %',array_to_string(failures,'; ');
   end if;

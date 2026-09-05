@@ -1,7 +1,7 @@
 {
-  "version": 2,
+  "version": 3,
   "bucket": "cverse-assets",
-  "status": "live-verified-2026-09-05",
+  "status": "unique-artwork-2026-09-05",
   "publicBaseUrl": "https://assets.c-verse.co",
   "assets": [
     {
@@ -11,7 +11,8 @@
       "seedUrl": "https://assets.c-verse.co/mock/v1/artworks/karina.jpg",
       "objectKey": "mock/v1/artworks/karina.jpg",
       "contentType": "image/jpeg",
-      "provenance": "Existing user-provided reference; internal mock use only; no new rights clearance."
+      "provenance": "Existing user-provided reference; internal mock use only; no new rights clearance.",
+      "dropId": "drop-aespa-live"
     },
     {
       "id": "genesis",
@@ -21,7 +22,8 @@
       "objectKey": "mock/v1/artworks/genesis.png",
       "contentType": "image/png",
       "provenance": "AI-generated fictional mock artwork; built-in ImageGen.",
-      "prompt": "Use case: stylized-concept. Asset type: 1024x1024 square UV texture atlas for a collectible card OBJ mesh. Reference image is only a UV layout reference, not subject or brand. Generate a new GENESIS science-fiction art atlas: same flat black square canvas, FRONT portrait rectangle exactly x=15 to508 y=130 to890, BACK portrait rectangle x=520 to1013 y=130 to890; no perspective, no physical mockup, no rounded outer shadow. Fill the front with luminous ivory chrome monolith rising over ink-blue ocean beneath orange eclipse, elegant premium illustrated collectible, richly detailed but readable at small scale. Fill the back with a restrained geometric eclipse seal, dark navy background and subtle foil lines. Tiny exact title GENESIS on back only. Keep all artwork strictly inside those two rectangular UV islands; all unused top/bottom margin pure black. Do not reproduce people or brand logos from reference; no fake signature, no watermark. Output PNG."
+      "prompt": "Use case: stylized-concept. Asset type: 1024x1024 square UV texture atlas for a collectible card OBJ mesh. Reference image is only a UV layout reference, not subject or brand. Generate a new GENESIS science-fiction art atlas: same flat black square canvas, FRONT portrait rectangle exactly x=15 to508 y=130 to890, BACK portrait rectangle x=520 to1013 y=130 to890; no perspective, no physical mockup, no rounded outer shadow. Fill the front with luminous ivory chrome monolith rising over ink-blue ocean beneath orange eclipse, elegant premium illustrated collectible, richly detailed but readable at small scale. Fill the back with a restrained geometric eclipse seal, dark navy background and subtle foil lines. Tiny exact title GENESIS on back only. Keep all artwork strictly inside those two rectangular UV islands; all unused top/bottom margin pure black. Do not reproduce people or brand logos from reference; no fake signature, no watermark. Output PNG.",
+      "dropId": "drop-genesis-live"
     },
     {
       "id": "aurora",
@@ -31,7 +33,77 @@
       "objectKey": "mock/v1/artworks/aurora.png",
       "contentType": "image/png",
       "provenance": "AI-generated fictional mock artwork; built-in ImageGen.",
-      "prompt": "Use case: stylized-concept. Asset type: 1024x1024 square UV texture atlas for a collectible card OBJ mesh. Reference image is only a UV layout reference, not subject or brand. Generate a new AURORA cosmic-botanical art atlas: same flat black square canvas, FRONT portrait rectangle exactly x=15 to508 y=130 to890, BACK portrait rectangle x=520 to1013 y=130 to890; no perspective, no physical mockup, no outer shadow. Fill the front with an iridescent glass orchid floating above violet mountain peaks under flowing teal aurora and a starfield, sophisticated detailed cinematic illustration for a premium collectible. Back: restrained botanical orbit seal on deep purple with fine teal foil lines. Tiny exact title AURORA on back only. Keep all artwork strictly inside those two rectangular UV islands; all unused top/bottom margin pure black. No people or existing brand logos, no fake signature, no watermark. Output PNG."
+      "prompt": "Use case: stylized-concept. Asset type: 1024x1024 square UV texture atlas for a collectible card OBJ mesh. Reference image is only a UV layout reference, not subject or brand. Generate a new AURORA cosmic-botanical art atlas: same flat black square canvas, FRONT portrait rectangle exactly x=15 to508 y=130 to890, BACK portrait rectangle x=520 to1013 y=130 to890; no perspective, no physical mockup, no outer shadow. Fill the front with an iridescent glass orchid floating above violet mountain peaks under flowing teal aurora and a starfield, sophisticated detailed cinematic illustration for a premium collectible. Back: restrained botanical orbit seal on deep purple with fine teal foil lines. Tiny exact title AURORA on back only. Keep all artwork strictly inside those two rectangular UV islands; all unused top/bottom margin pure black. No people or existing brand logos, no fake signature, no watermark. Output PNG.",
+      "dropId": "drop-aurora-raffle"
+    },
+    {
+      "id": "karina-seraph",
+      "kind": "atlas",
+      "dropId": "drop-aespa-signed",
+      "sourcePath": "supabase/fixtures/artworks/karina-seraph.png",
+      "seedUrl": "https://assets.c-verse.co/mock/v2/artworks/karina-seraph.png",
+      "objectKey": "mock/v2/artworks/karina-seraph.png",
+      "contentType": "image/png",
+      "provenance": "AI-generated internal mock editorial variation from the existing user-provided Karina reference; built-in ImageGen.",
+      "referencePath": "supabase/fixtures/artworks/karina.jpg",
+      "prompt": "Use case: stylized-concept. Asset type: premium C.Card collectible square front-and-back UV texture atlas, PNG. One flat square image, two upright portrait panels only. Precisely normalized UV layout: front LEFT x=1.5% to49.6%, back RIGHT x=50.8% to98.9%, both y=12.7% to87.0%; margins solid pure black. Fill the whole rectangular panels. No perspective, no slab render, no background objects outside panels. Fine collectible editorial art, sharp readable at small size. Back has a unique restrained ornamental emblem specific to this concept, never reuse an existing logo. No watermark, no autograph, no extra text beyond specified back title. Input image is an identity reference for the adult woman on the left only; create a completely new editorial portrait, pose, outfit, lighting and background. FRONT: same adult woman, long swept-back black hair without glasses, luminous silver tailored jacket with high neck, elegant three-quarter profile looking right and slightly upward, icy silver architectural arches and floating feather-like ribbons against midnight indigo, ethereal cool moonlight, composed confident expression. Premium realistic fashion photography with restrained fantasy details. BACK: original symmetric silver feather-and-crescent ornament with thin platinum filigree on deep ink-blue, tiny exact title SERAPH. Preserve recognizable face identity only. Do not copy her existing shirt, blue photo background or any logos."
+    },
+    {
+      "id": "aurora-solstice",
+      "kind": "atlas",
+      "dropId": "drop-aespa-2027",
+      "sourcePath": "supabase/fixtures/artworks/aurora-solstice.png",
+      "seedUrl": "https://assets.c-verse.co/mock/v2/artworks/aurora-solstice.png",
+      "objectKey": "mock/v2/artworks/aurora-solstice.png",
+      "contentType": "image/png",
+      "provenance": "AI-generated original mock artwork; built-in ImageGen.",
+      "prompt": "Use case: stylized-concept. Asset type: premium C.Card collectible square front-and-back UV texture atlas, PNG. One flat square image, two upright portrait panels only. Precisely normalized UV layout: front LEFT x=1.5% to49.6%, back RIGHT x=50.8% to98.9%, both y=12.7% to87.0%; margins solid pure black. Fill the whole rectangular panels. No perspective, no slab render, no background objects outside panels. Fine collectible editorial art, sharp readable at small size. Back has a unique restrained ornamental emblem specific to this concept, never reuse an existing logo. No watermark, no autograph, no extra text beyond specified back title. Create entirely original SOLSTICE celestial landscape art. FRONT: colossal amber glass sun disc hovering above terraced terracotta desert dunes, a small white cypress in foreground casting a long crisp shadow, coral-pink sky with delicate geometric golden rays, atmospheric peach haze, luxurious tactile fine-art surreal illustration. Dominant terracotta, pale peach and warm gold, no flowers, no purple mountains. BACK: sun-wheel compass seal with concentric copper rays on dark burgundy, tiny exact title SOLSTICE."
+    },
+    {
+      "id": "genesis-signal",
+      "kind": "atlas",
+      "dropId": "drop-genesis-beta",
+      "sourcePath": "supabase/fixtures/artworks/genesis-signal.png",
+      "seedUrl": "https://assets.c-verse.co/mock/v2/artworks/genesis-signal.png",
+      "objectKey": "mock/v2/artworks/genesis-signal.png",
+      "contentType": "image/png",
+      "provenance": "AI-generated original mock artwork; built-in ImageGen.",
+      "prompt": "Use case: stylized-concept. Asset type: premium C.Card collectible square front-and-back UV texture atlas, PNG. One flat square image, two upright portrait panels only. Precisely normalized UV layout: front LEFT x=1.5% to49.6%, back RIGHT x=50.8% to98.9%, both y=12.7% to87.0%; margins solid pure black. Fill the whole rectangular panels. No perspective, no slab render, no background objects outside panels. Fine collectible editorial art, sharp readable at small size. Back has a unique restrained ornamental emblem specific to this concept, never reuse an existing logo. No watermark, no autograph, no extra text beyond specified back title. Create entirely original SIGNAL science fiction art. FRONT: isolated retrofuturist radio telescope shaped like a huge turquoise spiral shell at the edge of a moss-green cliff, electric mint signal arcs traveling upward to a dark emerald sky, tiny warm amber beacon, distant cloud sea, sophisticated architectural science-fiction illustration with rich painted detail. Dominant emerald, oxidized copper and mint. No monolith, no ocean eclipse. BACK: unique orbital waveform knot emblem and sparse circuit etching on forest-black, tiny exact title SIGNAL."
+    },
+    {
+      "id": "karina-velvet",
+      "kind": "atlas",
+      "dropId": "drop-seed-karina-01",
+      "sourcePath": "supabase/fixtures/artworks/karina-velvet.png",
+      "seedUrl": "https://assets.c-verse.co/mock/v2/artworks/karina-velvet.png",
+      "objectKey": "mock/v2/artworks/karina-velvet.png",
+      "contentType": "image/png",
+      "provenance": "AI-generated internal mock editorial variation from the existing user-provided Karina reference; built-in ImageGen.",
+      "referencePath": "supabase/fixtures/artworks/karina.jpg",
+      "prompt": "Use case: stylized-concept. Asset type: premium C.Card collectible square front-and-back UV texture atlas, PNG. One flat square image, two upright portrait panels only. Precisely normalized UV layout: front LEFT x=1.5% to49.6%, back RIGHT x=50.8% to98.9%, both y=12.7% to87.0%; margins solid pure black. Fill the whole rectangular panels. No perspective, no slab render, no background objects outside panels. Fine collectible editorial art, sharp readable at small size. Back has a unique restrained ornamental emblem specific to this concept, never reuse an existing logo. No watermark, no autograph, no extra text beyond specified back title. Input image is an identity reference for the adult woman on the left only; create a completely new editorial portrait, pose, outfit, lighting and background. FRONT: same adult woman with long dark hair parted center, no glasses, burgundy velvet high-neck outfit with sculptural shoulder drape, head and upper torso frontal portrait with chin slightly lowered, poised warm expression, ruby theater curtain behind her, dramatic amber side light and soft dark shadows, subtle champagne pearl earring. Luxurious realistic fashion photography, richly tactile velvet. BACK: original small rose-and-ribbon crest in warm copper filigree on oxblood velvet texture, tiny exact title VELVET. Preserve face identity only; do not copy existing shirt, blue backdrop or logos."
+    },
+    {
+      "id": "karina-starlight",
+      "kind": "atlas",
+      "dropId": "drop-seed-karina-02",
+      "sourcePath": "supabase/fixtures/artworks/karina-starlight.png",
+      "seedUrl": "https://assets.c-verse.co/mock/v2/artworks/karina-starlight.png",
+      "objectKey": "mock/v2/artworks/karina-starlight.png",
+      "contentType": "image/png",
+      "provenance": "AI-generated internal mock editorial variation from the existing user-provided Karina reference; built-in ImageGen.",
+      "referencePath": "supabase/fixtures/artworks/karina.jpg",
+      "prompt": "Use case: stylized-concept. Asset type: premium C.Card collectible square front-and-back UV texture atlas, PNG. One flat square image, two upright portrait panels only. Precisely normalized UV layout: front LEFT x=1.5% to49.6%, back RIGHT x=50.8% to98.9%, both y=12.7% to87.0%; margins solid pure black. Fill the whole rectangular panels. No perspective, no slab render, no background objects outside panels. Fine collectible editorial art, sharp readable at small size. Back has a unique restrained ornamental emblem specific to this concept, never reuse an existing logo. No watermark, no autograph, no extra text beyond specified back title. Input image is an identity reference for the adult woman on the left only; create a completely new editorial portrait, pose, outfit, lighting and background. FRONT: same adult woman, long black hair gently wind-swept over one shoulder, no glasses, pearlescent ivory blazer with lavender silk high-neck blouse, candid three-quarter upper-body portrait looking left, luminous soft lilac observatory interior with a circular star map window behind her and tiny violet star reflections, serene expression and soft violet-rim studio light. Premium realistic fashion photography. BACK: unique delicate eight-point crystal star emblem surrounded by orbiting lilac dots and pearl foil rings on midnight purple, tiny exact title STARLIGHT. Preserve facial identity only; do not copy existing pose, white shirt, blue background or logos."
+    },
+    {
+      "id": "nova-constellation",
+      "kind": "atlas",
+      "dropId": "drop-nova-archive-gifts",
+      "sourcePath": "supabase/fixtures/artworks/nova-constellation.png",
+      "seedUrl": "https://assets.c-verse.co/mock/v2/artworks/nova-constellation.png",
+      "objectKey": "mock/v2/artworks/nova-constellation.png",
+      "contentType": "image/png",
+      "provenance": "AI-generated original mock artwork; built-in ImageGen.",
+      "prompt": "Use case: stylized-concept. Asset type: premium C.Card collectible square front-and-back UV texture atlas, PNG. One flat square image, two upright portrait panels only. Precisely normalized UV layout: front LEFT x=1.5% to49.6%, back RIGHT x=50.8% to98.9%, both y=12.7% to87.0%; margins solid pure black. Fill the whole rectangular panels. No perspective, no slab render, no background objects outside panels. Fine collectible editorial art, sharp readable at small size. Back has a unique restrained ornamental emblem specific to this concept, never reuse an existing logo. No watermark, no autograph, no extra text beyond specified back title. Create entirely original CONSTELLATION celestial archival art. FRONT: a magnificent articulated golden koi fish made of delicate starmap wirework and tiny luminous stars swimming upward diagonally through a deep midnight-cobalt cosmos, flowing translucent fins with copper and gold nebula dust, elegant restrained celestial illustration with exceptional etched details and ample deep blue atmosphere. No orchid or mountains. BACK: a distinctive interlocking twin-koi constellation emblem with tiny star-coordinate lines and fine concentric celestial rings on ultramarine, tiny exact title CONSTELLATION."
     },
     {
       "id": "demo",

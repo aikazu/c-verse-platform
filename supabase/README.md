@@ -114,49 +114,70 @@ snapshot sintetis, bukan bukti scan NFC/CMAC fisik.
 
 ## Aset mock dan R2
 
-`seed-assets.json` adalah manifest file, MIME, object key tujuan, provenance,
-dan prompt final ImageGen. `sourcePath` adalah sumber file repository;
-`seedUrl` adalah URL yang dipakai seed, bukan selalu path Static Assets.
-Empat PNG di `apps/web/public/mock/v1/` adalah keluaran built-in ImageGen;
-bukan foto identitas asli. Sumber `karina.jpg` dipindah ke
-`supabase/fixtures/artworks/`, di luar bundle web. Runtime dan seed Karina
-langsung memakai R2; `placeholder.obj` tetap dibundel. Referensi Karina hanya untuk mock
-internal; keberadaan file tidak membuktikan izin publikasi komersial.
+`seed-assets.json` adalah manifest file, MIME, object key, `dropId`,
+provenance, dan prompt final built-in ImageGen. `sourcePath` menunjuk sumber
+repository; `seedUrl` adalah URL seed, bukan selalu path Static Assets.
 
-Artwork Genesis/Aurora berupa atlas depan-belakang, bukan poster tunggal.
-Viewer OBJ membaca atlas; daftar 2D saat ini memakai URL atlas yang sama.
-Varian katalog sengaja berbagi tiga artwork, tanpa URL palsu untuk setiap varian.
-Avatar Demo/Nova tersedia; avatar null pada persona lain menguji fallback.
+Setiap Drop memiliki satu artwork depan-belakang yang unik. Keunikan berlaku
+antar-Drop; unit bernomor dalam edisi Drop yang sama tetap memakai artwork
+edisinya. Sembilan atlas tidak boleh memiliki URL, assignment Drop, atau
+SHA-256 konten yang sama. Geometri kartu OBJ tetap satu bentuk netral; desain
+depan dan belakang berasal dari atlas masing-masing Drop.
 
-`pnpm seed:assets` memvalidasi file dan signature image serta menampilkan
-SHA-256/ukuran/MIME dan mapping. Tidak terhubung ke jaringan atau mengunggah.
-Enam object manifest sudah berada di `cverse-assets` (APAC) dan terverifikasi
-HTTP 200, SHA-256 lokal cocok, serta CORS GET/HEAD di origin publik
-`https://assets.c-verse.co`. Custom domain itu memakai TLS minimum 1.2 dan
-`r2.dev` tetap nonaktif; `cverse-kyc` tetap private tanpa public domain.
-Manifest memuat `publicBaseUrl` tersebut. `pnpm seed:assets` tetap hanya
-memvalidasi dan mencetak rencana:
+| Drop | Artwork khusus | Object key R2 |
+|---|---|---|
+| `drop-aespa-live` | Karina: Eclipse | `mock/v1/artworks/karina.jpg` |
+| `drop-genesis-live` | Genesis: Monolith | `mock/v1/artworks/genesis.png` |
+| `drop-aespa-signed` | Karina: Seraph Signed | `mock/v2/artworks/karina-seraph.png` |
+| `drop-aespa-2027` | Aurora: Solstice 2027 | `mock/v2/artworks/aurora-solstice.png` |
+| `drop-genesis-beta` | Genesis: Signal Draft | `mock/v2/artworks/genesis-signal.png` |
+| `drop-aurora-raffle` | Aurora: Open Raffle | `mock/v1/artworks/aurora.png` |
+| `drop-seed-karina-01` | Karina: Velvet Seed | `mock/v2/artworks/karina-velvet.png` |
+| `drop-seed-karina-02` | Karina: Starlight Seed | `mock/v2/artworks/karina-starlight.png` |
+| `drop-nova-archive-gifts` | Nova Archive: Gifted Constellation | `mock/v2/artworks/nova-constellation.png` |
+
+Enam PNG baru disimpan di `supabase/fixtures/artworks/`, di luar bundle web,
+dan memakai URL R2 sejak seed. Seraph, Velvet, dan Starlight adalah variasi
+editorial AI dari referensi Karina yang sudah diberikan; pose, busana,
+komposisi, dan desain belakang berbeda. Solstice, Signal, dan Constellation
+adalah artwork AI original. Referensi Karina tetap untuk mock internal;
+keberadaan file tidak membuktikan izin publikasi komersial.
+
+Genesis/Aurora dan avatar Demo/Nova tetap tersedia di
+`apps/web/public/mock/v1/`. Dua avatar memiliki konten berbeda; persona
+tanpa avatar tetap menguji fallback. Atlas dipakai viewer OBJ dan daftar 2D.
+`pnpm seed:assets` memeriksa signature, hash, duplikasi, dan cakupan seluruh
+Drop dari `seeds/*.sql`. Guard Vitest menguji file yang disalin dengan nama
+berbeda, assignment ganda, dan Drop tanpa artwork. Assertion SQL akhir seed
+juga menolak Drop dengan URL artwork kosong atau berulang.
+
+Semua 12 object manifest memakai bucket publik `cverse-assets` pada
+`https://assets.c-verse.co`. `r2.dev` tetap nonaktif; `cverse-kyc` tetap
+private. Jangan mengunggah artwork ke bucket KYC. Upload PNG baru harus
+mempertahankan key, MIME `image/png`, dan cache immutable. Verifikasi HTTP,
+SHA-256 terhadap file repository, serta CORS sebelum mengubah referensi DB.
 
 ```sh
-pnpm seed:assets --base-url https://assets.c-verse.co
+pnpm seed:assets
 pnpm seed:assets --base-url https://assets.c-verse.co --sql
 ```
 
-Opsi `--sql` hanya mencetak SQL untuk ditinjau operator, bukan mengeksekusi.
-Mapping mengubah URL lokal yang cocok persis pada `drops.artwork_url`,
-`drops.artwork_3d_url`, dan `users.avatar_url`. Tidak menyentuh KYC.
-Upload harus mempertahankan object key/MIME manifest. Jangan menyimpan file
-ke bucket KYC atau mengganti URL DB sebelum objek dapat dibaca.
+Kedua perintah bersifat read-only: tidak mengunggah atau mengeksekusi SQL.
+Mapping artwork memakai `drops.id`, sehingga referensi lama yang berulang
+dapat dipisahkan tanpa reset. Model dan avatar dipetakan dari URL lokal yang
+cocok persis. SQL hanya menyentuh URL artwork, model, dan avatar; tidak
+mengubah inventory, transaksi, wallet, atau KYC. Nama dan narasi desain
+tercatat pada `10_catalog.sql`.
 
-Alur fixture: file tervalidasi -> R2 `cverse-assets` -> origin aset HTTPS ->
-URL di Postgres -> browser. Mapping remote sudah diterapkan setelah verifikasi
-untuk 8 URL artwork, 8 model, dan 2 avatar. Reset lokal memakai R2 untuk Karina;
-lima aset lain memakai Static Assets sampai SQL mapping sengaja diterapkan.
-Tes offline memvalidasi sumber Karina tanpa mengunduh; smoke delivery R2
-memerlukan `TEST_PUBLIC_ASSETS=1`. Endpoint/UI
-upload artwork admin dan upload/hapus avatar user memakai bucket publik yang
-sama, terpisah dari KYC. Runbook lengkap (termasuk namespace profil dan
-privasi) ada di `docs/08_deployment.md` bagian R2.
+Pemasangan 2026-09-05 memperbarui delapan Drop yang sudah ada di remote
+development `rnsfgbhoahzvrbtvjjtw` tanpa reset. Dua migrasi lencana yang
+tertunda juga diterapkan sebelum rilis Worker. Lima persona pencapaian dan
+arsip kesembilan ditambahkan dari fixture canonical tanpa menjalankan ulang
+ledger atau transaksi. Hasil remote: 9 Drop, 9 URL artwork berbeda, 184 kartu,
+dan 43 definisi lencana. Seluruh sembilan artwork memiliki hash berbeda.
+Runbook upload aplikasi, namespace profil, dan privasi ada di
+`docs/08_deployment.md` bagian R2. Smoke R2 memerlukan
+`TEST_PUBLIC_ASSETS=1`.
 
 ## Sumber
 
