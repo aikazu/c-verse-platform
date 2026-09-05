@@ -87,42 +87,34 @@ app.use("*", async (c, next) => {
 });
 
 // ── Rate Limiter (I-01) ──
-// Hanya aktif di production/staging — development skip biar gak ganggu dev workflow
-// Deteksi dev: process.argv via tsx, ENV=development, atau SUPABASE_URL localhost
-const isTsxDev = typeof process !== "undefined" && (process.argv?.[1]?.includes("tsx") ?? false);
-const envMode = typeof process !== "undefined" ? process.env.ENV : undefined;
-const supabaseIsLocal = (typeof process !== "undefined" ? process.env.SUPABASE_URL : undefined)?.includes("localhost") ?? false;
-const isProduction = !isTsxDev && envMode !== "development" && !supabaseIsLocal;
-
-if (isProduction) {
-  type LimiterName = "AUTH_RATE_LIMITER" | "GLOBAL_RATE_LIMITER" | "KYC_RATE_LIMITER" | "NFC_RATE_LIMITER" | "UPLOAD_RATE_LIMITER";
-  const limitWith = (name: LimiterName, message: string) => async (c: Context<{ Bindings: Bindings }>, next: Next) => {
-    // `app.request()` unit tests and Node-local execution do not inject Worker
-    // bindings. Production is fail-closed because Wrangler always supplies
-    // ENV=production together with every configured limiter binding.
-    if (c.env?.ENV !== "production") {
-      await next();
-      return;
-    }
-    const limiter = c.env[name];
-    if (!limiter) return c.json({ error: "Rate limiter belum terkonfigurasi" }, 503);
-    // Prefer a non-reversible user-session fingerprint; IP is only the fallback
-    // for unauthenticated endpoints such as login and NFC verification.
-    const actor = (await tokenFingerprint(c.req.header("authorization"))) ?? clientIp(c) ?? "anonymous";
-    const { success } = await limiter.limit({ key: actor });
-    if (!success) return c.json({ error: message }, 429);
+// Always register middleware. Request bindings, not import-time Node environment
+// or executable paths, determine whether this invocation is production.
+type LimiterName = "AUTH_RATE_LIMITER" | "GLOBAL_RATE_LIMITER" | "KYC_RATE_LIMITER" | "NFC_RATE_LIMITER" | "UPLOAD_RATE_LIMITER";
+const limitWith = (name: LimiterName, message: string) => async (c: Context<{ Bindings: Bindings }>, next: Next) => {
+  // `app.request()` unit tests and Node-local execution do not inject Worker
+  // bindings. Production is fail-closed because Wrangler always supplies
+  // ENV=production together with every configured limiter binding.
+  if (c.env?.ENV !== "production") {
     await next();
-  };
+    return;
+  }
+  const limiter = c.env[name];
+  if (!limiter) return c.json({ error: "Rate limiter belum terkonfigurasi" }, 503);
+  // Prefer a non-reversible user-session fingerprint; IP is only the fallback
+  // for unauthenticated endpoints such as login and NFC verification.
+  const actor = (await tokenFingerprint(c.req.header("authorization"))) ?? clientIp(c) ?? "anonymous";
+  const { success } = await limiter.limit({ key: actor });
+  if (!success) return c.json({ error: message }, 429);
+  await next();
+};
 
-  app.use("/api/auth/*", limitWith("AUTH_RATE_LIMITER", "Too many requests — coba lagi nanti"));
-  app.use("/api/payments/*", limitWith("AUTH_RATE_LIMITER", "Too many requests — coba lagi nanti"));
-  app.use("/api/kyc", limitWith("KYC_RATE_LIMITER", "Terlalu banyak pengajuan KYC — coba lagi nanti"));
-  app.use("/api/nfc/*", limitWith("NFC_RATE_LIMITER", "Terlalu banyak percobaan verifikasi — coba lagi nanti"));
-  app.use("/api/profile/avatar", limitWith("UPLOAD_RATE_LIMITER", "Terlalu banyak upload gambar — coba lagi nanti"));
-  app.use("/api/drops/:id/artwork", limitWith("UPLOAD_RATE_LIMITER", "Terlalu banyak upload gambar — coba lagi nanti"));
-  app.use("*", limitWith("GLOBAL_RATE_LIMITER", "Too many requests — coba lagi nanti"));
-}
-
+app.use("/api/auth/*", limitWith("AUTH_RATE_LIMITER", "Too many requests — coba lagi nanti"));
+app.use("/api/payments/*", limitWith("AUTH_RATE_LIMITER", "Too many requests — coba lagi nanti"));
+app.use("/api/kyc", limitWith("KYC_RATE_LIMITER", "Terlalu banyak pengajuan KYC — coba lagi nanti"));
+app.use("/api/nfc/*", limitWith("NFC_RATE_LIMITER", "Terlalu banyak percobaan verifikasi — coba lagi nanti"));
+app.use("/api/profile/avatar", limitWith("UPLOAD_RATE_LIMITER", "Terlalu banyak upload gambar — coba lagi nanti"));
+app.use("/api/drops/:id/artwork", limitWith("UPLOAD_RATE_LIMITER", "Terlalu banyak upload gambar — coba lagi nanti"));
+app.use("*", limitWith("GLOBAL_RATE_LIMITER", "Too many requests — coba lagi nanti"));
 app.get("/", (c) => c.json({ name: "C.Verse API", tagline: "Revolusi Ekonomi Kreator", status: "ok" }));
 app.get("/health", (c) => c.json({ ok: true, ts: new Date().toISOString() }));
 app.get("/api/health", (c) => c.json({ ok: true, ts: new Date().toISOString() }));
