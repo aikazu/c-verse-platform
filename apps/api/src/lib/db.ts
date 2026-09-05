@@ -1,3 +1,4 @@
+import type { EditorialKind, EditorialSave } from "@c-verse/shared";
 import { BID_CANCEL_COOLDOWN_HOURS, MIN_SECONDARY_PRICE_CCOIN } from "@c-verse/shared";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { FALLBACK } from "./errors.js";
@@ -46,6 +47,13 @@ export class RpcError extends Error {
 }
 
 const ERROR_MESSAGES: Record<string, string> = {
+  INVALID_EDITORIAL: "Konten atau pilihan kartu tidak valid",
+  NOT_SEED: "Kampanye hanya tersedia untuk Creator Seed",
+  CAMPAIGN_INCOMPLETE: "Pilih kartu Seed dan isi proses pembuatan, penandatanganan, serta penyerahan sebelum publikasi",
+  EDITORIAL_EMPTY: "Isi judul dan cerita sebelum publikasi",
+  EDITORIAL_CONFLICT: "Konten telah diubah ops lain. Muat ulang sebelum menyimpan.",
+  INVALID_SHOWCASE: "Judul dan pilihan etalase tidak valid",
+  NOT_OWNER: "Pilih kartu yang masih kamu miliki",
   AUTH_REQUIRED: "Silakan login dulu",
   ACCOUNT_SUSPENDED: "Akun disuspend",
   DROP_NOT_LIVE: "Drop belum live / sudah selesai",
@@ -95,6 +103,29 @@ const ERROR_MESSAGES: Record<string, string> = {
   INVALID_ARG: "Argumen tidak valid",
   PERMISSION_DENIED: "Akses ditolak — RPC ini hanya boleh dipanggil oleh service_role",
 };
+
+export function rpcSaveShowcase(db: SupabaseClient, title: string, cardIds: string[]): Promise<void> {
+  return callRpc(db, "save_collection_showcase", { p_title: title, p_card_ids: cardIds });
+}
+
+export function rpcSaveEditorial(
+  db: SupabaseClient,
+  dropId: string,
+  kind: EditorialKind,
+  body: EditorialSave,
+  ip: string | null,
+  sessionId: string | null,
+): Promise<number> {
+  return callRpc(db, "save_drop_editorial", {
+    p_drop_id: dropId,
+    p_kind: kind,
+    p_document: body.document,
+    p_action: body.action,
+    p_revision: body.revision,
+    p_ip: ip,
+    p_session_id: sessionId,
+  });
+}
 
 async function callRpc<T>(db: SupabaseClient, fn: string, args: Record<string, unknown>): Promise<T> {
   const { data, error } = await db.rpc(fn, args);

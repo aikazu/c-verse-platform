@@ -2,6 +2,7 @@ import { BALANCE_CAP_CCOIN, GEMS_LOCK_HOURS, PAYOUT_FEE_PCT, walletTxTypeLabel }
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
+import { CollectorGuide } from "../components/CollectorGuide";
 import { useConfirm } from "../components/ConfirmProvider";
 import { LEGAL_CONSENTS, LegalConsentCheckbox } from "../components/LegalConsentCheckbox";
 import { PageHero } from "../components/PageHero";
@@ -189,6 +190,7 @@ function WalletInner() {
         }
       />
 
+      <CollectorGuide topic="hold" />
       {payoutHeld && (
         <div className="card card-pad wa-alert">
           <strong className="wa-alert-strong">Permintaan penarikan ditahan admin</strong>

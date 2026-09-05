@@ -41,7 +41,7 @@ export async function getAdminDrops() {
     db
       .from("drops")
       .select(
-        "id,title,series,status,total_units,sold_count,price_ccoin,price_unsigned_ccoin,artwork_url,raffle_end_at,drawn_at,created_at",
+        "id,title,series,status,total_units,sold_count,price_ccoin,price_unsigned_ccoin,artwork_url,raffle_end_at,drawn_at,created_at,is_seed",
       )
       .order("created_at", { ascending: false })
       .limit(500),

@@ -35,6 +35,7 @@ export type DropRow = {
   raffle_end_at: string | null;
   drawn_at: string | null;
   created_at: string;
+  is_seed: boolean;
 };
 export type OrderRow = {
   id: string;

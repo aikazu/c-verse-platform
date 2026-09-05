@@ -3,7 +3,9 @@ import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { CardThumb } from "../components/CardThumb";
+import { CollectorGuide } from "../components/CollectorGuide";
 import { useConfirm } from "../components/ConfirmProvider";
+import { DropEditorial } from "../components/DropEditorial";
 import { LEGAL_CONSENTS } from "../components/LegalConsentCheckbox";
 import { PageHero } from "../components/PageHero";
 import { StatusBadge } from "../components/StatusBadge";
@@ -127,6 +129,14 @@ export default function DropDetail() {
           </Link>
         }
       />
+      {!drop.isSeed && (
+        <CollectorGuide
+          topic={drop.drawnAt ? "result" : "pool"}
+          regularPrice={priceRegular}
+          signedPrice={priceSigned}
+          entryStatus={data.myEntry?.status}
+        />
+      )}
       <div className="grid-2" style={{ alignItems: "start" }}>
         <div className="card" style={{ overflow: "hidden" }}>
           <div style={{ aspectRatio: "4/3" }}>
@@ -215,6 +225,7 @@ export default function DropDetail() {
           onWalletRequired={() => nav("/wallet", { state: { returnTo: `/drops/${id}` } })}
         />
       </div>
+      <DropEditorial dropId={drop.id} />
       <section className="dd-units" aria-label="Semua C.Card dalam drop ini">
         {cardsQuery.isLoading ? (
           <LoadingState />

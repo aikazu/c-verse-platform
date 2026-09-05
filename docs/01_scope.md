@@ -179,6 +179,20 @@ Dengan tim 1-2 developer + AI-assisted: **6-8 bulan** (bukan
 5 bulan — jujur, bukan asumsi optimistik). Cut lines di
 section 3 adalah mekanisme kontrolnya.
 
+## 6. Pengalaman Kolektor dan Editorial Opsional (2026-09-06)
+
+Empat kemampuan `09_recommendations.md` §7 sudah terimplementasi:
+etalase hingga tiga kartu milik kolektor dengan judul dan gambar berbagi;
+panduan kontekstual yang bisa dilewati/dibuka kembali; editor cerita
+per Drop; dan kampanye dokumentasi untuk Seed pilihan ops.
+
+Cerita memperluas F003/ADM-02 dengan draft dan snapshot publik serta media
+HTTPS opsional. Ops dapat mengisi setelah rilis; tidak memiliki cerita atau
+kampanye tidak menghalangi rilis Drop, Seed, transaksi, atau verifikasi.
+Panduan tidak menggantikan persetujuan transaksi. Etalase mengikuti privasi,
+suspension, serta kepemilikan terkini. Pengingat Drop dan watchlist tetap
+di luar cakupan. Rincian halaman, flow, dan data mengikuti dokumen terkait.
+
 ## Sumber
 
 - 03_features_mvp (gaya RICE/MoSCoW, fitur F001-F036).

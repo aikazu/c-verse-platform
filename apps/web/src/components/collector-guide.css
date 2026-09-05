@@ -1,0 +1,6 @@
+.collector-guide { border: 1px solid var(--border); border-left: 3px solid var(--gold); background: var(--surface-2); padding: 1rem 1.25rem; border-radius: 8px; display: grid; gap: .8rem; }
+.collector-guide p { max-width: 85ch; line-height: 1.65; color: var(--text-dim); margin: 0; }
+.guide-heading, .guide-steps { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; }
+.guide-heading { justify-content: space-between; }
+.guide-steps button { cursor: pointer; white-space: normal; text-align: left; }
+.guide-rate { font-size: .8rem; }

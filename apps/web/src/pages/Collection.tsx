@@ -4,9 +4,11 @@ import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { CardThumb } from "../components/CardThumb";
+import { CollectorGuide } from "../components/CollectorGuide";
 import { LevelBar } from "../components/LevelBar";
 import { PageHero } from "../components/PageHero";
 import { RequireAuth } from "../components/RequireAuth";
+import { ShowcaseEditor } from "../components/Showcase";
 import { api } from "../lib/api";
 import type { ApiProfileEnrichedCard } from "../lib/api-types";
 import { useAuth } from "../lib/auth";
@@ -64,6 +66,8 @@ function CollectionInner() {
           </button>
         </div>
       </div>
+      <CollectorGuide topic="vault" />
+      <ShowcaseEditor profile={data} />
       {badges.length > 0 && (
         <div className="card card-pad">
           <div className="label kl-label-dim">Lencana — {badges.length}</div>

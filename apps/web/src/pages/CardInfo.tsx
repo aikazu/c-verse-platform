@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { CardThumb } from "../components/CardThumb";
 import { useConfirm } from "../components/ConfirmProvider";
+import { DropEditorial } from "../components/DropEditorial";
 import { LEGAL_CONSENTS } from "../components/LegalConsentCheckbox";
 import { PageHero } from "../components/PageHero";
 import { ApiError, api } from "../lib/api";
@@ -272,6 +273,7 @@ export default function CardInfo() {
         ← Jelajahi
       </Link>
       <PageHero channel="07A" channelLabel="C.CARD" title={cardHeroTitle} sub={drop?.series ?? undefined} />
+      {drop?.isSeed && <DropEditorial dropId={drop.id} cardId={card.id} />}
       <div className="grid-2 ci-align-start">
         <div className="card ci-clip">
           <div className="ci-thumb">

@@ -2,6 +2,7 @@ import { type Card, cardVariantLabel, MIN_SECONDARY_PRICE_CCOIN, SHIPMENT_FEE_CC
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { CollectorGuide } from "../components/CollectorGuide";
 import { useConfirm } from "../components/ConfirmProvider";
 import { LEGAL_CONSENTS } from "../components/LegalConsentCheckbox";
 import { PageHero } from "../components/PageHero";
@@ -195,6 +196,7 @@ function ManageCardsInner() {
           </Link>
         }
       />
+      <CollectorGuide topic="shipping" />
       {cards.length === 0 ? (
         <div className="card card-pad muted" style={{ textAlign: "center", padding: 32 }}>
           Belum punya C.Card

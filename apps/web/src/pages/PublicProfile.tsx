@@ -7,6 +7,7 @@ import { BadgeDetailDialog } from "../components/BadgeDetailDialog";
 import { BadgeEmblem } from "../components/BadgeEmblem";
 import { LevelBar } from "../components/LevelBar";
 import { PageHero } from "../components/PageHero";
+import { Showcase } from "../components/Showcase";
 import { ApiError, api } from "../lib/api";
 import type { ApiPublicProfileCard, ApiPublicProfileResponse } from "../lib/api-types";
 import { ErrorState, LoadingState } from "../lib/QueryStates";
@@ -208,6 +209,7 @@ export default function PublicProfile() {
         )}
       </section>
 
+      {user.username && <Showcase username={user.username} />}
       <section className="pp-collection-section" aria-label="Koleksi C.Card">
         <header className="section-head">
           <span className="section-eyebrow">KOLEKSI</span>

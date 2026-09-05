@@ -17,14 +17,23 @@ async function authorizedFetch(path: string, init: RequestInit): Promise<Respons
   });
 }
 
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    public readonly status: number,
+  ) {
+    super(message);
+  }
+}
+
 async function throwApiError(res: Response): Promise<never> {
   const body = (await res.json().catch(() => null)) as { error?: string } | null;
   const message = body?.error;
   if (res.status === 401) {
     await supabase.auth.signOut();
-    throw new Error("Sesi berakhir — silakan masuk kembali.");
+    throw new ApiError("Sesi berakhir — silakan masuk kembali.", res.status);
   }
-  throw new Error(message ?? `HTTP ${res.status} ${res.statusText}`);
+  throw new ApiError(message ?? `HTTP ${res.status} ${res.statusText}`, res.status);
 }
 
 // Single shared fetch helper for the role-gated admin API: prepends API_BASE,

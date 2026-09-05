@@ -24,8 +24,10 @@ import { pageMeta, parsePageParams, publicDisplayName, slicePage } from "../../l
 import type { Card, Drop } from "../../lib/store.js";
 import { randomHex } from "../../lib/store.js";
 import { getSupabase } from "../../lib/supabase.js";
+import editorial from "./editorial.js";
 
 const app = new Hono<{ Bindings: PublicAssetBindings }>();
+app.route("/", editorial);
 
 // Status yang boleh dilihat publik (paritas RLS drops_select_public).
 const PUBLIC_DROP_STATUSES = ["live", "published", "sold_out", "closed", "scheduled"];

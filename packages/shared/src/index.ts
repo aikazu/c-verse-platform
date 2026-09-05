@@ -1,5 +1,8 @@
 import { z } from "zod";
 
+export * from "./collector-experience.js";
+export * from "./editorial.js";
+
 // =============================================================================
 // C.Verse Platform — Shared constants & schemas  (canonical, single source)
 // Sources: docs/00-README glossary, docs/01-scope, docs/05-data-model,

@@ -1,8 +1,9 @@
-import { AVATAR_MAX_BYTES, C_COIN_RATE_IDR } from "@c-verse/shared";
+import { AVATAR_MAX_BYTES, C_COIN_RATE_IDR, showcaseSchema } from "@c-verse/shared";
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import { z } from "zod";
 import { requireUser } from "../../lib/auth.js";
+import { RpcError, rpcSaveShowcase, userDb } from "../../lib/db.js";
 import {
   buildAvatarObjectKey,
   casUpdatePublicAssetUrl,
@@ -19,12 +20,55 @@ import { listCards, listDrops } from "../../lib/reads/drops.js";
 import { getKycByUser } from "../../lib/reads/kyc.js";
 import { listOrdersByUser, listShipmentsByRequester } from "../../lib/reads/orders.js";
 import { getWalletByUser, listUserBadges } from "../../lib/reads/profile.js";
+import { getMyShowcase } from "../../lib/reads/showcase.js";
 import { getUserByUsername } from "../../lib/reads/users.js";
 import { readDb } from "../../lib/reads.js";
 import { redactKycForOwner } from "../../lib/redact.js";
 import type { Bid } from "../../lib/store.js";
 
 const app = new Hono<{ Bindings: PublicAssetBindings }>();
+
+app.get("/guide", async (c) => {
+  const auth = await requireUser(c);
+  if ("error" in auth) return c.json({ error: "Tidak diizinkan" }, auth.error);
+  const { data, error } = await userDb(auth.token)
+    .from("collector_preferences")
+    .select("guide_dismissed")
+    .eq("user_id", auth.user.id)
+    .maybeSingle();
+  if (error) return c.json({ error: "Gagal memuat preferensi panduan" }, 500);
+  c.header("Cache-Control", "no-store");
+  return c.json({ dismissed: data?.guide_dismissed ?? false });
+});
+
+app.patch("/guide", zValidator("json", z.object({ dismissed: z.boolean() }).strict()), async (c) => {
+  const auth = await requireUser(c);
+  if ("error" in auth) return c.json({ error: "Tidak diizinkan" }, auth.error);
+  const { dismissed } = c.req.valid("json");
+  const { error } = await userDb(auth.token).from("collector_preferences").upsert({ user_id: auth.user.id, guide_dismissed: dismissed });
+  if (error) return c.json({ error: "Gagal menyimpan preferensi panduan" }, 500);
+  return c.json({ dismissed });
+});
+
+app.get("/showcase", async (c) => {
+  const auth = await requireUser(c);
+  if ("error" in auth) return c.json({ error: "Tidak diizinkan" }, auth.error);
+  c.header("Cache-Control", "no-store");
+  return c.json(await getMyShowcase(userDb(auth.token), auth.user.id));
+});
+
+app.put("/showcase", zValidator("json", showcaseSchema), async (c) => {
+  const auth = await requireUser(c);
+  if ("error" in auth) return c.json({ error: "Tidak diizinkan" }, auth.error);
+  const body = c.req.valid("json");
+  try {
+    await rpcSaveShowcase(userDb(auth.token), body.title, body.cardIds);
+    return c.json({ ok: true });
+  } catch (error) {
+    if (error instanceof RpcError) return c.json({ error: error.message, code: error.code }, 400);
+    return c.json({ error: "Gagal menyimpan etalase" }, 500);
+  }
+});
 
 // GET / — my profile, cards, orders, shipments, badges, kyc, level
 app.get("/", async (c) => {

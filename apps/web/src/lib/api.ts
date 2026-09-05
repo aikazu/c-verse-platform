@@ -1,4 +1,4 @@
-import type { Drop, LeaderboardType, Order, Shipment, Wallet } from "@c-verse/shared";
+import type { Drop, LeaderboardType, Order, PublicShowcase, PublishedEditorial, Shipment, ShowcaseInput, Wallet } from "@c-verse/shared";
 import type {
   ApiAcceptBidResponse,
   ApiBadgeProgressResponse,
@@ -216,6 +216,13 @@ export const api = {
 
   // profile
   profile: () => req<ApiProfileResponse>("/profile"),
+  myShowcase: () => req<ShowcaseInput>("/profile/showcase"),
+  guide: () => req<{ dismissed: boolean }>("/profile/guide"),
+  dropEditorial: (dropId: string) => req<{ items: PublishedEditorial[] }>(`/drops/${encodeURIComponent(dropId)}/editorial`),
+  saveGuide: (dismissed: boolean) =>
+    req<{ dismissed: boolean }>("/profile/guide", { method: "PATCH", body: JSON.stringify({ dismissed }) }),
+  saveShowcase: (body: ShowcaseInput) => req<{ ok: true }>("/profile/showcase", { method: "PUT", body: JSON.stringify(body) }),
+  publicShowcase: (username: string) => req<{ showcase: PublicShowcase | null }>(`/public/u/${encodeURIComponent(username)}/showcase`),
   patchPrivacy: (isAnonymous: boolean) =>
     req<{ user: ApiUser }>("/profile/privacy", { method: "PATCH", body: JSON.stringify({ isAnonymous }) }),
   patchConsent: (body: { consentAnalyticsDetail?: boolean; consentDataMarket?: boolean }) =>

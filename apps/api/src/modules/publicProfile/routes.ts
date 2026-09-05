@@ -7,10 +7,16 @@ import { userDb } from "../../lib/db.js";
 import { sanitizeDbError } from "../../lib/errors.js";
 import { listCards, listDrops } from "../../lib/reads/drops.js";
 import { getUserByUsernameOrId, getUserRank, listUserBadges } from "../../lib/reads/profiles.js";
+import { getPublicShowcase } from "../../lib/reads/showcase.js";
 import { publicDisplayName } from "../../lib/reads.js";
 import type { Drop } from "../../lib/store.js";
 
 const app = new Hono();
+
+app.get("/u/:username/showcase", async (c) => {
+  c.header("Cache-Control", "no-store");
+  return c.json({ showcase: await getPublicShowcase(c.req.param("username")) });
+});
 
 // ── Creator page-view analytics (docs 09 §2.8 + §3.5) ─────────────────────
 // RPCs land in supabase/migrations/04_rpc.sql: record_creator_page_view is a

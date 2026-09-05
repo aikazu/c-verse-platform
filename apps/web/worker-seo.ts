@@ -1,7 +1,7 @@
 /// <reference path="./worker-configuration.d.ts" />
 
 const API_PREFIX = "/api";
-const SEO_PATHS = ["/c/", "/drops/"];
+const SEO_PATHS = ["/c/", "/drops/", "/u/"];
 
 type SeoMeta = {
   og?: { title?: string; description?: string; image?: string | null };
@@ -29,7 +29,8 @@ export default {
     }
 
     const meta = await fetchSeoMeta(env, url);
-    if (!meta?.og && !meta?.jsonLd) return secureResponse(assetResponse, false);
+    const isCollectorProfile = url.pathname.startsWith("/u/");
+    if (!meta?.og && !meta?.jsonLd) return secureResponse(assetResponse, isCollectorProfile);
 
     const rewritten = new HTMLRewriter()
       .on("head", {
@@ -50,7 +51,7 @@ export default {
       })
       .transform(assetResponse);
 
-    return secureResponse(rewritten, false);
+    return secureResponse(rewritten, isCollectorProfile);
   },
 } satisfies ExportedHandler<Env>;
 

@@ -239,33 +239,43 @@ tetap manual:
 - Minimum: blok rebuy seller 1 hari + creator self-dealing 30 hari +
   rate limit bid + multiple account detection.
 
-## 7. Backlog Disepakati — Dikerjakan Nanti Melalui Codex
+## 7. Backlog Pengalaman Kolektor — Terimplementasi
 
 > Keputusan founder: 2026-09-06.
-> Status: arah produk disepakati; implementasi DITUNDA.
-> Instruksi saat pencatatan: "catat aja dulu", dikerjakan nanti
-> melalui Codex. Bagian ini mencatat rencana, bukan fitur yang sudah
-> tersedia atau tambahan gate rilis MVP.
+> Status: IMPLEMENTED 2026-09-06; diverifikasi pada aplikasi lokal
+> dengan database development remote. Belum dirilis ke Worker publik.
+> Instruksi awal "catat aja dulu" telah digantikan permintaan eksplisit
+> untuk mengimplementasikan keempat fitur. Opsional berarti ops memilih
+> memakai konten cerita/kampanye; kemampuan pengelolaannya sudah tersedia.
 
 Urutan pengerjaan yang disepakati:
 
 | Urutan | Pengembangan | Prioritas / sifat | Status |
 |--------|--------------|-------------------|--------|
-| 1 | Etalase koleksi pribadi | Prioritas | Belum dikerjakan |
-| 2 | Panduan pengguna baru | Prioritas; dapat dilewati pengguna | Belum dikerjakan |
-| 3 | Cerita di balik C.Card | Konten opsional per Drop | Belum dikerjakan |
-| 4 | Kampanye Creator Seed | Kampanye opsional per Seed | Belum dikerjakan |
+| 1 | Etalase koleksi pribadi | Prioritas | Selesai + SQL/API/browser |
+| 2 | Panduan pengguna baru | Prioritas; dapat dilewati pengguna | Selesai + SQL/API/browser |
+| 3 | Cerita di balik C.Card | Konten opsional per Drop | Selesai + SQL/API/browser |
+| 4 | Kampanye Creator Seed | Kampanye opsional per Seed | Selesai + SQL/API/browser |
 
 ### 7.1 Etalase Koleksi Pribadi
 
-- Perluas koleksi dan profil publik yang sudah ada: kolektor memilih
-  sampai tiga kartu miliknya sebagai unggulan dan memberi judul koleksi.
-- Sediakan cara membagikan etalase, termasuk gambar siap dibagikan ke
-  media sosial dengan tautan menuju profil publik.
+- Editor di `/me` dan `/collection`: sampai tiga kartu milik sendiri,
+  tanpa duplikasi, urutan mengikuti pilihan; judul maksimal 80 karakter.
+  Pilihan kosong diperbolehkan dan tidak menampilkan etalase publik.
+- Profil `/u/:username` menyediakan tautan dan PNG 1200×1200 berisi
+  artwork kartu, nomor edisi, judul, dan tautan profil. Browser membaca
+  ulang privasi/kepemilikan sebelum membuat gambar, lalu memakai native
+  share bila tersedia atau mengunduh file sebagai fallback.
 - Publikasi mengikuti pengaturan privasi dan status akun; profil anonim
   atau suspended tetap terlindungi, termasuk pada pratinjau tautan.
-- Kartu unggulan harus mencerminkan kepemilikan saat ini. Tentukan
-  penanganan kartu yang sudah dijual ketika merinci implementasi.
+- Transfer atau penghapusan kartu otomatis membuangnya dari pilihan
+  melalui trigger database; membeli kembali tidak otomatis memajangnya.
+  Read publik tetap memeriksa owner saat ini dan visibilitas Drop,
+  termasuk edisi yang sudah closed, tanpa mengungkap draft.
+- Pratinjau tautan memakai judul dan artwork pertama; metadata serta
+  HTML profil `no-store`. PNG dibuat lokal tanpa objek publik permanen.
+  Gambar yang telah disimpan orang atau cache milik media sosial tidak
+  dapat ditarik kembali ketika pengguna mengubah privasi/koleksinya.
 - Acuan halaman: `02_pages.md` PG-PROF-01 dan PG-USR-06.
 
 ### 7.2 Panduan Pengguna Baru
@@ -273,10 +283,16 @@ Urutan pengerjaan yang disepakati:
 - Panduan singkat mengikuti konteks perjalanan pembelian pertama:
   memilih pool, memahami C-Coin yang ditahan saat Raffle, melihat hasil
   pengundian, kartu masuk Vault, lalu meminta pengiriman bila diinginkan.
-- Pengguna bisa melewati panduan dan membukanya kembali.
+- Pengguna bisa melewati/menyelesaikan panduan dan membukanya kembali.
+  Preferensi disimpan per akun di server, berlaku lintas halaman dan
+  tetap sama setelah reload. Pengguna lain tidak dapat mengubahnya.
 - Jelaskan harga C-Coin bersama padanan rupiahnya sesuai rate kanonik.
 - Panduan menjelaskan proses; persetujuan transaksi, pilihan pool,
   aturan saldo, dan konfirmasi wajib tetap mengikuti flow yang berlaku.
+- Konteks: pool/hasil pada detail Drop non-Seed, hold pada Wallet,
+  Vault pada koleksi/checkout, dan pengiriman pada Kelola Kartu.
+  Memilih kedua pool menjelaskan hold sebesar harga tertinggi, bukan
+  penjumlahan; padanan rupiah dan ongkir mengambil konstanta shared.
 - Acuan: `02_pages.md` PG-USR-02/05/07, `03_flows.md`, dan
   `04_user_stories.md` untuk perjalanan pengguna terkait.
 
@@ -284,7 +300,13 @@ Urutan pengerjaan yang disepakati:
 
 - Kembangkan narasi Drop yang sudah ada dengan cerita makna karya,
   foto/sketsa proses, atau video singkat kreator. Media pendukung opsional.
-- Ops mengelola konten per Drop; konten dapat diisi belakangan.
+- Admin Drops menyediakan editor judul, cerita teks biasa, dan maksimal
+  enam media gambar/video melalui URL HTTPS beserta caption. Media
+  dihosting terlebih dahulu; editor ini tidak mengunggah file media.
+- Ops dapat mengisi belakangan, termasuk setelah Drop tampil publik.
+  Simpan Draft, Publikasikan, dan Tarik Publikasi terpisah. Snapshot
+  publik tidak berubah saat draft direvisi. Konflik revisi meminta muat
+  ulang; publish/unpublish memakai dialog konfirmasi dan audit atomik.
 - Tampilkan bagian cerita hanya jika ada konten yang dipublikasikan.
   Konten kosong tidak menampilkan bagian kosong atau menghalangi rilis
   Drop dan penggunaan fitur inti.
@@ -296,26 +318,35 @@ Urutan pengerjaan yang disepakati:
 
 - Ops memilih kartu Seed yang mendapat kampanye; kampanye tidak wajib
   untuk setiap kreator atau kartu Seed.
+- Satu kampanye per Drop Seed memilih kartu terkait dari Drop yang sama.
+  Draft sebagian boleh disimpan; publikasi memerlukan judul, pengantar,
+  kartu, dan tiga tahap dokumentasi. Media memakai editor cerita yang sama.
 - Konten mendokumentasikan awal kolaborasi: proses pembuatan,
   penandatanganan, penyerahan kepada kreator, serta tautan menuju kartu
   terkait di platform.
 - Kampanye dapat memakai pola konten cerita C.Card agar pengelolaannya
   sederhana. Cerita C.Card berfokus pada makna karya; kampanye Seed
   berfokus pada perjalanan awal kolaborasi.
+- Kampanye terbit tampil di detail Drop dan info kartu terkait, dengan
+  tautan kartu sebenarnya. Kartu yang dihapus, Drop draft, atau kreator
+  privat/suspended membuat kampanye tersembunyi. Dokumentasi editorial
+  tidak mengubah custody, NFC/CMAC, status verifikasi, atau settlement.
 - Opsional berlaku pada konten kampanye. Mekanisme Creator Seed yang
   sudah disepakati tetap mengikuti `01_scope.md` dan `03_flows.md`
   Flow 10, termasuk verifikasi dan proses transaksi.
 
-### 7.5 Titik Mulai Tugas Codex Berikutnya
+### 7.5 Verifikasi dan Batas Cakupan
 
-- Mulai dari `00_readme.md`, bagian ini, dan dokumen acuan fitur yang
-  dipilih; periksa implementasi terkini sebelum mengubah kode.
-- Rincian UI, penyimpanan konten/media, dan persistensi preferensi
-  panduan dirumuskan saat tugas implementasi dimulai.
-- Kerjakan sesuai urutan di atas ketika diminta melanjutkan backlog;
-  perbarui status tiap fitur setelah implementasi dan verifikasi selesai.
-- Sinkronkan dokumen halaman, flow, dan user stories yang terdampak;
-  ikuti gate pengujian serta pemeriksaan mirror saat implementasi.
+- Model data/RLS ada di `05_data_model.md` dan `11_rls_policy.md`;
+  alur dan acceptance ada di `03_flows.md` dan `04_user_stories.md`.
+- Verifikasi 2026-09-06: 41 assertion SQL fitur baru, 35 assertion
+  integritas flow lama, tujuh test route dengan mock, dan empat alur
+  browser dengan persistensi database remote. Detail di `15_quality_gates.md`.
+- PNG, tampilan desktop/mobile, serta gambar/video cerita diperiksa.
+  Native share ke aplikasi sosial pada perangkat nyata belum diuji;
+  unduhan nyata dan fallback saat share ditolak browser sudah diuji.
+- Pemeriksaan dilakukan pada server aplikasi lokal + data remote,
+  bukan deployment baru atau smoke Access/WARP di host publik.
 - Pengingat Drop dan daftar pantauan kartu dari diskusi awal belum
   dipilih untuk backlog ini.
 
@@ -330,6 +361,5 @@ Urutan pengerjaan yang disepakati:
 - Diskusi user 2026-08-13 (domain final, vault default, min payout).
 - Keputusan founder 2026-09-05 (admin/funds di Workers, WARP wajib,
   API privat melalui Service Binding).
-- Keputusan founder 2026-09-06: prioritaskan etalase dan panduan;
-  cerita C.Card serta kampanye Creator Seed opsional. Catat dahulu
-  untuk implementasi berikutnya melalui Codex.
+- Keputusan founder 2026-09-06: etalase, panduan, cerita C.Card dan
+  kampanye Creator Seed; instruksi implementasi menggantikan penundaan.

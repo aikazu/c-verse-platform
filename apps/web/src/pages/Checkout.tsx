@@ -2,6 +2,7 @@ import { AOV_UNSIGNED_CCOIN } from "@c-verse/shared";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { CollectorGuide } from "../components/CollectorGuide";
 import { useConfirm } from "../components/ConfirmProvider";
 import { LEGAL_CONSENTS } from "../components/LegalConsentCheckbox";
 import { PageHero } from "../components/PageHero";
@@ -141,6 +142,7 @@ export default function Checkout() {
         }
       />
       <div className="card card-pad">
+        <CollectorGuide topic="vault" />
         <span className="eyebrow">Ringkasan</span>
         <h2 className="h2" style={{ marginTop: 4 }}>
           {drop.title}

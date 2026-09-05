@@ -1,0 +1,14 @@
+.showcase { display: grid; gap: 1.5rem; }
+.showcase header p, .showcase form > p { color: var(--text-dim); line-height: 1.6; }
+.showcase form { display: grid; gap: 1rem; }
+.showcase-title { display: grid; gap: .5rem; }
+.showcase fieldset { border: 1px solid var(--border); border-radius: 8px; padding: 1rem; min-width: 0; }
+.showcase-picker { display: grid; gap: .75rem; max-height: 260px; overflow: auto; }
+.showcase-choice { display: flex; gap: .75rem; align-items: baseline; }
+.showcase-actions { display: flex; gap: .75rem; flex-wrap: wrap; }
+.showcase-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1.5rem; }
+.showcase-card { min-width: 0; color: inherit; text-decoration: none; }
+.showcase-card h3 { margin: .75rem 0 .35rem; overflow-wrap: anywhere; }
+.showcase-art { position: relative; height: 260px; overflow: hidden; border-radius: 8px; }
+.showcase-art > .pill { position: absolute; top: .75rem; left: .75rem; }
+@media (max-width: 600px) { .showcase-grid { grid-template-columns: 1fr; } .showcase-art { height: 320px; } }

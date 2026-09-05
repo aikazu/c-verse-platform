@@ -1,6 +1,7 @@
 import { ARTWORK_MAX_BYTES, PUBLIC_IMAGE_TYPES } from "@c-verse/shared";
 import { useEffect, useRef, useState } from "react";
 import { useConfirm } from "../components/ConfirmProvider";
+import { EditorialEditor } from "../components/EditorialEditor";
 import { StatusBadge } from "../components/StatusBadge";
 import { apiFetch } from "../lib/api";
 import type { DropRow } from "../lib/types";
@@ -44,6 +45,7 @@ export function DropsPage() {
   const [creating, setCreating] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [editorial, setEditorial] = useState<{ dropId: string; kind: "story" | "seed_campaign" } | null>(null);
   const createArtworkRef = useRef<HTMLInputElement>(null);
   const editArtworkRef = useRef<HTMLInputElement>(null);
 
@@ -439,6 +441,7 @@ export function DropsPage() {
           </div>
         </section>
       )}
+      {editorial && <EditorialEditor dropId={editorial.dropId} kind={editorial.kind} onClose={() => setEditorial(null)} />}
       <div className="card" style={{ marginTop: 14 }}>
         <div className="admin-table-head">Daftar — {rows.length}</div>
         {loading ? (
@@ -503,6 +506,22 @@ export function DropsPage() {
                         >
                           Ganti artwork
                         </button>
+                        <button
+                          className="btn-ghost admin-mini"
+                          onClick={() => setEditorial({ dropId: row.id, kind: "story" })}
+                          disabled={busy || uploading || editorial !== null}
+                        >
+                          Cerita C.Card
+                        </button>
+                        {row.is_seed && (
+                          <button
+                            className="btn-ghost admin-mini"
+                            onClick={() => setEditorial({ dropId: row.id, kind: "seed_campaign" })}
+                            disabled={busy || uploading || editorial !== null}
+                          >
+                            Campaign
+                          </button>
+                        )}
                         <button className="btn-ghost admin-mini" onClick={() => void setStatus(row.id, "published")} disabled={busy}>
                           Publish
                         </button>

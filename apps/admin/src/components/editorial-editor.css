@@ -1,0 +1,15 @@
+.editorial-editor { margin-top: 14px; display: flex; flex-direction: column; gap: 14px; }
+.editorial-editor-head { display: flex; gap: 16px; justify-content: space-between; align-items: flex-start; }
+.editorial-editor-head h3 { margin: 2px 0 5px; font-family: var(--font-display); color: var(--gold); }
+.editorial-editor-head .muted { max-width: 560px; margin: 0; font-size: 12px; line-height: 1.55; }
+.editorial-kicker { margin: 0; color: var(--info); font-family: var(--font-mono); font-size: 10px; letter-spacing: .16em; }
+.editorial-fields { display: flex; flex-direction: column; gap: 7px; }
+.editorial-body { resize: vertical; min-height: 180px; white-space: pre-wrap; }
+.editorial-media-head { display: flex; gap: 12px; justify-content: space-between; align-items: flex-end; margin-top: 8px; padding-top: 12px; border-top: 1px dashed var(--border); }
+.editorial-media-head p { margin: 3px 0 0; font-size: 11px; }
+.editorial-media-row { display: grid; grid-template-columns: 110px minmax(0, 1fr); gap: 7px 10px; margin: 4px 0 0; padding: 12px; border: 1px solid var(--border); border-radius: var(--r-3); }
+.editorial-media-row legend { padding: 0 5px; color: var(--gold); font-family: var(--font-mono); font-size: 10px; letter-spacing: .1em; }
+.editorial-media-row .btn-ghost { justify-self: start; grid-column: 2; }
+.editorial-message { margin: 0; }
+.editorial-actions { display: flex; flex-wrap: wrap; gap: 8px; padding-top: 2px; }
+@media (max-width: 560px) { .editorial-editor-head, .editorial-media-head { flex-direction: column; } .editorial-media-row { grid-template-columns: 1fr; } .editorial-media-row .btn-ghost { grid-column: auto; } }

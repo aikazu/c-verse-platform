@@ -76,6 +76,19 @@ app.get("/sitemap.xml", async (_c) => {
 app.get("/meta", async (c) => {
   const path = c.req.query("path") ?? "/";
   const normalizedPath = path.split("?")[0].replace(/\/+$/, "") || "/";
+  if (normalizedPath.startsWith("/u/")) {
+    c.header("Cache-Control", "no-store");
+    const showcase = await getPublicShowcase(normalizedPath.split("/")[2]);
+    if (!showcase?.cards.length) return c.json({ error: "Not found" }, 404);
+    return c.json({
+      og: {
+        title: `${showcase.title} — C.Verse`,
+        description: `Etalase ${showcase.displayName} · ${showcase.cards.length} C.Card`,
+        image: showcase.cards[0].artworkUrl || null,
+      },
+      jsonLd: null,
+    });
+  }
   const legalMeta = LEGAL_PAGE_META[normalizedPath];
   if (legalMeta) {
     return c.json({
@@ -165,3 +178,5 @@ app.get("/meta", async (c) => {
 });
 
 export default app;
+
+import { getPublicShowcase } from "../../lib/reads/showcase.js";
