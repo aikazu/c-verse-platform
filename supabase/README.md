@@ -160,16 +160,14 @@ depan dan belakang berasal dari atlas masing-masing Drop.
 | `drop-seed-karina-02` | Karina: Starlight Seed | `mock/v2/artworks/karina-starlight.png` |
 | `drop-nova-archive-gifts` | Nova Archive: Gifted Constellation | `mock/v2/artworks/nova-constellation.png` |
 
-Enam PNG baru disimpan di `supabase/fixtures/artworks/`, di luar bundle web,
-dan memakai URL R2 sejak seed. Seraph, Velvet, dan Starlight adalah variasi
+Semua sumber manifest disimpan di `supabase/fixtures/`, di luar bundle web,
+dan seluruh seed memakai URL R2. Seraph, Velvet, dan Starlight adalah variasi
 editorial AI dari referensi Karina yang sudah diberikan; pose, busana,
 komposisi, dan desain belakang berbeda. Solstice, Signal, dan Constellation
 adalah artwork AI original. Referensi Karina tetap untuk mock internal;
-keberadaan file tidak membuktikan izin publikasi komersial.
-
-Genesis/Aurora dan avatar Demo/Nova tetap tersedia di
-`apps/web/public/mock/v1/`. Dua avatar memiliki konten berbeda; persona
-tanpa avatar tetap menguji fallback. Atlas dipakai viewer OBJ dan daftar 2D.
+keberadaan file tidak membuktikan izin publikasi komersial. Genesis/Aurora,
+avatar Demo/Nova, dan mesh kartu dipertahankan sebagai sumber hash yang
+reproduktif serta input E2E, bukan Static Assets.
 `pnpm seed:assets` memeriksa signature, hash, duplikasi, dan cakupan seluruh
 Drop dari `seeds/*.sql`. Guard Vitest menguji file yang disalin dengan nama
 berbeda, assignment ganda, dan Drop tanpa artwork. Assertion SQL akhir seed
@@ -188,10 +186,10 @@ pnpm seed:assets --base-url https://assets.c-verse.co --sql
 
 Kedua perintah bersifat read-only: tidak mengunggah atau mengeksekusi SQL.
 Mapping artwork memakai `drops.id`, sehingga referensi lama yang berulang
-dapat dipisahkan tanpa reset. Model dan avatar dipetakan dari URL lokal yang
-cocok persis. SQL hanya menyentuh URL artwork, model, dan avatar; tidak
-mengubah inventory, transaksi, wallet, atau KYC. Nama dan narasi desain
-tercatat pada `10_catalog.sql`.
+dapat dipisahkan tanpa reset. Model dan avatar juga mengenali URL seed lokal
+lama yang cocok persis agar migrasi ke URL R2 tetap terarah. SQL hanya
+menyentuh URL artwork, model, dan avatar; tidak mengubah inventory, transaksi,
+wallet, atau KYC. Nama dan narasi desain tercatat pada `10_catalog.sql`.
 
 Pemasangan 2026-09-05 memperbarui delapan Drop yang sudah ada di remote
 development `rnsfgbhoahzvrbtvjjtw` tanpa reset. Dua migrasi lencana yang

@@ -5,7 +5,7 @@ import { adminLogin } from "../../helpers";
 import { remoteServiceRest } from "../../helpers/db";
 
 const API_BASE = localAppOrigins().api;
-const GENESIS_ARTWORK_FIXTURE = path.resolve(process.cwd(), "apps/web/public/mock/v1/artworks/genesis.png");
+const GENESIS_ARTWORK_FIXTURE = path.resolve(process.cwd(), "supabase/fixtures/artworks/genesis.png");
 const KARINA_CREATOR_ID = "00000000-0000-4000-8000-000000000003";
 
 function serviceHeaders(): Record<string, string> {

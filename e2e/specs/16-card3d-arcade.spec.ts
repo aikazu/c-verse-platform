@@ -1,4 +1,5 @@
-import { expect, test } from "@playwright/test";
+import { expect } from "@playwright/test";
+import { test } from "../fixtures/public-assets";
 
 const CARD_PATH = "/cards/card-genesis-live-08/3d";
 
@@ -62,16 +63,16 @@ test("context loss during artwork loading cannot be overwritten by a late respon
   const pending = new Promise<void>((resolve) => {
     resume = resolve;
   });
-  await page.route("**/mock/v1/artworks/genesis.png", async (route) => {
+  await page.route("**/mock/v1/artworks/genesis.png*", async (route) => {
     await pending;
-    await route.continue();
+    await route.fallback();
   });
   await page.goto(CARD_PATH);
   await expect(page.locator(".c3d-canvas canvas")).toBeVisible();
   await expect(page.locator(".c3d-stage")).toHaveAttribute("data-status", "loading");
   await page.locator(".c3d-canvas canvas").dispatchEvent("webglcontextlost");
   await expect(page.locator(".c3d-stage")).toHaveAttribute("data-status", "error");
-  const texture = page.waitForResponse("**/mock/v1/artworks/genesis.png");
+  const texture = page.waitForResponse("**/mock/v1/artworks/genesis.png*");
   resume?.();
   await texture;
   await expect(page.getByRole("alert")).toContainText("Tampilan 3D tidak tersedia");
@@ -84,10 +85,10 @@ test("stalled artwork falls back to a usable neutral card and ignores a late ima
   const pending = new Promise<void>((resolve) => {
     resume = resolve;
   });
-  const atlas = "**/mock/v1/artworks/genesis.png";
+  const atlas = "**/mock/v1/artworks/genesis.png*";
   await page.route(atlas, async (route) => {
     await pending;
-    await route.continue();
+    await route.fallback();
   });
   const requested = page.waitForRequest(atlas);
   try {

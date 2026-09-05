@@ -2,7 +2,7 @@ import path from "node:path";
 import { expect, test } from "@playwright/test";
 import { loginAs } from "../helpers";
 
-const DEMO_AVATAR_FIXTURE = path.resolve(process.cwd(), "apps/web/public/mock/v1/avatars/demo.png");
+const DEMO_AVATAR_FIXTURE = path.resolve(process.cwd(), "supabase/fixtures/avatars/demo.png");
 
 test.describe("Avatar publik", () => {
   test("preview, upload, tampil publik, validasi file, lalu hapus", async ({ page, request }, testInfo) => {

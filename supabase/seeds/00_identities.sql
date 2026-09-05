@@ -27,11 +27,11 @@ insert into public.users (
   id,email,display_name,username,role,avatar_url,is_anonymous,flag_reason,
   consent_analytics_detail,username_is_auto
 ) values
-  ('00000000-0000-4000-8000-000000000001','demo@cverse.id','Demo Kolektor','demo_kolektor','user','/mock/v1/avatars/demo.png',false,null,true,false),
+  ('00000000-0000-4000-8000-000000000001','demo@cverse.id','Demo Kolektor','demo_kolektor','user','https://assets.c-verse.co/mock/v1/avatars/demo.png',false,null,true,false),
   ('00000000-0000-4000-8000-000000000002','admin@cverse.id','Admin C.Verse','admin','admin',null,false,null,false,false),
   ('00000000-0000-4000-8000-000000000003','karina@creator.id','Karina Aespa','karina_aespa','creator',null,false,null,true,false),
   ('00000000-0000-4000-8000-000000000004','hype@creator.id','Hype Collective','hype_collective','creator',null,false,null,false,false),
-  ('00000000-0000-4000-8000-000000000005','nova@creator.id','Nova Studio','nova_studio','creator','/mock/v1/avatars/nova.png',false,null,true,false),
+  ('00000000-0000-4000-8000-000000000005','nova@creator.id','Nova Studio','nova_studio','creator','https://assets.c-verse.co/mock/v1/avatars/nova.png',false,null,true,false),
   ('00000000-0000-4000-8000-000000000006','rival@cverse.id','Rival Kolektor','rival','user',null,false,null,false,false),
   ('00000000-0000-4000-8000-000000000007','ghost@cverse.id','Ghost Collector','ghost','user',null,true,null,false,false),
   ('00000000-0000-4000-8000-000000000008','marked@cverse.id','Marked Account','marked','user',null,false,'tos_violation_2026_08',false,false),

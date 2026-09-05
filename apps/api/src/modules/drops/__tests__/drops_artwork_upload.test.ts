@@ -7,7 +7,7 @@ vi.hoisted(() => {
 const control = vi.hoisted(() => ({
   admin: true,
   dropExists: true,
-  artworkUrl: "/mock/v1/artworks/genesis.png",
+  artworkUrl: "https://assets.c-verse.co/mock/v1/artworks/genesis.png",
   auditFails: false,
   auditCalls: [] as Array<Record<string, unknown>>,
   updatePatch: null as Record<string, unknown> | null,
@@ -108,7 +108,7 @@ describe("POST /api/drops/:id/artwork", () => {
   beforeEach(() => {
     control.admin = true;
     control.dropExists = true;
-    control.artworkUrl = "/mock/v1/artworks/genesis.png";
+    control.artworkUrl = "https://assets.c-verse.co/mock/v1/artworks/genesis.png";
     control.auditFails = false;
     control.auditCalls = [];
     control.updatePatch = null;

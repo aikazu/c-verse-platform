@@ -69,8 +69,8 @@ do $$
 declare
   failures text[] := array[]::text[];
   approved_asset_paths constant text[] := array[
-    'https://assets.c-verse.co/mock/v1/artworks/karina.jpg','/mock/v1/artworks/genesis.png','/mock/v1/artworks/aurora.png',
-    '/mock/v1/avatars/demo.png','/mock/v1/avatars/nova.png','/placeholder.obj',
+    'https://assets.c-verse.co/mock/v1/artworks/karina.jpg','https://assets.c-verse.co/mock/v1/artworks/genesis.png','https://assets.c-verse.co/mock/v1/artworks/aurora.png',
+    'https://assets.c-verse.co/mock/v1/avatars/demo.png','https://assets.c-verse.co/mock/v1/avatars/nova.png','https://assets.c-verse.co/mock/v1/models/card.obj',
     'https://assets.c-verse.co/mock/v2/artworks/karina-seraph.png',
     'https://assets.c-verse.co/mock/v2/artworks/aurora-solstice.png',
     'https://assets.c-verse.co/mock/v2/artworks/genesis-signal.png',

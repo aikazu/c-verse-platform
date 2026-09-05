@@ -257,7 +257,7 @@ app.post(
       title: body.title,
       series: body.series,
       narrative: body.narrative,
-      artwork_url: body.artworkUrl || "/mock/v1/artworks/genesis.png",
+      artwork_url: body.artworkUrl || "https://assets.c-verse.co/mock/v1/artworks/genesis.png",
       artwork_3d_url: body.artwork3dUrl || null,
       total_units: body.totalUnits,
       signed_count: signedCount,

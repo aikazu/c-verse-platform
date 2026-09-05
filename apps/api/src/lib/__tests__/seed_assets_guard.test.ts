@@ -14,15 +14,21 @@ type ValidateAssetDefinitions = (
 const { validateAssetDefinitions } = (await import(pathToFileURL(script).href)) as { validateAssetDefinitions: ValidateAssetDefinitions };
 
 describe("mock asset delivery contract", () => {
-  it("keeps Karina outside the web bundle and seeds its verified R2 URL", () => {
+  it("keeps every seed asset outside the web bundle and seeds its verified R2 URL", () => {
     const { assets } = JSON.parse(execFileSync(process.execPath, [script], { encoding: "utf8" })) as {
-      assets: Array<{ id: string; file: string; url: string }>;
+      assets: Array<{ id: string; file: string; objectKey: string; url: string }>;
     };
     expect(assets.find((asset) => asset.id === "karina")).toMatchObject({
       file: join(root, "supabase/fixtures/artworks/karina.jpg"),
       url: "https://assets.c-verse.co/mock/v1/artworks/karina.jpg",
     });
     expect(existsSync(join(root, "apps/web/public/textures/karina.jpg"))).toBe(false);
+    expect(existsSync(join(root, "apps/web/public/mock"))).toBe(false);
+    expect(existsSync(join(root, "apps/web/public/placeholder.obj"))).toBe(false);
+    for (const asset of assets) {
+      expect(asset.file.startsWith(join(root, "supabase/fixtures"))).toBe(true);
+      expect(asset.url).toBe(`https://assets.c-verse.co/${asset.objectKey}`);
+    }
   });
   it("validates actual image signatures, unique artwork, and every SQL asset reference", () => {
     const { assets } = JSON.parse(execFileSync(process.execPath, [script], { encoding: "utf8" })) as { assets: Asset[] };
@@ -131,6 +137,8 @@ describe("mock asset delivery contract", () => {
       "update public.drops set artwork_url = 'https://assets.c-verse.co/mock/v2/artworks/karina-seraph.png' where id = 'drop-aespa-signed'",
     );
     expect(liveSql.match(/update public.drops set artwork_url/g)).toHaveLength(9);
+    expect(liveSql).toContain("where avatar_url in ('/mock/v1/avatars/demo.png')");
+    expect(liveSql).toContain("where artwork_3d_url in ('/placeholder.obj')");
   });
 
   it.each([

@@ -30,7 +30,7 @@ export function validateAssetDefinitions(assets, { readAsset, seededDropIds = []
   const plans = assets.map((asset) => {
     const { id, kind, sourcePath, seedUrl, objectKey, contentType, dropId } = asset;
     if (!id || ids.has(id)) throw new Error("Duplicate or missing asset id.");
-    if (!/^(apps\/web\/public|supabase\/fixtures)\/[a-z0-9/_.-]+$/i.test(sourcePath) || sourcePath.includes("..")) {
+    if (!/^supabase\/fixtures\/[a-z0-9/_.-]+$/i.test(sourcePath) || sourcePath.includes("..")) {
       throw new Error("Invalid asset source path.");
     }
     if (!/^mock\/v[0-9]+\/[a-z0-9/_.-]+$/i.test(objectKey) || objectKey.includes("..")) throw new Error("Invalid mock R2 key.");
@@ -89,10 +89,8 @@ export function assetPlan(baseUrl) {
   });
   return assets.map((asset) => {
     const { sourcePath, seedUrl, objectKey, contentType } = asset;
-    const expectedSeedUrl = sourcePath.startsWith("apps/web/public/")
-      ? sourcePath.slice("apps/web/public".length)
-      : new URL(objectKey, manifest.publicBaseUrl).href;
-    if (seedUrl !== expectedSeedUrl) throw new Error("Seed URL must match the bundled path or verified R2 object.");
+    const expectedSeedUrl = new URL(objectKey, manifest.publicBaseUrl).href;
+    if (seedUrl !== expectedSeedUrl) throw new Error("Seed URL must match the verified R2 object.");
     const file = resolve(root, sourcePath);
     return {
       id: asset.id,
@@ -100,6 +98,7 @@ export function assetPlan(baseUrl) {
       dropId: asset.dropId,
       file,
       seedUrl,
+      legacySeedUrl: asset.legacySeedUrl,
       bucket: manifest.bucket,
       objectKey,
       contentType,
@@ -116,13 +115,14 @@ const sqlLiteral = (value) => `'${value.replaceAll("'", "''")}'`;
 export function mappingSql(baseUrl) {
   if (!baseUrl) throw new Error("--sql requires --base-url for a verified asset origin.");
   const updates = assetPlan(baseUrl)
-    .filter((asset) => asset.kind === "atlas" || asset.url !== asset.seedUrl)
+    .filter((asset) => asset.kind === "atlas" || asset.url !== asset.seedUrl || asset.legacySeedUrl)
     .map((asset) => {
       if (asset.kind === "atlas") {
         return `update public.drops set artwork_url = ${sqlLiteral(asset.url)} where id = ${sqlLiteral(asset.dropId)};`;
       }
       const [table, column] = asset.kind === "avatar" ? ["users", "avatar_url"] : ["drops", "artwork_3d_url"];
-      return `update public.${table} set ${column} = ${sqlLiteral(asset.url)} where ${column} = ${sqlLiteral(asset.seedUrl)};`;
+      const previousUrls = [asset.seedUrl, asset.legacySeedUrl].filter((url) => url && url !== asset.url);
+      return `update public.${table} set ${column} = ${sqlLiteral(asset.url)} where ${column} in (${previousUrls.map(sqlLiteral).join(", ")});`;
     });
   return ["-- Development fixtures only. Review target DB and verify every uploaded object first.", "begin;", ...updates, "commit;"].join(
     "\n",

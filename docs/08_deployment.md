@@ -1,8 +1,9 @@
 # 08 — Deployment Runbook (Step-by-Step)
 
 > Status: [VALIDATED]
-> Last updated: 2026-09-06 (skenario biaya Cloudflare 50.000 MAU pada
-> Workers Paid US$5; tarif, asumsi, batas verifikasi, dan rekomendasi di §10)
+> Last updated: 2026-09-06 (seluruh aset manifest memakai delivery R2;
+> skenario biaya Cloudflare 50.000 MAU pada Workers Paid US$5; tarif,
+> asumsi, batas verifikasi, dan rekomendasi di §10)
 > Previous: 2026-09-05 (remote Supabase reset terkendali ke baseline
 > 18 migration; `cverse-assets` public di `assets.c-verse.co` dengan
 > enam fixture terverifikasi; upload avatar/artwork dan viewer 3D ter-deploy)
@@ -167,11 +168,11 @@ tidak membacanya (env email API hanya `EMAIL_ENABLED`/`EMAIL_FROM`/
 
 ### 3.4 Cloudflare R2
 - Bucket `cverse-assets` aktif di lokasi APAC dengan custom domain public
-  `https://assets.c-verse.co`; TLS minimum 1.2 dan `r2.dev` nonaktif. Enam
-  object manifest fixture (artwork, model, avatar) telah diunggah dan
-  diverifikasi HTTP 200, SHA-256 lokal, serta CORS GET/HEAD. Mapping remote
-  sudah diterapkan untuk 8 URL artwork, 8 model, dan 2 avatar. Reset lokal
-  memakai R2 untuk Karina dan Static Assets untuk lima aset lain sampai mapping.
+  `https://assets.c-verse.co`; TLS minimum 1.2 dan `r2.dev` nonaktif. Semua
+  12 object manifest fixture (artwork, model, avatar) telah diunggah dan
+  diverifikasi HTTP GET, SHA-256 lokal, serta CORS untuk `localhost:5173`.
+  Seed memakai URL R2 untuk semua aset; file sumber tetap berada di
+  `supabase/fixtures/` di luar bundle web untuk hash reproduktif dan input E2E.
 - Delivery host memakai response transform khusus host dengan `nosniff`, CSP
   `default-src 'none'; sandbox`, `Referrer-Policy: no-referrer`, dan HSTS satu
   tahun. `scripts/r2-assets.headers.json` adalah konfigurasi referensi; review
@@ -271,18 +272,17 @@ Viewer hanya memakai artwork drop yang diminta. Texture hilang/gagal tidak
 diganti foto Karina atau artwork drop lain: model netral dan pesan status
 ditampilkan. Smoke CDN opsional memakai `TEST_PUBLIC_ASSETS=1` saat menjalankan
 tes `e2e/specs/14-seed-assets.spec.ts`; suite default tidak bergantung pada
-ketersediaan R2 remote. Tes lokal juga mencakup Genesis, Aurora, dan texture gagal.
+ketersediaan R2 remote karena fixture Playwright mengintersep URL manifest.
+Tes lokal juga mencakup Genesis, Aurora, dan texture gagal.
 Smoke Genesis #8 menghangatkan cache gambar biasa sebelum membuka 3D, tanpa
 Playwright routing karena routing menonaktifkan HTTP cache.
 
 Manifest fixture repository menyimpan path file nyata, MIME, object key target
 dan prompt/provenance; validator menghitung SHA-256 dari file saat dijalankan.
 Aktivasi fixture telah menyelesaikan upload, verifikasi delivery, dan mapping
-remote untuk 8 artwork, 8 model, serta 2 avatar. Manifest memisahkan
-`sourcePath` dan `seedUrl`: sumber Karina berada di fixture non-bundle,
-dan seed lokalnya memakai URL R2 terverifikasi. Lima aset lain tetap dibundel
-untuk tes offline; mapping R2-nya tindakan eksplisit terpisah. Jangan mengubah
-URL DB sebelum object tersedia.
+remote untuk seluruh aset manifest. Manifest memisahkan `sourcePath` dan
+`seedUrl`: semua sumber berada di fixture non-bundle, sedangkan seed memakai
+URL R2 terverifikasi. Jangan mengubah URL DB sebelum object tersedia.
 
 Reset Postgres tidak menghapus object R2. Sesudah reset development, cocokkan
 kembali key manifest/metadata dengan bucket sebelum membersihkan orphan.

@@ -1,7 +1,7 @@
 {
-  "version": 3,
+  "version": 4,
   "bucket": "cverse-assets",
-  "status": "unique-artwork-2026-09-05",
+  "status": "r2-only-delivery-2026-09-06",
   "publicBaseUrl": "https://assets.c-verse.co",
   "assets": [
     {
@@ -17,8 +17,8 @@
     {
       "id": "genesis",
       "kind": "atlas",
-      "sourcePath": "apps/web/public/mock/v1/artworks/genesis.png",
-      "seedUrl": "/mock/v1/artworks/genesis.png",
+      "sourcePath": "supabase/fixtures/artworks/genesis.png",
+      "seedUrl": "https://assets.c-verse.co/mock/v1/artworks/genesis.png",
       "objectKey": "mock/v1/artworks/genesis.png",
       "contentType": "image/png",
       "provenance": "AI-generated fictional mock artwork; built-in ImageGen.",
@@ -28,8 +28,8 @@
     {
       "id": "aurora",
       "kind": "atlas",
-      "sourcePath": "apps/web/public/mock/v1/artworks/aurora.png",
-      "seedUrl": "/mock/v1/artworks/aurora.png",
+      "sourcePath": "supabase/fixtures/artworks/aurora.png",
+      "seedUrl": "https://assets.c-verse.co/mock/v1/artworks/aurora.png",
       "objectKey": "mock/v1/artworks/aurora.png",
       "contentType": "image/png",
       "provenance": "AI-generated fictional mock artwork; built-in ImageGen.",
@@ -108,31 +108,34 @@
     {
       "id": "demo",
       "kind": "avatar",
-      "sourcePath": "apps/web/public/mock/v1/avatars/demo.png",
-      "seedUrl": "/mock/v1/avatars/demo.png",
+      "sourcePath": "supabase/fixtures/avatars/demo.png",
+      "seedUrl": "https://assets.c-verse.co/mock/v1/avatars/demo.png",
       "objectKey": "mock/v1/avatars/demo.png",
       "contentType": "image/png",
       "provenance": "AI-generated fictional adult, not an identity document; built-in ImageGen.",
-      "prompt": "Use case: stylized-concept. Asset type: square profile avatar for a fictional Indonesian collector named Demo, test fixture for a collectible platform. New original editorial digital illustration, friendly adult Indonesian man, short dark hair, navy casual jacket, clean amber and midnight-blue studio background, head and shoulders centered, circular crop safe with generous headroom, polished subtle grain, natural proportions. No celebrity likeness, no letters, no watermark. 1024 square PNG."
+      "prompt": "Use case: stylized-concept. Asset type: square profile avatar for a fictional Indonesian collector named Demo, test fixture for a collectible platform. New original editorial digital illustration, friendly adult Indonesian man, short dark hair, navy casual jacket, clean amber and midnight-blue studio background, head and shoulders centered, circular crop safe with generous headroom, polished subtle grain, natural proportions. No celebrity likeness, no letters, no watermark. 1024 square PNG.",
+      "legacySeedUrl": "/mock/v1/avatars/demo.png"
     },
     {
       "id": "nova",
       "kind": "avatar",
-      "sourcePath": "apps/web/public/mock/v1/avatars/nova.png",
-      "seedUrl": "/mock/v1/avatars/nova.png",
+      "sourcePath": "supabase/fixtures/avatars/nova.png",
+      "seedUrl": "https://assets.c-verse.co/mock/v1/avatars/nova.png",
       "objectKey": "mock/v1/avatars/nova.png",
       "contentType": "image/png",
       "provenance": "AI-generated fictional adult, not an identity document; built-in ImageGen.",
-      "prompt": "Use case: stylized-concept. Asset type: square profile avatar for fictional Nova Studio, creator test fixture for a collectible platform. New original editorial digital illustration, friendly adult Indonesian woman artist with chin-length dark hair, understated round glasses and violet studio jacket, muted teal and dark plum studio backdrop, head and shoulders centered, circular crop safe with generous headroom, polished subtle grain, natural proportions. No celebrity likeness, no letters, no watermark. 1024 square PNG."
+      "prompt": "Use case: stylized-concept. Asset type: square profile avatar for fictional Nova Studio, creator test fixture for a collectible platform. New original editorial digital illustration, friendly adult Indonesian woman artist with chin-length dark hair, understated round glasses and violet studio jacket, muted teal and dark plum studio backdrop, head and shoulders centered, circular crop safe with generous headroom, polished subtle grain, natural proportions. No celebrity likeness, no letters, no watermark. 1024 square PNG.",
+      "legacySeedUrl": "/mock/v1/avatars/nova.png"
     },
     {
       "id": "card-mesh",
       "kind": "model",
-      "sourcePath": "apps/web/public/placeholder.obj",
-      "seedUrl": "/placeholder.obj",
+      "sourcePath": "supabase/fixtures/models/card.obj",
+      "seedUrl": "https://assets.c-verse.co/mock/v1/models/card.obj",
       "objectKey": "mock/v1/models/card.obj",
       "contentType": "text/plain",
-      "provenance": "Existing repository mesh; front/back UV atlas."
+      "provenance": "Existing repository mesh; front/back UV atlas.",
+      "legacySeedUrl": "/placeholder.obj"
     }
   ]
 }

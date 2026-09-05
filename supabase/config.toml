@@ -118,8 +118,8 @@ enabled = true
 file_size_limit = "50MiB"
 
 # Application binaries belong in Cloudflare R2, not Supabase Storage.
-# Mock artwork/models/avatars are web Static Assets until the R2 delivery
-# flow is enabled. Do not provision unused artwork/card-assets buckets here.
+# Mock artwork/models/avatars are delivered from the public R2 custom domain.
+# Do not provision unused artwork/card-assets buckets here.
 
 # [storage.buckets.images]
 # public = false

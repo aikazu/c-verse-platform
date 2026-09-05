@@ -1,24 +1,34 @@
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
-import { expect, type Page, test } from "@playwright/test";
+import { expect, type Page } from "@playwright/test";
+import { assetManifest, test } from "../fixtures/public-assets";
 
 const AURORA_CARD_ID = "card-aurora-raffle-10";
 const AURORA_ATLAS_URL = "https://assets.c-verse.co/mock/v1/artworks/aurora.png";
 const CARD_OBJ_URL = "https://assets.c-verse.co/mock/v1/models/card.obj";
 
-const manifest = JSON.parse(readFileSync(resolve("supabase/seed-assets.json"), "utf8")) as {
-  assets: Array<{ kind: string; seedUrl: string }>;
-};
-
-test("bundled mock asset files are served and image bodies decode in the browser", async ({ page, request }) => {
-  const bundled = manifest.assets.filter((asset) => asset.seedUrl.startsWith("/"));
-  for (const asset of bundled) {
-    const response = await request.get(asset.seedUrl);
-    expect(response.ok(), asset.seedUrl).toBe(true);
-    expect(response.headers()["content-type"], "SPA fallback must never masquerade as an asset").not.toContain("text/html");
-  }
+test("seed assets load from their R2 URLs and image bodies decode in the browser", async ({ page }) => {
+  expect(assetManifest.assets).toHaveLength(12);
   await page.goto("/");
-  const paths = bundled.filter((asset) => asset.kind !== "model").map((asset) => asset.seedUrl);
+  const responses = await page.evaluate(
+    async (urls) =>
+      Promise.all(
+        urls.map(async (url) => {
+          const response = await fetch(url);
+          return {
+            url,
+            ok: response.ok,
+            contentType: response.headers.get("content-type"),
+            size: (await response.arrayBuffer()).byteLength,
+          };
+        }),
+      ),
+    assetManifest.assets.map((asset) => asset.seedUrl),
+  );
+  for (const response of responses) {
+    expect(response.ok, response.url).toBe(true);
+    expect(response.contentType, "SPA fallback must never masquerade as an asset").not.toContain("text/html");
+    expect(response.size).toBeGreaterThan(0);
+  }
+  const paths = assetManifest.assets.filter((asset) => asset.kind !== "model").map((asset) => asset.seedUrl);
   const images = await page.evaluate(async (urls) => {
     return Promise.all(
       urls.map(async (url) => {
@@ -52,7 +62,7 @@ for (const [name, cardId, artwork] of [
   });
 }
 
-async function routeAuroraViewerAssets(page: Page, liveMesh = false): Promise<void> {
+async function routeAuroraViewerAssets(page: Page, useFallbackMesh = false): Promise<void> {
   await page.route(`**/api/nfc/cards/${AURORA_CARD_ID}/3d*`, async (route) => {
     const response = await route.fetch();
     const body = (await response.json()) as { drop?: Record<string, unknown> };
@@ -60,7 +70,7 @@ async function routeAuroraViewerAssets(page: Page, liveMesh = false): Promise<vo
       response,
       json: {
         ...body,
-        drop: { ...body.drop, artworkUrl: AURORA_ATLAS_URL, artwork3dUrl: liveMesh ? CARD_OBJ_URL : "/placeholder.obj" },
+        drop: { ...body.drop, artworkUrl: AURORA_ATLAS_URL, artwork3dUrl: useFallbackMesh ? null : CARD_OBJ_URL },
       },
     });
   });
@@ -70,7 +80,7 @@ test("Aurora viewer requests its own CDN atlas and OBJ", async ({ page }, testIn
   test.skip(process.env.TEST_PUBLIC_ASSETS !== "1", "Set TEST_PUBLIC_ASSETS=1 for live R2 delivery smoke");
   const requested: string[] = [];
   page.on("request", (request) => requested.push(request.url()));
-  await routeAuroraViewerAssets(page, true);
+  await routeAuroraViewerAssets(page);
   const texture = page.waitForResponse((response) => response.url() === `${AURORA_ATLAS_URL}?cverse_texture=1`);
   const mesh = page.waitForResponse((response) => response.url() === CARD_OBJ_URL);
   await page.goto(`/cards/${AURORA_CARD_ID}/3d`);
@@ -86,9 +96,11 @@ test("Aurora viewer requests its own CDN atlas and OBJ", async ({ page }, testIn
 test("failed Aurora atlas keeps a neutral mesh and never requests Karina", async ({ page }, testInfo) => {
   const requested: string[] = [];
   page.on("request", (request) => requested.push(request.url()));
-  await routeAuroraViewerAssets(page);
+  await routeAuroraViewerAssets(page, true);
   await page.route(`${AURORA_ATLAS_URL}*`, (route) => route.abort("failed"));
+  const mesh = page.waitForResponse((response) => response.url() === CARD_OBJ_URL);
   await page.goto(`/cards/${AURORA_CARD_ID}/3d`);
+  expect((await mesh).ok()).toBe(true);
   await expect(page.locator(".c3d-canvas canvas")).toBeVisible();
   await expect(page.locator(".c3d-artwork-note[role='status']")).toContainText("Gambar kartu belum bisa dimuat");
   expect(requested.some((url) => url.includes("karina"))).toBe(false);
