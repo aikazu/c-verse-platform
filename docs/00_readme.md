@@ -1,7 +1,9 @@
 # 00 — README: Development Strategy C.Verse MVP
 
 > Status: [VALIDATED]
-> Last updated: 2026-09-06 (backlog pengalaman kolektor dan konten
+> Last updated: 2026-09-06 (skenario biaya Cloudflare 50.000 MAU
+> pada Workers Paid US$5 dicatat di `08_deployment.md` §10)
+> Previous: 2026-09-06 (backlog pengalaman kolektor dan konten
 > opsional dicatat di `09_recommendations.md` §7; implementasi ditunda)
 > Previous: 2026-09-05 (kontrol akses admin tanpa MFA/TOTP wajib;
 > email OTP + Access/WARP + role/suspension server-side; dual-token tetap)
@@ -25,7 +27,7 @@
 | 5 | `05_data_model.md` | Skema tabel, relasi, enum, invariant I1-I14, matriks RLS |
 | 6 | `06_tech_decisions.md` | Stack full-edge + keputusan arsitektur D1-D8 (+ D3b dual-token) |
 | 7 | `07_constraints.md` | Gate legal/ops, C-01..C-14, **matriks keputusan FINAL (jangan dibalik)** |
-| 8 | `08_deployment.md` | Runbook deploy, CI/CD, rollback, go-live checklist |
+| 8 | `08_deployment.md` | Runbook deploy, CI/CD, rollback, go-live checklist; §10 skenario biaya Cloudflare 50.000 MAU |
 
 ### Kelompok C — EXECUTION (spec eksekusi, hasil audit foundation 2026-08-15)
 | # | Dok | Isi | Status foundation saat audit |

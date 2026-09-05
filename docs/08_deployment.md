@@ -1,7 +1,9 @@
 # 08 — Deployment Runbook (Step-by-Step)
 
 > Status: [VALIDATED]
-> Last updated: 2026-09-05 (remote Supabase reset terkendali ke baseline
+> Last updated: 2026-09-06 (skenario biaya Cloudflare 50.000 MAU pada
+> Workers Paid US$5; tarif, asumsi, batas verifikasi, dan rekomendasi di §10)
+> Previous: 2026-09-05 (remote Supabase reset terkendali ke baseline
 > 18 migration; `cverse-assets` public di `assets.c-verse.co` dengan
 > enam fixture terverifikasi; upload avatar/artwork dan viewer 3D ter-deploy)
 > Previous: 2026-09-05 (aplikasi dana dikonsolidasikan
@@ -446,18 +448,221 @@ Secrets CI yang wajib diset (GitHub Settings → Secrets):
 - [ ] Ingress webhook khusus disepakati, dibuat, dan diuji dengan callback
       sandbox terverifikasi sebelum menyatakan top-up end-to-end siap.
 
-## 10. Catatan Biaya Y1 (estimasi)
+## 10. Skenario Biaya Cloudflare — 50.000 MAU
 
-| Item | Unit | Estimasi/bln |
-|------|------|--------------|
-| Cloudflare Free tier | Workers+Static Assets+D1+R2+Queues | Rp 0 (worst case upgrade ~Rp 500rb) |
-| Supabase Free → Pro | 500 MB → 8 GB | Rp 0 → ~Rp 350rb |
-| VPS admin/funds | Dipensiunkan 2026-09-05 | Rp 0 |
-| Midtrans/Xendit | fee top-up + disbursement | variabel (cost of goods) |
-| **Total infra Y1** | | **≤ Rp 1 juta/bln** (dalam opex Rp 38 jt/thn, recompute 2026-08-20; angka lama 135 jt dibatalkan) |
+> Status angka: [ASUMSI], dicatat 2026-09-06. Tarif resmi diperiksa pada
+> tanggal yang sama; perilaku pengguna, CPU, storage, dan cache adalah
+> input simulasi, bukan hasil load test atau proyeksi dari invoice.
+> Kurs perencanaan: US$1 = Rp17.000, bukan kurs transaksi aktual.
+
+### 10.1 Cakupan dan kondisi yang diperiksa
+
+Owner menyatakan akun sudah berlangganan Workers Paid US$5/bulan.
+Pembacaan API Cloudflare mengonfirmasi lima Worker ber-model Standard:
+`c-verse-web-dev`, `c-verse-api`, `c-verse-admin`, `c-verse-funds`, dan
+`c-verse-coming-soon`. Dua bucket R2 adalah `cverse-assets` dan
+`cverse-kyc`; zone `c-verse.co` masih memakai paket Free Website.
+Endpoint subscription/billing menolak akses dengan authentication error,
+sehingga invoice dan pemakaian tertagih belum terverifikasi.
+
+US$5 adalah biaya dasar per akun, bukan per Worker. Kuota akun dipakai
+bersama oleh aplikasi publik, admin, Fund, development, dan layanan lain
+yang memakai kuota produk tersebut. Simulasi mengasumsikan Platform menjadi
+pemakai dominan; konsumsi aplikasi lain harus dikurangkan dari sisa kuota.
+Ini skenario setelah aplikasi publik melayani 50.000 MAU; root saat snapshot
+masih Coming Soon dan web development masih dilindungi Access/WARP.
+
+| Layanan | Pemakaian Platform | Perlakuan dalam simulasi |
+|---------|--------------------|-------------------------|
+| Workers + Static Assets | Web, API, admin, SEO, NFC, transaksi, cron | Request dan CPU; `run_worker_first: true` pada web/admin membuat request aset ikut menjalankan Worker |
+| R2 public | Artwork, avatar, model dan tekstur 3D | Storage serta operasi baca/tulis; bandwidth keluar R2 gratis |
+| R2 private | Dokumen KYC | Storage dan akses dokumen privat |
+| Workers Logs | Invocation, log aplikasi, error, cron | Sampling live 100% pada web/API/admin/Fund |
+| Email Service | Transaksi uang, pemenuhan fisik, akses kreator | Diasumsikan aktif saat produksi; jumlah email per event |
+| Turnstile | CAPTCHA autentikasi | US$0 pada Free; verifikasi tanpa batas |
+| Access/WARP | Admin dan development internal | Diasumsikan tetap pada Free hingga 50 pengguna internal; pengguna publik tidak dihitung sebagai seat internal |
+| D1 | Fund internal | Diasumsikan dalam kuota; database aplikasi utama tetap Supabase |
+| Queues, KV, Durable Objects, Images, Stream, Workers AI | Tidak tampak digunakan dalam alur yang diperiksa | US$0; tidak diaktifkan oleh pencatatan ini |
+
+Binding `EMAIL` tersedia, tetapi `EMAIL_ENABLED` dan `EMAIL_FROM` tidak
+tampak pada settings Worker live yang dibaca. Kode tidak mengirim jika
+flag pengaktifan tidak bernilai `true`. Email OTP Supabase tidak dimasukkan
+sebagai email Cloudflare karena transport SMTP produksinya belum
+terverifikasi. Jika OTP kelak dikirim lewat Cloudflare, tambahkan volumenya
+ke total Email Sending; pengiriman yang dinonaktifkan tidak menghasilkan
+biaya email dalam simulasi aktual.
+
+Biaya di bawah belum termasuk pajak, selisih kurs/biaya pembayaran,
+domain tahunan, Supabase, Midtrans, atau layanan non-Cloudflare. D1 Fund
+dan Access diasumsikan tidak menghasilkan overage atau langganan tambahan.
+
+### 10.2 Tarif dasar per 2026-09-06
+
+| Komponen | Kuota bulanan | Tarif setelah kuota |
+|----------|---------------|---------------------|
+| Workers Paid, dasar US$5 | 10 juta request + 30 juta CPU-ms | US$0,30/juta request + US$0,02/juta CPU-ms |
+| Workers Logs | 20 juta event | US$0,60/juta event |
+| R2 Standard storage | 10 GB-bulan | US$0,015/GB-bulan |
+| R2 Class A, termasuk tulis/list | 1 juta operasi | US$4,50/juta operasi |
+| R2 Class B, termasuk GET/HEAD | 10 juta operasi | US$0,36/juta operasi |
+| Email Sending | 3.000 email | US$0,35/1.000 email |
+
+Sumber tarif: [Workers dan Logs](https://developers.cloudflare.com/workers/platform/pricing/),
+[R2](https://developers.cloudflare.com/r2/pricing/), dan
+[Email Service](https://developers.cloudflare.com/email-service/platform/pricing/).
+Kuota gratis R2 tersebut berlaku untuk Standard, bukan Infrequent Access.
+R2 membulatkan pemakaian ke unit tagihan berikutnya; storage memakai
+rata-rata puncak harian selama periode, bukan hanya ukuran pada akhir bulan.
+
+Web → API melalui Service Binding pada Standard dihitung sebagai satu
+request masuk, dengan CPU gabungan kedua Worker. Menunggu jaringan atau
+query Supabase tidak dihitung sebagai CPU. Static Assets yang disajikan
+langsung gratis, tetapi Worker yang dijalankan sebelum aset tetap ditagih.
+Referensi: [Service Bindings](https://developers.cloudflare.com/workers/platform/pricing/#service-bindings),
+[CPU time](https://developers.cloudflare.com/workers/platform/limits/#cpu-time),
+[Static Assets](https://developers.cloudflare.com/workers/static-assets/billing-and-limitations/).
+
+### 10.3 Asumsi penggunaan bulanan
+
+| Input | Ringan | Normal | Sangat ramai |
+|-------|--------|--------|--------------|
+| MAU | 50.000 | 50.000 | 50.000 |
+| Sesi per pengguna | 4 | 10 | 20 |
+| Total sesi | 200.000 | 500.000 | 1 juta |
+| Request Worker per sesi | 20 | 30 | 45 |
+| Total request Worker | 4 juta | 15 juta | 45 juta |
+| Porsi panggilan API | 2,4 juta | 11 juta | 40 juta |
+| CPU rata-rata gabungan per request | 5 ms | 7 ms | 10 ms |
+| Event log, sampling 100% | 11,2 juta | 48 juta | 165 juta |
+| Rata-rata storage R2 | 25 GB | 100 GB | 500 GB |
+| Request aset sebelum cache CDN | 10 juta | 25 juta | 100 juta |
+| Cache hit CDN | 90% | 80% | 70% |
+| Operasi baca sampai ke R2 | 1 juta | 5 juta | 30 juta |
+| Operasi Class A | 50.000 | 100.000 | 500.000 |
+| Email transaksi | 5.000 | 25.000 | 200.000 |
+
+Request Worker mencakup API serta HTML/JS/CSS yang melewati Worker pada
+konfigurasi saat pemeriksaan. Request aset pada domain R2 dihitung terpisah.
+Angka aset sudah mengasumsikan request benar-benar keluar dari browser;
+cache browser dapat menghindari request sebelum mencapai CDN. Cache hit
+CDN di tabel belum diukur. Model baca R2 mengasumsikan satu operasi per
+cache miss; revalidation/HEAD, retry, dan pola unduhan dapat menambahnya.
+Storage mencakup total data tersimpan, bukan hanya upload baru bulan itu.
+
+Model log mengasumsikan empat event per panggilan API: invocation gateway,
+invocation API, lalu log masuk dan selesai dari Hono logger. Request
+gateway lain diasumsikan satu event. Jadi `log = request Worker + 3 × API`.
+Log error, SEO tambahan, dan cron dapat menaikkan jumlah aktual.
+Cloudflare mencatat invocation dan custom log sebagai event tersendiri:
+[Workers Logs](https://developers.cloudflare.com/workers/observability/logs/workers-logs/).
+
+### 10.4 Hasil dan rumus perhitungan
+
+| Biaya per bulan | Ringan | Normal | Sangat ramai |
+|-----------------|--------|--------|--------------|
+| Workers: dasar + request + CPU | US$5,00 | US$8,00 | US$23,90 |
+| Workers Logs | US$0 | US$16,80 | US$87,00 |
+| R2 storage | US$0,23 | US$1,35 | US$7,35 |
+| R2 baca/tulis | US$0 | US$0 | US$7,20 |
+| Email Service | US$0,70 | US$7,70 | US$68,95 |
+| **Total perkiraan** | **US$5,93** | **US$33,85** | **US$194,40** |
+| **Rupiah, dibulatkan** | **Rp101 ribu** | **Rp575 ribu** | **Rp3,30 juta** |
+
+Untuk menghitung ulang, `R`, `A`, `L`, dan `C` masing-masing adalah juta
+request Worker, juta panggilan API, juta event log, dan juta CPU-ms.
+`c` adalah rata-rata CPU-ms/request; `G` adalah storage GB-bulan;
+`B` dan `W` adalah juta operasi R2 Class B dan Class A; `E` jumlah email.
+Sampling log memakai pecahan 0-1 (100% = 1; 10% = 0,1).
+
+```text
+R = MAU × sesi per pengguna × request Worker per sesi / 1.000.000
+C = R × c
+L = (R + 3 × A) × sampling log
+Workers = 5 + max(R - 10, 0) × 0,30 + max(C - 30, 0) × 0,02
+Logs = max(L - 20, 0) × 0,60
+R2 storage = max(ceil(G) - 10, 0) × 0,015
+R2 baca = ceil(max(B - 10, 0)) × 0,36
+R2 tulis = ceil(max(W - 1, 0)) × 4,50
+Email = max(E - 3.000, 0) / 1.000 × 0,35
+Total = Workers + Logs + R2 storage + R2 baca + R2 tulis + Email
+```
+
+Contoh normal: Workers = US$5 + US$1,50 request + US$1,50 CPU = US$8;
+Logs = (48 - 20) × US$0,60 = US$16,80; R2 = (100 - 10) × US$0,015
+= US$1,35; email = (25.000 - 3.000) / 1.000 × US$0,35 = US$7,70.
+Total dihitung sebelum pembulatan tampilan setiap komponen.
+
+Tabel memodelkan trafik pengguna. Cron setiap menit, setiap lima menit,
+dan mingguan menambah sekitar 52 ribu invokasi per 30 hari. Trafik admin,
+Fund, development, bot/crawler, error/retry, serta CPU/log cron belum
+dikuantifikasi; alokasikan buffer dan ukur pemakaian akun sebelum memakai
+angka tabel sebagai forecast invoice. Skenario sangat ramai bukan batas
+tagihan maksimum atau jaminan terhadap lonjakan trafik.
+
+### 10.5 Insight dan rekomendasi, belum diterapkan
+
+1. **Log dapat melampaui biaya compute.** Sampling live 100% menghasilkan
+   perkiraan US$16,80 log vs US$8 Worker pada skenario normal. Sensitivitas
+   sampling 10%, dengan asumsi lain tetap, menurunkan total normal menjadi
+   US$17,05 dan sangat ramai menjadi US$107,40. Cakupan log diagnostik ikut
+   berkurang; audit transaksi tetap harus dipertahankan.
+2. **Durasi sesi menentukan polling.** Header pengguna login meminta unread
+   count tiap 60 detik. 50.000 pengguna × 60 menit aktif/bulan menghasilkan
+   sekitar tiga juta request hanya untuk indikator notifikasi. Drops,
+   Notifications, dan Drop Detail mempunyai polling tambahan. Header belum
+   memiliki pemeriksaan visibility; tab terbuka dapat menambah request
+   sesuai throttling browser. Pertimbangkan pengurangan polling setelah
+   mengukur kebutuhan kesegaran data.
+3. **Routing aset mempengaruhi request dan log.** Evaluasi routing selektif
+   sebagai pengganti `run_worker_first: true` untuk seluruh aset publik,
+   sambil mempertahankan SEO, header keamanan, dan batas akses admin.
+4. **R2 menguntungkan untuk artwork/3D.** Egress R2 gratis; yang dihitung
+   adalah storage dan operasi. Optimasi ukuran/lazy loading tetap penting
+   untuk kecepatan dan kuota pengguna. Artwork memakai cache immutable;
+   avatar memakai `no-store`, sehingga tidak semua aset mempunyai cache
+   hit yang sama. KYC harus tetap privat.
+5. **Email mengikuti event bisnis.** Outbid, bid masuk, dan kalah raffle
+   tidak memakai lane email pada implementasi yang diperiksa. Aktivasi
+   email, transport OTP, dan jumlah event transaksi perlu dikonfirmasi
+   sebelum mengganti input 5.000/25.000/200.000 email dengan forecast nyata.
+6. **MAU bukan concurrency.** Kapasitas checkout/drop dan transaksi Supabase
+   perlu diuji tersendiri; biaya Cloudflare murah tidak membuktikan
+   kesiapan melayani ribuan pembeli secara serentak.
+
+Rekomendasi anggaran Cloudflare: **US$50/bulan (Rp850 ribu)** untuk
+aktivitas normal, dengan **cadangan US$250 (Rp4,25 juta)** pada bulan
+kampanye/drop besar. Ini rekomendasi perencanaan, bukan keputusan anggaran
+founder, perubahan konfigurasi, atau kenaikan langganan yang telah dilakukan.
+Sebelum forecast berikutnya, ukur request tertagih per akun, total CPU-ms,
+event log setelah sampling, operasi/storage R2, cache hit, email terkirim,
+serta pemakaian aplikasi lain dalam periode tagihan yang sama.
+
+50.000 MAU tidak otomatis membutuhkan Website Pro. Jika dipilih, Pro
+menambah US$25/bulan dengan pembayaran bulanan, atau ekuivalen US$20/bulan
+dengan pembayaran tahunan; terpisah dari Workers Paid. Referensi:
+[Website plans](https://www.cloudflare.com/plans/),
+[Turnstile Free](https://developers.cloudflare.com/turnstile/plans/), dan
+[Zero Trust plans](https://www.cloudflare.com/plans/zero-trust-services/).
+
+### 10.6 Catatan estimasi Y1 sebelumnya
+
+Estimasi 2026-08-20 memakai Cloudflare Free Rp0 dengan perkiraan upgrade
+sekitar Rp500 ribu, Supabase Free → Pro sekitar Rp350 ribu, dan total infra
+bootstrap ≤ Rp1 juta/bulan. **[SUPERSEDED untuk estimasi Cloudflare 50.000
+MAU]**: angka tersebut bukan batas biaya pada skala ini. Estimasi historis
+Supabase/total infra belum dihitung ulang di sini; model opex Y1 Rp38 juta
+tidak diubah oleh simulasi ini. VPS admin/Fund tetap dipensiunkan sejak
+2026-09-05; biaya Midtrans/disbursement tetap di luar perhitungan Cloudflare.
 
 ## Sumber
 
+- Permintaan owner 2026-09-06: pelajari Platform, simulasikan Cloudflare
+  pada 50.000 MAU dengan Workers Paid US$5, lalu catat hasilnya. Input
+  aktivitas dan rekomendasi anggaran §10 tetap berstatus asumsi.
+- Pemeriksaan 2026-09-06: kode gateway/API, polling web, cache aset, cron,
+  email; API Cloudflare untuk inventaris Worker/R2/zone dan sampling log.
+  Billing tidak dapat diakses. Tarif resmi dan batas produk ditautkan pada
+  §10.2, §10.3, dan §10.5; angka perlu diperbarui jika tarif atau arsitektur berubah.
 - `06_tech_decisions.md` (stack, open items O-5/O-7 — dijawab
   runbook ini).
 - 01_tech_stack (full-edge, Workers Static Assets + Service Binding,
