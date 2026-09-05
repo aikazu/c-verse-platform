@@ -46,10 +46,10 @@ test.describe("Collection & NFC", () => {
     await view3d.click();
     await expect(page).toHaveURL(/\/3d$/);
 
-    // Canvas Three.js (WebGLRenderer di-mount ke .ci-viewer-host oleh viewer.ts).
+    // Canvas Three.js (WebGLRenderer di-mount ke .c3d-canvas oleh viewer.ts).
     // Headless chromium memakai SwiftShader → cukup assert elemen canvas +
     // nol pageerror, BUKAN output piksel render.
-    await expect(page.locator(".ci-viewer-host canvas").first()).toBeVisible({ timeout: 15000 });
+    await expect(page.locator(".c3d-canvas canvas").first()).toBeVisible({ timeout: 15000 });
     expect(pageErrors, `halaman /3d tidak boleh melempar pageerror: ${pageErrors.map((e) => e.message).join("; ")}`).toEqual([]);
   });
 });

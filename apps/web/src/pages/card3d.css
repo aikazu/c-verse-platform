@@ -1,0 +1,129 @@
+.c3d-page { --c3d-line: rgba(91,230,255,.19); --c3d-ink: #050b15; }
+.c3d-breadcrumb { display:flex; justify-content:space-between; align-items:center; gap:16px; font:11px var(--font-mono); }
+.c3d-breadcrumb a { color:var(--text-muted); text-decoration:none; padding:10px 0; }
+.c3d-breadcrumb > span { color:#819bb8; font-size:9px; letter-spacing:1.6px; }
+.c3d-breadcrumb i { display:inline-block; width:5px; height:5px; margin-left:8px; border-radius:50%; background:var(--signal); box-shadow:0 0 9px #52f2a055; }
+.c3d-header { display:flex; align-items:center; justify-content:space-between; gap:24px; padding:30px 0 35px; }
+.c3d-eyebrow { margin:0; color:var(--info); font:9px var(--font-mono); letter-spacing:2px; }
+.c3d-header h1 { margin:14px 0 12px; font:clamp(21px,2.5vw,34px)/1.45 var(--font-display); letter-spacing:-.6px; }
+.c3d-subtitle { margin:0; color:var(--text-muted); font-size:14px; }
+.c3d-dimension { color:var(--info); font:52px/1 var(--font-crt); text-align:right; opacity:.8; }
+.c3d-dimension span { display:block; font:9px var(--font-mono); letter-spacing:3px; margin-top:11px; }
+.c3d-layout { display:grid; grid-template-columns:minmax(0,1fr) 286px; gap:28px; align-items:start; }
+.c3d-stage { min-width:0; border:1px solid var(--c3d-line); border-radius:4px 22px 4px 4px; overflow:hidden; background:var(--c3d-ink); }
+.c3d-stage-rail { display:flex; align-items:center; justify-content:space-between; min-height:56px; gap:12px; padding:0 18px; border-bottom:1px solid var(--c3d-line); background:#081321; }
+.c3d-stage-rail h2 { display:flex; align-items:center; gap:10px; margin:0; font:10px var(--font-mono); text-transform:uppercase; letter-spacing:1.5px; color:#b3d5df; }
+.c3d-stage-rail h2 > span { width:6px; height:6px; border:1px solid var(--info); transform:rotate(45deg); }
+.c3d-stage-rail button { display:flex; align-items:center; gap:7px; min-height:44px; background:transparent; border:0; color:#9eb2c5; font:10px var(--font-mono); cursor:pointer; }
+.c3d-viewport { position:relative; isolation:isolate; }
+.c3d-canvas { height:580px; width:100%; cursor:grab; outline-offset:-3px; }
+.c3d-canvas:active { cursor:grabbing; }
+.c3d-canvas canvas { display:block; width:100%; height:100%; }
+.c3d-corners { position:absolute; inset:18px; pointer-events:none; }
+.c3d-corners i { position:absolute; width:14px; height:14px; border-color:#397185; border-style:solid; border-width:0; }
+.c3d-corners i:nth-child(1) { top:0; left:0; border-top-width:1px; border-left-width:1px; }
+.c3d-corners i:nth-child(2) { top:0; right:0; border-top-width:1px; border-right-width:1px; }
+.c3d-corners i:nth-child(3) { bottom:0; left:0; border-bottom-width:1px; border-left-width:1px; }
+.c3d-corners i:nth-child(4) { bottom:0; right:0; border-bottom-width:1px; border-right-width:1px; }
+.c3d-view-label { position:absolute; top:27px; left:33px; pointer-events:none; display:flex; align-items:center; gap:8px; font:8px var(--font-mono); letter-spacing:1.4px; color:#96b2c3; }
+.c3d-view-label span { width:4px; height:4px; background:var(--info); }
+.c3d-drag-hint { position:absolute; bottom:24px; left:0; right:0; pointer-events:none; text-align:center; color:#88a3b8; font:8px var(--font-mono); letter-spacing:1.8px; }
+.c3d-controls { display:flex; align-items:center; gap:12px; padding:15px 18px 10px; border-top:1px solid var(--c3d-line); }
+.c3d-controls button { min-height:44px; padding:0 13px; border:1px solid #2c4050; border-radius:4px; background:#111e2b; color:#bed0e0; font:11px var(--font-mono); cursor:pointer; }
+.c3d-controls button:hover:not(:disabled), .c3d-stage-rail button:hover { color:var(--info); border-color:var(--info); }
+.c3d-controls button:disabled, .c3d-zoom input:disabled { opacity:.4; cursor:not-allowed; }
+.c3d-controls button[aria-pressed="true"] { color:var(--info); background:#142e3b; border-color:#3a7284; }
+.c3d-face-controls { display:flex; gap:3px; }
+.c3d-rotation { display:flex; align-items:center; justify-content:center; gap:7px; }
+.c3d-zoom { flex:1; min-width:80px; max-width:180px; margin-left:auto; }
+.c3d-zoom label { display:flex; justify-content:space-between; color:#97acbf; font:8px var(--font-mono); letter-spacing:1px; }
+.c3d-zoom output { color:var(--text); }
+.c3d-zoom input { display:block; width:100%; height:28px; accent-color:var(--info); cursor:ew-resize; margin:0; }
+.c3d-reset { display:flex; align-items:center; justify-content:center; }
+.c3d-keyboard-help { margin:0; padding:0 18px 14px; font:8px/1.8 var(--font-mono); color:#7e98b1; }
+.c3d-artwork-note { margin:0; padding:12px 18px; color:var(--gold); border-top:1px solid var(--c3d-line); font-size:12px; }
+.c3d-dossier { min-width:0; border-top:2px solid var(--gold); background:linear-gradient(180deg,#101c2a88,#08111b44); }
+.c3d-edition { position:relative; padding:26px 22px; border-bottom:1px solid #213042; }
+.c3d-edition .c3d-eyebrow { color:var(--gold); font-size:8px; }
+.c3d-serial { display:flex; align-items:baseline; gap:4px; margin:18px 0; font:66px/1.1 var(--font-crt); letter-spacing:-4px; }
+.c3d-serial > span { color:var(--info); font-size:24px; letter-spacing:0; margin-right:3px; }
+.c3d-serial small { margin-left:8px; color:#8fa4bb; font:15px var(--font-mono); letter-spacing:0; }
+.c3d-variants { display:flex; flex-wrap:wrap; gap:6px; }
+.c3d-variants > span { padding:5px 8px; border:1px solid #345060; color:#bfd4e2; font:9px var(--font-mono); }
+.c3d-variants > .c3d-seed { color:var(--gold); border-color:#665a32; }
+.c3d-metadata { margin:0; padding:0 22px; }
+.c3d-metadata > div { padding:17px 0; border-bottom:1px solid #213042; }
+.c3d-metadata dt { color:#819ab4; font:8px var(--font-mono); letter-spacing:1.6px; margin-bottom:8px; }
+.c3d-metadata dd { margin:0; font-size:14px; line-height:1.5; overflow-wrap:anywhere; }
+.c3d-metadata a { color:var(--text); text-decoration:none; display:flex; justify-content:space-between; gap:10px; }
+.c3d-metadata a span { color:var(--info); }
+.c3d-metadata a:hover { color:var(--info); }
+.c3d-verification { display:flex; gap:11px; margin:25px 22px; color:var(--gold); }
+.c3d-verification > svg { flex-shrink:0; margin-top:1px; }
+.c3d-verification h3 { margin:0; font-size:13px; font-weight:600; line-height:1.5; }
+.c3d-verification p { color:#9aacc0; font-size:12px; line-height:1.7; margin:7px 0 0; }
+.c3d-verification-verified { color:var(--signal); }
+.c3d-verification-registered { color:var(--info); }
+.c3d-verification-danger { color:var(--alert); }
+.c3d-details { margin:0 22px 24px; }
+.c3d-details > a { display:flex; align-items:center; justify-content:space-between; gap:12px; min-height:48px; padding:10px 12px; border:1px solid #756332; color:var(--gold); text-decoration:none; font-size:12px; }
+.c3d-details > a:hover { background:#ffc94d0d; border-color:var(--gold); }
+.c3d-details p { margin:12px 0 0; color:#8096ad; font-size:10px; line-height:1.8; }
+.c3d-overlay { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:16px; padding:32px; text-align:center; background:radial-gradient(ellipse at center,#10263b,#030711 70%); }
+.c3d-overlay h3 { font:16px var(--font-display); margin:0; line-height:1.7; }
+.c3d-overlay p { max-width:320px; margin:0; color:var(--text-muted); font-size:13px; line-height:1.8; }
+.c3d-overlay > svg, .c3d-overlay a { color:var(--info); }
+.c3d-orbit { display:block; width:44px; height:44px; border:1px solid #28455a; border-top-color:var(--info); border-radius:50%; animation:c3d-orbit 2s linear infinite; }
+.c3d-empty { display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:55vh; gap:20px; padding:32px; text-align:center; }
+.c3d-empty h1 { font:22px/1.6 var(--font-display); margin:0; }
+.c3d-empty p { color:var(--text-muted); margin:0; }
+.c3d-empty a { color:var(--info); }
+.c3d-empty button { min-height:44px; padding:10px 20px; color:var(--gold); border:1px solid var(--gold); background:transparent; cursor:pointer; }
+.c3d-page :focus-visible { outline:2px solid var(--info); outline-offset:3px; }
+.c3d-expanded .c3d-layout { grid-template-columns:1fr; }
+.c3d-expanded .c3d-canvas { height:min(72vh,760px); min-height:440px; }
+.c3d-expanded .c3d-dossier { display:grid; grid-template-columns:1fr 1.4fr; }
+@keyframes c3d-orbit { to { transform:rotate(360deg); } }
+@media (max-width:1000px) {
+  .c3d-layout { grid-template-columns:minmax(0,1fr) 245px; gap:18px; }
+  .c3d-canvas { height:540px; }
+  .c3d-controls { gap:8px; padding:14px 12px 10px; }
+  .c3d-controls button { padding:0 10px; }
+  .c3d-rotation span { display:none; }
+  .c3d-serial { font-size:58px; }
+}
+@media (max-width:760px) {
+  .c3d-header { padding:24px 0; }
+  .c3d-header h1 { font-size:23px; }
+  .c3d-dimension { font-size:38px; }
+  .c3d-subtitle { font-size:12px; line-height:1.8; }
+  .c3d-layout { grid-template-columns:1fr; gap:22px; }
+  .c3d-canvas { height:480px; }
+  .c3d-dossier { display:grid; grid-template-columns:1fr 1.4fr; }
+  .c3d-controls { padding:14px 16px 10px; gap:12px; }
+  .c3d-rotation span { display:inline; }
+  .c3d-keyboard-help { font-size:7px; }
+}
+@media (max-width:480px) {
+  .c3d-breadcrumb > span { font-size:7px; letter-spacing:1px; }
+  .c3d-header { gap:16px; }
+  .c3d-header h1 { font-size:19px; letter-spacing:-.3px; }
+  .c3d-eyebrow { font-size:7px; letter-spacing:1.3px; }
+  .c3d-dimension { font-size:28px; }
+  .c3d-dimension span { font-size:6px; letter-spacing:1px; }
+  .c3d-canvas { height:440px; }
+  .c3d-stage-rail { padding:0 13px; }
+  .c3d-stage-rail h2 { font-size:8px; }
+  .c3d-stage-rail button { font-size:8px; }
+  .c3d-controls { flex-wrap:wrap; padding:14px 14px 8px; gap:8px; }
+  .c3d-face-controls { flex:1; }
+  .c3d-face-controls button { flex:1; }
+  .c3d-zoom { order:4; max-width:none; min-width:100%; padding-top:6px; }
+  .c3d-zoom input { height:34px; }
+  .c3d-keyboard-help { padding:0 14px 12px; font-size:7px; }
+  .c3d-dossier, .c3d-expanded .c3d-dossier { grid-template-columns:1fr; }
+  .c3d-edition { padding:22px; }
+  .c3d-serial { margin-bottom:12px; }
+  .c3d-metadata { display:grid; grid-template-columns:1fr 1fr; gap:0 20px; }
+}
+@media (prefers-reduced-motion:reduce) { .c3d-orbit { animation:none; } }

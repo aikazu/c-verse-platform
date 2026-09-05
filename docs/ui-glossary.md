@@ -36,6 +36,7 @@ Rules:
 - Channel numbers are unique per route (no `CH:06` ×4 or `CH:10` ×2).
 - `extra` (rail-extra) is **not rendered** unless it carries live data (e.g. ticker). Static decoration strings like `PILOT DECK`, `TREASURY LINK`, `STEALTH PROTOCOL` are removed.
 - Hero `sub` is only used when it adds context not in the title (e.g. handle `@karina` above a display name). Never repeat the title as sub/eyebrow.
+- Card 3D uses a dedicated Space Arcade inspection header, retaining channel `07B / C.CARD` and the canonical data-driven h1. Controls: **Depan**, **Belakang**, **Jeda/Putar**, **Zoom**, **Reset tampilan**, **Mode fokus**. Artwork availability must never imply NFC verification.
 
 ## Vocabulary
 

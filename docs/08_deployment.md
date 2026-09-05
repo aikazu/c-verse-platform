@@ -158,6 +158,10 @@ tidak membacanya (env email API hanya `EMAIL_ENABLED`/`EMAIL_FROM`/
    auth/payment 30, NFC 60, KYC submit 10, upload gambar publik 10, global 600 request per
    menit per actor + lokasi edge. Ini menggantikan limiter in-memory
    Node yang tidak kompatibel dengan Workers global scope.
+   Middleware selalu diregistrasi; hanya binding request `ENV=production`
+   yang mengaktifkannya. Environment proses Node, URL database lokal, dan
+   path executable tidak boleh menonaktifkan proteksi Worker saat import.
+   Binding limiter produksi yang hilang menghasilkan 503 (fail-closed).
 
 ### 3.4 Cloudflare R2
 - Bucket `cverse-assets` aktif di lokasi APAC dengan custom domain public
@@ -180,12 +184,16 @@ tidak membacanya (env email API hanya `EMAIL_ENABLED`/`EMAIL_FROM`/
   private, no-store`, dan audit log per dokumen.
 - Bucket `cverse-qr` (opsional) dan upload icon badge belum diimplementasikan.
 
-Snapshot deployment 2026-09-05: API `37431ff3-44ab-40d2-9eec-6ea8d0f40663`,
-web `d5e0d48d-2999-474f-b6cf-47b44d17bdd3`, admin
+Snapshot deployment 2026-09-05: API `e91ff93c-295f-4878-b86c-a0d71dd4aadf`,
+web `2cacac97-a3c6-4913-83eb-534025c90711`, admin
 `ca45df01-52d2-452f-aa5b-78c0d7c41c19`. Avatar tersedia di `/me/privacy`,
 artwork di `/drops` admin. API tetap privat; gateway tetap Access/WARP.
-Quality gates terakhir lulus (548 unit test); delapan tes aset/3D lulus,
-termasuk cache gambar Genesis #8 dan Karina dari R2 tanpa file bundle.
+Quality gates terakhir lulus (552 unit test); 21 tes browser koleksi/aset/3D
+lulus, termasuk cache gambar Genesis #8, Karina dari R2 tanpa file bundle,
+kontrol Space Arcade, mobile, reduced motion, keyboard, dan WebGL context loss
+saat loading maupun setelah render. Screenshot desktop/mobile diperiksa.
+CI GitHub run `33947930428` lulus setelah perbaikan guard rate limiter;
+workflow tetap menjalankan seluruh quality gate, tanpa skip test bermasalah.
 Pada cutover upload sebelumnya, suite browser menyeluruh 53 lulus/3 skip,
 lalu delapan tes aset/upload terfokus lulus termasuk R2 lintas origin dan
 fallback 3D. Dua tes artwork diulang dengan assertion audit DB nyata: aksi

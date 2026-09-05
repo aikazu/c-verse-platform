@@ -74,7 +74,7 @@ membatalkan komitmen yang sudah ada.
 | PG-MARKET-01 | `/marketplace` | Marketplace (secondary buyout) | Kartu dengan buyout price, filter, beli langsung; sellerName anonim/suspended = "Anonim"; **badge holografik "✦ Seed 1-of-1"** untuk kartu dari seed drop (Flow 10) |
 | PG-BROWSE-01 | `/browse` | Browse (discovery drop) | Grid tile **per-drop** (bukan per kartu) — klik tile → `/drops/:id`; ticker stats (drop / unit terjual / unit total). Tanpa search kartu / bid langsung di sini — bid & buyout di halaman kartu (`PG-CARD-01`) |
 | PG-CARD-01 | `/cards/:shortId` | Halaman kartu (info) | Sertifikat, **jejak ownership** (ownerName = "Anonim" untuk historical owner yang sekarang `is_anonymous` ATAU `flag_reason` set), bid tertinggi + **form tawar untuk non-owner** (konfirmasi modal D8; label "BID KAMU — TERTINGGI" bila bid tertinggi milik viewer), harga buyout (jika ada) + beli buyout berkonfirmasi, QR fallback; **badge holografik "✦ Seed 1-of-1"** untuk kartu dari seed drop (Flow 10) |
-| PG-CARD-02 | `/cards/:shortId/3d` | Halaman kartu (3D view) — **simple** | 3D viewer + info singkat: **Series** (link ke detail drop), **Unit number** (#X dari Y), **Kreator** (link ke halaman kreator), **Release date**, **Owner** (link ke halaman owner) + **verified badge "Verified Card"** (hanya muncul lewat tap NFC) + **badge holografik "✦ Seed 1-of-1"** untuk kartu dari seed drop (Flow 10). Ownership history TIDAK di halaman 3D — ada di halaman info (`PG-CARD-01`) |
+| PG-CARD-02 | `/cards/:shortId/3d` | Halaman kartu (3D view) — **Space Arcade** | Panggung Three.js grid ruang angkasa + kontrol depan/belakang, putar/jeda, zoom 80-140%, reset, mode fokus, drag dan keyboard. Panel identitas: **Seri** (link detail drop), **nomor edisi** (#X dari Y), **Reguler/Signed**, **Kreator**, **tanggal rilis**, **Kolektor** bila publik. Status verifikasi berasal dari API, bukan keberhasilan render; tamper didahulukan. Badge **Seed 1-of-1** untuk seed drop (Flow 10). Ownership history tetap di halaman info (`PG-CARD-01`) melalui link detail & riwayat. |
 | PG-LB-01 | `/leaderboard` | Leaderboard | Peringkat kolektor (F019). Tab `Level` (default, `xp`) \| `Kolektor` (`cards`) \| `Lencana` (`badges`) — `?tab=` sinkron dengan URL. User suspended (`flag_reason`) dan anonymous (`is_anonymous`) difilter **di dalam RPC** `get_leaderboard(p_type, p_creator_id, p_limit)` (RPC `07`–`17`) sebelum ORDER + LIMIT agar rank survivor tetap benar; tie-break deterministik `score DESC, reached_at ASC, username ASC NULLS LAST, user_id ASC`. Chip tier berwarna hanya di papan Level (UX jujur). Public tanpa auth. Cache 60s untuk `xp`, 30s untuk board lain |
 | PG-CRT-PUB-01 | `/c/:username` | Halaman kreator (publik) | **Handle, bio, link media sosial** + **list drop** (published/live/upcoming, klik ke detail drop) + **tombol Dukungan** (login user kirim C-Coin min 1 → 100% ke kreator, tanpa potongan platform; pengirim XP 1:1 — `POST /api/wallet/support`) + **Papan Kolektor** (top 10 kolektor kreator tersebut — `type=creator`, `creatorId=<uuid>`). TANPA jumlah follower. Creator suspended disembunyikan dari listing publik; creator anonymous juga disembunyikan (konsisten dgn privacy rule). Papan Kolektor TIDAK punya link ke papan global |
 | PG-PROF-01 | `/u/:username` | Profil kolektor (publik) | Koleksi, level, badge, ranking leaderboard — **kecuali user mengaktifkan privacy anonymous ATAU di-suspend (`flag_reason`)** |
@@ -85,6 +85,13 @@ membatalkan komitmen yang sudah ada.
 | PG-LEGAL-03 | `/legal/shipping` | Pengiriman & Vault | Purchase-to-vault only, ship-out, refund ongkir, tanggung jawab kehilangan/kerusakan |
 | PG-LEGAL-04 | `/legal/kyc` | Kebijakan KYC | Payout C-Gems, cap saldo non-KYC, data verifikasi, monitoring risiko, banding |
 | PG-LEGAL-05 | `/legal/creator-terms` | Ketentuan Kreator | Lisensi, revenue share, lifetime royalty, Creator Seed, C-Gems, integritas pasar |
+
+Viewer 3D (2026-09-05): layout satu kolom di mobile; `prefers-reduced-motion`
+memulai viewer tanpa rotasi otomatis. Jeda menghentikan animasi dekoratif;
+tab tersembunyi menghentikan loop render. Resize mempertahankan framing kartu
+tanpa membuat ulang canvas. Artwork gagal memakai model netral dengan pesan,
+bukan artwork kartu lain; WebGL gagal menampilkan error dan link detail.
+API 404 dibedakan dari gangguan koneksi dengan tombol coba lagi.
 
 ## 4. Halaman Verifikasi TIDAK ADA (di-merge)
 

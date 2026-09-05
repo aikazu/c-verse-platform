@@ -1,4 +1,4 @@
-/* C.Card pages (Space Arcade) — CardInfo + Card3D.
+/* C.Card dossier (Space Arcade) — CardInfo. Card3D uses card3d.css.
    All classes namespaced `ci-` to avoid collisions with other page namespaces
    (pp- profile, drop-, market-). Consumes only existing theme tokens and global
    classes from styles.css; loaded after it via lazy page import, so equal-specificity
@@ -75,77 +75,6 @@
 	padding: 11px;
 	text-align: center;
 	text-decoration: none;
-}
-
-/* ── 3D viewer host — height/background MUST stay identical (viewer.ts measures this node) ── */
-.ci-viewer-host {
-	position: relative;
-	height: 420px;
-	background: var(--viewer-bg);
-	border-radius: var(--r-4);
-	overflow: hidden;
-}
-
-/* Vignette + hairline frame laid over the canvas — pointer-events:none keeps
-   the drag-to-rotate canvas fully interactive underneath. */
-.ci-viewer-host::after {
-	content: "";
-	position: absolute;
-	inset: 0;
-	border-radius: inherit;
-	background: radial-gradient(circle at 50% 42%, transparent 55%, rgba(3, 5, 16, 0.5) 100%);
-	border: 1px solid var(--border);
-	pointer-events: none;
-}
-
-/* Status pill row (3D page) */
-.ci-pill-row {
-	display: flex;
-	align-items: center;
-	gap: 8px;
-	flex-wrap: wrap;
-}
-
-/* ── 2x2 dossier grid (3D page) — mirrors the .pp-stat panel pattern ────────── */
-.ci-stat-grid {
-	margin-top: 14px;
-	display: grid;
-	grid-template-columns: 1fr 1fr;
-	gap: 12px;
-	font-size: 13px;
-}
-
-.ci-stat {
-	position: relative;
-	overflow: hidden;
-	display: flex;
-	flex-direction: column;
-	gap: 4px;
-	padding: 10px 12px;
-	border-radius: var(--r-3);
-	background:
-		linear-gradient(180deg, var(--gold-bg-soft) 0%, transparent 100%),
-		var(--surface-2);
-	border: 1px solid var(--border);
-}
-
-.ci-stat::before {
-	content: "";
-	position: absolute;
-	left: 0;
-	top: 0;
-	bottom: 0;
-	width: 2px;
-	background: linear-gradient(180deg, var(--gold) 0%, transparent 100%);
-	opacity: 0.55;
-}
-
-.ci-stat .label {
-	margin-bottom: 0;
-}
-
-.ci-stat-value {
-	font-weight: 500;
 }
 
 /* ── Info panel rows (dossier page) ────────────────────────────────────────── */
@@ -323,14 +252,6 @@
 	font-weight: 600;
 }
 
-/* Responsive — dossier grid collapses on narrow screens */
-@media (max-width: 480px) {
-	.ci-stat-grid {
-		grid-template-columns: 1fr;
-	}
-}
-
 @media (max-width: 390px) {
-  .ci-stat-grid { gap: 10px; }
   .ci-history-row { flex-direction: column; align-items: flex-start; gap: 2px; }
 }
