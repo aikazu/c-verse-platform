@@ -15,8 +15,6 @@ import type {
   ApiKycResponse,
   ApiLeaderboardResponse,
   ApiListingsResponse,
-  ApiMarketplaceResponse,
-  ApiMyCardsResponse,
   ApiOrderDetailResponse,
   ApiOrdersResponse,
   ApiPatchBuyoutResponse,
@@ -184,10 +182,6 @@ export const api = {
     req<ApiVerifyNfcResponse>("/nfc/verify-nfc", { method: "POST", body: JSON.stringify(body) }),
 
   // marketplace (buyout on card) — F-02 FINAL: hanya buyout-on-card, tanpa listing indirection
-  marketplaceCards: (params?: Record<string, string>) => {
-    const qs = params ? `?${new URLSearchParams(params).toString()}` : "";
-    return req<ApiMarketplaceResponse>(`/listings${qs}`);
-  },
   listings: (params?: Record<string, string>) => {
     const qs = params ? `?${new URLSearchParams(params).toString()}` : "";
     return req<ApiListingsResponse>(`/listings${qs}`);
@@ -221,7 +215,6 @@ export const api = {
 
   // profile
   profile: () => req<ApiProfileResponse>("/profile"),
-  myCards: () => req<ApiMyCardsResponse>("/profile/cards"),
   patchPrivacy: (isAnonymous: boolean) =>
     req<{ user: ApiUser }>("/profile/privacy", { method: "PATCH", body: JSON.stringify({ isAnonymous }) }),
   patchConsent: (body: { consentAnalyticsDetail?: boolean; consentDataMarket?: boolean }) =>
@@ -233,7 +226,6 @@ export const api = {
   removeAvatar: () => req<{ avatarUrl: null }>("/profile/avatar", { method: "DELETE" }),
 
   // shipments — P0-6 (audit 2026-08-24): seller → vault flow.
-  shipments: () => req<{ shipments: Shipment[] }>("/shipments"),
   sellerShipToVault: (cardId: string, address: string, trackingNumber?: string) =>
     req<{ ok: boolean; shipment: Shipment }>("/shipments/seller-to-vault", {
       method: "POST",
@@ -257,7 +249,6 @@ export const api = {
         requested_at: string;
       }>;
     }>(`/creators/me/payouts`),
-  myDrops: () => req<{ drops: Drop[] }>(`/creators/me/drops`),
   // P0-4 (audit 2026-08-24) batch B: PG-CRT-03 per-drop analytics.
   creatorDropAnalytics: (dropId: string) =>
     req<{

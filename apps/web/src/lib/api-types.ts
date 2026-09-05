@@ -272,9 +272,6 @@ export interface ApiListingsResponse extends PagedMeta {
   listings?: ApiMarketplaceEntry[];
 }
 
-// Back-compat alias — `marketplaceCards()` uses the same response shape as `listings()`.
-export type ApiMarketplaceResponse = ApiListingsResponse;
-
 export interface ApiBuyoutResponse {
   ok: boolean;
   card: Card;
@@ -332,10 +329,6 @@ export interface ApiProfileResponse {
     withOwnerCards: number;
     buyoutListed: number;
   };
-}
-
-export interface ApiMyCardsResponse {
-  cards: Card[];
 }
 
 export interface ApiPatchProfileResponse {
