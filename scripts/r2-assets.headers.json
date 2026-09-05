@@ -10,7 +10,8 @@
           "x-content-type-options": { "operation": "set", "value": "nosniff" },
           "content-security-policy": { "operation": "set", "value": "default-src 'none'; sandbox" },
           "referrer-policy": { "operation": "set", "value": "no-referrer" },
-          "strict-transport-security": { "operation": "set", "value": "max-age=31536000" }
+          "strict-transport-security": { "operation": "set", "value": "max-age=31536000" },
+          "vary": { "operation": "add", "value": "Origin" }
         }
       },
       "enabled": true

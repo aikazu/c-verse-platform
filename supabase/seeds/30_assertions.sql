@@ -82,7 +82,7 @@ begin
     failures:=array_append(failures,'KYC must use private R2 object keys'); end if;
 
   if exists (select path from (values
-      ('/textures/karina.jpg'),('/mock/v1/artworks/genesis.png'),('/mock/v1/artworks/aurora.png'),
+      ('https://assets.c-verse.co/mock/v1/artworks/karina.jpg'),('/mock/v1/artworks/genesis.png'),('/mock/v1/artworks/aurora.png'),
       ('/mock/v1/avatars/demo.png'),('/mock/v1/avatars/nova.png'),('/placeholder.obj')
     ) expected(path) where not exists (
       select 1 from (select artwork_url path from public.drops union all select artwork_3d_url from public.drops union all select avatar_url from public.users) actual
@@ -91,7 +91,7 @@ begin
   if exists (select 1 from (
       select artwork_url path from public.drops union all select artwork_3d_url from public.drops union all select avatar_url from public.users
     ) a where path is not null and path not in (
-      '/textures/karina.jpg','/mock/v1/artworks/genesis.png','/mock/v1/artworks/aurora.png',
+      'https://assets.c-verse.co/mock/v1/artworks/karina.jpg','/mock/v1/artworks/genesis.png','/mock/v1/artworks/aurora.png',
       '/mock/v1/avatars/demo.png','/mock/v1/avatars/nova.png','/placeholder.obj'
     )) then failures:=array_append(failures,'unmapped public asset URL present'); end if;
 

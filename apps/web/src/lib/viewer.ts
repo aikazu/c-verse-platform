@@ -19,8 +19,13 @@ type Three = typeof THREE_TYPES;
 
 // Load an image as a texture; rejects when it cannot be loaded or decoded.
 async function loadTexture(THREE: Three, url: string): Promise<THREE_TYPES.Texture> {
+  const textureUrl = new URL(url, window.location.href);
+  // Older CDN image responses lacked Vary: Origin. Use a stable texture-only
+  // cache key to avoid those non-CORS entries already stored by normal <img>s.
+  // Only our public CDN may be rewritten; preserve third-party signed URLs.
+  if (textureUrl.origin === "https://assets.c-verse.co") textureUrl.searchParams.set("cverse_texture", "1");
   const tex = await new Promise<THREE_TYPES.Texture>((resolve, reject) => {
-    new THREE.TextureLoader().load(url, resolve, undefined, reject);
+    new THREE.TextureLoader().load(textureUrl.href, resolve, undefined, reject);
   });
   // SRGBColorSpace ditambahkan di three r152 (ganti encoding) — fallback kalau belum ada.
   const colorSpace = (THREE as unknown as { SRGBColorSpace?: THREE_TYPES.ColorSpace }).SRGBColorSpace;

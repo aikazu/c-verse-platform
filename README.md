@@ -132,8 +132,10 @@ Rincian skenario, batas baseline, serta transisi remote ada di
 [runbook database](supabase/README.md). Empat aset ImageGen baru dan referensi
 `karina.jpg` dipetakan di `supabase/seed-assets.json`; enam object manifest sudah
 diunggah dan diverifikasi di R2. Mapping remote telah diterapkan untuk 8 URL
-artwork, 8 model, dan 2 avatar; reset lokal tetap mengembalikan path Static
-Assets sampai mapping fixture sengaja diterapkan. Upload/hapus avatar tersedia
+artwork, 8 model, dan 2 avatar. Karina memakai URL R2 juga pada seed lokal;
+sumbernya ada di `supabase/fixtures/artworks/`, tidak masuk bundle web.
+Lima aset lain tetap memakai Static Assets pada reset lokal sampai mapping
+fixture sengaja diterapkan. Upload/hapus avatar tersedia
 di `/me/privacy`; upload/ganti artwork tersedia di halaman Drops admin.
 
 ---

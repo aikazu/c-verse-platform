@@ -164,8 +164,8 @@ tidak membacanya (env email API hanya `EMAIL_ENABLED`/`EMAIL_FROM`/
   `https://assets.c-verse.co`; TLS minimum 1.2 dan `r2.dev` nonaktif. Enam
   object manifest fixture (artwork, model, avatar) telah diunggah dan
   diverifikasi HTTP 200, SHA-256 lokal, serta CORS GET/HEAD. Mapping remote
-  sudah diterapkan untuk 8 URL artwork, 8 model, dan 2 avatar; reset lokal
-  tetap mengembalikan path Static Assets sampai mapping fixture dijalankan.
+  sudah diterapkan untuk 8 URL artwork, 8 model, dan 2 avatar. Reset lokal
+  memakai R2 untuk Karina dan Static Assets untuk lima aset lain sampai mapping.
 - Delivery host memakai response transform khusus host dengan `nosniff`, CSP
   `default-src 'none'; sandbox`, `Referrer-Policy: no-referrer`, dan HSTS satu
   tahun. `scripts/r2-assets.headers.json` adalah konfigurasi referensi; review
@@ -181,10 +181,12 @@ tidak membacanya (env email API hanya `EMAIL_ENABLED`/`EMAIL_FROM`/
 - Bucket `cverse-qr` (opsional) dan upload icon badge belum diimplementasikan.
 
 Snapshot deployment 2026-09-05: API `37431ff3-44ab-40d2-9eec-6ea8d0f40663`,
-web `599863a7-75c3-47c7-a1a6-bf2dca1dd509`, admin
+web `d5e0d48d-2999-474f-b6cf-47b44d17bdd3`, admin
 `ca45df01-52d2-452f-aa5b-78c0d7c41c19`. Avatar tersedia di `/me/privacy`,
 artwork di `/drops` admin. API tetap privat; gateway tetap Access/WARP.
-Quality gates lulus (547 unit test); suite browser menyeluruh 53 lulus/3 skip,
+Quality gates terakhir lulus (548 unit test); delapan tes aset/3D lulus,
+termasuk cache gambar Genesis #8 dan Karina dari R2 tanpa file bundle.
+Pada cutover upload sebelumnya, suite browser menyeluruh 53 lulus/3 skip,
 lalu delapan tes aset/upload terfokus lulus termasuk R2 lintas origin dan
 fallback 3D. Dua tes artwork diulang dengan assertion audit DB nyata: aksi
 `update`, payload `operation=update_artwork`, kedua URL upload tercatat.
@@ -239,18 +241,29 @@ ada di `scripts/r2-assets.cors.json`. Jangan menaruh credential upload di
 browser atau mencampur CORS delivery dengan izin upload. Development tetap di
 belakang perimeter Access/WARP.
 
+Response Header Transform `cverse_assets_safe_headers` pada host aset wajib
+menambahkan `Vary: Origin`, termasuk respons request tanpa header `Origin`.
+Tanpa ini, gambar 2D yang lebih dulu di-cache dapat dipakai ulang untuk WebGL
+tanpa header CORS dan ditolak browser. Loader texture memakai query stabil
+`cverse_texture=1` khusus CDN sendiri untuk menghindari cache lama tersebut;
+URL eksternal/signed tidak diubah. Allowlist CORS tidak dilonggarkan.
+
 Viewer hanya memakai artwork drop yang diminta. Texture hilang/gagal tidak
 diganti foto Karina atau artwork drop lain: model netral dan pesan status
 ditampilkan. Smoke CDN opsional memakai `TEST_PUBLIC_ASSETS=1` saat menjalankan
 tes `e2e/specs/14-seed-assets.spec.ts`; suite default tidak bergantung pada
 ketersediaan R2 remote. Tes lokal juga mencakup Genesis, Aurora, dan texture gagal.
+Smoke Genesis #8 menghangatkan cache gambar biasa sebelum membuka 3D, tanpa
+Playwright routing karena routing menonaktifkan HTTP cache.
 
 Manifest fixture repository menyimpan path file nyata, MIME, object key target
 dan prompt/provenance; validator menghitung SHA-256 dari file saat dijalankan.
 Aktivasi fixture telah menyelesaikan upload, verifikasi delivery, dan mapping
-remote untuk 8 artwork, 8 model, serta 2 avatar. Mapping URL fixture pada reset
-lokal tetap tindakan eksplisit terpisah; jangan mengubah URL DB sebelum object
-tersedia.
+remote untuk 8 artwork, 8 model, serta 2 avatar. Manifest memisahkan
+`sourcePath` dan `seedUrl`: sumber Karina berada di fixture non-bundle,
+dan seed lokalnya memakai URL R2 terverifikasi. Lima aset lain tetap dibundel
+untuk tes offline; mapping R2-nya tindakan eksplisit terpisah. Jangan mengubah
+URL DB sebelum object tersedia.
 
 Reset Postgres tidak menghapus object R2. Sesudah reset development, cocokkan
 kembali key manifest/metadata dengan bucket sebelum membersihkan orphan.

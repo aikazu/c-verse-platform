@@ -55,7 +55,7 @@ Admin flow (terpisah):
 | Database | Supabase Postgres (region SG) + Supavisor |
 | ORM | — (query via Supabase client langsung — tidak pakai ORM) |
 | Auth | Supabase Auth (Google OAuth + email OTP, **email OTP wajib captcha anti-spam** — Cloudflare Turnstile), JWKS di Hono |
-| Storage | Cloudflare R2 `cverse-kyc` private; `cverse-assets` public (APAC, `assets.c-verse.co`, `r2.dev` off) dengan enam fixture terverifikasi dan mapping remote aktif; reset lokal tetap memakai URL Static Assets |
+| Storage | Cloudflare R2 `cverse-kyc` private; `cverse-assets` public (APAC, `assets.c-verse.co`, `r2.dev` off) dengan enam fixture terverifikasi dan mapping remote aktif; seed Karina memakai R2, lima aset lain lokal di Static Assets |
 | Queue/async | Queue notifikasi di Postgres + Cron Triggers; CF Queues belum aktif |
 | Rate limiting | Native Cloudflare Rate Limiting bindings (auth/payment 30, NFC 60, KYC 10, upload gambar publik 10, global 600 request/menit) |
 | Realtime | Supabase Realtime broadcast (< 50 concurrent bidder) |

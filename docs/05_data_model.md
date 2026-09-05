@@ -2,8 +2,8 @@
 
 > Status: [VALIDATED]
 > Last updated: 2026-09-05 (`cverse-assets` public aktif untuk fixture
-> artwork/model/avatar; mapping remote R2 aktif, reset lokal tetap path Static
-> Assets, baseline SQL final 18 file)
+> artwork/model/avatar; mapping remote R2 aktif, seed Karina memakai R2,
+> lima aset lain lokal di Static Assets, baseline SQL final 18 file)
 > Previous: 2026-09-03 (dual-token: `wallets.balance_gems` +
 > tabel `gem_lots`/`gem_transactions` — keputusan D3b
 > `06_tech_decisions.md`)
@@ -38,8 +38,8 @@ Nama `profiles` dalam skema logis ini adalah profil aplikasi. Implementasi
 fisiknya `public.users`, dengan ID sama seperti `auth.users.id`; tidak ada
 tabel `public.profiles`. `users.avatar_url` menyimpan URL gambar publik atau
 null, bukan binary/KYC. `cverse-assets` live di `https://assets.c-verse.co` dan
-mapping remote fixture sudah aktif; seed/reset lokal tetap memakai Static Assets
-hingga mapping fixture sengaja diterapkan. Kebijakan publikasi/penghapusan avatar
+mapping remote fixture sudah aktif. Seed Karina memakai R2; lima aset lain,
+termasuk avatar, memakai Static Assets hingga mapping sengaja diterapkan. Kebijakan publikasi/penghapusan avatar
 ada di `08_deployment.md` 3.4.
 
 ```

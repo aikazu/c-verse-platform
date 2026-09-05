@@ -89,9 +89,12 @@ snapshot sintetis, bukan bukti scan NFC/CMAC fisik.
 ## Aset mock dan R2
 
 `seed-assets.json` adalah manifest file, MIME, object key tujuan, provenance,
-dan prompt final ImageGen. Empat PNG baru di `apps/web/public/mock/v1/`
-adalah keluaran built-in ImageGen; bukan foto identitas asli. `karina.jpg`
-dan `placeholder.obj` tetap dipertahankan. Referensi Karina hanya untuk mock
+dan prompt final ImageGen. `sourcePath` adalah sumber file repository;
+`seedUrl` adalah URL yang dipakai seed, bukan selalu path Static Assets.
+Empat PNG di `apps/web/public/mock/v1/` adalah keluaran built-in ImageGen;
+bukan foto identitas asli. Sumber `karina.jpg` dipindah ke
+`supabase/fixtures/artworks/`, di luar bundle web. Runtime dan seed Karina
+langsung memakai R2; `placeholder.obj` tetap dibundel. Referensi Karina hanya untuk mock
 internal; keberadaan file tidak membuktikan izin publikasi komersial.
 
 Artwork Genesis/Aurora berupa atlas depan-belakang, bukan poster tunggal.
@@ -121,8 +124,10 @@ ke bucket KYC atau mengganti URL DB sebelum objek dapat dibaca.
 
 Alur fixture: file tervalidasi -> R2 `cverse-assets` -> origin aset HTTPS ->
 URL di Postgres -> browser. Mapping remote sudah diterapkan setelah verifikasi
-untuk 8 URL artwork, 8 model, dan 2 avatar. Reset lokal tetap mengembalikan
-path Static Assets sampai SQL mapping fixture sengaja diterapkan. Endpoint/UI
+untuk 8 URL artwork, 8 model, dan 2 avatar. Reset lokal memakai R2 untuk Karina;
+lima aset lain memakai Static Assets sampai SQL mapping sengaja diterapkan.
+Tes offline memvalidasi sumber Karina tanpa mengunduh; smoke delivery R2
+memerlukan `TEST_PUBLIC_ASSETS=1`. Endpoint/UI
 upload artwork admin dan upload/hapus avatar user memakai bucket publik yang
 sama, terpisah dari KYC. Runbook lengkap (termasuk namespace profil dan
 privasi) ada di `docs/08_deployment.md` bagian R2.

@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "bucket": "cverse-assets",
   "status": "live-verified-2026-09-05",
   "publicBaseUrl": "https://assets.c-verse.co",
@@ -7,7 +7,8 @@
     {
       "id": "karina",
       "kind": "atlas",
-      "publicPath": "/textures/karina.jpg",
+      "sourcePath": "supabase/fixtures/artworks/karina.jpg",
+      "seedUrl": "https://assets.c-verse.co/mock/v1/artworks/karina.jpg",
       "objectKey": "mock/v1/artworks/karina.jpg",
       "contentType": "image/jpeg",
       "provenance": "Existing user-provided reference; internal mock use only; no new rights clearance."
@@ -15,7 +16,8 @@
     {
       "id": "genesis",
       "kind": "atlas",
-      "publicPath": "/mock/v1/artworks/genesis.png",
+      "sourcePath": "apps/web/public/mock/v1/artworks/genesis.png",
+      "seedUrl": "/mock/v1/artworks/genesis.png",
       "objectKey": "mock/v1/artworks/genesis.png",
       "contentType": "image/png",
       "provenance": "AI-generated fictional mock artwork; built-in ImageGen.",
@@ -24,7 +26,8 @@
     {
       "id": "aurora",
       "kind": "atlas",
-      "publicPath": "/mock/v1/artworks/aurora.png",
+      "sourcePath": "apps/web/public/mock/v1/artworks/aurora.png",
+      "seedUrl": "/mock/v1/artworks/aurora.png",
       "objectKey": "mock/v1/artworks/aurora.png",
       "contentType": "image/png",
       "provenance": "AI-generated fictional mock artwork; built-in ImageGen.",
@@ -33,7 +36,8 @@
     {
       "id": "demo",
       "kind": "avatar",
-      "publicPath": "/mock/v1/avatars/demo.png",
+      "sourcePath": "apps/web/public/mock/v1/avatars/demo.png",
+      "seedUrl": "/mock/v1/avatars/demo.png",
       "objectKey": "mock/v1/avatars/demo.png",
       "contentType": "image/png",
       "provenance": "AI-generated fictional adult, not an identity document; built-in ImageGen.",
@@ -42,7 +46,8 @@
     {
       "id": "nova",
       "kind": "avatar",
-      "publicPath": "/mock/v1/avatars/nova.png",
+      "sourcePath": "apps/web/public/mock/v1/avatars/nova.png",
+      "seedUrl": "/mock/v1/avatars/nova.png",
       "objectKey": "mock/v1/avatars/nova.png",
       "contentType": "image/png",
       "provenance": "AI-generated fictional adult, not an identity document; built-in ImageGen.",
@@ -51,7 +56,8 @@
     {
       "id": "card-mesh",
       "kind": "model",
-      "publicPath": "/placeholder.obj",
+      "sourcePath": "apps/web/public/placeholder.obj",
+      "seedUrl": "/placeholder.obj",
       "objectKey": "mock/v1/models/card.obj",
       "contentType": "text/plain",
       "provenance": "Existing repository mesh; front/back UV atlas."
