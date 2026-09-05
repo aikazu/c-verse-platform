@@ -63,15 +63,6 @@ jobs:
       # via webServer blocks; OTP login dibaca dari Mailpit (port 54324).
       - name: Build apps/api/.dev.vars from supabase status
         run: ./scripts/ci-api-env.sh apps/api/.dev.vars
-      - name: Start API & Web
-        env:
-          # Server di-start oleh `pnpm dev` (bukan webServer Playwright), jadi
-          # supresi buildWebServerEnv() tidak berlaku — paksa Turnstile off
-          # di sini juga (mode false-fail yang dikenal: Turnstile aktif saat e2e).
-          VITE_TURNSTILE_SITE_KEY: ""
-        run: |
-          pnpm dev &
-          npx wait-on http://localhost:8787/health http://localhost:5173 --timeout 120000
       - name: Run E2E
         run: pnpm exec playwright test
       - uses: actions/upload-artifact@v4

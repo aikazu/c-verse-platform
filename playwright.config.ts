@@ -36,7 +36,7 @@ export default defineConfig({
       command: "pnpm --filter @c-verse/web dev",
       url: "http://127.0.0.1:5173",
       reuseExistingServer: true,
-      env: buildWebServerEnv(),
+      env: { VITE_TURNSTILE_SITE_KEY: "" },
       timeout: 120_000,
     },
     {
@@ -54,19 +54,3 @@ export default defineConfig({
     { name: "admin", testMatch: "**/admin/*.spec.ts", use: { baseURL: "http://localhost:3000" } },
   ],
 });
-
-/**
- * Env untuk server yang di-start Playwright sendiri: turunkan seluruh
- * process.env lalu matikan Turnstile via site key kosong (no-op — lihat
- * apps/web/src/lib/turnstile.ts: isTurnstileEnabled = SITE_KEY.length > 0).
- * Supresi ini HANYA berlaku untuk server yang Playwright start; file
- * .env* milik owner tidak pernah disentuh.
- */
-function buildWebServerEnv(): Record<string, string> {
-  const env: Record<string, string> = {};
-  for (const [key, value] of Object.entries(process.env)) {
-    if (value !== undefined) env[key] = value;
-  }
-  env.VITE_TURNSTILE_SITE_KEY = "";
-  return env;
-}

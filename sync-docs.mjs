@@ -19,12 +19,10 @@
 // Exit codes:
 //   0  success (no changes OR all changes applied)
 //   1  error (path missing, IO failure)
-//   2  asymmetric state detected (file in only one side) — usually
-//      indicates a manual edit that needs review
+//   2  mirror differs in check mode, or extra target files need review
 //
 // Tidak auto-commit / auto-push — biarkan user review & commit manual.
 
-import { createHash } from "node:crypto";
 import { readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 
@@ -59,11 +57,6 @@ function listMd(dir) {
   } catch {
     return null;
   }
-}
-
-function sha256(path) {
-  const buf = readFileSync(path);
-  return createHash("sha256").update(buf).digest("hex");
 }
 
 function fmtSize(bytes) {
@@ -102,36 +95,30 @@ let updatedCount = 0;
 let createdCount = 0;
 let asymmetricError = false;
 
-function pad(s, n) {
-  return s.length < n ? s + " ".repeat(n - s.length) : s;
-}
-
 // Compare & sync common files
 for (const f of common) {
   const srcPath = join(fromPath, f);
   const tgtPath = join(toPath, f);
-  const srcHash = sha256(srcPath);
-  const tgtHash = sha256(tgtPath);
+  const srcBuf = readFileSync(srcPath);
+  const tgtBuf = readFileSync(tgtPath);
 
-  if (srcHash === tgtHash) {
-    process.stdout.write(`  ✓ ${pad(f, 36)} identical\n`);
+  if (srcBuf.equals(tgtBuf)) {
+    process.stdout.write(`  ✓ ${f.padEnd(36)} identical\n`);
     identicalCount += 1;
     continue;
   }
 
-  const srcBuf = readFileSync(srcPath);
-  const tgtBuf = readFileSync(tgtPath);
   const diffBytes = Math.abs(srcBuf.length - tgtBuf.length);
   // Tally update count regardless of mode — dry-run should still report
   // the *would-be* count so callers can decide whether to apply.
   updatedCount += 1;
   if (checkOnly) {
     process.stdout.write(
-      `  M ${pad(f, 36)} differ  src=${fmtSize(srcBuf.length)}  tgt=${fmtSize(tgtBuf.length)}  Δ=${fmtSize(diffBytes)}\n`,
+      `  M ${f.padEnd(36)} differ  src=${fmtSize(srcBuf.length)}  tgt=${fmtSize(tgtBuf.length)}  Δ=${fmtSize(diffBytes)}\n`,
     );
   } else {
     writeFileSync(tgtPath, srcBuf);
-    process.stdout.write(`  ✓ ${pad(f, 36)} synced   src=${fmtSize(srcBuf.length)}  tgt was=${fmtSize(tgtBuf.length)}\n`);
+    process.stdout.write(`  ✓ ${f.padEnd(36)} synced   src=${fmtSize(srcBuf.length)}  tgt was=${fmtSize(tgtBuf.length)}\n`);
   }
 }
 
@@ -141,17 +128,17 @@ for (const f of onlyInFrom) {
   const srcBuf = readFileSync(srcPath);
   createdCount += 1;
   if (checkOnly) {
-    process.stdout.write(`  + ${pad(f, 36)} NEW (only in source, would copy)\n`);
+    process.stdout.write(`  + ${f.padEnd(36)} NEW (only in source, would copy)\n`);
   } else {
     const tgtPath = join(toPath, f);
     writeFileSync(tgtPath, srcBuf);
-    process.stdout.write(`  + ${pad(f, 36)} copied (new in target)\n`);
+    process.stdout.write(`  + ${f.padEnd(36)} copied (new in target)\n`);
   }
 }
 
 // Files only in target (not in source) — manual edit, leave alone but warn
 for (const f of onlyInTo) {
-  process.stdout.write(`  ! ${pad(f, 36)} ONLY IN TARGET — manual edit, leave alone\n`);
+  process.stdout.write(`  ! ${f.padEnd(36)} ONLY IN TARGET — manual edit, leave alone\n`);
   asymmetricError = true;
 }
 
@@ -167,3 +154,4 @@ if (asymmetricError) {
   );
   process.exit(2);
 }
+if (checkOnly && updatedCount + createdCount > 0) process.exitCode = 2;
