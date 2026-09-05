@@ -1,7 +1,9 @@
 import type { UserBadge as SharedUserBadge } from "@c-verse/shared";
 import { useQuery } from "@tanstack/react-query";
+import { useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { Avatar } from "../components/Avatar";
+import { BadgeDetailDialog } from "../components/BadgeDetailDialog";
 import { BadgeEmblem } from "../components/BadgeEmblem";
 import { LevelBar } from "../components/LevelBar";
 import { PageHero } from "../components/PageHero";
@@ -18,6 +20,8 @@ function getSigil(displayName: string, username: string | null | undefined): str
 
 export default function PublicProfile() {
   const { username } = useParams();
+  const [selectedBadge, setSelectedBadge] = useState<{ userId: string; badgeId: string } | null>(null);
+  const badgeOpenerRef = useRef<HTMLButtonElement | null>(null);
   const { data, isLoading, isError, error, refetch } = useQuery<ApiPublicProfileResponse>({
     queryKey: ["public-profile", username],
     queryFn: () => api.publicProfile(username!),
@@ -104,6 +108,7 @@ export default function PublicProfile() {
   const user = data.user;
   const cards: ApiPublicProfileCard[] = data.cards ?? [];
   const badges: SharedUserBadge[] = data.badges ?? [];
+  const selectedAward = selectedBadge?.userId === user.id ? badges.find((award) => award.badgeId === selectedBadge.badgeId) : undefined;
   const tier = user.tier ?? "orbit";
   const level = user.level ?? 1;
   const pct = user.levelProgressPct ?? 0;
@@ -183,15 +188,21 @@ export default function PublicProfile() {
         {badges.length > 0 && (
           <div className="pp-badges" aria-label="Lencana kolektor">
             {badges.map((ub: SharedUserBadge) => (
-              <Link
+              <button
                 key={ub.badgeId}
-                to="/badges"
+                type="button"
                 className="pill pill-warn pp-badge"
-                title={`Lihat ${ub.badge?.name ?? "lencana"} di galeri`}
+                aria-label={`Lihat detail ${ub.badge?.name ?? "lencana"}`}
+                aria-haspopup="dialog"
+                disabled={!ub.badge}
+                onClick={(event) => {
+                  badgeOpenerRef.current = event.currentTarget;
+                  setSelectedBadge({ userId: user.id, badgeId: ub.badgeId });
+                }}
               >
                 {ub.badge ? <BadgeEmblem badge={ub.badge} size="compact" label={`${ub.badge.name}, lencana kolektor`} /> : null}
                 <span>{ub.badge?.name ?? ub.badgeId}</span>
-              </Link>
+              </button>
             ))}
           </div>
         )}
@@ -258,6 +269,15 @@ export default function PublicProfile() {
           </div>
         )}
       </section>
+
+      {selectedAward?.badge && (
+        <BadgeDetailDialog
+          badge={selectedAward.badge}
+          earned={selectedAward}
+          returnFocusTo={badgeOpenerRef.current}
+          onClose={() => setSelectedBadge(null)}
+        />
+      )}
     </div>
   );
 }

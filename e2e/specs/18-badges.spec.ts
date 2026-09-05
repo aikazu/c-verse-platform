@@ -5,6 +5,32 @@ type CatalogBadge = { id: string; name: string; criteria?: { type: string; min: 
 type BadgeProgressPayload = { progress: Record<string, number>; badges: Array<{ badgeId: string }> };
 
 test.describe("badge gallery", () => {
+  test("profile badge opens its earned detail without leaving the profile", async ({ page }, testInfo) => {
+    await page.goto("/u/badge-nova");
+    const badge = page.locator(".pp-badge").filter({ hasText: "Collection Nova" });
+    await badge.click();
+    await expect(page).toHaveURL(/\/u\/badge-nova$/);
+    const dialog = page.getByRole("dialog", { name: "Collection Nova" });
+    await expect(dialog).toBeVisible();
+    await expect(dialog).toContainText("+80 XP");
+    await expect(dialog.getByText("Didapat", { exact: true })).toBeVisible();
+    await expect(dialog.getByText("Kemajuan", { exact: true })).toHaveCount(0);
+    await page.keyboard.press("Escape");
+    await expect(dialog).toHaveCount(0);
+    await expect(badge).toBeFocused();
+    await page.keyboard.press("Enter");
+    await expect(dialog).toBeVisible();
+    await page.getByRole("button", { name: "Tutup detail lencana" }).click();
+    await expect(badge).toBeFocused();
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    await badge.click();
+    await expect(dialog).toBeVisible();
+    await expect(page).toHaveURL(/\/u\/badge-nova$/);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    await page.screenshot({ path: testInfo.outputPath("profile-badge-detail.png") });
+  });
+
   test("keeps an open detail visible when private progress arrives", async ({ page }) => {
     await loginAs(page, "demo@cverse.id");
     let releaseProgress: (() => void) | undefined;

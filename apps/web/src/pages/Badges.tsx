@@ -1,8 +1,9 @@
 import type { Badge, BadgeCriteria, BadgeFamily, UserBadge } from "@c-verse/shared";
 import { BADGE_FAMILIES, BADGE_TIERS, badgeProgressTarget, parseBadgeCriteria } from "@c-verse/shared";
 import { useQuery } from "@tanstack/react-query";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
+import { BadgeDetailDialog } from "../components/BadgeDetailDialog";
 import { BadgeEmblem } from "../components/BadgeEmblem";
 import { PageHero } from "../components/PageHero";
 import { api } from "../lib/api";
@@ -24,23 +25,6 @@ const FAMILY_BY_ID = new Map(BADGE_FAMILIES.map((family) => [family.id, family])
 
 function familyFor(criteria: BadgeCriteria | null) {
   return criteria?.family === "special" ? null : criteria ? FAMILY_BY_ID.get(criteria.family) : null;
-}
-
-function criterionText(criteria: BadgeCriteria | null): string {
-  if (!criteria) return "Kriteria lencana ini akan ditampilkan saat tersedia.";
-  const family = familyFor(criteria);
-  const target = badgeProgressTarget(criteria);
-  if (criteria.type === "first_bid") return "Pasang penawaran pertama pada C.Card di Marketplace.";
-  if (criteria.type === "single_bid_gt") return `Pasang satu penawaran di atas ${target - 1} C-Coin.`;
-  if (criteria.type === "kyc_verified") return "Selesaikan verifikasi identitas akun.";
-  return `Capai ${target.toLocaleString("id-ID")} ${family?.unit ?? "pencapaian"}.`;
-}
-
-function earnedDate(value: string): string {
-  const parsed = new Date(value);
-  return Number.isNaN(parsed.valueOf())
-    ? "Tanggal tidak tersedia"
-    : new Intl.DateTimeFormat("id-ID", { day: "2-digit", month: "long", year: "numeric" }).format(parsed);
 }
 
 function rarity(criteria: BadgeCriteria | null) {
@@ -89,20 +73,12 @@ function BadgeStatus({
   return <span className="badges-status badges-status--progress">Dalam misi</span>;
 }
 
-function actionFor(criteria: BadgeCriteria | null, signedIn: boolean): { to: string; label: string } {
-  if (criteria?.type === "kyc_verified")
-    return signedIn ? { to: "/me/kyc", label: "Verifikasi akun" } : { to: "/login", label: "Masuk untuk verifikasi" };
-  if (criteria?.type === "first_bid" || criteria?.type === "single_bid_gt") return { to: "/browse", label: "Jelajahi C.Card" };
-  return { to: familyFor(criteria)?.href ?? "/browse", label: "Lanjutkan misi" };
-}
-
 export default function Badges() {
   const { user } = useAuth();
   const [search, setSearch] = useState("");
   const [familyFilter, setFamilyFilter] = useState<FamilyFilter>("all");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const dialogRef = useRef<HTMLDialogElement>(null);
   const openerRef = useRef<HTMLButtonElement | null>(null);
 
   const catalog = useQuery<ApiBadgesResponse>({ queryKey: ["badges"], queryFn: () => api.badges() });
@@ -148,27 +124,6 @@ export default function Badges() {
   }, [entries, familyFilter, privateReady, search, statusFilter]);
 
   const selected = entries.find((entry) => entry.badge.id === selectedId) ?? null;
-  const dialogBadgeId = selected?.badge.id;
-
-  useEffect(() => {
-    if (!dialogBadgeId) return;
-    const dialog = dialogRef.current;
-    if (!dialog) return;
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    if (!dialog.open) dialog.showModal();
-    return () => {
-      document.body.style.overflow = previousOverflow;
-      if (dialog.open) dialog.close();
-      openerRef.current?.focus();
-    };
-  }, [dialogBadgeId]);
-
-  const closeDialog = () => {
-    if (dialogRef.current?.open) dialogRef.current.close();
-    else setSelectedId(null);
-  };
-
   if (catalog.isLoading) return <LoadingState label="Menyusun galeri lencana…" />;
   if (catalog.isError) return <ErrorState onRetry={() => void catalog.refetch()} label="Gagal memuat katalog lencana" />;
 
@@ -329,83 +284,15 @@ export default function Badges() {
       </section>
 
       {selected && (
-        <dialog
-          ref={dialogRef}
-          className="badges-dialog"
-          aria-labelledby="badge-detail-title"
-          aria-describedby="badge-detail-description"
+        <BadgeDetailDialog
+          badge={selected.badge}
+          earned={selected.earned}
+          progress={progressFor(selected.criteria, progress)}
+          privateReady={privateReady}
+          privateUnavailable={privateUnavailable}
+          returnFocusTo={openerRef.current}
           onClose={() => setSelectedId(null)}
-          onKeyDown={(event) => {
-            if (event.key !== "Tab") return;
-            const controls = event.currentTarget.querySelectorAll<HTMLElement>("button:not(:disabled), a[href]");
-            const first = controls[0];
-            const last = controls[controls.length - 1];
-            if (!first || !last) return;
-            if (event.shiftKey && document.activeElement === first) {
-              event.preventDefault();
-              last.focus();
-            } else if (!event.shiftKey && document.activeElement === last) {
-              event.preventDefault();
-              first.focus();
-            }
-          }}
-          onMouseDown={(event) => {
-            if (event.target !== event.currentTarget) return;
-            const bounds = event.currentTarget.getBoundingClientRect();
-            if (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom)
-              closeDialog();
-          }}
-        >
-          <button type="button" className="badges-dialog__close" onClick={closeDialog} autoFocus aria-label="Tutup detail lencana">
-            ×
-          </button>
-          <BadgeEmblem badge={selected.badge} family={badgeFamily(selected.criteria)} tier={rarity(selected.criteria).tier} size="hero" />
-          <div className="badges-dialog__eyebrow">
-            {familyFor(selected.criteria)?.title ?? "Special"} · {rarity(selected.criteria).name} Tier {rarity(selected.criteria).roman}
-          </div>
-          <h2 id="badge-detail-title">{selected.badge.name}</h2>
-          <p id="badge-detail-description">{selected.badge.description}</p>
-          <dl className="badges-dialog__facts">
-            <div>
-              <dt>Kriteria</dt>
-              <dd>{criterionText(selected.criteria)}</dd>
-            </div>
-            <div>
-              <dt>XP</dt>
-              <dd>+{selected.earned?.xpRewardSnapshot ?? selected.badge.xpReward ?? selected.badge.xp} XP</dd>
-            </div>
-            {selected.earned ? (
-              <div>
-                <dt>Didapat</dt>
-                <dd>{earnedDate(selected.earned.earnedAt)}</dd>
-              </div>
-            ) : null}
-            {!selected.earned && privateReady && selected.criteria && progressFor(selected.criteria, progress) !== undefined ? (
-              <div>
-                <dt>Kemajuan</dt>
-                <dd>
-                  {progressFor(selected.criteria, progress)?.toLocaleString("id-ID")} /{" "}
-                  {badgeProgressTarget(selected.criteria).toLocaleString("id-ID")}
-                </dd>
-              </div>
-            ) : null}
-            {!selected.earned && privateReady && selected.criteria && progressFor(selected.criteria, progress) === undefined ? (
-              <div>
-                <dt>Kemajuan</dt>
-                <dd>Belum tersedia untuk kriteria ini.</dd>
-              </div>
-            ) : null}
-            {!selected.earned && !privateReady ? (
-              <div>
-                <dt>Status</dt>
-                <dd>{privateUnavailable ? "Belum dapat dibaca. Coba lagi dari galeri." : "Masuk untuk membaca kemajuan akun."}</dd>
-              </div>
-            ) : null}
-          </dl>
-          <Link className="btn-gold" to={actionFor(selected.criteria, Boolean(user?.id)).to} onClick={closeDialog}>
-            {actionFor(selected.criteria, Boolean(user?.id)).label}
-          </Link>
-        </dialog>
+        />
       )}
     </div>
   );
