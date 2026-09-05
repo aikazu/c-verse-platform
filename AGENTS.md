@@ -46,7 +46,7 @@ this file records only repository-specific facts and non-negotiable boundaries.
   server-side CMAC with forward-only counters; KYC data stays in the private
   R2 bucket.
 
-## Local development and data
+## Development and remote data
 
 - Install with `pnpm install`. Main dev: `pnpm dev`; Admin only:
   `pnpm --filter @c-verse/admin dev`; API Node mode:
@@ -54,10 +54,15 @@ this file records only repository-specific facts and non-negotiable boundaries.
 - Copy the relevant `.env.example`; `.env*` and `.dev.vars` stay ignored.
   The web/admin bundle may contain anon keys only. The API fails fast without
   `SUPABASE_URL`; do not add an in-memory fallback.
-- Start the integration bench with `npx supabase start`; reuse a healthy local
-  stack. Use `npx supabase db reset --local` only when deliberately restoring
-  local fixtures, not as routine setup for unrelated UI/docs work. Never aim
-  seeds, uploads, or test mutations at production.
+- Use the linked remote Supabase development project for application data and
+  integration tests. Confirm its project reference before database operations.
+  Do not start Docker/Supabase locally or use a local database as a fallback.
+  Local app servers, builds, and unit tests remain available.
+- Owner decision (2026-09-05): this project is still in development. Repeated
+  resets and reseeding of the confirmed remote development database are
+  authorized when needed for implementation or verification; do not ask again.
+  Coordinate resets with other running work and restore the documented fixtures.
+  This authorization applies to development data, not future production data.
 - Keep migration and seed SQL files at most 500 physical lines, as required
   for the consolidated baseline. Follow `supabase/README.md` for migration
   order, fixture assets, and integration-test commands.
@@ -73,11 +78,13 @@ For code changes, run the repository gates before committing, in this order:
 5. `pnpm run lint`
 6. `pnpm run build`
 
-Also run API boundary checks for API-module changes, `pnpm test:e2e` for
-affected journeys when the local Supabase stack is available, and the relevant
-`supabase/tests/` integration checks after SQL/RPC work. A migration for data
-that must survive is forward-only; do not edit an applied baseline without an
-explicit disposable-reset decision.
+Also run API boundary checks for API-module changes and relevant E2E or
+`supabase/tests/` integration checks against the confirmed remote development
+database. Some existing helpers and runbooks still assume a local database:
+adapt their target before use; do not start a local stack to satisfy them.
+Report remote access or test-harness limitations accurately. Use forward-only
+migrations for data that must survive; the development reset authorization
+above permits rebuilding development fixtures when necessary.
 
 For docs-only changes, check references, current facts, and mirror consistency;
 do not start services or reset data solely to validate documentation.
